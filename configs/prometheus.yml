@@ -1,0 +1,30 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "node"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # Media Stack
+  - job_name: "media"
+    static_configs:
+      - targets: ["192.168.1.102:8989"]  # Sonarr
+      - targets: ["192.168.1.102:7878"]  # Radarr
+      - targets: ["192.168.1.102:8096"]  # Jellyfin
+      - targets: ["192.168.1.102:8080"]  # qBittorrent

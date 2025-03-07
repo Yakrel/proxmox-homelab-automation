@@ -1,0 +1,25 @@
+---
+# media role tasks
+
+- name: Create required directories
+  file:
+    path: "/root/media"
+    state: directory
+    mode: '0755'
+
+- name: Copy docker-compose.yml for media
+  copy:
+    src: "../../../docker/media/docker-compose.yml"
+    dest: "/root/media/docker-compose.yml"
+    mode: '0644'
+
+- name: Copy .env file for media (if exists)
+  copy:
+    src: "../../../docker/media/.env"
+    dest: "/root/media/.env"
+    mode: '0644'
+
+- name: Start media services with docker-compose
+  community.docker.docker_compose:
+    project_src: "/root/media"
+    state: present

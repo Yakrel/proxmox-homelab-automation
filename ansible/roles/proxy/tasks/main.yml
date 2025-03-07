@@ -1,0 +1,25 @@
+---
+# proxy role tasks
+
+- name: Create required directories
+  file:
+    path: "/root/proxy"
+    state: directory
+    mode: '0755'
+
+- name: Copy docker-compose.yml for proxy
+  copy:
+    src: "../../../docker/proxy/docker-compose.yml"
+    dest: "/root/proxy/docker-compose.yml"
+    mode: '0644'
+
+- name: Copy .env file for proxy (if exists)
+  copy:
+    src: "../../../docker/proxy/.env"
+    dest: "/root/proxy/.env"
+    mode: '0644'
+
+- name: Start proxy services with docker-compose
+  community.docker.docker_compose:
+    project_src: "/root/proxy"
+    state: present

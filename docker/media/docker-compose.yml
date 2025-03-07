@@ -1,0 +1,256 @@
+# MEDIA STACK INSTALLATION (LXC ID: 102)
+#
+# === STEP 1: PROXMOX HOST COMMANDS ===
+# Run these commands on the Proxmox host system:
+#
+#    # Create directory structure
+#    mkdir -p /datapool/config/{sonarr-config,radarr-config,bazarr-config,jellyfin-config,jellyseerr-config,qbittorrent-config,prowlarr-config,flaresolverr-config,watchtower-media-config,recyclarr-config,youtube-dl-config}
+#    mkdir -p /datapool/media/{tv,movies,youtube/{playlists,channels}}
+#    mkdir -p /datapool/torrents/{tv,movies}
+#    
+#    # Set LXC ownership (100000 is the default LXC UID/GID mapping)
+#    chown -R 100000:100000 /datapool
+#    
+#    # Mount datapool to LXC
+#    pct set 102 -mp0 /datapool,mp=/datapool
+
+networks:
+  media-net:
+    driver: bridge
+
+services:
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/sonarr-config:/config
+      - /datapool/media:/media
+      - /datapool/torrents:/torrents
+    ports:
+      - "8989:8989"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/radarr-config:/config
+      - /datapool/media:/media
+      - /datapool/torrents:/torrents
+    ports:
+      - "7878:7878"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/bazarr-config:/config
+      - /datapool/media:/media
+    ports:
+      - "6767:6767"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/jellyfin-config:/config
+      - /datapool/media:/media
+    ports:
+      - "8096:8096"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/jellyseerr-config:/app/config
+    ports:
+      - "5055:5055"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+      - WEBUI_PORT=8080
+    volumes:
+      - /datapool/config/qbittorrent-config:/config
+      - /datapool/torrents:/downloads
+    ports:
+      - "8080:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:develop
+    container_name: prowlarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/prowlarr-config:/config
+    ports:
+      - "9696:9696"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - LOG_LEVEL=info
+      - LOG_HTML=false
+      - CAPTCHA_SOLVER=flaresolverr
+      - TZ=Europe/Istanbul
+    ports:
+      - "8191:8191"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  recyclarr:
+    image: recyclarr/recyclarr:latest
+    container_name: recyclarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/recyclarr-config:/config
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  youtube-dl:
+    image: alexta69/youtube-dlp:latest
+    container_name: youtube-dl
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/youtube-dl-config:/config
+      - /datapool/media/youtube:/downloads
+    ports:
+      - "8998:8080"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /datapool/config/watchtower-media-config:/config:ro
+    environment:
+      - TZ=Europe/Istanbul
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 3 * * *
+      - PUID=1000
+      - PGID=1000
+    restart: unless-stopped
+    networks:
+      - media-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

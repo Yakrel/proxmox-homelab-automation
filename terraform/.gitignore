@@ -1,0 +1,25 @@
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Secret variable files
+*.tfvars
+*.tfvars.json
+
+# Exclude example files (keep these in version control)
+!*.tfvars.example
+!*.tfvars.json.example
+
+# CLI configuration files
+.terraformrc
+terraform.rc
+
+# Lock files
+.terraform.lock.hcl

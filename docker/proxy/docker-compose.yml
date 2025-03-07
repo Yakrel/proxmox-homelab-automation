@@ -1,0 +1,81 @@
+# PROXY STACK INSTALLATION (LXC ID: 125)
+#
+# === STEP 1: PROXMOX HOST COMMANDS ===
+# Run these commands on the Proxmox host system:
+#
+#    # Create directory structure
+#    mkdir -p /datapool/config/{cloudflared-config,watchtower-proxy-config,adguard-config/{work,conf}}
+#    
+#    # Set LXC ownership (100000 is the default LXC UID/GID mapping)
+#    chown -R 100000:100000 /datapool
+#    
+#    # Mount datapool to LXC
+#    pct set 125 -mp0 /datapool,mp=/datapool
+
+networks:
+  proxy-net:
+    driver: bridge
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARED_TOKEN}
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/cloudflared-config:/etc/cloudflared:ro
+    networks:
+      - proxy-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  adguard:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    restart: unless-stopped
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "3000:3000/tcp"  # Web arayüzü
+      - "80:80/tcp"      # HTTP redirect
+    volumes:
+      - /datapool/config/adguard-config/work:/opt/adguardhome/work
+      - /datapool/config/adguard-config/conf:/opt/adguardhome/conf
+    environment:
+      - TZ=Europe/Istanbul
+    networks:
+      - proxy-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /datapool/config/watchtower-proxy-config:/config:ro
+    environment:
+      - TZ=Europe/Istanbul
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 2 * * *
+      - PUID=1000
+      - PGID=1000
+    restart: unless-stopped
+    networks:
+      - proxy-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

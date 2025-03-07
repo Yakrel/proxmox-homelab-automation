@@ -1,0 +1,25 @@
+---
+# logging role tasks
+
+- name: Create required directories
+  file:
+    path: "/root/logging"
+    state: directory
+    mode: '0755'
+
+- name: Copy docker-compose.yml for logging
+  copy:
+    src: "../../../docker/logging/docker-compose.yml"
+    dest: "/root/logging/docker-compose.yml"
+    mode: '0644'
+
+- name: Copy .env file for logging (if exists)
+  copy:
+    src: "../../../docker/logging/.env"
+    dest: "/root/logging/.env"
+    mode: '0644'
+
+- name: Start logging services with docker-compose
+  community.docker.docker_compose:
+    project_src: "/root/logging"
+    state: present

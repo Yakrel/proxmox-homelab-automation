@@ -1,0 +1,98 @@
+---
+# Common role tasks - Tüm containerlar için ortak yapılandırmalar
+
+- name: Update package cache
+  apk:
+    update_cache: yes
+
+- name: Install essential packages
+  apk:
+    name:
+      - docker
+      - docker-compose
+      - python3
+      - py3-pip
+      - curl
+      - wget
+      - nano
+      - bash
+      - openssh-server
+    state: present
+
+- name: Start and enable Docker service
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Create Docker user group
+  group:
+    name: docker
+    state: present
+
+- name: Add root to Docker group
+  user:
+    name: root
+    groups: docker
+    append: yes
+
+- name: Set timezone to Europe/Istanbul
+  timezone:
+    name: Europe/Istanbul
+
+# Autologin yapılandırması için
+- name: Configure autologin for Proxmox console
+  block:
+    - name: Check if inittab exists
+      stat:
+        path: /etc/inittab
+      register: inittab_file
+
+    - name: Configure autologin for tty1 (Alpine)
+      lineinfile:
+        path: /etc/inittab
+        regexp: '^tty1'
+        line: 'tty1::respawn:/bin/login -f root'
+        state: present
+      when: inittab_file.stat.exists
+
+    # Shadow dosyasında root şifresini kaldırma
+    - name: Remove root password (for autologin)
+      user:
+        name: root
+        password: ''
+
+# SSH güvenliği için (Ansible bağlantısı tamamlandıktan sonra)
+- name: Configure SSH for security
+  block:
+    - name: Ensure .ssh directory exists
+      file:
+        path: /root/.ssh
+        state: directory
+        mode: '0700'
+
+    - name: Set authorized key for root user from management container
+      authorized_key:
+        user: root
+        state: present
+        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+
+    - name: Disable password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        state: present
+
+    - name: Allow only internal network SSH access
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?ListenAddress'
+        line: 'ListenAddress 192.168.1.0/24'
+        state: present
+        insertafter: '^#ListenAddress'
+
+    - name: Restart sshd service
+      service:
+        name: sshd
+        state: restarted
