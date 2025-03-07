@@ -1,0 +1,21 @@
+[proxy]
+lxc-proxy-01 ansible_host=${proxy_ip}
+
+[media]
+lxc-media-01 ansible_host=${media_ip}
+
+[monitoring]
+lxc-monitoring-01 ansible_host=${monitoring_ip}
+
+[logging]
+lxc-logging-01 ansible_host=${logging_ip}
+
+[lxc:children]
+proxy
+media
+monitoring
+logging
+
+[lxc:vars]
+ansible_user=root
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
