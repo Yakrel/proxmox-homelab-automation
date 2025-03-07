@@ -78,3 +78,9 @@ variable "container_password" {
   default     = "alpine"  # Güvenli bir şifre kullanılmalı
   sensitive   = true
 }
+
+variable "grafana_password" {
+  description = "Grafana admin şifresi"
+  type        = string
+  default     = "grafana"
+}

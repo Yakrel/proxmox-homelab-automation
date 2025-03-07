@@ -233,9 +233,9 @@ if [[ "$CONTAINER_STATUS" != *"running"* ]]; then
     fi
 fi
 
-# Container'a gerekli yazılımları kur
+# Gerekli yazılımları kur
 echo -e "\n${GREEN}Gerekli yazılımları kuruyorum...${NC}"
-pct exec $CONTAINER_ID -- bash -c "apt update && DEBIAN_FRONTEND=noninteractive apt install -y git python3 python3-pip curl unzip software-properties-common wget gpg locales" || {
+pct exec $CONTAINER_ID -- bash -c "apt update && DEBIAN_FRONTEND=noninteractive apt install -y git python3 python3-pip curl jq unzip software-properties-common wget gpg locales" || {
     echo -e "${RED}Hata: Gerekli yazılımlar kurulamadı. Container'a erişim kontrol ediliyor.${NC}"
     exit 1
 }
