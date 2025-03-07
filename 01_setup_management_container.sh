@@ -1,6 +1,6 @@
 #!/bin/bash
-# Proxmox Homelab Setup - Tek adımda kurulum ve yapılandırma
-# Management container oluşturma ve yapılandırma işlemlerini tek script'te birleştirir
+# Proxmox Homelab Setup - Management Container Kurulumu
+# İlk adım: Management container oluşturma ve yapılandırma
 
 set -e
 
