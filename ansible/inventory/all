@@ -19,4 +19,3 @@ logging
 [lxc:vars]
 ansible_user=root
 # Şifre kısmını kaldırdık, SSH key kullanacağız
-ansible_ssh_common_args='-o StrictHostKeyChecking=no'

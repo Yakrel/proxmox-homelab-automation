@@ -82,7 +82,7 @@ resource "null_resource" "ssh_setup" {
     command = <<-EOT
       echo "Installing SSH for container ${each.value.id}..." >> ssh_setup_${each.value.id}.log
       pct exec ${each.value.id} -- ash -c "apk update" >> ssh_setup_${each.value.id}.log 2>&1 || true
-      pct exec ${each.value.id} -- ash -c "apk add openssh-server bash shadow" >> ssh_setup_${each.value.id}.log 2>&1 || true
+      pct exec ${each.value.id} -- ash -c "apk add openssh" >> ssh_setup_${each.value.id}.log 2>&1 || true
       pct exec ${each.value.id} -- ash -c "rc-update add sshd" >> ssh_setup_${each.value.id}.log 2>&1 || true
       pct exec ${each.value.id} -- ash -c "mkdir -p /etc/ssh/" >> ssh_setup_${each.value.id}.log 2>&1 || true
       pct exec ${each.value.id} -- ash -c 'echo "PermitRootLogin yes" >> /etc/ssh/sshd_config' >> ssh_setup_${each.value.id}.log 2>&1 || true

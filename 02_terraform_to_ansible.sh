@@ -37,52 +37,6 @@ if [ ! -s "${PROJE_DIZINI}/containers.json" ]; then
     exit 1
 fi
 
-# Container'larda SSH kurulumunu yap
-echo -e "${GREEN}🔄 Container'larda SSH kurulumu yapılıyor...${NC}"
-
-# Tüm container ID'lerini al
-CONTAINER_IDS=()
-for container in $(jq -r 'keys[]' "${PROJE_DIZINI}/containers.json"); do
-    ID=$(jq -r ".\"$container\".id" "${PROJE_DIZINI}/containers.json")
-    CONTAINER_IDS+=($ID)
-done
-
-if [ ${#CONTAINER_IDS[@]} -eq 0 ]; then
-    echo -e "${RED}❌ Container ID'leri alınamadı!${NC}"
-    echo -e "${YELLOW}containers.json dosyasını kontrol edin.${NC}"
-    cat "${PROJE_DIZINI}/containers.json"
-    exit 1
-fi
-
-# Her container için SSH kur
-for id in "${CONTAINER_IDS[@]}"; do
-    echo -e "${YELLOW}🔄 Container ID $id için SSH kuruluyor...${NC}"
-    # pct exec komutu ile container içinde komut çalıştır
-    pct exec $id -- /bin/sh -c "
-        echo '${GREEN}📦 Paket listesi güncelleniyor...${NC}'
-        apk update
-        
-        echo '${GREEN}📦 SSH paketi kuruluyor...${NC}'
-        apk add openssh-server openssh
-        
-        echo '${GREEN}🔄 SSH servisi başlangıçta çalışacak şekilde ayarlanıyor...${NC}'
-        rc-update add sshd
-        
-        echo '${GREEN}▶️ SSH servisi başlatılıyor...${NC}'
-        /etc/init.d/sshd start
-        
-        echo '${GREEN}🔧 SSH yapılandırması düzenleniyor...${NC}'
-        sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
-        
-        echo '${GREEN}🔄 SSH servisi yeniden başlatılıyor...${NC}'
-        /etc/init.d/sshd restart
-        
-        echo '${GREEN}✅ SSH kurulumu tamamlandı!${NC}'
-    " || {
-        echo -e "${YELLOW}⚠️ Container $id için SSH kurulumu sırasında bir hata oluştu, devam ediliyor...${NC}"
-    }
-done
-
 # Container'ların boot işlemini tamamlamasını bekle
 echo -e "${GREEN}🔄 Container'ların boot işlemini tamamlaması bekleniyor...${NC}"
 

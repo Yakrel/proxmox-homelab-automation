@@ -1,6 +1,5 @@
 ---
 - name: Setup all LXC containers
-
   hosts: lxc
   become: yes
   roles:
@@ -11,21 +10,61 @@
   become: yes
   roles:
     - proxy
+  tasks:
+    - name: Copy docker-compose.yml for proxy
+      copy:
+        src: "../../../docker/proxy/docker-compose.yml"
+        dest: "/root/proxy/docker-compose.yml"
+        mode: '0644'
+    - name: Start proxy services with docker-compose
+      community.docker.docker_compose:
+        project_src: "/root/proxy"
+        state: present
 
 - name: Configure Media Stack
   hosts: media
   become: yes
   roles:
     - media
+  tasks:
+    - name: Copy docker-compose.yml for media
+      copy:
+        src: "../../../docker/media/docker-compose.yml"
+        dest: "/root/media/docker-compose.yml"
+        mode: '0644'
+    - name: Start media services with docker-compose
+      community.docker.docker_compose:
+        project_src: "/root/media"
+        state: present
 
 - name: Configure Monitoring Stack
   hosts: monitoring
   become: yes
   roles:
     - monitoring
+  tasks:
+    - name: Copy docker-compose.yml for monitoring
+      copy:
+        src: "../../../docker/monitoring/docker-compose.yml"
+        dest: "/root/monitoring/docker-compose.yml"
+        mode: '0644'
+    - name: Start monitoring services with docker-compose
+      community.docker.docker_compose:
+        project_src: "/root/monitoring"
+        state: present
 
 - name: Configure Logging Stack
   hosts: logging
   become: yes
   roles:
     - logging
+  tasks:
+    - name: Copy docker-compose.yml for logging
+      copy:
+        src: "../../../docker/logging/docker-compose.yml"
+        dest: "/root/logging/docker-compose.yml"
+        mode: '0644'
+    - name: Start logging services with docker-compose
+      community.docker.docker_compose:
+        project_src: "/root/logging"
+        state: present

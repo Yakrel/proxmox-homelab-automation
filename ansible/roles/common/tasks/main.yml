@@ -16,7 +16,6 @@
       - wget
       - nano
       - bash
-      - openssh-server
     state: present
 
 - name: Start and enable Docker service
@@ -96,3 +95,11 @@
       service:
         name: sshd
         state: restarted
+
+- name: Copy Docker Compose files to root directory
+  copy:
+    src: /path/to/docker-compose-files/
+    dest: /root/docker-compose-files/
+    owner: root
+    group: root
+    mode: '0755'

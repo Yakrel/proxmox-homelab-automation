@@ -6,20 +6,3 @@
     path: "/root/monitoring"
     state: directory
     mode: '0755'
-
-- name: Copy docker-compose.yml for monitoring
-  copy:
-    src: "../../../docker/monitoring/docker-compose.yml"
-    dest: "/root/monitoring/docker-compose.yml"
-    mode: '0644'
-
-- name: Copy .env file for monitoring (if exists)
-  copy:
-    src: "../../../docker/monitoring/.env"
-    dest: "/root/monitoring/.env"
-    mode: '0644'
-
-- name: Start monitoring services with docker-compose
-  community.docker.docker_compose:
-    project_src: "/root/monitoring"
-    state: present

@@ -361,40 +361,6 @@ else \
     exit 1; \
 fi"
 
-# Ansible playbookları için LXC kaynak ayarlarını optimize et
-echo -e "\n${YELLOW}LXC performans ayarları yapılandırılıyor...${NC}"
-pct exec $CONTAINER_ID -- bash -c "if [ -f \"$REPO_DIR/terraform/terraform.tfvars\" ]; then \
-    echo 'LXC kaynak yapılandırmaları güncelleniyor...' && \
-    sed -i 's/memory      = 4096/memory      = 16384/g' \"$REPO_DIR/terraform/terraform.tfvars\" 2>/dev/null || true && \
-    sed -i 's/memory      = 1024/memory      = 2048/g' \"$REPO_DIR/terraform/terraform.tfvars\" 2>/dev/null || true && \
-    sed -i 's/memory      = 2048/memory      = 4096/g' \"$REPO_DIR/terraform/terraform.tfvars\" 2>/dev/null || true && \
-    sed -i 's/cores       = 2/cores       = 4/g' \"$REPO_DIR/terraform/terraform.tfvars\" 2>/dev/null || true && \
-    sed -i 's/cores       = 1/cores       = 2/g' \"$REPO_DIR/terraform/terraform.tfvars\" 2>/dev/null || true && \
-    echo '✅ LXC kaynak ayarları güncellendi'; \
-fi"
-
-# docker-compose dosyaları her LXC'nin root dizinine kopyalanacak
-echo -e "\n${YELLOW}Docker Compose yapılandırması güncelleniyor...${NC}"
-pct exec $CONTAINER_ID -- bash -c "if [ -f \"$REPO_DIR/ansible/roles/docker/tasks/main.yml\" ]; then \
-    echo 'Docker Compose yapılandırması güncelleniyor...' && \
-    if ! grep -q 'dest: \"/root\"' \"$REPO_DIR/ansible/roles/docker/tasks/main.yml\"; then \
-        sed -i 's|dest: \".*docker/.*\"|dest: \"/root\"|g' \"$REPO_DIR/ansible/roles/docker/tasks/main.yml\" 2>/dev/null || true && \
-        echo '✅ Docker Compose dosyaları her LXC root dizinine taşınacak şekilde güncellendi'; \
-    else \
-        echo '⚠️ Docker Compose yapılandırması zaten root dizinini kullanıyor'; \
-    fi; \
-fi"
-
-# docker/proxy/.env dosyasını oluştur
-echo -e "\n${YELLOW}Cloudflared yapılandırma dosyası oluşturuluyor...${NC}"
-pct exec $CONTAINER_ID -- bash -c "if [ -f \"$REPO_DIR/docker/proxy/.env.example\" ]; then \
-    cp \"$REPO_DIR/docker/proxy/.env.example\" \"$REPO_DIR/docker/proxy/.env\" && \
-    sed -i \"s|CLOUDFLARED_TOKEN=.*|CLOUDFLARED_TOKEN=$CLOUDFLARE_TOKEN|g\" \"$REPO_DIR/docker/proxy/.env\" && \
-    echo '✅ docker/proxy/.env dosyası oluşturuldu'; \
-else \
-    echo '⚠️ docker/proxy/.env.example dosyası bulunamadı, atlanıyor.'; \
-fi"
-
 # docker/monitoring/.env dosyasını oluştur
 echo -e "\n${YELLOW}Grafana yapılandırma dosyası oluşturuluyor...${NC}"
 pct exec $CONTAINER_ID -- bash -c "if [ -f \"$REPO_DIR/docker/monitoring/.env.example\" ]; then \
