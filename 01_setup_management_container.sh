@@ -235,34 +235,59 @@ fi
 
 # Container'a gerekli yazılımları kur
 echo -e "\n${GREEN}Gerekli yazılımları kuruyorum...${NC}"
-pct exec $CONTAINER_ID -- bash -c "apt update && DEBIAN_FRONTEND=noninteractive apt install -y git python3 python3-pip curl unzip software-properties-common" || {
+pct exec $CONTAINER_ID -- bash -c "apt update && DEBIAN_FRONTEND=noninteractive apt install -y git python3 python3-pip curl unzip software-properties-common wget gpg locales" || {
     echo -e "${RED}Hata: Gerekli yazılımlar kurulamadı. Container'a erişim kontrol ediliyor.${NC}"
     exit 1
 }
 
-# Terraform kurulumu
+# Locale ayarları
+echo -e "\n${GREEN}Locale yapılandırması yapılıyor...${NC}"
+pct exec $CONTAINER_ID -- bash -c "
+    sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
+    locale-gen en_US.UTF-8 && \
+    update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 && \
+    echo 'export LC_ALL=en_US.UTF-8' >> /root/.bashrc && \
+    echo 'export LANG=en_US.UTF-8' >> /root/.bashrc
+"
+
+# Terraform kurulumu - HashiCorp resmi yöntemi
 echo -e "\n${GREEN}Terraform kuruluyor...${NC}"
 pct exec $CONTAINER_ID -- bash -c "
-    apt-get install -y gnupg software-properties-common && \
+    # HashiCorp GPG anahtarını ekle
     wget -O- https://apt.releases.hashicorp.com/gpg | \
     gpg --dearmor | \
     tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null && \
+    
+    # Repository ekle
     echo \"deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
     https://apt.releases.hashicorp.com \$(lsb_release -cs) main\" | \
-    tee /etc/apt/sources.list.d/hashicorp.list > /dev/null && \
-    apt-get update && \
-    apt-get install -y terraform
+    tee /etc/apt/sources.list.d/hashicorp.list && \
+    
+    # Güncelle ve kur
+    apt update && \
+    apt install -y terraform
 "
 
-# Ansible kurulumu (PPA kullanarak)
+# Ansible kurulumu - Debian için resmi yöntem 
 echo -e "\n${GREEN}Ansible kuruluyor...${NC}"
 pct exec $CONTAINER_ID -- bash -c "
-    add-apt-repository --yes --update ppa:ansible/ansible && \
+    # Ubuntu PPA için uygun kod adını belirle (Debian 12 için jammy)
+    UBUNTU_CODENAME=jammy && \
+    
+    # Ansible GPG anahtarını indir
+    wget -O- \"https://keyserver.ubuntu.com/pks/lookup?fingerprint=on&op=get&search=0x6125E2A8C77F2818FB7BD15B93C4A3FD7BB9C367\" | \
+    gpg --dearmor -o /usr/share/keyrings/ansible-archive-keyring.gpg && \
+    
+    # Repository ekle
+    echo \"deb [signed-by=/usr/share/keyrings/ansible-archive-keyring.gpg] \
+    http://ppa.launchpad.net/ansible/ansible/ubuntu \$UBUNTU_CODENAME main\" | \
+    tee /etc/apt/sources.list.d/ansible.list && \
+    
+    # Güncelle ve kur
+    apt update && \
     apt install -y ansible && \
-    echo 'export LC_ALL=C.UTF-8' >> /root/.bashrc && \
-    echo 'export LANG=C.UTF-8' >> /root/.bashrc && \
-    export LC_ALL=C.UTF-8 && \
-    export LANG=C.UTF-8 && \
+    
+    # Ansible koleksiyonlarını yükle
     ansible-galaxy collection install community.docker && \
     ansible-galaxy collection install community.general
 "

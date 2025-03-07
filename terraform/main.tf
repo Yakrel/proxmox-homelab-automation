@@ -48,11 +48,13 @@ resource "proxmox_lxc" "container" {
     fuse    = true
   }
 
-  # Mount datapool - boyut belirtilmeden mount edilir
+  # Mount datapool - 4TB boyut ve ACL etkin
   mountpoint {
     key     = "mp0"
     slot    = 0
     storage = "datapool"
     mp      = "/datapool"
+    size    = "4T"  # 4TB disk boyutu tanımlandı
+    acl     = true  # Genişletilmiş erişim kontrolü etkinleştirildi
   }
 }
