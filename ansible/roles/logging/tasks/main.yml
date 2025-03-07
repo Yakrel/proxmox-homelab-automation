@@ -1,4 +1,14 @@
 ---
+# Setting specific variables for logging services
+- name: Set service variables
+  set_fact:
+    service_name: "logging"
+
+# Include common service setup tasks
+- name: Include service setup tasks
+  include_role:
+    name: service_setup
+
 # logging role tasks
 
 - name: Create required directories

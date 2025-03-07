@@ -29,6 +29,9 @@ terraform.rc
 *.swp
 *.swo
 
+# Log files
+ssh_setup_*.log
+
 # Exclude example files
 !*.tfvars.example
 !*.example

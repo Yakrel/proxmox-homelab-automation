@@ -1,14 +1,14 @@
 [proxy]
-lxc-proxy-01 ansible_host=${proxy_ip}
+lxc-proxy-01 ansible_host=${proxy_ip} container_id=${proxy_id} container_name=proxy
 
 [media]
-lxc-media-01 ansible_host=${media_ip}
+lxc-media-01 ansible_host=${media_ip} container_id=${media_id} container_name=media
 
 [monitoring]
-lxc-monitoring-01 ansible_host=${monitoring_ip}
+lxc-monitoring-01 ansible_host=${monitoring_ip} container_id=${monitoring_id} container_name=monitoring
 
 [logging]
-lxc-logging-01 ansible_host=${logging_ip}
+lxc-logging-01 ansible_host=${logging_ip} container_id=${logging_id} container_name=logging
 
 [lxc:children]
 proxy
@@ -19,3 +19,4 @@ logging
 [lxc:vars]
 ansible_user=root
 ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+datapool_mount_path=/datapool

@@ -16,10 +16,49 @@ CONTAINER_ID=${CONTAINER_ID:-900}
 DISK_SIZE=${DISK_SIZE:-"20"}
 REPO_DIR="/opt/proxmox-automation"
 
+# Helper function for printing status messages
+print_status() {
+  local color=$1
+  local message=$2
+  echo -e "${color}${message}${NC}"
+}
+
+# Helper function for printing error messages and exiting
+print_error_exit() {
+  local message=$1
+  print_status "${RED}" "Error: ${message}"
+  exit 1
+}
+
+# Helper function to wait for service availability
+wait_for_service() {
+  local host=$1
+  local port=$2
+  local service=$3
+  local max_attempts=${4:-30}
+  local delay=${5:-5}
+  local attempt=1
+
+  print_status "${YELLOW}" "Waiting for ${service} on ${host}:${port}..."
+  
+  while [ $attempt -le $max_attempts ]; do
+    if nc -z -w5 $host $port &> /dev/null; then
+      print_status "${GREEN}" "✅ ${service} is available on ${host}:${port} (attempt $attempt)"
+      return 0
+    fi
+    print_status "${YELLOW}" "⏳ ${service} not available yet... ($attempt/$max_attempts)"
+    sleep $delay
+    attempt=$((attempt+1))
+  done
+  
+  print_status "${RED}" "❌ ${service} timeout on ${host}:${port} after $max_attempts attempts!"
+  return 1
+}
+
 # Function to display welcome message
 welcome_message() {
-  echo -e "${GREEN}=== Proxmox Homelab Automation - All-in-One Setup ===${NC}"
-  echo -e "${YELLOW}This script sets up the management container in a single step${NC}"
+  print_status "${GREEN}" "=== Proxmox Homelab Automation - All-in-One Setup ==="
+  print_status "${YELLOW}" "This script sets up the management container in a single step"
   echo
 }
 
@@ -33,16 +72,14 @@ get_user_input() {
   read -p "Management container IP (default: 192.168.1.200): " CONTAINER_IP_INPUT
   CONTAINER_IP=${CONTAINER_IP_INPUT:-"192.168.1.200"}
   if [[ -z "$CONTAINER_IP" ]]; then
-    echo -e "${RED}Error: IP address cannot be empty!${NC}"
-    exit 1
+    print_error_exit "IP address cannot be empty!"
   fi
 
   # Add default value for gateway
   read -p "Network Gateway (default: 192.168.1.1): " GATEWAY_INPUT
   GATEWAY=${GATEWAY_INPUT:-"192.168.1.1"}
   if [[ -z "$GATEWAY" ]]; then
-    echo -e "${RED}Error: Gateway address cannot be empty!${NC}"
-    exit 1
+    print_error_exit "Gateway address cannot be empty!"
   fi
 
   read -p "GitHub repository (default: Yakrel/proxmox-homelab-automation): " GITHUB_REPO_INPUT
@@ -53,24 +90,23 @@ get_user_input() {
 
 # Function to check and download templates
 check_templates() {
-  echo -e "\n${YELLOW}Checking and downloading templates...${NC}"
+  print_status "${YELLOW}" "Checking and downloading templates..."
 
   # Check if pveam is available
   if ! command -v pveam &> /dev/null; then
-    echo -e "${RED}Error: pveam command not found. This script must be run on a Proxmox host.${NC}"
-    exit 1
+    print_error_exit "pveam command not found. This script must be run on a Proxmox host."
   fi
 
   # Check available repositories
-  echo -e "${YELLOW}Checking available template repositories...${NC}"
+  print_status "${YELLOW}" "Checking available template repositories..."
   pveam update
 
   # Check if datapool exists
   if pvesm status | grep -q "datapool"; then
-    echo -e "${GREEN}Datapool storage found.${NC}"
+    print_status "${GREEN}" "Datapool storage found."
     STORAGE="datapool"
   else
-    echo -e "${YELLOW}Datapool storage not found, using default local.${NC}"
+    print_status "${YELLOW}" "Datapool storage not found, using default local."
     STORAGE="local"
   fi
 
@@ -86,61 +122,61 @@ check_templates() {
 
 # Function to check and download Debian template
 check_debian_template() {
-  echo -e "\n${YELLOW}Checking Debian template...${NC}"
+  print_status "${YELLOW}" "Checking Debian template..."
   DEBIAN_TEMPLATE=$(pveam available -section system | grep -E 'debian.*12.*standard' | sort -V | tail -n 1 | awk '{print $2}')
 
   if [ -z "$DEBIAN_TEMPLATE" ]; then
-    echo -e "${RED}No available Debian template found!${NC}"
+    print_status "${RED}" "No available Debian template found!"
   else
     DEBIAN_TEMPLATE_FILENAME=$(basename "$DEBIAN_TEMPLATE")
     
     # Download template if needed
     if pveam list $STORAGE | grep -q "$DEBIAN_TEMPLATE_FILENAME"; then
-      echo -e "${GREEN}Debian template ($DEBIAN_TEMPLATE_FILENAME) already downloaded.${NC}"
+      print_status "${GREEN}" "Debian template ($DEBIAN_TEMPLATE_FILENAME) already downloaded."
     else
-      echo -e "${YELLOW}Downloading Debian template: $DEBIAN_TEMPLATE${NC}"
+      print_status "${YELLOW}" "Downloading Debian template: $DEBIAN_TEMPLATE"
       pveam download $STORAGE $DEBIAN_TEMPLATE
     fi
     
     # Set template path
     MANAGEMENT_TEMPLATE_PATH="${STORAGE}:vztmpl/${DEBIAN_TEMPLATE_FILENAME}"
-    echo -e "${GREEN}Management template path: $MANAGEMENT_TEMPLATE_PATH${NC}"
+    print_status "${GREEN}" "Management template path: $MANAGEMENT_TEMPLATE_PATH"
   fi
 }
 
 # Function to check and download Alpine template
 check_alpine_template() {
-  echo -e "\n${YELLOW}Checking Alpine template...${NC}"
+  print_status "${YELLOW}" "Checking Alpine template..."
   ALPINE_TEMPLATE=$(pveam available -section system | grep -E 'alpine.*3\..*default' | sort -V | tail -n 1 | awk '{print $2}')
 
   if [ -z "$ALPINE_TEMPLATE" ]; then
-    echo -e "${RED}No available Alpine template found!${NC}"
+    print_status "${RED}" "No available Alpine template found!"
   else
     ALPINE_TEMPLATE_FILENAME=$(basename "$ALPINE_TEMPLATE")
     
     # Download template if needed
     if pveam list $STORAGE | grep -q "$ALPINE_TEMPLATE_FILENAME"; then
-      echo -e "${GREEN}Alpine template ($ALPINE_TEMPLATE_FILENAME) already downloaded.${NC}"
+      print_status "${GREEN}" "Alpine template ($ALPINE_TEMPLATE_FILENAME) already downloaded."
     else
-      echo -e "${YELLOW}Downloading Alpine template: $ALPINE_TEMPLATE${NC}"
+      print_status "${YELLOW}" "Downloading Alpine template: $ALPINE_TEMPLATE"
       pveam download $STORAGE $ALPINE_TEMPLATE
     fi
     
     # Set template path
     ALPINE_TEMPLATE_PATH="${STORAGE}:vztmpl/${ALPINE_TEMPLATE_FILENAME}"
-    echo -e "${GREEN}Alpine template path: $ALPINE_TEMPLATE_PATH${NC}"
+    print_status "${GREEN}" "Alpine template path: $ALPINE_TEMPLATE_PATH"
   fi
 }
 
 # Function to handle manual template selection if needed
 handle_manual_template_selection() {
   # List available templates
-  echo -e "\n${YELLOW}Checking available templates...${NC}"
+  print_status "${YELLOW}" "Checking available templates..."
   TEMPLATES=$(pveam list $STORAGE 2>/dev/null | grep -E 'alpine|debian' | awk '{print $1}' || echo "")
 
   if [ -z "$TEMPLATES" ]; then
     # Check local repositories
-    echo -e "${YELLOW}Checking local templates...${NC}"
+    print_status "${YELLOW}" "Checking local templates..."
     
     # Possible template locations
     TEMPLATE_LOCATIONS=(
@@ -150,53 +186,50 @@ handle_manual_template_selection() {
     )
     
     for LOCATION in "${TEMPLATE_LOCATIONS[@]}"; do
-      echo -e "${YELLOW}Checking location $LOCATION...${NC}"
+      print_status "${YELLOW}" "Checking location $LOCATION..."
       LOCATION_TEMPLATES=$(pct template list 2>/dev/null | grep "$LOCATION" | grep -E 'debian|alpine' || echo "")
       if [ ! -z "$LOCATION_TEMPLATES" ]; then
         TEMPLATES="$LOCATION_TEMPLATES"
-        echo -e "${GREEN}Templates found!${NC}"
+        print_status "${GREEN}" "Templates found!"
         echo "$TEMPLATES"
         break
       fi
     done
     
     if [ -z "$TEMPLATES" ]; then
-      echo -e "${RED}No templates found!${NC}"
-      echo -e "${YELLOW}Please enter existing template path and name (e.g., datapool:vztmpl/debian-12-standard_12.1-1_amd64.tar.zst):${NC}"
+      print_status "${RED}" "No templates found!"
+      print_status "${YELLOW}" "Please enter existing template path and name (e.g., datapool:vztmpl/debian-12-standard_12.1-1_amd64.tar.zst):"
       read -p "Template full path: " TEMPLATE_PATH
       if [ -z "$TEMPLATE_PATH" ]; then
-        echo -e "${RED}Template path cannot be empty. Script terminated.${NC}"
-        exit 1
+        print_error_exit "Template path cannot be empty. Script terminated."
       fi
     else
-      echo -e "${GREEN}Available templates:${NC}"
+      print_status "${GREEN}" "Available templates:"
       echo "$TEMPLATES"
       echo
-      echo -e "${YELLOW}Using Debian template for management container.${NC}"
+      print_status "${YELLOW}" "Using Debian template for management container."
       if [ ! -z "$MANAGEMENT_TEMPLATE_PATH" ]; then
-        echo -e "${GREEN}Management template automatically selected: $MANAGEMENT_TEMPLATE_PATH${NC}"
+        print_status "${GREEN}" "Management template automatically selected: $MANAGEMENT_TEMPLATE_PATH"
         TEMPLATE_PATH="$MANAGEMENT_TEMPLATE_PATH"
       else
         read -p "Enter the full path of the template you want to use: " TEMPLATE_PATH
         if [ -z "$TEMPLATE_PATH" ]; then
-          echo -e "${RED}Template path cannot be empty. Script terminated.${NC}"
-          exit 1
+          print_error_exit "Template path cannot be empty. Script terminated."
         fi
       fi
     fi
   else
-    echo -e "${GREEN}Available templates:${NC}"
+    print_status "${GREEN}" "Available templates:"
     echo "$TEMPLATES"
     echo
-    echo -e "${YELLOW}Using Debian template for management container.${NC}"
+    print_status "${YELLOW}" "Using Debian template for management container."
     if [ ! -z "$MANAGEMENT_TEMPLATE_PATH" ]; then
-      echo -e "${GREEN}Management template automatically selected: $MANAGEMENT_TEMPLATE_PATH${NC}"
+      print_status "${GREEN}" "Management template automatically selected: $MANAGEMENT_TEMPLATE_PATH"
       TEMPLATE_PATH="$MANAGEMENT_TEMPLATE_PATH"
     else
       read -p "Enter the full path of the template you want to use: " TEMPLATE_PATH
       if [ -z "$TEMPLATE_PATH" ]; then
-        echo -e "${RED}Template path cannot be empty. Script terminated.${NC}"
-        exit 1
+        print_error_exit "Template path cannot be empty. Script terminated."
       fi
     fi
   fi
@@ -207,25 +240,33 @@ handle_manual_template_selection() {
     ALPINE_TEMPLATE_FOR_TFVARS="$ALPINE_TEMPLATE_PATH"
   else
     # If not automatically downloaded, ask for Alpine template path
-    echo -e "\n${YELLOW}Enter Alpine template path for LXC containers:${NC}"
+    print_status "${YELLOW}" "Enter Alpine template path for LXC containers:"
     read -p "Alpine template path (e.g., datapool:vztmpl/alpine-3.21-default_20241217_amd64.tar.xz): " ALPINE_TEMPLATE_FOR_TFVARS
     
     if [ -z "$ALPINE_TEMPLATE_FOR_TFVARS" ]; then
-      echo -e "${YELLOW}No Alpine template path entered, using default value.${NC}"
+      print_status "${YELLOW}" "No Alpine template path entered, using default value."
       ALPINE_TEMPLATE_FOR_TFVARS="${STORAGE}:template/cache/alpine-3.21-default_20241217_amd64.tar.xz"
     fi
   fi
 }
 
+# Komut satırı tekrarlarını azaltma - pct exec çağrıları için bir yardımcı fonksiyon
+exec_in_container() {
+  local command=$1
+  pct exec $CONTAINER_ID -- bash -c "$command" || {
+    print_error_exit "Failed to execute: $command"
+  }
+}
+
 # Function to create management container
 create_management_container() {
-  echo -e "\n${GREEN}Creating management container (ID: $CONTAINER_ID)...${NC}"
+  print_status "${GREEN}" "Creating management container (ID: $CONTAINER_ID)..."
 
   # Show debug info
-  echo -e "${YELLOW}DEBUG: Template path: $TEMPLATE_PATH${NC}"
-  echo -e "${YELLOW}DEBUG: IP: $CONTAINER_IP${NC}"
-  echo -e "${YELLOW}DEBUG: Gateway: $GATEWAY${NC}"
-  echo -e "${YELLOW}DEBUG: Disk size: ${DISK_SIZE}G${NC}"
+  print_status "${YELLOW}" "DEBUG: Template path: $TEMPLATE_PATH"
+  print_status "${YELLOW}" "DEBUG: IP: $CONTAINER_IP"
+  print_status "${YELLOW}" "DEBUG: Gateway: $GATEWAY"
+  print_status "${YELLOW}" "DEBUG: Disk size: ${DISK_SIZE}G"
 
   # Container creation command
   pct create $CONTAINER_ID "$TEMPLATE_PATH" \
@@ -240,21 +281,19 @@ create_management_container() {
     --features nesting=1,keyctl=1,fuse=1 \
     --start 1
 
-  echo -e "\n${YELLOW}Waiting for container to start...${NC}"
+  print_status "${YELLOW}" "Waiting for container to start..."
   sleep 15
 
   # Check if container is running
-  echo -e "${YELLOW}Checking container status...${NC}"
+  print_status "${YELLOW}" "Checking container status..."
   CONTAINER_STATUS=$(pct status $CONTAINER_ID 2>/dev/null || echo "unknown")
   if [[ "$CONTAINER_STATUS" != *"running"* ]]; then
-    echo -e "${RED}Warning: Container does not appear to be running. Status: $CONTAINER_STATUS${NC}"
-    echo -e "${YELLOW}Waiting a bit longer for the container to start...${NC}"
+    print_status "${RED}" "Warning: Container does not appear to be running. Status: $CONTAINER_STATUS"
+    print_status "${YELLOW}" "Waiting a bit longer for the container to start..."
     sleep 15
     CONTAINER_STATUS=$(pct status $CONTAINER_ID 2>/dev/null || echo "unknown")
     if [[ "$CONTAINER_STATUS" != *"running"* ]]; then
-      echo -e "${RED}Error: Container is not running. Please check manually.${NC}"
-      echo -e "${YELLOW}You can try running ${NC}pct start $CONTAINER_ID"
-      exit 1
+      print_error_exit "Container is not running. Please check manually. You can try running pct start $CONTAINER_ID"
     fi
   fi
   
@@ -263,15 +302,12 @@ create_management_container() {
 
 # Function to install required software
 install_required_software() {
-  echo -e "\n${GREEN}Installing required software...${NC}"
-  pct exec $CONTAINER_ID -- bash -c "apt update && DEBIAN_FRONTEND=noninteractive apt install -y git python3 python3-pip curl jq unzip software-properties-common wget gpg locales" || {
-    echo -e "${RED}Error: Failed to install required software. Checking container access.${NC}"
-    exit 1
-  }
+  print_status "${GREEN}" "Installing required software..."
+  exec_in_container "apt update && DEBIAN_FRONTEND=noninteractive apt install -y git python3 python3-pip curl jq unzip software-properties-common wget gpg locales"
 
   # Configure locale settings
-  echo -e "\n${GREEN}Configuring locale settings...${NC}"
-  pct exec $CONTAINER_ID -- bash -c "
+  print_status "${GREEN}" "Configuring locale settings..."
+  exec_in_container "
     sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
     locale-gen en_US.UTF-8 && \
     update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 && \
@@ -280,8 +316,8 @@ install_required_software() {
   "
 
   # Install Terraform - Official HashiCorp method
-  echo -e "\n${GREEN}Installing Terraform...${NC}"
-  pct exec $CONTAINER_ID -- bash -c "
+  print_status "${GREEN}" "Installing Terraform..."
+  exec_in_container "
     # Add HashiCorp GPG key
     wget -O- https://apt.releases.hashicorp.com/gpg | \
     gpg --dearmor | \
@@ -298,8 +334,8 @@ install_required_software() {
   "
 
   # Install Ansible - Official method for Debian
-  echo -e "\n${GREEN}Installing Ansible...${NC}"
-  pct exec $CONTAINER_ID -- bash -c "
+  print_status "${GREEN}" "Installing Ansible..."
+  exec_in_container "
     # Determine appropriate Ubuntu codename (jammy for Debian 12)
     UBUNTU_CODENAME=jammy && \
     
@@ -326,18 +362,18 @@ install_required_software() {
 
 # Function to set up SSH
 setup_ssh() {
-  echo -e "\n${GREEN}Creating SSH key...${NC}"
-  pct exec $CONTAINER_ID -- bash -c "ssh-keygen -t rsa -b 4096 -f /root/.ssh/id_rsa -N ''"
+  print_status "${GREEN}" "Creating SSH key..."
+  exec_in_container "ssh-keygen -t rsa -b 4096 -f /root/.ssh/id_rsa -N ''"
 
   # Display SSH key and wait for user to add it to GitHub
-  echo -e "\n${BLUE}===============================================================${NC}"
-  echo -e "${YELLOW}IMPORTANT: You need to add the following SSH public key to your GitHub account${NC}"
-  echo -e "${BLUE}===============================================================${NC}"
+  print_status "${BLUE}" "==============================================================="
+  print_status "${YELLOW}" "IMPORTANT: You need to add the following SSH public key to your GitHub account"
+  print_status "${BLUE}" "==============================================================="
   echo
-  pct exec $CONTAINER_ID -- cat /root/.ssh/id_rsa.pub
+  exec_in_container "cat /root/.ssh/id_rsa.pub"
   echo
-  echo -e "${BLUE}===============================================================${NC}"
-  echo -e "${YELLOW}Please add the SSH key above to your GitHub account:${NC}"
+  print_status "${BLUE}" "==============================================================="
+  print_status "${YELLOW}" "Please add the SSH key above to your GitHub account:"
   echo -e "1. Go to ${GREEN}https://github.com/settings/keys${NC}"
   echo -e "2. Click 'New SSH key' button"
   echo -e "3. Copy and paste the key above and enter a title"
@@ -346,26 +382,26 @@ setup_ssh() {
   read -p "Press ENTER after adding the SSH key to GitHub..." reply
 
   # Test GitHub SSH connection
-  echo -e "\n${YELLOW}Testing GitHub SSH connection...${NC}"
-  pct exec $CONTAINER_ID -- bash -c "ssh -o StrictHostKeyChecking=no -T git@github.com || true"
-  echo -e "${GREEN}Note: A 'Permission denied' message above is normal, this confirms the connection works.${NC}"
+  print_status "${YELLOW}" "Testing GitHub SSH connection..."
+  exec_in_container "ssh -o StrictHostKeyChecking=no -T git@github.com || true"
+  print_status "${GREEN}" "Note: A 'Permission denied' message above is normal, this confirms the connection works."
   
   return 0
 }
 
 # Function to clone repository
 clone_repository() {
-  echo -e "\n${GREEN}Cloning repository (${REPO_URL})...${NC}"
-  pct exec $CONTAINER_ID -- bash -c "mkdir -p $(dirname $REPO_DIR) && \
+  print_status "${GREEN}" "Cloning repository (${REPO_URL})..."
+  exec_in_container "mkdir -p $(dirname $REPO_DIR) && \
   (GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no' git clone $REPO_URL $REPO_DIR 2>/dev/null || \
    (echo 'SSH cloning failed, trying HTTPS...' && \
     git clone $REPO_HTTPS_URL $REPO_DIR))"
 
   # Check if repository was successfully cloned
-  pct exec $CONTAINER_ID -- bash -c "if [ -d \"$REPO_DIR/.git\" ]; then \
-    echo -e \"${GREEN}✅ Repository successfully cloned: $REPO_DIR${NC}\"; \
+  exec_in_container "if [ -d \"$REPO_DIR/.git\" ]; then \
+    print_status \"${GREEN}\" \"✅ Repository successfully cloned: $REPO_DIR\"; \
   else \
-    echo -e \"${RED}❌ Failed to clone repository. Please check your GitHub connection.${NC}\"; \
+    print_status \"${RED}\" \"❌ Failed to clone repository. Please check your GitHub connection.\"; \
     exit 1; \
   fi"
   
@@ -374,7 +410,7 @@ clone_repository() {
 
 # Function to get configuration information
 get_config_info() {
-  echo -e "\n${GREEN}Getting configuration information...${NC}"
+  print_status "${GREEN}" "Getting configuration information..."
   read -sp "Enter your Proxmox root password: " PROXMOX_PASSWORD
   echo
 
@@ -392,8 +428,8 @@ get_config_info() {
 
 # Function to create configuration files
 create_config_files() {
-  echo -e "\n${YELLOW}Creating Terraform configuration file...${NC}"
-  pct exec $CONTAINER_ID -- bash -c "if [ -f \"$REPO_DIR/terraform/terraform.tfvars.example\" ]; then \
+  print_status "${YELLOW}" "Creating Terraform configuration file..."
+  exec_in_container "if [ -f \"$REPO_DIR/terraform/terraform.tfvars.example\" ]; then \
     cp \"$REPO_DIR/terraform/terraform.tfvars.example\" \"$REPO_DIR/terraform/terraform.tfvars\" && \
     sed -i \"s|proxmox_api_url = \\\".*\\\"|proxmox_api_url = \\\"$PROXMOX_API_URL\\\"|g\" \"$REPO_DIR/terraform/terraform.tfvars\" && \
     sed -i \"s|proxmox_password = \\\".*\\\"|proxmox_password = \\\"$PROXMOX_PASSWORD\\\"|g\" \"$REPO_DIR/terraform/terraform.tfvars\" && \
@@ -407,8 +443,8 @@ create_config_files() {
   fi"
 
   # Create docker/monitoring/.env file
-  echo -e "\n${YELLOW}Creating Grafana configuration file...${NC}"
-  pct exec $CONTAINER_ID -- bash -c "if [ -f \"$REPO_DIR/docker/monitoring/.env.example\" ]; then \
+  print_status "${YELLOW}" "Creating Grafana configuration file..."
+  exec_in_container "if [ -f \"$REPO_DIR/docker/monitoring/.env.example\" ]; then \
     cp \"$REPO_DIR/docker/monitoring/.env.example\" \"$REPO_DIR/docker/monitoring/.env\" && \
     sed -i \"s|GRAFANA_PASSWORD=.*|GRAFANA_PASSWORD=$GRAFANA_PASSWORD|g\" \"$REPO_DIR/docker/monitoring/.env\" && \
     echo '✅ docker/monitoring/.env file created'; \
@@ -417,7 +453,7 @@ create_config_files() {
   fi"
   
   # Make 02_terraform_to_ansible.sh executable
-  pct exec $CONTAINER_ID -- bash -c "if [ -f \"$REPO_DIR/02_terraform_to_ansible.sh\" ]; then \
+  exec_in_container "if [ -f \"$REPO_DIR/02_terraform_to_ansible.sh\" ]; then \
     chmod +x \"$REPO_DIR/02_terraform_to_ansible.sh\"; \
   fi"
   
@@ -426,12 +462,12 @@ create_config_files() {
 
 # Function to create directory structure
 create_directory_structure() {
-  echo -e "\n${YELLOW}Do you want to create directory structure for LXC containers?${NC}"
+  print_status "${YELLOW}" "Do you want to create directory structure for LXC containers?"
   echo -e "This will create only the /datapool/config, /datapool/media and /datapool/torrents directories"
   read -p "Create directory structure? (y/n): " CREATE_DIRECTORIES
 
   if [[ "$CREATE_DIRECTORIES" =~ ^[Yy]$ ]]; then
-    echo -e "\n${YELLOW}Creating directory structure...${NC}"
+    print_status "${YELLOW}" "Creating directory structure..."
     
     # Config directories - Run on the host, not inside container
     mkdir -p /datapool/config/{sonarr-config,radarr-config,bazarr-config,jellyfin-config,jellyseerr-config,qbittorrent-config,prowlarr-config,flaresolverr-config,watchtower-media-config,recyclarr-config,youtube-dl-config,prometheus-config,grafana-config,alertmanager-config,watchtower-monitoring-config,elasticsearch-config,logstash-config,kibana-config,filebeat-config,watchtower-logging-config,cloudflared-config,watchtower-proxy-config,adguard-config/{work,conf}}
@@ -445,25 +481,25 @@ create_directory_structure() {
     chown -R 100000:100000 /datapool/media
     chown -R 100000:100000 /datapool/torrents
     
-    echo -e "${GREEN}✅ Directory structure successfully created!${NC}"
+    print_status "${GREEN}" "✅ Directory structure successfully created!"
   else
-    echo -e "${YELLOW}Directory structure not created. Please create required directories manually.${NC}"
+    print_status "${YELLOW}" "Directory structure not created. Please create required directories manually."
   fi
 }
 
 # Function to display configuration summary
 display_config_summary() {
-  echo -e "\n${GREEN}=== Configuration Summary ===${NC}"
-  echo -e "${YELLOW}Proxmox API URL:${NC} $PROXMOX_API_URL"
-  echo -e "${YELLOW}Gateway IP:${NC} $GATEWAY"
-  echo -e "${YELLOW}Management IP:${NC} $CONTAINER_IP"
-  echo -e "${YELLOW}Management Template:${NC} $TEMPLATE_PATH"
-  echo -e "${YELLOW}Alpine Template:${NC} $ALPINE_TEMPLATE_FOR_TFVARS"
-  echo -e "${YELLOW}Grafana Password:${NC} $GRAFANA_PASSWORD"
+  print_status "${GREEN}" "=== Configuration Summary ==="
+  print_status "${YELLOW}" "Proxmox API URL: $PROXMOX_API_URL"
+  print_status "${YELLOW}" "Gateway IP: $GATEWAY"
+  print_status "${YELLOW}" "Management IP: $CONTAINER_IP"
+  print_status "${YELLOW}" "Management Template: $TEMPLATE_PATH"
+  print_status "${YELLOW}" "Alpine Template: $ALPINE_TEMPLATE_FOR_TFVARS"
+  print_status "${YELLOW}" "Grafana Password: $GRAFANA_PASSWORD"
   if [ -n "$CLOUDFLARE_TOKEN" ]; then
-    echo -e "${YELLOW}Cloudflare Token:${NC} ${CLOUDFLARE_TOKEN:0:5}*****"
+    print_status "${YELLOW}" "Cloudflare Token: ${CLOUDFLARE_TOKEN:0:5}*****"
   else
-    echo -e "${YELLOW}Cloudflare Token:${NC} Not provided"
+    print_status "${YELLOW}" "Cloudflare Token: Not provided"
   fi
 }
 
@@ -473,25 +509,25 @@ run_automated_steps() {
   read -p "Do you want to automatically run Terraform and Ansible steps? (y/n): " AUTO_CONTINUE
 
   if [[ "$AUTO_CONTINUE" =~ ^[Yy]$ ]]; then
-    echo -e "\n${GREEN}Creating LXC containers with Terraform...${NC}"
-    pct exec $CONTAINER_ID -- bash -c "cd $REPO_DIR/terraform && terraform init && terraform apply -auto-approve"
+    print_status "${GREEN}" "Creating LXC containers with Terraform..."
+    exec_in_container "cd $REPO_DIR/terraform && terraform init && terraform apply -auto-approve"
     
-    echo -e "\n${GREEN}Creating Ansible inventory...${NC}"
-    pct exec $CONTAINER_ID -- bash -c "cd $REPO_DIR && ./02_terraform_to_ansible.sh"
+    print_status "${GREEN}" "Creating Ansible inventory..."
+    exec_in_container "cd $REPO_DIR && ./02_terraform_to_ansible.sh"
     
-    echo -e "\n${GREEN}Configuring with Ansible...${NC}"
-    pct exec $CONTAINER_ID -- bash -c "cd $REPO_DIR/ansible && ansible-playbook -i inventory/all playbook.yml"
+    print_status "${GREEN}" "Configuring with Ansible..."
+    exec_in_container "cd $REPO_DIR/ansible && ansible-playbook -i inventory/all playbook.yml"
     
-    echo -e "\n${GREEN}✅ All operations completed! Your homelab is ready.${NC}"
+    print_status "${GREEN}" "✅ All operations completed! Your homelab is ready."
   else
-    echo -e "\n${YELLOW}Process stopped. You can continue manually.${NC}"
+    print_status "${YELLOW}" "Process stopped. You can continue manually."
   fi
 }
 
 # Function to display completion message
 display_completion_message() {
-  echo -e "\n${GREEN}✅ Setup and configuration completed!${NC}"
-  echo -e "${YELLOW}To continue with your homelab setup, follow these steps:${NC}"
+  print_status "${GREEN}" "✅ Setup and configuration completed!"
+  print_status "${YELLOW}" "To continue with your homelab setup, follow these steps:"
   echo -e "1. Log into the management container: ${GREEN}pct enter $CONTAINER_ID${NC}"
   echo -e "2. Create LXC containers with Terraform: ${GREEN}cd $REPO_DIR/terraform && terraform init && terraform apply${NC}"
   echo -e "3. Create Ansible inventory: ${GREEN}cd $REPO_DIR && ./02_terraform_to_ansible.sh${NC}"

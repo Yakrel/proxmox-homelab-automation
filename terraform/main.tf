@@ -145,6 +145,10 @@ resource "local_file" "ansible_inventory" {
     proxy_ip = proxmox_lxc.container["lxc-proxy-01"].network[0].ip,
     media_ip = proxmox_lxc.container["lxc-media-01"].network[0].ip,
     monitoring_ip = proxmox_lxc.container["lxc-monitoring-01"].network[0].ip,
-    logging_ip = proxmox_lxc.container["lxc-logging-01"].network[0].ip
+    logging_ip = proxmox_lxc.container["lxc-logging-01"].network[0].ip,
+    proxy_id = proxmox_lxc.container["lxc-proxy-01"].vmid,
+    media_id = proxmox_lxc.container["lxc-media-01"].vmid,
+    monitoring_id = proxmox_lxc.container["lxc-monitoring-01"].vmid,
+    logging_id = proxmox_lxc.container["lxc-logging-01"].vmid
   })
 }

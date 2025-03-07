@@ -1,8 +1,10 @@
 ---
-# media role tasks
+# Setting specific variables for media services
+- name: Set service variables
+  set_fact:
+    service_name: "media"
 
-- name: Create required directories
-  file:
-    path: "/root/media"
-    state: directory
-    mode: '0755'
+# Include common service setup tasks
+- name: Include service setup tasks
+  include_role:
+    name: service_setup

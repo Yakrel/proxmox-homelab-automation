@@ -6,3 +6,13 @@
     path: "/root/proxy"
     state: directory
     mode: '0755'
+
+# Setting specific variables for proxy services
+- name: Set service variables
+  set_fact:
+    service_name: "proxy"
+
+# Include common service setup tasks
+- name: Include service setup tasks
+  include_role:
+    name: service_setup
