@@ -1,57 +1,57 @@
-# Proxmox Provider Değişkenleri
+# Proxmox Provider Variables
 variable "proxmox_api_url" {
-  description = "Proxmox API URL'si"
+  description = "Proxmox API URL"
   type        = string
-  # Varsayılan değer YOK - Her ortam için farklı olabilir
+  # No default - differs per environment
 }
 
 variable "proxmox_user" {
-  description = "Proxmox kullanıcı adı"
+  description = "Proxmox username"
   type        = string
-  default     = "root@pam"  # Genellikle değişmez, güvenli değer
+  default     = "root@pam"  # Typically unchanged, safe default
 }
 
 variable "proxmox_password" {
-  description = "Proxmox şifresi"
+  description = "Proxmox password"
   type        = string
-  sensitive   = true  # Hassas veri olarak işaretle
+  sensitive   = true  # Mark as sensitive data
 }
 
 variable "proxmox_tls_insecure" {
-  description = "Proxmox TLS doğrulamasını devre dışı bırak"
+  description = "Disable Proxmox TLS verification"
   type        = bool
-  default     = true  # Ev ortamlarında genellikle true
+  default     = true  # Usually true in home environments
 }
 
 variable "proxmox_debug" {
-  description = "Proxmox provider debug modunu etkinleştir"
+  description = "Enable debug mode for Proxmox provider"
   type        = bool
-  default     = false  # Normalde debug kapalı
+  default     = false  # Debug disabled by default
 }
 
-# Proxmox Node Değişkeni
+# Proxmox Node Variable
 variable "proxmox_node" {
-  description = "Proxmox node adı"
+  description = "Proxmox node name"
   type        = string
-  default     = "pve01"  # Değiştirilebilir
+  default     = "pve01"  # Can be changed
 }
 
-# Network Değişkenleri
+# Network Variables
 variable "gateway" {
-  description = "Ağ geçidi IP adresi"
+  description = "Network gateway IP address"
   type        = string
-  # Varsayılan değer YOK - her ağ için farklı olabilir
+  # No default - differs per network
 }
 
 variable "nameserver" {
-  description = "DNS sunucu IP adresi"
+  description = "DNS server IP address"
   type        = string
-  default     = "1.1.1.1"  # Ortak DNS, güvenli değer
+  default     = "1.1.1.1"  # Common DNS, safe default
 }
 
-# LXC Container Tanımları
+# LXC Container Definitions
 variable "lxc_containers" {
-  description = "LXC container listesi"
+  description = "List of LXC containers"
   type = list(object({
     name        = string
     id          = number
@@ -61,26 +61,26 @@ variable "lxc_containers" {
     disk_size   = string
     description = string
   }))
-  # Varsayılan değer YOK - özel ortam yapılandırması
+  # No default - custom environment configuration
 }
 
-# Alpine Template Değişkeni
+# Alpine Template Variable
 variable "alpine_template" {
-  description = "Alpine template yolu ve dosya adı"
+  description = "Alpine template path and filename"
   type        = string
   default     = "datapool:template/cache/alpine-3.21-default_20241217_amd64.tar.xz"
 }
 
-# Container Şifre Değişkeni
+# Container Password Variable
 variable "container_password" {
-  description = "LXC container root şifresi"
+  description = "LXC container root password"
   type        = string
-  default     = "alpine"  # Güvenli bir şifre kullanılmalı
+  default     = "alpine"  # Should use a secure password
   sensitive   = true
 }
 
 variable "grafana_password" {
-  description = "Grafana admin şifresi"
+  description = "Grafana admin password"
   type        = string
   default     = "grafana"
 }

@@ -1,15 +1,15 @@
-# Bu dosyayı terraform.tfvars olarak kopyalayın ve değerleri düzenleyin
+# Copy this file as terraform.tfvars and edit the values
 
-# ------------------- GEREKLI AYARLAR -------------------
-# Proxmox erişim bilgileri
+# ------------------- REQUIRED SETTINGS -------------------
+# Proxmox access information
 proxmox_api_url  = "https://192.168.1.10:8006/api2/json"
-proxmox_password = "PROXMOX_ROOT_ŞİFRENİZİ_BURAYA_YAZIN"
+proxmox_password = "ENTER_YOUR_PROXMOX_ROOT_PASSWORD_HERE"
 
-# Ağ ayarları - Kendi ağınıza göre düzenleyin
+# Network settings - Customize for your network
 gateway = "192.168.1.1"
 
-# -------------------- CONTAINER TANIMLARI --------------------
-# Container tanımları - özelleştirebilirsiniz
+# -------------------- CONTAINER DEFINITIONS --------------------
+# Container definitions - customize as needed
 lxc_containers = [
   {
     name        = "lxc-proxy-01"
@@ -49,17 +49,17 @@ lxc_containers = [
   }
 ]
 
-# -------------------- İSTEĞE BAĞLI AYARLAR --------------------
-# Aşağıdaki ayarları değiştirmeniz genellikle gerekmez
-# proxmox_user = "root@pam"  # Varsayılan: root@pam
-# proxmox_node = "pve01"     # Varsayılan: pve01
-# nameserver = "1.1.1.1"     # Varsayılan: 1.1.1.1
+# -------------------- OPTIONAL SETTINGS --------------------
+# You usually don't need to change the settings below
+# proxmox_user = "root@pam"  # Default: root@pam
+# proxmox_node = "pve01"     # Default: pve01
+# nameserver = "1.1.1.1"     # Default: 1.1.1.1
 
-# Alpine template dizini ve dosya adı
+# Alpine template directory and filename
 alpine_template = "datapool:template/cache/alpine-3.21-default_20241217_amd64.tar.xz"
 
-# LXC Container root şifresi
-container_password = "alpine"  # Güvenli bir şifre kullanın!
+# LXC Container root password
+container_password = "alpine"  # Use a secure password!
 
-# Grafana admin şifresi
-grafana_password = "admin"  # Güvenli bir şifre kullanın!
+# Grafana admin password
+grafana_password = "admin"  # Use a secure password!

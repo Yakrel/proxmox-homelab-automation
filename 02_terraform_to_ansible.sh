@@ -1,5 +1,5 @@
 #!/bin/bash
-# Bu script, Terraform çıktılarını Ansible inventory'sine dönüştürür
+# This script converts Terraform outputs to Ansible inventory
 
 set -e
 
@@ -8,108 +8,137 @@ YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-PROJE_DIZINI=$(pwd)
+PROJECT_DIR=$(pwd)
 
-echo -e "${GREEN}🔄 Ansible Inventory Oluşturuluyor...${NC}"
+# Function to check terraform state
+check_terraform_state() {
+  echo -e "${GREEN}🔄 Creating Ansible Inventory...${NC}"
 
-# Terraform dizinine geç
-cd "${PROJE_DIZINI}/terraform"
+  # Change to Terraform directory
+  cd "${PROJECT_DIR}/terraform"
 
-# Terraform state kontrolü
-if [ ! -f terraform.tfstate ]; then
-    echo -e "${RED}❌ Terraform state dosyası bulunamadı!${NC}"
-    echo -e "${YELLOW}Lütfen önce 'terraform apply' çalıştırın.${NC}"
-    exit 1
-fi
-
-# Terraform çıktısını al
-echo -e "${GREEN}🔄 Terraform çıktıları alınıyor...${NC}"
-terraform output -json lxc_containers > "${PROJE_DIZINI}/containers.json" || { 
-    echo -e "${RED}❌ Terraform çıktısı alınamadı!${NC}" 
-    echo -e "${YELLOW}Hata detayı: terraform output komutu başarısız oldu.${NC}"
-    exit 1 
+  # Check terraform state
+  if [ ! -f terraform.tfstate ]; then
+      echo -e "${RED}❌ Terraform state file not found!${NC}"
+      echo -e "${YELLOW}Please run 'terraform apply' first.${NC}"
+      return 1
+  fi
+  
+  return 0
 }
 
-# Çıktı dosyası kontrol
-if [ ! -s "${PROJE_DIZINI}/containers.json" ]; then
-    echo -e "${RED}❌ Terraform çıktısı boş veya oluşturulamadı.${NC}"
-    echo -e "${YELLOW}Lütfen terraform.tfstate dosyasını kontrol edin ve tekrar deneyin.${NC}"
-    exit 1
-fi
+# Function to get terraform outputs
+get_terraform_outputs() {
+  echo -e "${GREEN}🔄 Getting Terraform outputs...${NC}"
+  terraform output -json lxc_containers > "${PROJECT_DIR}/containers.json" || { 
+      echo -e "${RED}❌ Failed to get Terraform outputs!${NC}" 
+      echo -e "${YELLOW}Error details: terraform output command failed.${NC}"
+      return 1 
+  }
 
-# Container'ların boot işlemini tamamlamasını bekle
-echo -e "${GREEN}🔄 Container'ların boot işlemini tamamlaması bekleniyor...${NC}"
+  # Check if output file exists and is not empty
+  if [ ! -s "${PROJECT_DIR}/containers.json" ]; then
+      echo -e "${RED}❌ Terraform output is empty or could not be created.${NC}"
+      echo -e "${YELLOW}Please check your terraform.tfstate file and try again.${NC}"
+      return 1
+  fi
+  
+  return 0
+}
 
+# Function to wait for SSH
 wait_for_ssh() {
     local host=$1
     local max_attempts=30
     local delay=5
     local attempt=1
 
-    echo -e "  ${YELLOW}🖥️ $host için SSH bağlantısı kontrol ediliyor...${NC}"
+    echo -e "  ${YELLOW}🖥️ Checking SSH connectivity for $host...${NC}"
     while [ $attempt -le $max_attempts ]; do
         if nc -z -w5 $host 22 &> /dev/null; then
-            echo -e "  ${GREEN}✅ $host SSH hazır! ($attempt. deneme)${NC}"
+            echo -e "  ${GREEN}✅ $host SSH ready! (attempt $attempt)${NC}"
             return 0
         fi
-        echo -e "  ${YELLOW}⏳ $host henüz hazır değil, bekleniyor... ($attempt/$max_attempts)${NC}"
+        echo -e "  ${YELLOW}⏳ $host not ready yet, waiting... ($attempt/$max_attempts)${NC}"
         sleep $delay
         attempt=$((attempt+1))
     done
     
-    echo -e "  ${RED}❌ $host için SSH zaman aşımı! Manuel kontrol gerekiyor.${NC}"
+    echo -e "  ${RED}❌ SSH timeout for $host! Manual check required.${NC}"
     return 1
 }
 
-# Inventory dizinini oluştur
-mkdir -p "${PROJE_DIZINI}/ansible/inventory"
+# Function to create inventory file
+create_inventory_file() {
+  echo -e "${GREEN}📝 Creating Ansible inventory...${NC}"
 
-# Tüm IP adreslerini çıkar
-CONTAINER_IPS=($(jq -r '.[] | .ip' "${PROJE_DIZINI}/containers.json" | cut -d'/' -f1))
+  # Create base inventory file
+  {
+  echo "[proxy]"
+  jq -r '.["lxc-proxy-01"].ip' "${PROJECT_DIR}/containers.json" | cut -d'/' -f1 | awk '{print "lxc-proxy-01 ansible_host="$1}'
+  echo ""
+  echo "[media]"
+  jq -r '.["lxc-media-01"].ip' "${PROJECT_DIR}/containers.json" | cut -d'/' -f1 | awk '{print "lxc-media-01 ansible_host="$1}'
+  echo ""
+  echo "[monitoring]"
+  jq -r '.["lxc-monitoring-01"].ip' "${PROJECT_DIR}/containers.json" | cut -d'/' -f1 | awk '{print "lxc-monitoring-01 ansible_host="$1}'
+  echo ""
+  echo "[logging]"
+  jq -r '.["lxc-logging-01"].ip' "${PROJECT_DIR}/containers.json" | cut -d'/' -f1 | awk '{print "lxc-logging-01 ansible_host="$1}'
+  echo ""
+  echo "[lxc:children]"
+  echo "proxy"
+  echo "media"
+  echo "monitoring"
+  echo "logging"
+  echo ""
+  echo "[lxc:vars]"
+  echo "ansible_user=root"
+  echo "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
+  } > "${PROJECT_DIR}/ansible/inventory/all"
 
-if [ ${#CONTAINER_IPS[@]} -eq 0 ]; then
-    echo -e "${RED}❌ Terraform çıktısından IP adresleri alınamadı!${NC}"
-    echo -e "${YELLOW}containers.json dosyasını kontrol edin.${NC}"
-    cat "${PROJE_DIZINI}/containers.json"
-    exit 1
-fi
+  return 0
+}
 
-# IP'lerin bağlanabilirliği kontrol et
-for host in "${CONTAINER_IPS[@]}"; do
-    wait_for_ssh $host
-done
+# Main execution flow
+main() {
+  # Check terraform state
+  check_terraform_state || exit 1
 
-# Inventory dosyasını oluştur
-echo -e "${GREEN}📝 Ansible inventory oluşturuluyor...${NC}"
+  # Get terraform outputs
+  get_terraform_outputs || exit 1
 
-# Önce temel inventory dosyasını oluştur
-{
-echo "[proxy]"
-jq -r '.["lxc-proxy-01"].ip' "${PROJE_DIZINI}/containers.json" | cut -d'/' -f1 | awk '{print "lxc-proxy-01 ansible_host="$1}'
-echo ""
-echo "[media]"
-jq -r '.["lxc-media-01"].ip' "${PROJE_DIZINI}/containers.json" | cut -d'/' -f1 | awk '{print "lxc-media-01 ansible_host="$1}'
-echo ""
-echo "[monitoring]"
-jq -r '.["lxc-monitoring-01"].ip' "${PROJE_DIZINI}/containers.json" | cut -d'/' -f1 | awk '{print "lxc-monitoring-01 ansible_host="$1}'
-echo ""
-echo "[logging]"
-jq -r '.["lxc-logging-01"].ip' "${PROJE_DIZINI}/containers.json" | cut -d'/' -f1 | awk '{print "lxc-logging-01 ansible_host="$1}'
-echo ""
-echo "[lxc:children]"
-echo "proxy"
-echo "media"
-echo "monitoring"
-echo "logging"
-echo ""
-echo "[lxc:vars]"
-echo "ansible_user=root"
-echo "ansible_ssh_common_args='-o StrictHostKeyChecking=no'"
-} > "${PROJE_DIZINI}/ansible/inventory/all"
+  # Create inventory directory
+  mkdir -p "${PROJECT_DIR}/ansible/inventory"
 
-# Temizlik
-rm "${PROJE_DIZINI}/containers.json"
+  # Extract all IP addresses
+  CONTAINER_IPS=($(jq -r '.[] | .ip' "${PROJECT_DIR}/containers.json" | cut -d'/' -f1))
 
-echo -e "${GREEN}✅ Ansible inventory başarıyla oluşturuldu: ${PROJE_DIZINI}/ansible/inventory/all${NC}"
-echo -e "${YELLOW}Şimdi Ansible playbook'u çalıştırabilirsiniz:${NC}"
-echo -e "${GREEN}cd ${PROJE_DIZINI}/ansible && ansible-playbook -i inventory/all playbook.yml${NC}"
+  if [ ${#CONTAINER_IPS[@]} -eq 0 ]; then
+      echo -e "${RED}❌ Failed to get IP addresses from Terraform output!${NC}"
+      echo -e "${YELLOW}Please check the containers.json file.${NC}"
+      cat "${PROJECT_DIR}/containers.json"
+      exit 1
+  fi
+
+  # Wait for containers to boot and SSH to be available
+  echo -e "${GREEN}🔄 Waiting for containers to complete boot process...${NC}"
+
+  # Check connectivity for each IP
+  for host in "${CONTAINER_IPS[@]}"; do
+      wait_for_ssh $host
+  done
+
+  # Create inventory file
+  create_inventory_file || exit 1
+
+  # Cleanup
+  rm "${PROJECT_DIR}/containers.json"
+
+  echo -e "${GREEN}✅ Ansible inventory successfully created: ${PROJECT_DIR}/ansible/inventory/all${NC}"
+  echo -e "${YELLOW}You can now run the Ansible playbook:${NC}"
+  echo -e "${GREEN}cd ${PROJECT_DIR}/ansible && ansible-playbook -i inventory/all playbook.yml${NC}"
+}
+
+# Run the main function
+main

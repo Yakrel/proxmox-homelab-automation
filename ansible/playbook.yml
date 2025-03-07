@@ -13,7 +13,7 @@
   tasks:
     - name: Copy docker-compose.yml for proxy
       copy:
-        src: "../../../docker/proxy/docker-compose.yml"
+        src: "{{ playbook_dir }}/../docker/proxy/docker-compose.yml"
         dest: "/root/proxy/docker-compose.yml"
         mode: '0644'
     - name: Start proxy services with docker-compose
@@ -29,7 +29,7 @@
   tasks:
     - name: Copy docker-compose.yml for media
       copy:
-        src: "../../../docker/media/docker-compose.yml"
+        src: "{{ playbook_dir }}/../docker/media/docker-compose.yml"
         dest: "/root/media/docker-compose.yml"
         mode: '0644'
     - name: Start media services with docker-compose
@@ -45,7 +45,7 @@
   tasks:
     - name: Copy docker-compose.yml for monitoring
       copy:
-        src: "../../../docker/monitoring/docker-compose.yml"
+        src: "{{ playbook_dir }}/../docker/monitoring/docker-compose.yml"
         dest: "/root/monitoring/docker-compose.yml"
         mode: '0644'
     - name: Start monitoring services with docker-compose
@@ -61,7 +61,7 @@
   tasks:
     - name: Copy docker-compose.yml for logging
       copy:
-        src: "../../../docker/logging/docker-compose.yml"
+        src: "{{ playbook_dir }}/../docker/logging/docker-compose.yml"
         dest: "/root/logging/docker-compose.yml"
         mode: '0644'
     - name: Start logging services with docker-compose

@@ -1,13 +1,13 @@
-# Terraform ile Proxmox Altyapı Otomasyonu
+# Terraform for Proxmox Infrastructure Automation
 
-Bu klasör, Proxmox üzerinde LXC container'ları ve ilgili altyapıyı oluşturmak için Terraform kodlarını içerir.
-Terraform **sadece** altyapı oluşturmaktan sorumludur, container içi yapılandırmalar Ansible ile yapılır.
+This directory contains Terraform code for creating LXC containers and related infrastructure on Proxmox.
+Terraform is **only** responsible for creating infrastructure; container configurations are done with Ansible.
 
-## Kurulum Adımları
+## Setup Steps
 
-1. `terraform.tfvars.example` dosyasını `terraform.tfvars` olarak kopyalayın
-2. `terraform.tfvars` dosyasını düzenleyerek Proxmox şifrenizi ve diğer gerekli bilgileri girin
-3. Aşağıdaki komutları çalıştırın:
+1. Copy `terraform.tfvars.example` as `terraform.tfvars`
+2. Edit `terraform.tfvars` with your Proxmox password and other required information
+3. Run the following commands:
 
 ```bash
 terraform init
@@ -15,30 +15,30 @@ terraform plan
 terraform apply
 ```
 
-4. Terraform işlemini bitirdikten sonra, inventory oluşturmak için:
+4. After Terraform finishes, create inventory with:
 
 ```bash
 cd ..
-./generate_inventory.sh
+./02_terraform_to_ansible.sh
 ```
 
-5. Ansible ile container içi yapılandırmaları yapın:
+5. Configure containers with Ansible:
 
 ```bash
 cd ansible
 ansible-playbook -i inventory/all playbook.yml
 ```
 
-## Terraform'un Sorumlu Olduğu İşlemler:
+## Terraform Responsibilities:
 
-- LXC container oluşturma (Alpine Linux)
-- Network yapılandırması
-- Storage mount noktalarının ayarlanması
-- Gerekli dizinlerde izinlerin ayarlanması (/datapool/config, /datapool/media, /datapool/torrents)
+- Creating LXC containers (Alpine Linux)
+- Network configuration
+- Storage mount points setup
+- Setting permissions on required directories (/datapool/config, /datapool/media, /datapool/torrents)
 
-## Ansible'ın Sorumlu Olduğu İşlemler:
+## Ansible Responsibilities:
 
-- Docker ve Docker Compose kurulumu
-- SSH anahtarı dağıtımı ve güvenlik yapılandırmaları
-- Servis yapılandırmaları
-- Docker Compose dosyalarının yerleştirilmesi ve başlatılması
+- Docker and Docker Compose installation
+- SSH key distribution and security configurations
+- Service configurations
+- Deploying and starting Docker Compose files

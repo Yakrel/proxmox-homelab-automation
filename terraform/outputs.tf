@@ -1,5 +1,5 @@
 output "lxc_containers" {
-  description = "Oluşturulan LXC containerlar"
+  description = "Created LXC containers"
   value = {
     for name, container in proxmox_lxc.container : name => {
       id   = container.vmid

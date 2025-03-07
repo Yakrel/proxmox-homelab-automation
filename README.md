@@ -1,96 +1,96 @@
-# Proxmox Terraform ve Ansible ile Homelab Otomasyon
+# Proxmox Terraform and Ansible Homelab Automation
 
-Bu repo, Proxmox üzerinde LXC container'ları oluşturmak ve yapılandırmak için Terraform ve Ansible kullanımını içerir. Özellikle Docker Compose ile çalışan servislerin otomatik kurulumunu hedeflemektedir.
+This repository provides automation for creating and configuring LXC containers on Proxmox using Terraform and Ansible, specifically for automatically deploying services with Docker Compose.
 
-## Hızlı Başlangıç
+## Quick Start
 
-Bu projeyi kullanmak için aşağıdaki adımları izleyin:
+To use this project, follow these steps:
 
-1. **Management Container Kurulumu**:
-   - `setup_homelab.sh` scriptini GitHub'dan indirin
-   - Proxmox host üzerinde bu scripti çalıştırın
-   - Script, Proxmox'ta management container (ID:900) oluşturacak ve gerekli araçları kuracaktır
+1. **Management Container Setup**:
+   - Download the `setup_homelab.sh` script from GitHub
+   - Run this script on your Proxmox host
+   - The script will create a management container (ID:900) and install necessary tools
 
-2. **Diğer LXC'lerin Kurulumu (Management Container İçinde)**:
-   - Management container'a SSH veya Console ile girin
-   - Repository'yi klonlayın
-   - Terraform, Ansible ile diğer container'ları oluşturun ve yapılandırın
+2. **Other LXC Setup (Inside Management Container)**:
+   - SSH or Console into the management container
+   - Clone the repository
+   - Use Terraform and Ansible to create and configure other containers
 
-## Sistem Mimarisi
+## System Architecture
 
-### LXC Containerları
-Her biri izole edilmiş ve özel networke sahip servis grupları:
+### LXC Containers
+Each with isolated environments and dedicated networks for service groups:
 
-1. **Management Container**: ID 900 (veya sizin belirlediğiniz)
-   - **İşletim Sistemi**: Ubuntu 24.04 veya Debian 12 (kurulum sırasında seçilebilir)
-   - Terraform, Ansible ve diğer otomasyon araçları
-   - Diğer container'ların oluşturulması ve yapılandırması buradan yönetilir
+1. **Management Container**: ID 900 (or custom ID)
+   - **Operating System**: Ubuntu 24.04 or Debian 12 (selectable during setup)
+   - Terraform, Ansible and other automation tools
+   - Management of other container creation and configuration
 
 2. **Proxy Stack**: ID 125, IP 192.168.1.125
-   - **İşletim Sistemi**: Alpine Linux
-   - **Kaynaklar**: 2GB RAM, 2 CPU çekirdek
+   - **Operating System**: Alpine Linux
+   - **Resources**: 2GB RAM, 2 CPU cores
    - Cloudflared (Cloudflare tunnel)
    - AdGuard Home (DNS Server)
    - Watchtower
 
 3. **Media Stack**: ID 102, IP 192.168.1.102
-   - **İşletim Sistemi**: Alpine Linux
-   - **Kaynaklar**: 16GB RAM, 4 CPU çekirdek
-   - Medya servisleri (Sonarr, Radarr, Bazarr, Jellyfin, Jellyseerr)
-   - İndirme araçları (qBittorrent, Prowlarr)
-   - Destek servisleri (FlareSolverr, Watchtower, Recyclarr, Youtube-dl)
+   - **Operating System**: Alpine Linux
+   - **Resources**: 16GB RAM, 4 CPU cores
+   - Media services (Sonarr, Radarr, Bazarr, Jellyfin, Jellyseerr)
+   - Download tools (qBittorrent, Prowlarr)
+   - Support services (FlareSolverr, Watchtower, Recyclarr, Youtube-dl)
 
 4. **Monitoring Stack**: ID 103, IP 192.168.1.103
-   - **İşletim Sistemi**: Alpine Linux
-   - **Kaynaklar**: 4GB RAM, 2 CPU çekirdek
+   - **Operating System**: Alpine Linux
+   - **Resources**: 4GB RAM, 2 CPU cores
    - Prometheus, Grafana, Alertmanager, Node Exporter, Watchtower
 
 5. **Logging Stack**: ID 104, IP 192.168.1.104
-   - **İşletim Sistemi**: Alpine Linux
-   - **Kaynaklar**: 4GB RAM, 2 CPU çekirdek
+   - **Operating System**: Alpine Linux
+   - **Resources**: 4GB RAM, 2 CPU cores
    - Elasticsearch, Logstash, Kibana, Filebeat, Watchtower
 
-### Erişim Yönetimi
+### Access Management
 
-- **Management Container**: Proxmox üzerinden konsoldan root erişimi (şifresiz)
-- **Diğer LXC'ler**: 
-  - Proxmox üzerinden konsoldan root erişimi (şifresiz)
-  - Management container üzerinden Ansible erişimi (SSH key tabanlı)
-  - Dış ağdan doğrudan erişim kapalı
+- **Management Container**: Console root access via Proxmox (passwordless)
+- **Other LXCs**: 
+  - Console root access via Proxmox (passwordless)
+  - Ansible access from management container (SSH key-based)
+  - No direct external network access
 
-## Depolama Yapısı
+## Storage Structure
 
-### Oluşturulan Dizin Yapısı
+### Created Directory Structure
 ```
-/datapool/                       # ZFS pool mount noktası (mevcut olmalı)
-├── config/                      # Tüm servis konfigürasyonları (script oluşturur)
+/datapool/                       # ZFS pool mount point (must exist)
+├── config/                      # All service configurations (created by script)
 │   ├── sonarr-config/
 │   ├── radarr-config/
 │   ├── prometheus-config/
 │   ├── elasticsearch-config/
 │   └── ...
-├── media/                       # Ana medya kütüphanesi (script oluşturur)
-│   ├── movies/                  # Filmler
-│   ├── tv/                      # Diziler
-│   └── youtube/                 # Youtube indirmeleri
-└── torrents/                    # İndirme klasörü (script oluşturur)
-    ├── movies/                  # Film indirmeleri
-    └── tv/                      # Dizi indirmeleri
+├── media/                       # Main media library (created by script)
+│   ├── movies/                  # Movies
+│   ├── tv/                      # TV shows
+│   └── youtube/                 # YouTube downloads
+└── torrents/                    # Download folder (created by script)
+    ├── movies/                  # Movie downloads
+    └── tv/                      # TV show downloads
 ```
 
-## Önemli Notlar
+## Important Notes
 
-- Tüm Docker verileri `/datapool` altında depolanır, böylece container'lar silinse bile veriler kalır
-- Alpine Linux container'larında Docker ve Docker Compose otomatik olarak kurulur
-- Management LXC için Ubuntu veya Debian seçeneği sunulmuştur - Debian daha hafiftir
-- Watchtower her stack için ayrı çalışır ve güncellemeleri otomatik yapar
-- Docker Compose dosyaları her LXC'nin kök dizinine (`/root`) kopyalanır ve çalıştırılır
-- CPU ve RAM değerleri 32GB RAM'li bir sunucuya göre optimize edilmiştir, gerekirse değiştirebilirsiniz
-- LXC Container'lar için RAM değerleri katı sınır değil, kullanılmayan RAM diğer container'lar tarafından kullanılabilir
+- All Docker data is stored under `/datapool`, so data persists even if containers are deleted
+- Docker and Docker Compose are automatically installed on Alpine Linux containers
+- Ubuntu or Debian options are provided for the management LXC - Debian is lighter
+- Watchtower runs separately for each stack and automatically updates them
+- Docker Compose files are copied to the root directory (`/root`) of each LXC and executed
+- CPU and RAM values are optimized for a server with 32GB RAM, adjust if necessary
+- RAM values for LXC containers are not strict limits, unused RAM can be utilized by other containers
 
-## Yapılandırma
+## Configuration
 
-- `setup_homelab.sh`: Management LXC oluşturma ve yapılandırma işlemleri için tüm adımları içerir
-- `terraform/terraform.tfvars.example`: LXC Container yapılandırma örneği, kullanmadan önce `terraform.tfvars` olarak kopyalayın
-- `docker/`: Her servis için Docker Compose yapılandırma dosyaları
-- `ansible/`: Tüm container'ların otomatik yapılandırılması için Ansible playbook'ları
+- `setup_homelab.sh`: Contains all steps for creating and configuring the management LXC
+- `terraform/terraform.tfvars.example`: Example LXC container configuration, copy to `terraform.tfvars` before use
+- `docker/`: Docker Compose configuration files for each service
+- `ansible/`: Ansible playbooks for automatic configuration of all containers

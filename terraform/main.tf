@@ -1,4 +1,4 @@
-# LXC Container oluşturma
+# LXC Container creation
 resource "proxmox_lxc" "container" {
   for_each = { for container in var.lxc_containers : container.name => container }
   
@@ -11,20 +11,20 @@ resource "proxmox_lxc" "container" {
   start        = true
   onboot       = true
 
-  # Console erişimi
+  # Console access
   tty          = 2
   cmode        = "console"
   console      = true
   
-  # Root şifre
-  password     = var.container_password  # Basit şifre, Ansible ile değiştirilecek
+  # Root password
+  password     = var.container_password  # Simple password, will be changed by Ansible
 
   # Resources
   cores  = each.value.cores
   memory = each.value.memory
   swap   = 512
 
-  # Root Disk - datapool'daki images klasörüne oluşturulacak
+  # Root Disk - created in the images folder on datapool
   rootfs {
     storage = "datapool"
     size    = each.value.disk_size
@@ -48,51 +48,73 @@ resource "proxmox_lxc" "container" {
     fuse    = true
   }
 
-  # Mount datapool - 4TB boyut ve ACL etkin
+  # Mount datapool - 4TB size with ACL enabled
   mountpoint {
     key     = "mp0"
     slot    = 0
     storage = "datapool"
     mp      = "/datapool"
-    size    = "4T"  # 4TB disk boyutu tanımlandı
-    acl     = true  # Genişletilmiş erişim kontrolü etkinleştirildi
+    size    = "4T"  # 4TB disk size defined
+    acl     = true  # Extended access control enabled
   }
 }
 
-# Alpine LXC'lere SSH kurulumu (Ansible bağlantısı için gerekli)
+# SSH setup for Alpine LXCs (required for Ansible connection)
 resource "null_resource" "ssh_setup" {
   depends_on = [proxmox_lxc.container]
 
-  # Her container için ayrı bir provisioner
+  # Separate provisioner for each container
   for_each = { for container in var.lxc_containers : container.name => container }
 
-  # Container başlamadan provisionerlar çalışmasın diye 
-  # bekletiyoruz
+  # Wait for containers to start before running provisioners
   provisioner "local-exec" {
     command = "sleep 10"
   }
 
-  # Bir log dosyası oluştur (opsiyonel ama yararlı)
+  # Create a log file (optional but useful)
   provisioner "local-exec" {
     command = "echo 'SSH Setup for ${each.value.name} (ID: ${each.value.id}) - $(date)' > ssh_setup_${each.value.id}.log"
   }
 
-  # SSH ve diğer gereksinimleri kur
+  # Install SSH and other requirements
   provisioner "local-exec" {
     command = <<-EOT
       echo "Installing SSH for container ${each.value.id}..." >> ssh_setup_${each.value.id}.log
-      pct exec ${each.value.id} -- ash -c "apk update" >> ssh_setup_${each.value.id}.log 2>&1 || true
-      pct exec ${each.value.id} -- ash -c "apk add openssh" >> ssh_setup_${each.value.id}.log 2>&1 || true
-      pct exec ${each.value.id} -- ash -c "rc-update add sshd" >> ssh_setup_${each.value.id}.log 2>&1 || true
-      pct exec ${each.value.id} -- ash -c "mkdir -p /etc/ssh/" >> ssh_setup_${each.value.id}.log 2>&1 || true
-      pct exec ${each.value.id} -- ash -c 'echo "PermitRootLogin yes" >> /etc/ssh/sshd_config' >> ssh_setup_${each.value.id}.log 2>&1 || true
-      pct exec ${each.value.id} -- ash -c 'echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config' >> ssh_setup_${each.value.id}.log 2>&1 || true
-      pct exec ${each.value.id} -- ash -c "/etc/init.d/sshd start" >> ssh_setup_${each.value.id}.log 2>&1 || true
-      echo "SSH setup completed for container ${each.value.id}" >> ssh_setup_${each.value.id}.log
+      # Update package index - continue even if there are non-critical errors
+      pct exec ${each.value.id} -- ash -c "apk update" >> ssh_setup_${each.value.id}.log 2>&1
+      if [ $? -gt 1 ]; then
+        echo "ERROR: Failed to update package index for container ${each.value.id}" >> ssh_setup_${each.value.id}.log
+        exit 1
+      fi
+      
+      # Install openssh package
+      pct exec ${each.value.id} -- ash -c "apk add openssh" >> ssh_setup_${each.value.id}.log 2>&1
+      if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to install SSH for container ${each.value.id}" >> ssh_setup_${each.value.id}.log
+        exit 1
+      fi
+      
+      # Add SSH to startup
+      pct exec ${each.value.id} -- ash -c "rc-update add sshd" >> ssh_setup_${each.value.id}.log 2>&1
+      
+      # Create SSH config directory
+      pct exec ${each.value.id} -- ash -c "mkdir -p /etc/ssh/" >> ssh_setup_${each.value.id}.log 2>&1
+      
+      # Configure SSH for root login
+      pct exec ${each.value.id} -- ash -c 'echo "PermitRootLogin yes" >> /etc/ssh/sshd_config' >> ssh_setup_${each.value.id}.log 2>&1
+      pct exec ${each.value.id} -- ash -c 'echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config' >> ssh_setup_${each.value.id}.log 2>&1
+      
+      # Start SSH service
+      pct exec ${each.value.id} -- ash -c "/etc/init.d/sshd start" >> ssh_setup_${each.value.id}.log 2>&1
+      if [ $? -ne 0 ]; then
+        echo "WARNING: Failed to start SSH service for container ${each.value.id}" >> ssh_setup_${each.value.id}.log
+      else
+        echo "SSH setup completed successfully for container ${each.value.id}" >> ssh_setup_${each.value.id}.log
+      fi
     EOT
   }
 
-  # SSH servisi başladıktan sonra bağlantı kontrolü yap
+  # Check SSH connectivity after service starts
   provisioner "local-exec" {
     command = <<-EOT
       echo "Checking SSH connectivity for ${each.value.ip}..." >> ssh_setup_${each.value.id}.log
@@ -114,7 +136,7 @@ resource "null_resource" "ssh_setup" {
   }
 }
 
-# Ansible inventory dosyasını otomatik oluştur
+# Automatically generate Ansible inventory file
 resource "local_file" "ansible_inventory" {
   depends_on = [null_resource.ssh_setup]
   

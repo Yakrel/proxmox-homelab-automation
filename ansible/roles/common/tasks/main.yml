@@ -1,5 +1,5 @@
 ---
-# Common role tasks - Tüm containerlar için ortak yapılandırmalar
+# Common role tasks - Common configurations for all containers
 
 - name: Update package cache
   apk:
@@ -39,7 +39,7 @@
   timezone:
     name: Europe/Istanbul
 
-# Autologin yapılandırması için
+# Autologin configuration for Proxmox console
 - name: Configure autologin for Proxmox console
   block:
     - name: Check if inittab exists
@@ -55,13 +55,13 @@
         state: present
       when: inittab_file.stat.exists
 
-    # Shadow dosyasında root şifresini kaldırma
+    # Remove root password in shadow file
     - name: Remove root password (for autologin)
       user:
         name: root
         password: ''
 
-# SSH güvenliği için (Ansible bağlantısı tamamlandıktan sonra)
+# SSH security (after Ansible connection is completed)
 - name: Configure SSH for security
   block:
     - name: Ensure .ssh directory exists
@@ -95,11 +95,3 @@
       service:
         name: sshd
         state: restarted
-
-- name: Copy Docker Compose files to root directory
-  copy:
-    src: /path/to/docker-compose-files/
-    dest: /root/docker-compose-files/
-    owner: root
-    group: root
-    mode: '0755'
