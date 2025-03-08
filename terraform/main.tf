@@ -71,35 +71,10 @@ resource "null_resource" "ssh_setup" {
   # Separate resource for each container
   for_each = { for container in var.lxc_containers : container.name => container }
 
-  provisioner "local-exec" {
-    command = "sleep 30"
-  }
-
   # Copy script to a predictable location and run it
   provisioner "local-exec" {
     command = "${path.module}/scripts/setup_ssh.sh ${each.value.id}"
     
-    on_failure = continue
-  }
-
-  # Check SSH connectivity after service starts
-  provisioner "local-exec" {
-    command = <<-EOT
-      echo "Checking SSH connectivity for ${each.value.ip}..." >> ssh_setup_${each.value.id}.log
-      ATTEMPTS=0
-      MAX_ATTEMPTS=30
-      while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
-        if nc -z -w5 ${each.value.ip} 22; then
-          echo "SUCCESS: SSH is up on ${each.value.ip} (container ${each.value.id})" >> ssh_setup_${each.value.id}.log
-          exit 0
-        fi
-        echo "Waiting for SSH on ${each.value.ip}... (attempt $((ATTEMPTS+1))/$MAX_ATTEMPTS)" >> ssh_setup_${each.value.id}.log
-        ATTEMPTS=$((ATTEMPTS+1))
-        sleep 5
-      done
-      echo "WARNING: Could not verify SSH on ${each.value.ip} after $MAX_ATTEMPTS attempts" >> ssh_setup_${each.value.id}.log
-      exit 0  # Always exit with success to not fail the Terraform apply
-    EOT
     on_failure = continue
   }
 }
