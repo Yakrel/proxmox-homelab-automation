@@ -1,6 +1,54 @@
 ---
 # Common role tasks - Common configurations for all containers
 
+- name: Check if SSH is installed
+  shell: "which sshd || echo 'not-installed'"
+  register: ssh_installed
+  changed_when: false
+  ignore_errors: yes
+
+- name: Install SSH (if not installed)
+  block:
+    - name: Update package cache
+      apk:
+        update_cache: yes
+      ignore_errors: yes
+      
+    - name: Install OpenSSH
+      apk:
+        name: openssh
+        state: present
+      
+    - name: Create SSH directory
+      file:
+        path: /etc/ssh
+        state: directory
+        mode: '0755'
+      
+    - name: Configure SSH for root login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin yes'
+        create: yes
+
+    - name: Configure SSH for password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: 'PasswordAuthentication yes'
+        create: yes
+      
+    - name: Add SSH to startup
+      command: rc-update add sshd
+      ignore_errors: yes
+      
+    - name: Start SSH service
+      service:
+        name: sshd
+        state: started
+  when: ssh_installed.stdout == 'not-installed'
+
 - name: Update package cache
   apk:
     update_cache: yes

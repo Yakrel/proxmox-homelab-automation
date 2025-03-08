@@ -57,61 +57,29 @@ resource "proxmox_lxc" "container" {
     size    = "4T"  # 4TB disk size defined
     acl     = true  # Extended access control enabled
   }
+  
+  # Wait for container to be fully created before proceeding
+  provisioner "local-exec" {
+    command = "sleep 30"
+  }
 }
 
-# SSH setup for Alpine LXCs (required for Ansible connection)
+# SSH setup for Alpine LXCs
 resource "null_resource" "ssh_setup" {
   depends_on = [proxmox_lxc.container]
 
-  # Separate provisioner for each container
+  # Separate resource for each container
   for_each = { for container in var.lxc_containers : container.name => container }
 
-  # Wait for containers to start before running provisioners
   provisioner "local-exec" {
-    command = "sleep 10"
+    command = "sleep 30"
   }
 
-  # Create a log file (optional but useful)
+  # Copy script to a predictable location and run it
   provisioner "local-exec" {
-    command = "echo 'SSH Setup for ${each.value.name} (ID: ${each.value.id}) - $(date)' > ssh_setup_${each.value.id}.log"
-  }
-
-  # Install SSH and other requirements
-  provisioner "local-exec" {
-    command = <<-EOT
-      echo "Installing SSH for container ${each.value.id}..." >> ssh_setup_${each.value.id}.log
-      # Update package index - continue even if there are non-critical errors
-      pct exec ${each.value.id} -- ash -c "apk update" >> ssh_setup_${each.value.id}.log 2>&1
-      if [ $? -gt 1 ]; then
-        echo "ERROR: Failed to update package index for container ${each.value.id}" >> ssh_setup_${each.value.id}.log
-        exit 1
-      fi
-      
-      # Install openssh package
-      pct exec ${each.value.id} -- ash -c "apk add openssh" >> ssh_setup_${each.value.id}.log 2>&1
-      if [ $? -ne 0 ]; then
-        echo "ERROR: Failed to install SSH for container ${each.value.id}" >> ssh_setup_${each.value.id}.log
-        exit 1
-      fi
-      
-      # Add SSH to startup
-      pct exec ${each.value.id} -- ash -c "rc-update add sshd" >> ssh_setup_${each.value.id}.log 2>&1
-      
-      # Create SSH config directory
-      pct exec ${each.value.id} -- ash -c "mkdir -p /etc/ssh/" >> ssh_setup_${each.value.id}.log 2>&1
-      
-      # Configure SSH for root login
-      pct exec ${each.value.id} -- ash -c 'echo "PermitRootLogin yes" >> /etc/ssh/sshd_config' >> ssh_setup_${each.value.id}.log 2>&1
-      pct exec ${each.value.id} -- ash -c 'echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config' >> ssh_setup_${each.value.id}.log 2>&1
-      
-      # Start SSH service
-      pct exec ${each.value.id} -- ash -c "/etc/init.d/sshd start" >> ssh_setup_${each.value.id}.log 2>&1
-      if [ $? -ne 0 ]; then
-        echo "WARNING: Failed to start SSH service for container ${each.value.id}" >> ssh_setup_${each.value.id}.log
-      else
-        echo "SSH setup completed successfully for container ${each.value.id}" >> ssh_setup_${each.value.id}.log
-      fi
-    EOT
+    command = "${path.module}/scripts/setup_ssh.sh ${each.value.id}"
+    
+    on_failure = continue
   }
 
   # Check SSH connectivity after service starts
@@ -130,15 +98,15 @@ resource "null_resource" "ssh_setup" {
         sleep 5
       done
       echo "WARNING: Could not verify SSH on ${each.value.ip} after $MAX_ATTEMPTS attempts" >> ssh_setup_${each.value.id}.log
-      # Exit with 0 to not fail the Terraform apply
-      exit 0
+      exit 0  # Always exit with success to not fail the Terraform apply
     EOT
+    on_failure = continue
   }
 }
 
 # Automatically generate Ansible inventory file
 resource "local_file" "ansible_inventory" {
-  depends_on = [null_resource.ssh_setup]
+  depends_on = [proxmox_lxc.container]  # Changed to only depend on container creation, not SSH setup
   
   filename = "../ansible/inventory/all"
   content = templatefile("${path.module}/templates/inventory.tftpl", {

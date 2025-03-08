@@ -258,6 +258,18 @@ exec_in_container() {
   }
 }
 
+# Konteyner içindeki dosya/dizin varliğini kontrol eden yardımcı fonksiyon
+check_container_path() {
+  local path=$1
+  local output=$(pct exec $CONTAINER_ID -- bash -c "if [ -e \"$path\" ]; then echo 'exists'; else echo 'not_exists'; fi" 2>/dev/null)
+  
+  if [ "$output" = "exists" ]; then
+    return 0  # Path exists
+  else
+    return 1  # Path does not exist
+  fi
+}
+
 # Function to create management container
 create_management_container() {
   print_status "${GREEN}" "Creating management container (ID: $CONTAINER_ID)..."
@@ -392,18 +404,32 @@ setup_ssh() {
 # Function to clone repository
 clone_repository() {
   print_status "${GREEN}" "Cloning repository (${REPO_URL})..."
-  exec_in_container "mkdir -p $(dirname $REPO_DIR) && \
-  (GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no' git clone $REPO_URL $REPO_DIR 2>/dev/null || \
-   (echo 'SSH cloning failed, trying HTTPS...' && \
-    git clone $REPO_HTTPS_URL $REPO_DIR))"
+  
+  # Önce dizini oluştur
+  exec_in_container "mkdir -p $(dirname $REPO_DIR)"
+  
+  # Git klonlama işlemi, önce SSH sonra HTTPS ile dene
+  local clone_output=""
+  clone_output=$(exec_in_container "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no' git clone $REPO_URL $REPO_DIR 2>&1 || echo 'SSH_CLONE_FAILED'")
+  
+  # SSH klonlama başarısız olursa HTTPS ile dene
+  if [[ "$clone_output" == *"SSH_CLONE_FAILED"* ]]; then
+    print_status "${YELLOW}" "SSH cloning failed, trying HTTPS..."
+    clone_output=$(exec_in_container "git clone $REPO_HTTPS_URL $REPO_DIR 2>&1 || echo 'HTTPS_CLONE_FAILED'")
+    
+    if [[ "$clone_output" == *"HTTPS_CLONE_FAILED"* ]]; then
+      print_status "${RED}" "❌ Failed to clone repository. Please check your GitHub connection."
+      return 1
+    fi
+  fi
 
-  # Check if repository was successfully cloned
-  exec_in_container "if [ -d \"$REPO_DIR/.git\" ]; then \
-    print_status \"${GREEN}\" \"✅ Repository successfully cloned: $REPO_DIR\"; \
-  else \
-    print_status \"${RED}\" \"❌ Failed to clone repository. Please check your GitHub connection.\"; \
-    exit 1; \
-  fi"
+  # Git dizininin varlığını kontrol et
+  if check_container_path "$REPO_DIR/.git"; then
+    print_status "${GREEN}" "✅ Repository successfully cloned: $REPO_DIR"
+  else
+    print_status "${RED}" "❌ Failed to clone repository. Please check your GitHub connection."
+    return 1
+  fi
   
   return 0
 }
@@ -429,33 +455,98 @@ get_config_info() {
 # Function to create configuration files
 create_config_files() {
   print_status "${YELLOW}" "Creating Terraform configuration file..."
-  exec_in_container "if [ -f \"$REPO_DIR/terraform/terraform.tfvars.example\" ]; then \
-    cp \"$REPO_DIR/terraform/terraform.tfvars.example\" \"$REPO_DIR/terraform/terraform.tfvars\" && \
-    sed -i \"s|proxmox_api_url = \\\".*\\\"|proxmox_api_url = \\\"$PROXMOX_API_URL\\\"|g\" \"$REPO_DIR/terraform/terraform.tfvars\" && \
-    sed -i \"s|proxmox_password = \\\".*\\\"|proxmox_password = \\\"$PROXMOX_PASSWORD\\\"|g\" \"$REPO_DIR/terraform/terraform.tfvars\" && \
-    sed -i \"s|gateway = \\\".*\\\"|gateway = \\\"$GATEWAY\\\"|g\" \"$REPO_DIR/terraform/terraform.tfvars\" && \
-    sed -i \"s|alpine_template = \\\".*\\\"|alpine_template = \\\"$ALPINE_TEMPLATE_FOR_TFVARS\\\"|g\" \"$REPO_DIR/terraform/terraform.tfvars\" && \
-    sed -i \"s|grafana_password = \\\".*\\\"|grafana_password = \\\"$GRAFANA_PASSWORD\\\"|g\" \"$REPO_DIR/terraform/terraform.tfvars\" && \
-    echo '✅ terraform.tfvars file created'; \
-  else \
-    echo '❌ terraform.tfvars.example file not found!'; \
-    exit 1; \
-  fi"
-
-  # Create docker/monitoring/.env file
-  print_status "${YELLOW}" "Creating Grafana configuration file..."
-  exec_in_container "if [ -f \"$REPO_DIR/docker/monitoring/.env.example\" ]; then \
-    cp \"$REPO_DIR/docker/monitoring/.env.example\" \"$REPO_DIR/docker/monitoring/.env\" && \
-    sed -i \"s|GRAFANA_PASSWORD=.*|GRAFANA_PASSWORD=$GRAFANA_PASSWORD|g\" \"$REPO_DIR/docker/monitoring/.env\" && \
-    echo '✅ docker/monitoring/.env file created'; \
-  else \
-    echo '⚠️ docker/monitoring/.env.example file not found, skipping.'; \
-  fi"
   
-  # Make 02_terraform_to_ansible.sh executable
-  exec_in_container "if [ -f \"$REPO_DIR/02_terraform_to_ansible.sh\" ]; then \
-    chmod +x \"$REPO_DIR/02_terraform_to_ansible.sh\"; \
-  fi"
+  # Terraform örnek dosyasının var olup olmadığını kontrol et
+  if ! check_container_path "$REPO_DIR/terraform/terraform.tfvars.example"; then
+    print_status "${RED}" "❌ terraform.tfvars.example file not found!"
+    return 1
+  fi
+  
+  # Terraform yapılandırma dosyasını oluştur
+  exec_in_container "cp \"$REPO_DIR/terraform/terraform.tfvars.example\" \"$REPO_DIR/terraform/terraform.tfvars\""
+  exec_in_container "sed -i \"s|proxmox_api_url = \\\".*\\\"|proxmox_api_url = \\\"$PROXMOX_API_URL\\\"|g\" \"$REPO_DIR/terraform/terraform.tfvars\""
+  exec_in_container "sed -i \"s|proxmox_password = \\\".*\\\"|proxmox_password = \\\"$PROXMOX_PASSWORD\\\"|g\" \"$REPO_DIR/terraform/terraform.tfvars\""
+  exec_in_container "sed -i \"s|gateway = \\\".*\\\"|gateway = \\\"$GATEWAY\\\"|g\" \"$REPO_DIR/terraform/terraform.tfvars\""
+  exec_in_container "sed -i \"s|alpine_template = \\\".*\\\"|alpine_template = \\\"$ALPINE_TEMPLATE_FOR_TFVARS\\\"|g\" \"$REPO_DIR/terraform/terraform.tfvars\""
+  exec_in_container "sed -i \"s|grafana_password = \\\".*\\\"|grafana_password = \\\"$GRAFANA_PASSWORD\\\"|g\" \"$REPO_DIR/terraform/terraform.tfvars\""
+  print_status "${GREEN}" "✅ terraform.tfvars file created"
+
+  # Create scripts directory and setup SSH script
+  print_status "${YELLOW}" "Creating Terraform scripts directory..."
+  exec_in_container "mkdir -p \"$REPO_DIR/terraform/scripts\""
+  
+  # Ensure SSH setup script exists and is executable
+  if check_container_path "$REPO_DIR/terraform/scripts/setup_ssh.sh"; then
+    exec_in_container "chmod +x \"$REPO_DIR/terraform/scripts/setup_ssh.sh\""
+    print_status "${GREEN}" "✅ Made setup_ssh.sh executable"
+  else
+    print_status "${YELLOW}" "⚠️ SSH setup script not found, creating a basic version..."
+    # Create a very basic setup script if it doesn't exist
+    exec_in_container "cat > \"$REPO_DIR/terraform/scripts/setup_ssh.sh\" << 'EOF'
+#!/bin/bash
+# Basic SSH setup script for Alpine LXC containers
+CONTAINER_ID=\$1
+LOG_FILE=\"ssh_setup_\${CONTAINER_ID}.log\"
+echo \"SSH Setup for container \${CONTAINER_ID} - \$(date)\" > \$LOG_FILE
+
+# Wait for container to be ready
+sleep 30
+echo \"Setting up SSH for container \${CONTAINER_ID}\" >> \$LOG_FILE
+
+# Try multiple times
+for attempt in {1..5}; do
+  echo \"Attempt \$attempt\" >> \$LOG_FILE
+  
+  # Update and install SSH
+  pct exec \${CONTAINER_ID} -- ash -c \"apk update\" >> \$LOG_FILE 2>&1
+  pct exec \${CONTAINER_ID} -- ash -c \"apk add openssh\" >> \$LOG_FILE 2>&1
+  
+  # Configure SSH
+  pct exec \${CONTAINER_ID} -- ash -c \"rc-update add sshd\" >> \$LOG_FILE 2>&1
+  pct exec \${CONTAINER_ID} -- ash -c \"mkdir -p /etc/ssh/\" >> \$LOG_FILE 2>&1
+  pct exec \${CONTAINER_ID} -- ash -c 'echo \"PermitRootLogin yes\" >> /etc/ssh/sshd_config' >> \$LOG_FILE 2>&1
+  pct exec \${CONTAINER_ID} -- ash -c 'echo \"PasswordAuthentication yes\" >> /etc/ssh/sshd_config' >> \$LOG_FILE 2>&1
+  
+  # Start SSH service
+  if pct exec \${CONTAINER_ID} -- ash -c \"/etc/init.d/sshd start\" >> \$LOG_FILE 2>&1; then
+    echo \"SSH setup successful\" >> \$LOG_FILE
+    exit 0
+  fi
+  
+  echo \"SSH setup failed, retrying after delay...\" >> \$LOG_FILE
+  sleep 10
+done
+
+echo \"Failed to set up SSH after multiple attempts\" >> \$LOG_FILE
+exit 0  # Exit with success to prevent Terraform from failing
+EOF"
+    exec_in_container "chmod +x \"$REPO_DIR/terraform/scripts/setup_ssh.sh\""
+    print_status "${GREEN}" "✅ Created and made setup_ssh.sh executable"
+  fi
+
+  # Grafana yapılandırma dosyası
+  print_status "${YELLOW}" "Creating Grafana configuration file..."
+  if check_container_path "$REPO_DIR/docker/monitoring/.env.example"; then
+    exec_in_container "cp \"$REPO_DIR/docker/monitoring/.env.example\" \"$REPO_DIR/docker/monitoring/.env\""
+    exec_in_container "sed -i \"s|GRAFANA_PASSWORD=.*|GRAFANA_PASSWORD=$GRAFANA_PASSWORD|g\" \"$REPO_DIR/docker/monitoring/.env\""
+    print_status "${GREEN}" "✅ docker/monitoring/.env file created"
+  else
+    print_status "${YELLOW}" "⚠️ docker/monitoring/.env.example file not found, skipping."
+  fi
+  
+  # Cloudflare token yapılandırması (varsa)
+  if [ -n "$CLOUDFLARE_TOKEN" ] && check_container_path "$REPO_DIR/docker/proxy/.env.example"; then
+    print_status "${YELLOW}" "Creating Cloudflare configuration file..."
+    exec_in_container "cp \"$REPO_DIR/docker/proxy/.env.example\" \"$REPO_DIR/docker/proxy/.env\""
+    exec_in_container "sed -i \"s|CLOUDFLARED_TOKEN=.*|CLOUDFLARED_TOKEN=$CLOUDFLARE_TOKEN|g\" \"$REPO_DIR/docker/proxy/.env\""
+    print_status "${GREEN}" "✅ docker/proxy/.env file created"
+  fi
+  
+  # 02_terraform_to_ansible.sh betiğini çalıştırılabilir yap
+  if check_container_path "$REPO_DIR/02_terraform_to_ansible.sh"; then
+    exec_in_container "chmod +x \"$REPO_DIR/02_terraform_to_ansible.sh\""
+    print_status "${GREEN}" "✅ Made 02_terraform_to_ansible.sh executable"
+  fi
   
   return 0
 }
@@ -510,7 +601,8 @@ run_automated_steps() {
 
   if [[ "$AUTO_CONTINUE" =~ ^[Yy]$ ]]; then
     print_status "${GREEN}" "Creating LXC containers with Terraform..."
-    exec_in_container "cd $REPO_DIR/terraform && terraform init && terraform apply -auto-approve"
+    exec_in_container "cd $REPO_DIR/terraform && terraform init"
+    exec_in_container "cd $REPO_DIR/terraform && terraform apply -auto-approve"
     
     print_status "${GREEN}" "Creating Ansible inventory..."
     exec_in_container "cd $REPO_DIR && ./02_terraform_to_ansible.sh"

@@ -14,4 +14,8 @@ provider "proxmox" {
   pm_password     = var.proxmox_password
   pm_tls_insecure = var.proxmox_tls_insecure
   pm_debug        = var.proxmox_debug
+  pm_log_levels = {
+    _default    = "debug"
+    _capturelog = ""
+  }
 }
