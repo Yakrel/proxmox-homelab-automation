@@ -1,33 +1,33 @@
 #!/bin/bash
 
 # ======================================================
-# Proxmox Storage Yapılandırma Scripti
+# Proxmox Storage Configuration Script
 # ======================================================
 
-# Hata yönetimi
+# Error handling
 set -e
-trap 'echo "Bir hata oluştu. Script sonlandırılıyor..."; exit 1' ERR
+trap 'echo "An error occurred. Script terminating..."; exit 1' ERR
 
-# Root kontrolü
+# Root check
 if [ "$(id -u)" -ne 0 ]; then
-    echo "Bu script root yetkisi gerektirir. 'sudo' ile çalıştırın."
+    echo "This script requires root privileges. Please run with 'sudo'."
     exit 1
 fi
 
-echo "===== Proxmox Storage Yapılandırması Başlatılıyor ====="
+echo "===== Starting Proxmox Storage Configuration ====="
 
 # --------------------------------------
-# Samba Paylaşımı
+# Samba Share
 # --------------------------------------
-echo "[1/4] Samba Kurulumu"
+echo "[1/4] Installing Samba"
 apt update
 apt install -y samba
 if [ $? -ne 0 ]; then
-    echo "Samba kurulumu başarısız oldu!"
+    echo "Samba installation failed!"
     exit 1
 fi
 
-echo "[2/4] Samba Konfigürasyonu"
+echo "[2/4] Configuring Samba"
 cat >> /etc/samba/smb.conf << 'EOF'
 
 [datapool]
@@ -37,44 +37,44 @@ cat >> /etc/samba/smb.conf << 'EOF'
    force create mode = 0660
    force directory mode = 0770
    valid users = root
-   # Performans optimizasyonları
+   # Performance optimizations
    socket options = TCP_NODELAY IPTOS_LOWDELAY
    read raw = yes
    write raw = yes
    strict locking = no
 EOF
 
-echo "[*] Root kullanıcısı için Samba şifresi belirleme"
-echo "Not: Proxmox root şifresi ile aynı şifreyi girmeniz önerilir"
+echo "[*] Setting Samba password for root user"
+echo "Note: It's recommended to use the same password as your Proxmox root password"
 smbpasswd -a root
 
-echo "[3/4] Samba Servisi Yeniden Başlatılıyor"
+echo "[3/4] Restarting Samba Service"
 systemctl restart smbd
 if [ $? -ne 0 ]; then
-    echo "Samba servisi başlatılamadı!"
+    echo "Failed to start Samba service!"
     exit 1
 fi
 
 # --------------------------------------
-# Sanoid Kurulumu
+# Sanoid Installation
 # --------------------------------------
-echo "[4/4] Sanoid Snapshot Yönetimi Kurulumu"
+echo "[4/4] Installing Sanoid Snapshot Management"
 
-# Backup dizini oluştur
+# Create backup directory
 mkdir -p /datapool/backups
 
-# Sanoid kurulumu
+# Install Sanoid
 apt update
 apt install -y sanoid
 if [ $? -ne 0 ]; then
-    echo "Sanoid kurulumu başarısız oldu!"
+    echo "Sanoid installation failed!"
     exit 1
 fi
 
-# Sanoid config klasörünü oluştur
+# Create Sanoid config directory
 mkdir -p /etc/sanoid
 
-# Yapılandırma dosyasını oluştur
+# Create configuration file
 cat > /etc/sanoid/sanoid.conf << EOF
 [rpool/ROOT/pve-1]
         use_template = system
@@ -103,52 +103,52 @@ cat > /etc/sanoid/sanoid.conf << EOF
         autoprune = yes
 EOF
 
-# Sanoid servisi etkinleştir ve başlat
-echo "[*] Sanoid Servisi Etkinleştiriliyor"
+# Enable and start Sanoid service
+echo "[*] Enabling Sanoid Service"
 systemctl enable sanoid.timer
 systemctl start sanoid.timer
 
-# İlk snapshot'ları oluştur
-echo "[*] İlk Snapshot'lar Oluşturuluyor"
+# Create initial snapshots
+echo "[*] Creating Initial Snapshots"
 sanoid --take-snapshots --verbose
 
 # --------------------------------------
-# Kurulum Kontrolü
+# Installation Check
 # --------------------------------------
-echo "===== Kurulum Tamamlandı. Durum Kontrolü Yapılıyor ====="
+echo "===== Installation Complete. Checking Status ====="
 
-# Samba servisi durumu
-echo "Samba servis durumu:"
+# Samba service status
+echo "Samba service status:"
 systemctl status smbd | grep "Active:"
 
-# Samba paylaşımları
-echo "Samba paylaşımları:"
+# Samba shares
+echo "Samba shares:"
 smbclient -L localhost -U%
 
-# Sanoid servis durumu
-echo "Sanoid servis durumu:"
+# Sanoid service status
+echo "Sanoid service status:"
 systemctl status sanoid.timer | grep "Active:"
 
-# ZFS snapshot durumu
-echo "ZFS snapshot'lar:"
+# ZFS snapshot status
+echo "ZFS snapshots:"
 zfs list -t snapshot | head -n 5
 
 echo ""
-echo "===== Storage Yapılandırması Tamamlandı ====="
+echo "===== Storage Configuration Completed ====="
 echo ""
-echo "Storage Sistemi Başarıyla Yapılandırıldı."
+echo "Storage System Successfully Configured."
 echo ""
-echo "# Samba Erişim Bilgileri:"
-echo "- Kullanıcı adı: root"
-echo "- Windows'ta bağlantı: \\\\$(hostname -I | awk '{print $1}')\\datapool"
+echo "# Samba Access Information:"
+echo "- Username: root"
+echo "- Windows connection: \\\\$(hostname -I | awk '{print $1}')\\datapool"
 echo ""
-echo "# Snapshot Yönetimi:"
-echo "sanoid --take-snapshots           # Manuel snapshot alma"
-echo "zfs list -t snapshot              # Snapshot'ları listeleme"
+echo "# Snapshot Management:"
+echo "sanoid --take-snapshots           # Manual snapshot creation"
+echo "zfs list -t snapshot              # List snapshots"
 echo ""
-echo "# Backup Komutları:"
-echo "zfs send rpool/ROOT/pve-1@snapshot_adi | gzip > /datapool/backups/system_backup.gz   # Sistem backupu alma"
-echo "zfs send datapool@snapshot_adi | gzip > /datapool/backups/data_backup.gz             # Data backupu alma"
+echo "# Backup Commands:"
+echo "zfs send rpool/ROOT/pve-1@snapshot_name | gzip > /datapool/backups/system_backup.gz   # System backup"
+echo "zfs send datapool@snapshot_name | gzip > /datapool/backups/data_backup.gz             # Data backup"
 echo ""
 
 exit 0

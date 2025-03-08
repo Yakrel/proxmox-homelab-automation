@@ -1,0 +1,51 @@
+# Proxmox connection settings
+proxmox_api_url = "https://proxmox.example.com:8006/api2/json"
+proxmox_api_token_id = "your-token-id"
+proxmox_api_token_secret = "your-token-secret"
+
+# Node settings
+target_node = "proxmox"
+
+# Storage settings
+storage_pool = "local-lvm"
+storage_pool_type = "lvm-thin"
+
+# Network settings
+network_bridge = "vmbr0"
+private_network = "192.168.1"
+
+# LXC containers configuration
+lxc_containers = {
+  "media" = {
+    id = 102
+    hostname = "media"
+    ip = "192.168.1.102"
+    cores = 4
+    memory = 16384
+    storage = 32
+  },
+  "monitoring" = {
+    id = 103
+    hostname = "monitoring"
+    ip = "192.168.1.103"
+    cores = 2
+    memory = 4096
+    storage = 16
+  },
+  "logging" = {
+    id = 104
+    hostname = "logging"
+    ip = "192.168.1.104"
+    cores = 2
+    memory = 4096
+    storage = 16
+  },
+  "proxy" = {
+    id = 125
+    hostname = "proxy"
+    ip = "192.168.1.125"
+    cores = 2
+    memory = 2048
+    storage = 8
+  }
+}

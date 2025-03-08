@@ -1,0 +1,16 @@
+[media]
+192.168.1.102
+
+[monitoring]
+192.168.1.103
+
+[logging]
+192.168.1.104
+
+[proxy]
+192.168.1.125
+
+[all:vars]
+ansible_user=root
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+ansible_python_interpreter=/usr/bin/python3
