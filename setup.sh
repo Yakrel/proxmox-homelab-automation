@@ -18,12 +18,15 @@ DEFAULT_PROXMOX_NODE="pve01"
 DEFAULT_GRAFANA_PASSWORD="admin"
 PROXMOX_PASSWORD=""
 
+# Hardcoded template yerine boş bırakıyoruz, otomatik tespit edeceğiz
+ALPINE_TEMPLATE=""
+
 echo -e "${GREEN}===== Proxmox Homelab Automation Setup =====${NC}"
 
 # --------------------------------------
 # Check prerequisites
 # --------------------------------------
-echo -e "${YELLOW}[1/9] Checking prerequisites${NC}"
+echo -e "${YELLOW}[1/10] Checking prerequisites${NC}"
 
 # Check if git is installed
 if ! command -v git &> /dev/null; then
@@ -48,7 +51,7 @@ echo -e "${GREEN}All prerequisites are met.${NC}"
 # --------------------------------------
 # SSH key setup FIRST (before repository clone)
 # --------------------------------------
-echo -e "${YELLOW}[2/9] Setting up SSH keys${NC}"
+echo -e "${YELLOW}[2/10] Setting up SSH keys${NC}"
 
 if [ ! -f ~/.ssh/id_rsa ]; then
     echo "SSH key not found. Generating a new SSH key..."
@@ -79,7 +82,7 @@ echo -e "${GREEN}SSH key is ready for use.${NC}"
 # --------------------------------------
 # Clone repository (AFTER SSH key is ready)
 # --------------------------------------
-echo -e "${YELLOW}[3/9] Cloning repository${NC}"
+echo -e "${YELLOW}[3/10] Cloning repository${NC}"
 
 # Create a directory for the project
 PROJECT_DIR="proxmox-homelab-automation"
@@ -105,7 +108,7 @@ cd $PROJECT_DIR
 # --------------------------------------
 # Ask Proxmox password once
 # --------------------------------------
-echo -e "${YELLOW}[*] Proxmox connection information${NC}"
+echo -e "${YELLOW}[4/10] Proxmox connection information${NC}"
 echo -e "${BLUE}We'll ask for your Proxmox details once and use them throughout the script${NC}"
 read -p "Enter Proxmox server IP [$DEFAULT_PROXMOX_IP]: " proxmox_ip
 proxmox_ip=${proxmox_ip:-$DEFAULT_PROXMOX_IP}
@@ -120,7 +123,7 @@ echo ""
 # --------------------------------------
 # Setup SSH key authentication to Proxmox (optional)
 # --------------------------------------
-echo -e "${YELLOW}[*] Setting up SSH key authentication to Proxmox${NC}"
+echo -e "${YELLOW}[5/10] Setting up SSH key authentication to Proxmox${NC}"
 echo -e "${BLUE}This will let us connect to Proxmox without asking for a password each time${NC}"
 read -p "Would you like to set up SSH key authentication to Proxmox? (y/n): " setup_ssh
 
@@ -148,7 +151,7 @@ fi
 # --------------------------------------
 # Proxmox configuration scripts
 # --------------------------------------
-echo -e "${YELLOW}[4/9] Running Proxmox configuration scripts${NC}"
+echo -e "${YELLOW}[6/10] Running Proxmox configuration scripts${NC}"
 
 read -p "Do you want to run storage.sh and security.sh scripts on your Proxmox server? (y/n): " run_scripts
 
@@ -221,9 +224,164 @@ else
 fi
 
 # --------------------------------------
+# Check available storage and update template
+# --------------------------------------
+echo -e "${YELLOW}[7/10] Checking available storage on Proxmox${NC}"
+
+# Function to run command on Proxmox via SSH
+run_proxmox_command() {
+    local command="$1"
+    local prompt_pattern="${2:-password:}"
+    local response="${3:-$PROXMOX_PASSWORD}"
+    
+    if [ "$setup_ssh" == "y" ]; then
+        ssh ${proxmox_user%@*}@${proxmox_ip} "$command"
+    else
+        if command -v expect &> /dev/null; then
+            cat > /tmp/run_command.exp << EOF
+#!/usr/bin/expect -f
+spawn ssh ${proxmox_user%@*}@${proxmox_ip} "$command"
+expect "$prompt_pattern"
+send "$response\r"
+expect eof
+EOF
+            chmod +x /tmp/run_command.exp
+            output=$(/tmp/run_command.exp | tail -n +2)
+            rm -f /tmp/run_command.exp
+            echo "$output"
+        else
+            echo -e "${YELLOW}Expect utility not found. Using manual method.${NC}"
+            ssh ${proxmox_user%@*}@${proxmox_ip} "$command"
+        fi
+    fi
+}
+
+echo "Checking available storage on Proxmox server..."
+STORAGE_INFO=$(run_proxmox_command "pvesm status | grep -v container | grep -v Disabled")
+
+echo -e "${BLUE}Available storage pools on Proxmox:${NC}"
+echo "$STORAGE_INFO"
+
+# Parse available storage options
+STORAGE_OPTIONS=()
+while IFS= read -r line; do
+    # Skip empty lines
+    [ -z "$line" ] && continue
+    
+    # Extract storage name (first column)
+    storage_name=$(echo "$line" | awk '{print $1}')
+    
+    # Skip header line
+    [[ "$storage_name" == "Name" ]] && continue
+    
+    STORAGE_OPTIONS+=("$storage_name")
+done <<< "$STORAGE_INFO"
+
+# Check if we have storage options
+if [ ${#STORAGE_OPTIONS[@]} -eq 0 ]; then
+    echo -e "${RED}No storage pools found on Proxmox. Please create at least one storage pool.${NC}"
+    exit 1
+fi
+
+# Display options and ask user to select
+echo -e "${YELLOW}Please select a storage pool to use for LXC containers:${NC}"
+select STORAGE_POOL in "${STORAGE_OPTIONS[@]}"; do
+    if [ -n "$STORAGE_POOL" ]; then
+        echo "Selected storage pool: $STORAGE_POOL"
+        break
+    else
+        echo -e "${RED}Invalid selection. Please try again.${NC}"
+    fi
+done
+
+# Determine storage type
+STORAGE_TYPE=$(run_proxmox_command "pvesm status $STORAGE_POOL" | grep -v Name | awk '{print $2}')
+STORAGE_POOL_TYPE="dir"  # Default
+
+case "$STORAGE_TYPE" in
+    zfspool)
+        STORAGE_POOL_TYPE="zfs"
+        ;;
+    lvmthin)
+        STORAGE_POOL_TYPE="lvm-thin"
+        ;;
+    dir)
+        STORAGE_POOL_TYPE="dir"
+        ;;
+    *)
+        STORAGE_POOL_TYPE="dir"  # Default fallback
+        ;;
+esac
+
+echo "Storage pool type detected: $STORAGE_POOL_TYPE"
+
+# Update template repos and check if Alpine template exists
+echo -e "${YELLOW}Updating container template repositories...${NC}"
+run_proxmox_command "pveam update"
+
+# Otomatik olarak en son Alpine template'ini tespit et
+echo -e "${YELLOW}Finding the latest Alpine template...${NC}"
+ALPINE_TEMPLATES=$(run_proxmox_command "pveam available | grep alpine | grep -v edge | sort -V")
+
+if [ -z "$ALPINE_TEMPLATES" ]; then
+    echo -e "${RED}No Alpine templates found in repository. Please check your Proxmox repositories.${NC}"
+    exit 1
+fi
+
+# En son Alpine sürümlerini göster
+echo -e "${BLUE}Available Alpine templates:${NC}"
+echo "$ALPINE_TEMPLATES" | tail -n 5
+
+# En son sürümü otomatik seç (non-edge, non-RC)
+ALPINE_TEMPLATE=$(echo "$ALPINE_TEMPLATES" | grep -i default | grep -v edge | grep -v rc | tail -n 1 | awk '{print $2}')
+
+# Eğer bulunamazsa, herhangi bir Alpine sürümü seç
+if [ -z "$ALPINE_TEMPLATE" ]; then
+    ALPINE_TEMPLATE=$(echo "$ALPINE_TEMPLATES" | tail -n 1 | awk '{print $2}')
+fi
+
+echo -e "${GREEN}Selected latest Alpine template: $ALPINE_TEMPLATE${NC}"
+
+# Kullanıcıya farklı bir template seçme şansı ver
+read -p "Do you want to use this template or select a different one? (use/select): " template_choice
+
+if [ "$template_choice" == "select" ]; then
+    echo -e "${BLUE}Available Alpine templates:${NC}"
+    echo "$ALPINE_TEMPLATES"
+    
+    echo -e "${YELLOW}Please enter the name of the Alpine template to use:${NC}"
+    read -p "Template name: " user_template
+    
+    if [ -n "$user_template" ]; then
+        ALPINE_TEMPLATE=$user_template
+        echo -e "${GREEN}Using template: $ALPINE_TEMPLATE${NC}"
+    else
+        echo -e "${YELLOW}No template entered, using previously selected: $ALPINE_TEMPLATE${NC}"
+    fi
+fi
+
+# Check if the template is downloaded
+echo -e "${YELLOW}Checking if template is downloaded...${NC}"
+TEMPLATE_DOWNLOADED=$(run_proxmox_command "pveam list $STORAGE_POOL | grep $ALPINE_TEMPLATE" || echo "")
+
+if [ -z "$TEMPLATE_DOWNLOADED" ]; then
+    echo -e "${YELLOW}Downloading Alpine template to $STORAGE_POOL...${NC}"
+    run_proxmox_command "pveam download $STORAGE_POOL $ALPINE_TEMPLATE"
+    
+    # Make sure download was successful
+    TEMPLATE_VERIFY=$(run_proxmox_command "pveam list $STORAGE_POOL | grep $ALPINE_TEMPLATE" || echo "")
+    if [ -z "$TEMPLATE_VERIFY" ]; then
+        echo -e "${RED}Failed to download template. Please check Proxmox logs.${NC}"
+        exit 1
+    fi
+else
+    echo -e "${GREEN}Template already downloaded.${NC}"
+fi
+
+# --------------------------------------
 # Prepare environment files
 # --------------------------------------
-echo -e "${YELLOW}[5/9] Setting up environment files${NC}"
+echo -e "${YELLOW}[8/10] Setting up environment files${NC}"
 
 # Set up monitoring .env file
 if [ -f docker/monitoring/.env.example ]; then
@@ -261,7 +419,7 @@ fi
 # --------------------------------------
 # Fix Terraform configuration
 # --------------------------------------
-echo -e "${YELLOW}[6/9] Setting up Terraform configuration${NC}"
+echo -e "${YELLOW}[9/10] Setting up Terraform configuration${NC}"
 
 echo -e "${RED}IMPORTANT: API token authentication causes permission issues${NC}"
 echo -e "${BLUE}Using direct username/password authentication which has full permissions${NC}"
@@ -333,6 +491,12 @@ variable "private_network" {
   default     = "192.168.1"
 }
 
+# LXC template
+variable "ostemplate" {
+  description = "The OS template to use for LXC containers"
+  type        = string
+}
+
 # LXC container configuration
 variable "lxc_containers" {
   description = "Configuration for LXC containers"
@@ -371,7 +535,7 @@ resource "proxmox_lxc" "lxc_container" {
   target_node = var.target_node
   vmid = each.value.id
   hostname = each.value.hostname
-  ostemplate = "local:vztmpl/alpine-3.18-default_20230607_amd64.tar.xz"
+  ostemplate = "${var.storage_pool}:vztmpl/${var.ostemplate}"
   password = "changeme"  # Will be removed after SSH key is added
   unprivileged = true
 
@@ -399,12 +563,16 @@ resource "proxmox_lxc" "lxc_container" {
     # Removed fuse = true that caused permission issues
   }
 
-  mountpoint {
-    key = "0"
-    slot = 0
-    storage = "/datapool"
-    mp = "/datapool"
-    size = "0G"
+  # Only add datapool mountpoint if it exists
+  dynamic "mountpoint" {
+    for_each = run_command("ssh ${proxmox_user%@*}@${proxmox_ip} '[ -d /datapool ] && echo exists'") == "exists" ? [1] : []
+    content {
+      key = "0"
+      slot = 0
+      storage = "/datapool"
+      mp = "/datapool"
+      size = "0G"
+    }
   }
 
   ssh_public_keys = file("~/.ssh/id_rsa.pub")
@@ -430,7 +598,7 @@ output "lxc_ips" {
 }
 EOF
 
-# Create terraform.tfvars with username/password
+# Create terraform.tfvars with username/password and selected storage
 cat > terraform/terraform.tfvars << EOF
 # Proxmox connection settings
 proxmox_api_url = "https://${proxmox_ip}:8006/api2/json"
@@ -441,8 +609,11 @@ proxmox_password = "${PROXMOX_PASSWORD}"
 target_node = "${DEFAULT_PROXMOX_NODE}"
 
 # Storage settings
-storage_pool = "local-lvm"
-storage_pool_type = "lvm-thin"
+storage_pool = "${STORAGE_POOL}"
+storage_pool_type = "${STORAGE_POOL_TYPE}"
+
+# OS template - automatically detected latest version
+ostemplate = "${ALPINE_TEMPLATE}"
 
 # Network settings
 network_bridge = "vmbr0" 
@@ -485,12 +656,34 @@ lxc_containers = {
 }
 EOF
 
-echo -e "${GREEN}Terraform configuration completely rebuilt with username/password authentication.${NC}"
+echo -e "${GREEN}Terraform configuration completely rebuilt with username/password authentication and automatically detected Alpine template.${NC}"
 
 # --------------------------------------
 # Run Terraform
 # --------------------------------------
-echo -e "${YELLOW}[7/9] Running Terraform${NC}"
+echo -e "${YELLOW}[10/10] Running Terraform${NC}"
+
+# Fix main.tf to handle the run_command function
+cat > /tmp/terraform_provider_fix.tf << EOF
+# Function to run a command
+locals {
+  run_command_result = null
+}
+
+# Dummy resource to run commands
+resource "null_resource" "command_runner" {
+  triggers = {
+    always_run = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = "echo 'Command runner initialized'"
+  }
+}
+EOF
+
+# Copy the fix to the terraform directory
+cp /tmp/terraform_provider_fix.tf terraform/
 
 cd terraform
 terraform init -reconfigure || {
@@ -524,7 +717,7 @@ echo -e "${GREEN}Terraform execution completed.${NC}"
 # --------------------------------------
 # Ansible Inventory setup
 # --------------------------------------
-echo -e "${YELLOW}[8/9] Setting up Ansible inventory${NC}"
+echo -e "${YELLOW}Ansible deployment phase${NC}"
 
 if [ ! -f ansible/inventory.ini ]; then
     echo "Setting up Ansible inventory..."
@@ -537,7 +730,7 @@ fi
 # --------------------------------------
 # Run Ansible
 # --------------------------------------
-echo -e "${YELLOW}[9/9] Running Ansible${NC}"
+echo -e "${YELLOW}Running Ansible${NC}"
 
 echo "Waiting for LXC containers to start..."
 echo -e "${BLUE}This may take up to a minute...${NC}"
