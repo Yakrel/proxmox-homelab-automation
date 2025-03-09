@@ -46,6 +46,12 @@ if ! command -v ansible &> /dev/null; then
     exit 1
 fi
 
+# NEW: Check if curl is installed; if not, install it.
+if ! command -v curl &> /dev/null; then
+    echo -e "${YELLOW}curl not found. Installing curl...${NC}"
+    sudo apt-get update && sudo apt-get install -y curl
+fi
+
 echo -e "${GREEN}All prerequisites are met.${NC}"
 
 # --------------------------------------
@@ -424,6 +430,10 @@ echo -e "${YELLOW}[9/10] Setting up Terraform configuration${NC}"
 echo -e "${RED}IMPORTANT: API token authentication causes permission issues${NC}"
 echo -e "${BLUE}Using direct username/password authentication which has full permissions${NC}"
 
+# Check if datapool exists on Proxmox
+echo -e "${YELLOW}Checking if /datapool exists on Proxmox...${NC}"
+DATAPOOL_EXISTS=$(run_proxmox_command "[ -d /datapool ] && echo 'true' || echo 'false'")
+
 # Fix variables.tf to handle both authentication methods
 cat > terraform/variables.tf << EOF
 # Proxmox connection variables
@@ -512,7 +522,7 @@ variable "lxc_containers" {
 EOF
 
 # Fix main.tf provider section to use username/password
-cat > terraform/main.tf << EOF
+cat > terraform/main.tf <<'EOF'
 terraform {
   required_providers {
     proxmox = {
@@ -545,14 +555,14 @@ resource "proxmox_lxc" "lxc_container" {
 
   rootfs {
     storage = var.storage_pool
-    size = "\${each.value.storage}G"
+    size = "${each.value.storage}G"
   }
 
   network {
     name = "eth0"
     bridge = var.network_bridge
-    ip = "\${each.value.ip}/24"
-    gw = "\${var.private_network}.1"
+    ip = "${each.value.ip}/24"
+    gw = "${var.private_network}.1"
   }
 
   start = true
@@ -562,18 +572,28 @@ resource "proxmox_lxc" "lxc_container" {
     nesting = true
     # Removed fuse = true that caused permission issues
   }
+EOF
 
-  # Only add datapool mountpoint if it exists
-  dynamic "mountpoint" {
-    for_each = run_command("ssh ${proxmox_user%@*}@${proxmox_ip} '[ -d /datapool ] && echo exists'") == "exists" ? [1] : []
-    content {
-      key = "0"
-      slot = 0
-      storage = "/datapool"
-      mp = "/datapool"
-      size = "0G"
-    }
+# Add the mountpoint section based on our check instead of using dynamic blocks
+if [ "$DATAPOOL_EXISTS" = "true" ]; then
+  echo -e "${GREEN}/datapool directory exists. Adding mountpoint configuration.${NC}"
+  cat >> terraform/main.tf << 'EOF'
+
+  # Static mountpoint configuration for /datapool
+  mountpoint {
+    key = "0"
+    slot = 0
+    storage = "/datapool"
+    mp = "/datapool"
+    size = "0G"
   }
+EOF
+else
+  echo -e "${YELLOW}/datapool directory does not exist. Skipping mountpoint configuration.${NC}"
+fi
+
+# Continue with the rest of the file using quoted heredoc to prevent expansion
+cat >> terraform/main.tf <<'EOF'
 
   ssh_public_keys = file("~/.ssh/id_rsa.pub")
 
@@ -581,11 +601,11 @@ resource "proxmox_lxc" "lxc_container" {
   provisioner "local-exec" {
     command = <<-EOT
       sleep 30
-      ssh -o StrictHostKeyChecking=no root@\${each.value.ip} "apk update && \\
-      apk add --no-cache openssh bash curl docker docker-compose && \\
-      rc-update add sshd && \\
-      rc-update add docker && \\
-      rc-service sshd start && \\
+      ssh -o StrictHostKeyChecking=no root@${each.value.ip} "apk update && \
+      apk add --no-cache openssh bash curl docker docker-compose && \
+      rc-update add sshd && \
+      rc-update add docker && \
+      rc-service sshd start && \
       rc-service docker start"
     EOT
   }
@@ -663,56 +683,131 @@ echo -e "${GREEN}Terraform configuration completely rebuilt with username/passwo
 # --------------------------------------
 echo -e "${YELLOW}[10/10] Running Terraform${NC}"
 
-# Fix main.tf to handle the run_command function
-cat > /tmp/terraform_provider_fix.tf << EOF
-# Function to run a command
-locals {
-  run_command_result = null
-}
-
-# Dummy resource to run commands
-resource "null_resource" "command_runner" {
-  triggers = {
-    always_run = timestamp()
-  }
-
-  provisioner "local-exec" {
-    command = "echo 'Command runner initialized'"
-  }
-}
-EOF
-
-# Copy the fix to the terraform directory
-cp /tmp/terraform_provider_fix.tf terraform/
-
 cd terraform
+
+# Check for existing Terraform state and offer to reset it
+if [ -f .terraform.lock.hcl ] || [ -f terraform.tfstate ]; then
+    echo -e "${YELLOW}Existing Terraform state detected.${NC}"
+    read -p "Would you like to reset the Terraform state before continuing? (y/n): " reset_state
+    if [ "$reset_state" == "y" ]; then
+        echo "Removing existing Terraform state files..."
+        rm -f .terraform.lock.hcl terraform.tfstate terraform.tfstate.backup
+        echo -e "${GREEN}Terraform state reset.${NC}"
+    fi
+fi
+
+# Test Proxmox API connection before proceeding
+echo -e "${YELLOW}Testing connection to Proxmox API...${NC}"
+curl -k -s "https://${proxmox_ip}:8006/api2/json/version" \
+  -u "${proxmox_user}:${PROXMOX_PASSWORD}" > /dev/null
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Failed to connect to Proxmox API. Please check your credentials and network settings.${NC}"
+    read -p "Do you want to continue anyway? (y/n): " continue_anyway
+    if [ "$continue_anyway" != "y" ]; then
+        exit 1
+    fi
+fi
+
+# Initialize Terraform
+echo "Initializing Terraform..."
 terraform init -reconfigure || {
     echo -e "${RED}Terraform initialization failed.${NC}"
     exit 1
+}
+
+# Validate the Terraform configuration
+echo "Validating Terraform configuration..."
+terraform validate || {
+    echo -e "${RED}Terraform validation failed. Please check your configuration files.${NC}"
+    exit 1
+}
+
+# Show plan before applying
+echo -e "${BLUE}Generating Terraform execution plan...${NC}"
+terraform plan || {
+    echo -e "${RED}Terraform plan generation failed. This may indicate configuration or API issues.${NC}"
+    read -p "Do you want to continue and attempt to apply anyway? (y/n): " continue_plan
+    if [ "$continue_plan" != "y" ]; then
+        exit 1
+    fi
 }
 
 echo -e "${BLUE}Terraform will now create the LXC containers on your Proxmox server.${NC}"
 echo -e "${BLUE}This may take several minutes to complete.${NC}"
 read -p "Press Enter to continue..." confirm
 
-terraform apply -auto-approve || {
-    echo -e "${RED}Terraform apply failed.${NC}"
-    
-    # Show troubleshooting help
-    echo -e "${YELLOW}Terraform troubleshooting:${NC}"
-    echo -e "1. You may need to manually create the LXC containers through the Proxmox UI"
-    echo -e "2. After manual creation, continue with the Ansible part of this script"
-    
-    # Ask if they want to proceed with Ansible setup anyway
-    read -p "Do you want to proceed with Ansible setup anyway (assuming containers exist)? (y/n): " proceed_ansible
-    
-    if [ "$proceed_ansible" != "y" ]; then
-        exit 1
-    fi
-}
-cd ..
+# Apply with auto-approve, but with better error handling
+terraform apply -auto-approve
+terraform_result=$?
 
-echo -e "${GREEN}Terraform execution completed.${NC}"
+if [ $terraform_result -ne 0 ]; then
+    echo -e "${RED}Terraform apply failed with exit code: $terraform_result${NC}"
+    
+    # Show detailed troubleshooting options
+    echo -e "${YELLOW}Terraform troubleshooting options:${NC}"
+    echo -e "1. Check Proxmox web UI (https://${proxmox_ip}:8006) to verify if any containers were partially created"
+    echo -e "2. Ensure the Proxmox user has sufficient permissions (root@pam or user with appropriate role)"
+    echo -e "3. Verify the selected storage pool '${STORAGE_POOL}' exists and is accessible"
+    echo -e "4. Check that the Alpine template '${ALPINE_TEMPLATE}' is properly downloaded"
+    echo -e "5. Verify network settings (bridge: ${network_bridge}, subnet: ${private_network}.0/24)"
+    
+    # Offer to clean up any partial resources
+    read -p "Would you like to attempt to destroy any partially created resources? (y/n): " cleanup
+    if [ "$cleanup" == "y" ]; then
+        echo "Attempting to clean up resources..."
+        terraform destroy -auto-approve || echo -e "${RED}Resource cleanup failed. You may need to manually remove resources.${NC}"
+    fi
+    
+    # Offer different continuation options
+    echo -e "${YELLOW}How would you like to proceed?${NC}"
+    echo -e "1. Exit script"
+    echo -e "2. Continue with Ansible deployment (assuming containers exist)"
+    echo -e "3. Attempt to create containers manually and then continue"
+    read -p "Choose an option (1-3): " continue_option
+    
+    case $continue_option in
+        1)
+            echo "Exiting script."
+            exit 1
+            ;;
+        2)
+            echo "Continuing with Ansible deployment..."
+            ;;
+        3)
+            echo -e "${BLUE}Please follow these steps to manually create the containers:${NC}"
+            echo -e "1. Log in to Proxmox web interface at https://${proxmox_ip}:8006"
+            echo -e "2. Create LXC containers with IDs 102, 103, 104, and 125 using Alpine template"
+            echo -e "3. Configure IPs: 192.168.1.102, 192.168.1.103, 192.168.1.104, 192.168.1.125"
+            echo -e "4. Install required packages: docker, docker-compose, openssh, bash, curl"
+            echo -e "5. Mount /datapool to each container if available"
+            read -p "Press Enter when you have completed these steps..." manual_continue
+            echo "Continuing with Ansible deployment..."
+            ;;
+        *)
+            echo "Invalid option. Exiting."
+            exit 1
+            ;;
+    esac
+else
+    echo -e "${GREEN}Terraform execution completed successfully.${NC}"
+    
+    # Verify containers by checking their IP connectivity
+    echo "Verifying container connectivity..."
+    for container in "media:192.168.1.102" "monitoring:192.168.1.103" "logging:192.168.1.104" "proxy:192.168.1.125"; do
+        name=$(echo $container | cut -d: -f1)
+        ip=$(echo $container | cut -d: -f2)
+        
+        echo -n "Testing connectivity to ${name} (${ip})... "
+        ping -c 1 -W 1 $ip > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}Success${NC}"
+        else
+            echo -e "${RED}Failed${NC}"
+        fi
+    done
+fi
+
+cd ..
 
 # --------------------------------------
 # Ansible Inventory setup
