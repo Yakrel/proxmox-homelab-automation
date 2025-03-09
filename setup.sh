@@ -263,7 +263,7 @@ EOF
 }
 
 echo "Checking available storage on Proxmox server..."
-STORAGE_INFO=$(run_proxmox_command "pvesm status | grep -v container | grep -v Disabled")
+STORAGE_INFO=$(run_proxmox_command "pvesm status")
 
 echo -e "${BLUE}Available storage pools on Proxmox:${NC}"
 echo "$STORAGE_INFO"
@@ -300,8 +300,8 @@ select STORAGE_POOL in "${STORAGE_OPTIONS[@]}"; do
     fi
 done
 
-# Determine storage type
-STORAGE_TYPE=$(run_proxmox_command "pvesm status $STORAGE_POOL" | grep -v Name | awk '{print $2}')
+# Determine storage type - fix the command to retrieve storage type
+STORAGE_TYPE=$(run_proxmox_command "pvesm status | grep \"^$STORAGE_POOL \" | awk '{print \$2}'")
 STORAGE_POOL_TYPE="dir"  # Default
 
 case "$STORAGE_TYPE" in
@@ -430,12 +430,17 @@ echo -e "${YELLOW}[9/10] Setting up Terraform configuration${NC}"
 echo -e "${RED}IMPORTANT: API token authentication causes permission issues${NC}"
 echo -e "${BLUE}Using direct username/password authentication which has full permissions${NC}"
 
+<<<<<<< HEAD
 # Check if datapool exists on Proxmox
 echo -e "${YELLOW}Checking if /datapool exists on Proxmox...${NC}"
 DATAPOOL_EXISTS=$(run_proxmox_command "[ -d /datapool ] && echo 'true' || echo 'false'")
 
 # Fix variables.tf to handle both authentication methods
 cat > terraform/variables.tf << EOF
+=======
+# Fix variables.tf to handle both authentication methods - Using EOF with no variable expansion
+cat > terraform/variables.tf << 'EOF'
+>>>>>>> 8ae736cffb541897880d8b7d20dd659354b424d6
 # Proxmox connection variables
 variable "proxmox_api_url" {
   description = "The URL of the Proxmox API"
@@ -522,7 +527,12 @@ variable "lxc_containers" {
 EOF
 
 # Fix main.tf provider section to use username/password
+<<<<<<< HEAD
 cat > terraform/main.tf <<'EOF'
+=======
+# Note: Using 'EOF' for Terraform interpolation to work
+cat > terraform/main.tf << 'EOF'
+>>>>>>> 8ae736cffb541897880d8b7d20dd659354b424d6
 terraform {
   required_providers {
     proxmox = {
@@ -574,6 +584,7 @@ resource "proxmox_lxc" "lxc_container" {
   }
 EOF
 
+<<<<<<< HEAD
 # Add the mountpoint section based on our check instead of using dynamic blocks
 if [ "$DATAPOOL_EXISTS" = "true" ]; then
   echo -e "${GREEN}/datapool directory exists. Adding mountpoint configuration.${NC}"
@@ -595,11 +606,14 @@ fi
 # Continue with the rest of the file using quoted heredoc to prevent expansion
 cat >> terraform/main.tf <<'EOF'
 
+=======
+  # SSH key setup
+>>>>>>> 8ae736cffb541897880d8b7d20dd659354b424d6
   ssh_public_keys = file("~/.ssh/id_rsa.pub")
 
   # Install required packages and setup SSH
   provisioner "local-exec" {
-    command = <<-EOT
+    command = <<-EOC
       sleep 30
       ssh -o StrictHostKeyChecking=no root@${each.value.ip} "apk update && \
       apk add --no-cache openssh bash curl docker docker-compose && \
@@ -607,8 +621,13 @@ cat >> terraform/main.tf <<'EOF'
       rc-update add docker && \
       rc-service sshd start && \
       rc-service docker start"
-    EOT
+    EOC
   }
+}
+
+# Simple function to check if directory exists
+locals {
+  datapool_exists = true  # Default to true, will check in script
 }
 
 output "lxc_ips" {
@@ -683,6 +702,41 @@ echo -e "${GREEN}Terraform configuration completely rebuilt with username/passwo
 # --------------------------------------
 echo -e "${YELLOW}[10/10] Running Terraform${NC}"
 
+<<<<<<< HEAD
+=======
+# Create mountpoint configuration based on datapool existence
+# Check if datapool exists on Proxmox
+DATAPOOL_EXISTS=$(run_proxmox_command "[ -d /datapool ] && echo exists || echo notexists")
+
+if [ "$DATAPOOL_EXISTS" = "exists" ]; then
+  # Create datapool mountpoint config
+  cat > terraform/mountpoint.tf << 'EOF'
+# Add datapool mountpoint to each container
+resource "null_resource" "datapool_mount" {
+  for_each = proxmox_lxc.lxc_container
+  
+  triggers = {
+    container_id = each.value.id
+  }
+
+  provisioner "local-exec" {
+    command = "sleep 5 && pct set ${each.value.vmid} -mp0 /datapool,mp=/datapool"
+    interpreter = ["bash", "-c"]
+  }
+
+  depends_on = [
+    proxmox_lxc.lxc_container
+  ]
+}
+EOF
+  echo "Created datapool mountpoint configuration."
+else
+  echo "Datapool directory not found on Proxmox, skipping mountpoint configuration."
+  # Create an empty file
+  echo "# Datapool not found, no mountpoint configured" > terraform/mountpoint.tf
+fi
+
+>>>>>>> 8ae736cffb541897880d8b7d20dd659354b424d6
 cd terraform
 
 # Check for existing Terraform state and offer to reset it
