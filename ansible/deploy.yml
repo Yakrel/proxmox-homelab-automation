@@ -4,89 +4,89 @@
   tasks:
     - name: Create directories structure
       file:
-        path: /root/docker
+        path: /root/media
         state: directory
         mode: '0755'
 
     - name: Copy docker-compose.yml file
       copy:
         src: ../docker/media/docker-compose.yml
-        dest: /root/docker/docker-compose.yml
+        dest: /root/media/docker-compose.yml
         mode: '0644'
 
     - name: Deploy media stack
-      shell: cd /root/docker && docker-compose up -d
+      shell: cd /root/media && docker-compose up -d
       args:
-        chdir: /root/docker
+        chdir: /root/media
 
 - name: Deploy Monitoring Stack
   hosts: monitoring
   tasks:
     - name: Create directories structure
       file:
-        path: /root/docker
+        path: /root/monitoring
         state: directory
         mode: '0755'
 
     - name: Copy docker-compose.yml file
       copy:
         src: ../docker/monitoring/docker-compose.yml
-        dest: /root/docker/docker-compose.yml
+        dest: /root/monitoring/docker-compose.yml
         mode: '0644'
         
     - name: Copy .env file
       copy:
         src: ../docker/monitoring/.env
-        dest: /root/docker/.env
+        dest: /root/monitoring/.env
         mode: '0644'
         
     - name: Deploy monitoring stack
-      shell: cd /root/docker && docker-compose up -d
+      shell: cd /root/monitoring && docker-compose up -d
       args:
-        chdir: /root/docker
+        chdir: /root/monitoring
 
 - name: Deploy Logging Stack
   hosts: logging
   tasks:
     - name: Create directories structure
       file:
-        path: /root/docker
+        path: /root/logging
         state: directory
         mode: '0755'
 
     - name: Copy docker-compose.yml file
       copy:
         src: ../docker/logging/docker-compose.yml
-        dest: /root/docker/docker-compose.yml
+        dest: /root/logging/docker-compose.yml
         mode: '0644'
         
     - name: Deploy logging stack
-      shell: cd /root/docker && docker-compose up -d
+      shell: cd /root/logging && docker-compose up -d
       args:
-        chdir: /root/docker
+        chdir: /root/logging
 
 - name: Deploy Proxy Stack
   hosts: proxy
   tasks:
     - name: Create directories structure
       file:
-        path: /root/docker
+        path: /root/proxy
         state: directory
         mode: '0755'
 
     - name: Copy docker-compose.yml file
       copy:
         src: ../docker/proxy/docker-compose.yml
-        dest: /root/docker/docker-compose.yml
+        dest: /root/proxy/docker-compose.yml
         mode: '0644'
         
     - name: Copy .env file
       copy:
         src: ../docker/proxy/.env
-        dest: /root/docker/.env
+        dest: /root/proxy/.env
         mode: '0644'
         
     - name: Deploy proxy stack
-      shell: cd /root/docker && docker-compose up -d
+      shell: cd /root/proxy && docker-compose up -d
       args:
-        chdir: /root/docker
+        chdir: /root/proxy
