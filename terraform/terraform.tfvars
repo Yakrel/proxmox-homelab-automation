@@ -1,7 +1,7 @@
 # Proxmox connection settings
 proxmox_api_url = "https://192.168.1.10:8006/api2/json"
 proxmox_user = "root@pam"
-proxmox_password = "YOUR_PASSWORD"
+proxmox_password = "${PROXMOX_PASSWORD}"
 
 # Node settings
 target_node = "pve01"

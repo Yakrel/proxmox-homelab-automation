@@ -7,12 +7,28 @@ variable "proxmox_api_url" {
 variable "proxmox_api_token_id" {
   description = "The token ID for Proxmox API authentication"
   type        = string
+  default     = ""
 }
 
 variable "proxmox_api_token_secret" {
   description = "The token secret for Proxmox API authentication"
   type        = string
   sensitive   = true
+  default     = ""
+}
+
+# Username/password variables
+variable "proxmox_user" {
+  description = "The username for Proxmox authentication"
+  type        = string
+  default     = "root@pam"
+}
+
+variable "proxmox_password" {
+  description = "The password for Proxmox authentication"
+  type        = string
+  sensitive   = true
+  default     = ""
 }
 
 # Node settings
