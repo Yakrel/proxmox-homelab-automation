@@ -1,6 +1,6 @@
 # Proxmox Homelab Automation
 
-This repository provides automation for creating and configuring Alpine Linux LXC containers on Proxmox using provided scripts and Docker Compose files.
+This repository provides automation for creating and configuring Alpine Linux LXC containers on Proxmox using a setup script, specifically for deploying services with Docker Compose.
 
 ## Quick Start
 
@@ -9,17 +9,16 @@ To use this project, follow these steps:
 1. **Prerequisites**:
    - Proxmox VE server installed and configured
    - ZFS datapool already set up on the Proxmox host
-   - WSL2 installed on your Windows machine
-
 2. **Initial Setup on Proxmox Host**:
-   - Transfer the scripts to your Proxmox host
-   - Run the storage configuration: `bash scripts/storage.sh`
-   - Run the security hardening: `bash scripts/security.sh`
-   - Make sure the datapool is properly configured
+   - Transfer the `setup.sh` script to your Proxmox host
+   - Run the setup script: `bash setup.sh`
+   - Follow the prompts to configure your Proxmox server and deploy services
 
-3. **Run the Setup Script**:
-   - Execute the setup script: `bash setup.sh`
-   - Follow the prompts to configure your Proxmox server and deploy the services
+3. **Configure Environment Variables**:
+   - Copy `.env.example` files to `.env` in the respective directories:
+     - `cp docker/monitoring/.env.example docker/monitoring/.env`
+     - `cp docker/proxy/.env.example docker/proxy/.env`
+   - Edit the `.env` files with your credentials
 
 ## System Architecture
 
@@ -81,11 +80,11 @@ Each with isolated environments and dedicated networks for service groups:
 - All Docker data is stored under `/datapool`, so data persists even if containers are deleted
 - Docker and Docker Compose are automatically installed on Alpine Linux containers
 - Watchtower runs separately for each stack and automatically updates them
-- Docker Compose files are copied to the root directory (`/root`) of each LXC and executed
+- Docker Compose files are downloaded from the GitHub repository during script execution
 - CPU and RAM values are optimized for a server with 32GB RAM, adjust if necessary
 - RAM values for LXC containers are not strict limits, unused RAM can be utilized by other containers
 
 ## Configuration
 
-- `setup.sh`: Contains all steps for creating and configuring the management LXC
+- `setup.sh`: Contains all steps for creating and configuring the LXC containers and deploying services
 - `docker/`: Docker Compose configuration files for each service

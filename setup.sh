@@ -220,10 +220,16 @@ EOF
             ;;
     esac
     
-    # Copy Docker Compose file to container
-    print_status "$BLUE" "Copying Docker Compose file for $service..."
-    copy_to_proxmox "docker/$service/docker-compose.yml" "/tmp/docker-compose.yml"
-    run_proxmox_command "pct push $ctid /tmp/docker-compose.yml /root/docker/docker-compose.yml"
+    # Download Docker Compose file from GitHub
+    print_status "$BLUE" "Downloading Docker Compose file for $service..."
+    local compose_url="https://raw.githubusercontent.com/yourusername/yourrepository/main/docker/$service/docker-compose.yml"
+    local compose_file="/tmp/docker-compose.yml"
+    curl -fsSL --retry 3 --retry-delay 5 "$compose_url" -o "$compose_file"
+    if [ $? -ne 0 ]; then
+        print_status "$RED" "Failed to download Docker Compose file for $service."
+        exit 1
+    fi
+    run_proxmox_command "pct push $ctid $compose_file /root/docker/docker-compose.yml"
     
     # Update timezone in compose file
     run_proxmox_command "pct exec $ctid -- sed -i 's|Europe/Istanbul|$timezone|g' /root/docker/docker-compose.yml"
@@ -772,5 +778,13 @@ if [ ${#installed_containers[@]} -gt 0 ]; then
 else
     print_status "$RED" "No containers were installed."
 fi
+
+# Cleanup temporary files
+print_status "$YELLOW" "Cleaning up temporary files..."
+rm -f /tmp/monitoring.env /tmp/proxy.env /tmp/docker-compose.yml
+
+# Self-delete the script
+print_status "$YELLOW" "Self-deleting the setup script..."
+rm -- "$0"
 
 exit 0
