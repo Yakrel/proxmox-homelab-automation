@@ -224,7 +224,7 @@ EOF
     print_status "$BLUE" "Downloading Docker Compose file for $service..."
     local compose_url="https://raw.githubusercontent.com/yourusername/yourrepository/main/docker/$service/docker-compose.yml"
     local compose_file="/tmp/docker-compose.yml"
-    curl -fsSL --retry 3 --retry-delay 5 "$compose_url" -o "$compose_file"
+    wget --retry-connrefused --waitretry=5 --quiet -O "$compose_file" "$compose_url"
     if [ $? -ne 0 ]; then
         print_status "$RED" "Failed to download Docker Compose file for $service."
         exit 1
