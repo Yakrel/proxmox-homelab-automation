@@ -1,8 +1,14 @@
 #!/bin/bash
 
+# ======================================================
+# Proxmox Homelab Automation Setup Script
+# ======================================================
+# This script creates Alpine Linux LXC containers on Proxmox and
+# deploys Docker services without requiring Terraform or Ansible
+
 # Error handling
 set -e
-trap 'echo "An error occurred at line $LINENO. Command: $BASH_COMMAND"; exit 1' ERR
+trap 'echo "Error on line $LINENO" ; exit 1' ERR
 
 # Color definitions
 GREEN='\033[0;32m'
@@ -15,122 +21,293 @@ NC='\033[0m' # No Color
 DEFAULT_PROXMOX_IP="192.168.1.10"
 DEFAULT_PROXMOX_USER="root@pam"
 DEFAULT_PROXMOX_NODE="pve01"
+DEFAULT_STORAGE_POOL="local"
+DEFAULT_TIMEZONE="Europe/Istanbul"
 DEFAULT_GRAFANA_PASSWORD="admin"
-PROXMOX_PASSWORD=""
+DEFAULT_PRIVATE_NETWORK="192.168.1"
 
-# Hardcoded template yerine boş bırakıyoruz, otomatik tespit edeceğiz
+# Default container configurations
+# The IP will be automatically set based on CTID: 192.168.1.{CTID}
+DEFAULT_CONTAINERS=(
+    "media:102:4:16384:32"     # name:ctid:cores:memory_mb:storage_gb
+    "monitoring:103:2:4096:16"
+    "logging:104:2:4096:16"
+    "proxy:125:2:2048:8"
+)
+
+PROXMOX_PASSWORD=""
 ALPINE_TEMPLATE=""
 
-echo -e "${GREEN}===== Proxmox Homelab Automation Setup =====${NC}"
+# ======================================================
+# Helper functions
+# ======================================================
+
+# Function to print colored text
+print_status() {
+    local color=$1
+    local message=$2
+    echo -e "${color}${message}${NC}"
+}
+
+# Function to run command on Proxmox via SSH
+run_proxmox_command() {
+    local command="$1"
+    
+    if [ "$setup_ssh" == "y" ]; then
+        ssh -o StrictHostKeyChecking=no ${proxmox_user%@*}@${proxmox_ip} "$command"
+    else
+        if command -v expect &> /dev/null; then
+            cat > /tmp/run_command.exp << EOF
+#!/usr/bin/expect -f
+spawn ssh -o StrictHostKeyChecking=no ${proxmox_user%@*}@${proxmox_ip} "$command"
+expect "password:"
+send "${PROXMOX_PASSWORD}\r"
+expect eof
+EOF
+            chmod +x /tmp/run_command.exp
+            output=$(/tmp/run_command.exp | tail -n +2)
+            rm -f /tmp/run_command.exp
+            echo "$output"
+        else
+            # Fallback to sshpass if available
+            if command -v sshpass &> /dev/null; then
+                sshpass -p "${PROXMOX_PASSWORD}" ssh -o StrictHostKeyChecking=no ${proxmox_user%@*}@${proxmox_ip} "$command"
+            else
+                echo -e "${YELLOW}Both 'expect' and 'sshpass' not found. Using manual SSH.${NC}"
+                ssh -o StrictHostKeyChecking=no ${proxmox_user%@*}@${proxmox_ip} "$command"
+            fi
+        fi
+    fi
+}
+
+# Function to copy file to Proxmox
+copy_to_proxmox() {
+    local src="$1"
+    local dest="$2"
+    
+    if [ "$setup_ssh" == "y" ]; then
+        scp -o StrictHostKeyChecking=no "$src" ${proxmox_user%@*}@${proxmox_ip}:"$dest"
+    else
+        if command -v expect &> /dev/null; then
+            cat > /tmp/scp_command.exp << EOF
+#!/usr/bin/expect -f
+spawn scp -o StrictHostKeyChecking=no "$src" ${proxmox_user%@*}@${proxmox_ip}:"$dest"
+expect "password:"
+send "${PROXMOX_PASSWORD}\r"
+expect eof
+EOF
+            chmod +x /tmp/scp_command.exp
+            /tmp/scp_command.exp
+            rm -f /tmp/scp_command.exp
+        else
+            # Fallback to sshpass if available
+            if command -v sshpass &> /dev/null; then
+                sshpass -p "${PROXMOX_PASSWORD}" scp -o StrictHostKeyChecking=no "$src" ${proxmox_user%@*}@${proxmox_ip}:"$dest"
+            else
+                echo -e "${YELLOW}Both 'expect' and 'sshpass' not found. Using manual SCP.${NC}"
+                scp -o StrictHostKeyChecking=no "$src" ${proxmox_user%@*}@${proxmox_ip}:"$dest"
+            fi
+        fi
+    fi
+}
+
+# Function to set up one container
+setup_container() {
+    local name="$1"
+    local ctid="$2"
+    local cores="$3"
+    local memory="$4"
+    local storage="$5"
+    local ip="${private_network}.${ctid}"
+    
+    print_status "$BLUE" "Setting up $name container (ID: $ctid, IP: $ip)..."
+    
+    # Check if container already exists
+    if run_proxmox_command "pct list | grep -q ' $ctid '"; then
+        print_status "$YELLOW" "Container $ctid already exists. Skipping creation."
+    else
+        # Create the container
+        print_status "$BLUE" "Creating container $ctid..."
+        run_proxmox_command "pct create $ctid $STORAGE_POOL:vztmpl/$ALPINE_TEMPLATE \
+            --hostname $name \
+            --cores $cores \
+            --memory $memory \
+            --swap 512 \
+            --rootfs $STORAGE_POOL:$storage \
+            --net0 name=eth0,bridge=vmbr0,ip=$ip/24,gw=${private_network}.1 \
+            --unprivileged 1 \
+            --features nesting=1 \
+            --start 1"
+            
+        print_status "$GREEN" "Container $name created."
+        
+        # Wait for container to start
+        print_status "$BLUE" "Waiting for container to start..."
+        sleep 10
+    fi
+    
+    # Mount datapool if it exists and not already mounted
+    if [ "$datapool_exists" == "true" ]; then
+        # Check if datapool is already mounted
+        if ! run_proxmox_command "pct config $ctid | grep -q 'mp0: datapool'"; then
+            print_status "$BLUE" "Mounting datapool to container..."
+            run_proxmox_command "pct set $ctid -mp0 /datapool,mp=/datapool"
+        else
+            print_status "$YELLOW" "Datapool already mounted to container $ctid."
+        fi
+    fi
+    
+    # Install Docker and dependencies
+    print_status "$BLUE" "Installing Docker and dependencies..."
+    run_proxmox_command "pct exec $ctid -- ash -c \"apk update && 
+        apk add --no-cache docker docker-compose curl bash openssh && 
+        rc-update add docker default && 
+        rc-service docker start\""
+    
+    # Set up passwordless console access
+    print_status "$BLUE" "Setting up container console access..."
+    run_proxmox_command "pct exec $ctid -- ash -c \"passwd -d root\""
+    
+    # Copy Docker Compose files and create directories
+    prepare_container_for_service "$name" "$ctid" "$ip"
+    
+    print_status "$GREEN" "Container $name setup completed successfully."
+    
+    # Return the container information
+    echo "$name:$ctid:$ip"
+}
+
+# Function to prepare container for specific service
+prepare_container_for_service() {
+    local service="$1"
+    local ctid="$2"
+    local ip="$3"
+    
+    # Make sure target directory exists
+    run_proxmox_command "pct exec $ctid -- mkdir -p /root/docker"
+    
+    # Create necessary directories based on service type
+    case "$service" in
+        media)
+            print_status "$BLUE" "Setting up media service directories..."
+            run_proxmox_command "pct exec $ctid -- mkdir -p /datapool/config/{sonarr-config,radarr-config,bazarr-config,jellyfin-config,jellyseerr-config,qbittorrent-config,prowlarr-config,flaresolverr-config,watchtower-media-config,recyclarr-config,youtube-dl-config}"
+            run_proxmox_command "pct exec $ctid -- mkdir -p /datapool/media/{tv,movies,youtube/{playlists,channels}}"
+            run_proxmox_command "pct exec $ctid -- mkdir -p /datapool/torrents/{tv,movies}"
+            ;;
+        monitoring)
+            print_status "$BLUE" "Setting up monitoring service directories..."
+            run_proxmox_command "pct exec $ctid -- mkdir -p /datapool/config/{prometheus-config,grafana-config,alertmanager-config,watchtower-monitoring-config}"
+            
+            # Create .env file for Grafana
+            cat > /tmp/monitoring.env << EOF
+GRAFANA_PASSWORD=$grafana_password
+EOF
+            run_proxmox_command "pct push $ctid /tmp/monitoring.env /root/docker/.env"
+            ;;
+        logging)
+            print_status "$BLUE" "Setting up logging service directories..."
+            run_proxmox_command "pct exec $ctid -- mkdir -p /datapool/config/{elasticsearch-config,logstash-config,kibana-config,filebeat-config,watchtower-logging-config}"
+            ;;
+        proxy)
+            print_status "$BLUE" "Setting up proxy service directories..."
+            run_proxmox_command "pct exec $ctid -- mkdir -p /datapool/config/{cloudflared-config,watchtower-proxy-config,adguard-config/{work,conf}}"
+            
+            # Create .env file for Cloudflared
+            cat > /tmp/proxy.env << EOF
+CLOUDFLARED_TOKEN=$cloudflared_token
+EOF
+            run_proxmox_command "pct push $ctid /tmp/proxy.env /root/docker/.env"
+            ;;
+    esac
+    
+    # Copy Docker Compose file to container
+    print_status "$BLUE" "Copying Docker Compose file for $service..."
+    copy_to_proxmox "docker/$service/docker-compose.yml" "/tmp/docker-compose.yml"
+    run_proxmox_command "pct push $ctid /tmp/docker-compose.yml /root/docker/docker-compose.yml"
+    
+    # Update timezone in compose file
+    run_proxmox_command "pct exec $ctid -- sed -i 's|Europe/Istanbul|$timezone|g' /root/docker/docker-compose.yml"
+    
+    # Start Docker Compose services
+    print_status "$BLUE" "Starting Docker Compose services for $service..."
+    run_proxmox_command "pct exec $ctid -- bash -c 'cd /root/docker && docker-compose up -d'"
+}
+
+# ======================================================
+# Main Script
+# ======================================================
+
+print_status "$GREEN" "===== Proxmox Homelab Automation Setup ====="
 
 # --------------------------------------
 # Check prerequisites
 # --------------------------------------
-echo -e "${YELLOW}[1/10] Checking prerequisites${NC}"
+print_status "$YELLOW" "[1/8] Checking prerequisites"
 
-# Check if git is installed
-if ! command -v git &> /dev/null; then
-    echo -e "${RED}Git is not installed. Please install Git first.${NC}"
-    exit 1
-fi
-
-# Check if terraform is installed
-if ! command -v terraform &> /dev/null; then
-    echo -e "${RED}Terraform is not installed. Please install Terraform first.${NC}"
-    exit 1
-fi
-
-# Check if ansible is installed
-if ! command -v ansible &> /dev/null; then
-    echo -e "${RED}Ansible is not installed. Please install Ansible first.${NC}"
-    exit 1
-fi
-
-# NEW: Check if curl is installed; if not, install it.
+# Check if curl is installed; if not, install it.
 if ! command -v curl &> /dev/null; then
-    echo -e "${YELLOW}curl not found. Installing curl...${NC}"
-    sudo apt-get update && sudo apt-get install -y curl
+    print_status "$YELLOW" "curl not found. Installing curl..."
+    apt-get update && apt-get install -y curl
 fi
 
-echo -e "${GREEN}All prerequisites are met.${NC}"
+# Check if sshpass is installed; if not, install it.
+if ! command -v sshpass &> /dev/null; then
+    print_status "$YELLOW" "sshpass not found. Installing sshpass..."
+    apt-get update && apt-get install -y sshpass
+fi
+
+# Check if expect is installed; if not, install it.
+if ! command -v expect &> /dev/null; then
+    print_status "$YELLOW" "expect not found. Installing expect..."
+    apt-get update && apt-get install -y expect
+fi
+
+print_status "$GREEN" "All prerequisites are met."
 
 # --------------------------------------
-# SSH key setup FIRST (before repository clone)
+# SSH key setup
 # --------------------------------------
-echo -e "${YELLOW}[2/10] Setting up SSH keys${NC}"
+print_status "$YELLOW" "[2/8] Setting up SSH keys"
 
 if [ ! -f ~/.ssh/id_rsa ]; then
     echo "SSH key not found. Generating a new SSH key..."
     ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
-    echo -e "${GREEN}SSH key generated successfully.${NC}"
-fi
-    
-# Display the public key and GitHub instructions
-echo -e "${YELLOW}IMPORTANT: You need to add this SSH key to your GitHub account${NC}"
-echo -e "${YELLOW}Here is your public key:${NC}"
-echo ""
-cat ~/.ssh/id_rsa.pub
-echo ""
-echo -e "${YELLOW}Instructions to add SSH key to GitHub:${NC}"
-echo "1. Go to GitHub > Settings > SSH and GPG keys"
-echo "2. Click 'New SSH key'"
-echo "3. Copy the key above and paste it into GitHub"
-echo "4. Save the key"
-
-# Wait for user confirmation
-read -p "Have you added the SSH key to GitHub? (y/n): " added_key
-if [ "$added_key" != "y" ]; then
-    echo -e "${RED}Please add the SSH key to GitHub before continuing.${NC}"
-    exit 1
-fi
-echo -e "${GREEN}SSH key is ready for use.${NC}"
-
-# --------------------------------------
-# Clone repository (AFTER SSH key is ready)
-# --------------------------------------
-echo -e "${YELLOW}[3/10] Cloning repository${NC}"
-
-# Create a directory for the project
-PROJECT_DIR="proxmox-homelab-automation"
-if [ ! -d "$PROJECT_DIR" ]; then
-    echo "Cloning repository..."
-    git clone git@github.com:Yakrel/proxmox-homelab-automation.git $PROJECT_DIR
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Failed to clone repository. Please check your SSH key and permissions.${NC}"
-        exit 1
-    fi
-    echo -e "${GREEN}Repository cloned successfully.${NC}"
-else
-    echo "Repository directory already exists. Updating..."
-    cd $PROJECT_DIR
-    git pull || echo "Warning: Could not update repository but continuing..."
-    cd ..
-    echo -e "${GREEN}Repository updated successfully.${NC}"
+    print_status "$GREEN" "SSH key generated successfully."
 fi
 
-# Move into the project directory
-cd $PROJECT_DIR
+print_status "$GREEN" "SSH key is ready for use."
 
 # --------------------------------------
-# Ask Proxmox password once
+# Ask Proxmox connection details
 # --------------------------------------
-echo -e "${YELLOW}[4/10] Proxmox connection information${NC}"
-echo -e "${BLUE}We'll ask for your Proxmox details once and use them throughout the script${NC}"
+print_status "$YELLOW" "[3/8] Proxmox connection information"
+print_status "$BLUE" "We'll ask for your Proxmox details once and use them throughout the script"
 read -p "Enter Proxmox server IP [$DEFAULT_PROXMOX_IP]: " proxmox_ip
 proxmox_ip=${proxmox_ip:-$DEFAULT_PROXMOX_IP}
 
 read -p "Enter Proxmox username [$DEFAULT_PROXMOX_USER]: " proxmox_user
 proxmox_user=${proxmox_user:-$DEFAULT_PROXMOX_USER}
 
-echo -e "${BLUE}Enter Proxmox password (will be used for SSH and other connections):${NC}"
+read -p "Enter Proxmox node name [$DEFAULT_PROXMOX_NODE]: " proxmox_node
+proxmox_node=${proxmox_node:-$DEFAULT_PROXMOX_NODE}
+
+print_status "$BLUE" "Enter Proxmox password (will be used for SSH and other connections):"
 read -s PROXMOX_PASSWORD
 echo ""
+
+# Ask for timezone
+read -p "Enter your timezone [$DEFAULT_TIMEZONE]: " timezone
+timezone=${timezone:-$DEFAULT_TIMEZONE}
+
+# Ask for private network
+read -p "Enter your private network prefix [$DEFAULT_PRIVATE_NETWORK]: " private_network
+private_network=${private_network:-$DEFAULT_PRIVATE_NETWORK}
 
 # --------------------------------------
 # Setup SSH key authentication to Proxmox (optional)
 # --------------------------------------
-echo -e "${YELLOW}[5/10] Setting up SSH key authentication to Proxmox${NC}"
-echo -e "${BLUE}This will let us connect to Proxmox without asking for a password each time${NC}"
+print_status "$YELLOW" "[4/8] Setting up SSH key authentication to Proxmox"
+print_status "$BLUE" "This will let us connect to Proxmox without asking for a password each time"
 read -p "Would you like to set up SSH key authentication to Proxmox? (y/n): " setup_ssh
 
 if [ "$setup_ssh" == "y" ]; then
@@ -147,51 +324,31 @@ EOF
         chmod +x /tmp/ssh_copy_id.exp
         /tmp/ssh_copy_id.exp
         rm -f /tmp/ssh_copy_id.exp
-        echo -e "${GREEN}SSH key copied to Proxmox server.${NC}"
+        print_status "$GREEN" "SSH key copied to Proxmox server."
     else
-        echo -e "${YELLOW}Expect utility not found, using manual method.${NC}"
+        print_status "$YELLOW" "Expect utility not found, using manual method."
         ssh-copy-id -o StrictHostKeyChecking=no ${proxmox_user%@*}@${proxmox_ip}
     fi
 fi
 
 # --------------------------------------
-# Proxmox configuration scripts
+# Proxmox configuration scripts (optional)
 # --------------------------------------
-echo -e "${YELLOW}[6/10] Running Proxmox configuration scripts${NC}"
+print_status "$YELLOW" "[5/8] Running Proxmox configuration scripts"
 
 read -p "Do you want to run storage.sh and security.sh scripts on your Proxmox server? (y/n): " run_scripts
 
 if [ "$run_scripts" == "y" ]; then
     echo "Copying scripts to Proxmox server..."
-    
-    # Use expect script for SCP if password still needed
-    if [ "$setup_ssh" != "y" ]; then
-        if command -v expect &> /dev/null; then
-            cat > /tmp/scp_scripts.exp << EOF
-#!/usr/bin/expect -f
-spawn scp scripts/storage.sh scripts/security.sh ${proxmox_user%@*}@${proxmox_ip}:/tmp/
-expect "password:"
-send "${PROXMOX_PASSWORD}\r"
-expect eof
-EOF
-            chmod +x /tmp/scp_scripts.exp
-            /tmp/scp_scripts.exp
-            rm -f /tmp/scp_scripts.exp
-        else
-            echo -e "${YELLOW}Expect utility not found. You'll need to enter the password manually.${NC}"
-            scp scripts/storage.sh scripts/security.sh ${proxmox_user%@*}@${proxmox_ip}:/tmp/
-        fi
-    else
-        scp scripts/storage.sh scripts/security.sh ${proxmox_user%@*}@${proxmox_ip}:/tmp/
-    fi
+    copy_to_proxmox "scripts/storage.sh" "/tmp/storage.sh"
+    copy_to_proxmox "scripts/security.sh" "/tmp/security.sh"
     
     echo "Running scripts on Proxmox server..."
-    # Use expect script for SSH if password still needed
-    if [ "$setup_ssh" != "y" ]; then
-        if command -v expect &> /dev/null; then
-            cat > /tmp/run_storage.exp << EOF
+    if [ "$setup_ssh" != "y" ] && command -v expect &> /dev/null; then
+        # Run storage script with SMB password set
+        cat > /tmp/run_storage.exp << EOF
 #!/usr/bin/expect -f
-spawn ssh ${proxmox_user%@*}@${proxmox_ip} "bash /tmp/storage.sh"
+spawn ssh -o StrictHostKeyChecking=no ${proxmox_user%@*}@${proxmox_ip} "bash /tmp/storage.sh"
 expect "password:"
 send "${PROXMOX_PASSWORD}\r"
 expect "New SMB password:"
@@ -200,72 +357,41 @@ expect "Retype new SMB password:"
 send "${PROXMOX_PASSWORD}\r"
 expect eof
 EOF
-            chmod +x /tmp/run_storage.exp
-            /tmp/run_storage.exp
-            rm -f /tmp/run_storage.exp
-            
-            cat > /tmp/run_security.exp << EOF
+        chmod +x /tmp/run_storage.exp
+        /tmp/run_storage.exp
+        rm -f /tmp/run_storage.exp
+        
+        # Run security script
+        cat > /tmp/run_security.exp << EOF
 #!/usr/bin/expect -f
-spawn ssh ${proxmox_user%@*}@${proxmox_ip} "bash /tmp/security.sh"
+spawn ssh -o StrictHostKeyChecking=no ${proxmox_user%@*}@${proxmox_ip} "bash /tmp/security.sh"
 expect "password:"
 send "${PROXMOX_PASSWORD}\r"
 expect eof
 EOF
-            chmod +x /tmp/run_security.exp
-            /tmp/run_security.exp
-            rm -f /tmp/run_security.exp
-        else
-            echo -e "${YELLOW}Expect utility not found. You'll need to enter passwords manually.${NC}"
-            ssh ${proxmox_user%@*}@${proxmox_ip} "bash /tmp/storage.sh"
-            ssh ${proxmox_user%@*}@${proxmox_ip} "bash /tmp/security.sh"
-        fi
+        chmod +x /tmp/run_security.exp
+        /tmp/run_security.exp
+        rm -f /tmp/run_security.exp
     else
-        ssh ${proxmox_user%@*}@${proxmox_ip} "bash /tmp/storage.sh"
-        ssh ${proxmox_user%@*}@${proxmox_ip} "bash /tmp/security.sh"
+        run_proxmox_command "bash /tmp/storage.sh"
+        run_proxmox_command "bash /tmp/security.sh"
     fi
     
-    echo -e "${GREEN}Proxmox configuration scripts executed.${NC}"
+    print_status "$GREEN" "Proxmox configuration scripts executed."
 else
     echo "Skipping Proxmox configuration scripts."
 fi
 
 # --------------------------------------
-# Check available storage and update template
+# Storage pool and template selection
 # --------------------------------------
-echo -e "${YELLOW}[7/10] Checking available storage on Proxmox${NC}"
+print_status "$YELLOW" "[6/8] Selecting storage pool and template"
 
-# Function to run command on Proxmox via SSH
-run_proxmox_command() {
-    local command="$1"
-    local prompt_pattern="${2:-password:}"
-    local response="${3:-$PROXMOX_PASSWORD}"
-    
-    if [ "$setup_ssh" == "y" ]; then
-        ssh ${proxmox_user%@*}@${proxmox_ip} "$command"
-    else
-        if command -v expect &> /dev/null; then
-            cat > /tmp/run_command.exp << EOF
-#!/usr/bin/expect -f
-spawn ssh ${proxmox_user%@*}@${proxmox_ip} "$command"
-expect "$prompt_pattern"
-send "$response\r"
-expect eof
-EOF
-            chmod +x /tmp/run_command.exp
-            output=$(/tmp/run_command.exp | tail -n +2)
-            rm -f /tmp/run_command.exp
-            echo "$output"
-        else
-            echo -e "${YELLOW}Expect utility not found. Using manual method.${NC}"
-            ssh ${proxmox_user%@*}@${proxmox_ip} "$command"
-        fi
-    fi
-}
-
+# Get list of storage pools
 echo "Checking available storage on Proxmox server..."
 STORAGE_INFO=$(run_proxmox_command "pvesm status")
 
-echo -e "${BLUE}Available storage pools on Proxmox:${NC}"
+print_status "$BLUE" "Available storage pools on Proxmox:"
 echo "$STORAGE_INFO"
 
 # Parse available storage options
@@ -285,591 +411,366 @@ done <<< "$STORAGE_INFO"
 
 # Check if we have storage options
 if [ ${#STORAGE_OPTIONS[@]} -eq 0 ]; then
-    echo -e "${RED}No storage pools found on Proxmox. Please create at least one storage pool.${NC}"
+    print_status "$RED" "No storage pools found on Proxmox. Please create at least one storage pool."
     exit 1
 fi
 
 # Display options and ask user to select
-echo -e "${YELLOW}Please select a storage pool to use for LXC containers:${NC}"
+print_status "$YELLOW" "Please select a storage pool to use for LXC containers:"
 select STORAGE_POOL in "${STORAGE_OPTIONS[@]}"; do
     if [ -n "$STORAGE_POOL" ]; then
         echo "Selected storage pool: $STORAGE_POOL"
         break
     else
-        echo -e "${RED}Invalid selection. Please try again.${NC}"
+        print_status "$RED" "Invalid selection. Please try again."
     fi
 done
 
-# Determine storage type - fix the command to retrieve storage type
-STORAGE_TYPE=$(run_proxmox_command "pvesm status | grep \"^$STORAGE_POOL \" | awk '{print \$2}'")
-STORAGE_POOL_TYPE="dir"  # Default
+# Check if datapool exists on Proxmox
+print_status "$YELLOW" "Checking if /datapool exists on Proxmox..."
+datapool_exists=$(run_proxmox_command "[ -d /datapool ] && echo 'true' || echo 'false'")
 
-case "$STORAGE_TYPE" in
-    zfspool)
-        STORAGE_POOL_TYPE="zfs"
-        ;;
-    lvmthin)
-        STORAGE_POOL_TYPE="lvm-thin"
-        ;;
-    dir)
-        STORAGE_POOL_TYPE="dir"
-        ;;
-    *)
-        STORAGE_POOL_TYPE="dir"  # Default fallback
-        ;;
-esac
+if [ "$datapool_exists" == "true" ]; then
+    print_status "$GREEN" "/datapool exists and will be mounted to containers."
+else
+    print_status "$YELLOW" "/datapool does not exist. Container data will be stored in the container's rootfs."
+    read -p "Would you like to continue without datapool? (y/n): " continue_without_datapool
+    if [ "$continue_without_datapool" != "y" ]; then
+        print_status "$RED" "Exiting as datapool is required."
+        exit 1
+    fi
+fi
 
-echo "Storage pool type detected: $STORAGE_POOL_TYPE"
-
-# Update template repos and check if Alpine template exists
-echo -e "${YELLOW}Updating container template repositories...${NC}"
+# Update template repos and find Alpine template
+print_status "$YELLOW" "Updating container template repositories..."
 run_proxmox_command "pveam update"
 
-# Otomatik olarak en son Alpine template'ini tespit et
-echo -e "${YELLOW}Finding the latest Alpine template...${NC}"
+print_status "$YELLOW" "Finding the latest Alpine template..."
 ALPINE_TEMPLATES=$(run_proxmox_command "pveam available | grep alpine | grep -v edge | sort -V")
 
 if [ -z "$ALPINE_TEMPLATES" ]; then
-    echo -e "${RED}No Alpine templates found in repository. Please check your Proxmox repositories.${NC}"
+    print_status "$RED" "No Alpine templates found in repository. Please check your Proxmox repositories."
     exit 1
 fi
 
-# En son Alpine sürümlerini göster
-echo -e "${BLUE}Available Alpine templates:${NC}"
+# Show latest Alpine versions
+print_status "$BLUE" "Available Alpine templates:"
 echo "$ALPINE_TEMPLATES" | tail -n 5
 
-# En son sürümü otomatik seç (non-edge, non-RC)
+# Automatically select latest stable version (non-edge, non-RC)
 ALPINE_TEMPLATE=$(echo "$ALPINE_TEMPLATES" | grep -i default | grep -v edge | grep -v rc | tail -n 1 | awk '{print $2}')
 
-# Eğer bulunamazsa, herhangi bir Alpine sürümü seç
+# If not found, select any Alpine version
 if [ -z "$ALPINE_TEMPLATE" ]; then
     ALPINE_TEMPLATE=$(echo "$ALPINE_TEMPLATES" | tail -n 1 | awk '{print $2}')
 fi
 
-echo -e "${GREEN}Selected latest Alpine template: $ALPINE_TEMPLATE${NC}"
+print_status "$GREEN" "Selected latest Alpine template: $ALPINE_TEMPLATE"
 
-# Kullanıcıya farklı bir template seçme şansı ver
+# Allow user to select a different template
 read -p "Do you want to use this template or select a different one? (use/select): " template_choice
 
 if [ "$template_choice" == "select" ]; then
-    echo -e "${BLUE}Available Alpine templates:${NC}"
+    print_status "$BLUE" "Available Alpine templates:"
     echo "$ALPINE_TEMPLATES"
     
-    echo -e "${YELLOW}Please enter the name of the Alpine template to use:${NC}"
+    print_status "$YELLOW" "Please enter the name of the Alpine template to use:"
     read -p "Template name: " user_template
     
     if [ -n "$user_template" ]; then
         ALPINE_TEMPLATE=$user_template
-        echo -e "${GREEN}Using template: $ALPINE_TEMPLATE${NC}"
+        print_status "$GREEN" "Using template: $ALPINE_TEMPLATE"
     else
-        echo -e "${YELLOW}No template entered, using previously selected: $ALPINE_TEMPLATE${NC}"
+        print_status "$YELLOW" "No template entered, using previously selected: $ALPINE_TEMPLATE"
     fi
 fi
 
 # Check if the template is downloaded
-echo -e "${YELLOW}Checking if template is downloaded...${NC}"
+print_status "$YELLOW" "Checking if template is downloaded..."
 TEMPLATE_DOWNLOADED=$(run_proxmox_command "pveam list $STORAGE_POOL | grep $ALPINE_TEMPLATE" || echo "")
 
 if [ -z "$TEMPLATE_DOWNLOADED" ]; then
-    echo -e "${YELLOW}Downloading Alpine template to $STORAGE_POOL...${NC}"
+    print_status "$YELLOW" "Downloading Alpine template to $STORAGE_POOL..."
     run_proxmox_command "pveam download $STORAGE_POOL $ALPINE_TEMPLATE"
     
     # Make sure download was successful
     TEMPLATE_VERIFY=$(run_proxmox_command "pveam list $STORAGE_POOL | grep $ALPINE_TEMPLATE" || echo "")
     if [ -z "$TEMPLATE_VERIFY" ]; then
-        echo -e "${RED}Failed to download template. Please check Proxmox logs.${NC}"
+        print_status "$RED" "Failed to download template. Please check Proxmox logs."
         exit 1
     fi
 else
-    echo -e "${GREEN}Template already downloaded.${NC}"
+    print_status "$GREEN" "Template already downloaded."
 fi
 
 # --------------------------------------
-# Prepare environment files
+# Configure environment variables
 # --------------------------------------
-echo -e "${YELLOW}[8/10] Setting up environment files${NC}"
+print_status "$YELLOW" "[7/8] Setting up environment variables"
 
-# Set up monitoring .env file
-if [ -f docker/monitoring/.env.example ]; then
-    if [ ! -f docker/monitoring/.env ]; then
-        echo "Setting up monitoring environment file..."
-        read -p "Enter Grafana password [$DEFAULT_GRAFANA_PASSWORD]: " grafana_password
-        grafana_password=${grafana_password:-$DEFAULT_GRAFANA_PASSWORD}
-        
-        cp docker/monitoring/.env.example docker/monitoring/.env
-        sed -i "s/secure_password_here/${grafana_password}/g" docker/monitoring/.env
-        
-        echo -e "${GREEN}Monitoring environment file created.${NC}"
-    else
-        echo "Monitoring environment file already exists."
-    fi
-fi
+# Set up Grafana password
+read -p "Enter Grafana password [$DEFAULT_GRAFANA_PASSWORD]: " grafana_password
+grafana_password=${grafana_password:-$DEFAULT_GRAFANA_PASSWORD}
 
-# Set up proxy .env file
-if [ -f docker/proxy/.env.example ]; then
-    if [ ! -f docker/proxy/.env ]; then
-        echo "Setting up proxy environment file..."
-        echo -e "${BLUE}The Cloudflare Tunnel Token is needed if you want to expose services to the internet.${NC}"
-        echo -e "${BLUE}If you don't have one, you can leave it blank for now and update it later.${NC}"
-        read -p "Enter Cloudflare Tunnel Token (can be blank): " cloudflare_token
-        
-        cp docker/proxy/.env.example docker/proxy/.env
-        sed -i "s/your_cloudflare_tunnel_token_here/${cloudflare_token:-your_token_here}/g" docker/proxy/.env
-        
-        echo -e "${GREEN}Proxy environment file created.${NC}"
-    else
-        echo "Proxy environment file already exists."
-    fi
-fi
+# Set up Cloudflare Tunnel Token if needed
+print_status "$BLUE" "The Cloudflare Tunnel Token is needed if you want to expose services to the internet."
+print_status "$BLUE" "If you don't have one, you can leave it blank for now and update it later."
+read -p "Enter Cloudflare Tunnel Token (can be blank): " cloudflared_token
+cloudflared_token=${cloudflared_token:-"your_token_here"}
 
 # --------------------------------------
-# Fix Terraform configuration
+# Container setup
 # --------------------------------------
-echo -e "${YELLOW}[9/10] Setting up Terraform configuration${NC}"
+print_status "$YELLOW" "[8/8] Setting up containers"
 
-echo -e "${RED}IMPORTANT: API token authentication causes permission issues${NC}"
-echo -e "${BLUE}Using direct username/password authentication which has full permissions${NC}"
+# Choose which services to install
+echo "Which services would you like to install? (Select option number and press Enter)"
+options=("All" "Media" "Monitoring" "Logging" "Proxy" "Exit")
 
-# Check if datapool exists on Proxmox
-echo -e "${YELLOW}Checking if /datapool exists on Proxmox...${NC}"
-DATAPOOL_EXISTS=$(run_proxmox_command "[ -d /datapool ] && echo 'true' || echo 'false'")
-
-# Fix variables.tf to handle both authentication methods - Using EOF with no variable expansion
-cat > terraform/variables.tf << 'EOF'
-# Proxmox connection variables
-variable "proxmox_api_url" {
-  description = "The URL of the Proxmox API"
-  type        = string
-}
-
-variable "proxmox_api_token_id" {
-  description = "The token ID for Proxmox API authentication"
-  type        = string
-  default     = ""
-}
-
-variable "proxmox_api_token_secret" {
-  description = "The token secret for Proxmox API authentication"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-# Username/password variables
-variable "proxmox_user" {
-  description = "The username for Proxmox authentication"
-  type        = string
-  default     = "root@pam"
-}
-
-variable "proxmox_password" {
-  description = "The password for Proxmox authentication"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-# Node settings
-variable "target_node" {
-  description = "The target Proxmox node name"
-  type        = string
-}
-
-# Storage settings
-variable "storage_pool" {
-  description = "The storage pool to use for LXC containers"
-  type        = string
-  default     = "local-lvm"
-}
-
-variable "storage_pool_type" {
-  description = "The type of storage pool"
-  type        = string
-  default     = "lvm-thin"
-}
-
-# Network settings
-variable "network_bridge" {
-  description = "The network bridge to use for LXC containers"
-  type        = string
-  default     = "vmbr0"
-}
-
-variable "private_network" {
-  description = "The private network prefix (e.g., 192.168.1)"
-  type        = string
-  default     = "192.168.1"
-}
-
-# LXC template
-variable "ostemplate" {
-  description = "The OS template to use for LXC containers"
-  type        = string
-}
-
-# LXC container configuration
-variable "lxc_containers" {
-  description = "Configuration for LXC containers"
-  type = map(object({
-    id       = number
-    hostname = string
-    ip       = string
-    cores    = number
-    memory   = number
-    storage  = number
-  }))
-}
-EOF
-
-# Fix main.tf provider section to use username/password
-cat > terraform/main.tf << 'EOF'
-terraform {
-  required_providers {
-    proxmox = {
-      source = "telmate/proxmox"
-      version = "2.9.14"
-    }
-  }
-}
-
-provider "proxmox" {
-  pm_api_url      = var.proxmox_api_url
-  pm_user         = var.proxmox_user
-  pm_password     = var.proxmox_password
-  pm_tls_insecure = true
-}
-
-resource "proxmox_lxc" "lxc_container" {
-  for_each    = var.lxc_containers
-
-  target_node = var.target_node
-  vmid        = each.value.id
-  hostname    = each.value.hostname
-  ostemplate  = "${var.storage_pool}:vztmpl/${var.ostemplate}"
-  password    = "changeme"  # Will be removed after SSH key is added
-  unprivileged = true
-
-  memory = each.value.memory
-  swap   = 512
-  cores  = each.value.cores
-
-  rootfs {
-    storage = var.storage_pool
-    size    = "${each.value.storage}G"
-  }
-
-  network {
-    name   = "eth0"
-    bridge = var.network_bridge
-    ip     = "${each.value.ip}/24"
-    gw     = "${var.private_network}.1"
-  }
-
-  start  = true
-  onboot = true
-
-  features {
-    nesting = true
-    # Removed fuse = true that caused permission issues
-  }
-
-  # Only add datapool mountpoint if required
-  mountpoint {
-    key     = "0"
-    slot    = 0
-    storage = "datapool"
-    mp      = "/datapool"
-    size    = "0G"
-  }
-
-  ssh_public_keys = file("~/.ssh/id_rsa.pub")
-
-  # FIXED: Use Proxmox host as a proxy to set up containers instead of direct SSH
-  # This is more reliable as it doesn't depend on SSH being set up in the containers first
-  provisioner "local-exec" {
-    command = <<-EOT
-      # Wait for container to fully initialize
-      sleep 40
-      
-      # Connect to Proxmox host and run commands in the container
-      ssh -o StrictHostKeyChecking=no ${var.proxmox_user%@*}@${split(":", replace(var.proxmox_api_url, "/api2/json", ""))[1]} \
-        "pct exec ${each.value.id} -- ash -c 'apk update && \
-        apk add --no-cache openssh bash curl docker docker-compose && \
-        rc-update add sshd default && \
-        rc-update add docker default && \
-        mkdir -p /root/.ssh && \
-        echo \"${file("~/.ssh/id_rsa.pub")}\" > /root/.ssh/authorized_keys && \
-        chmod 700 /root/.ssh && \
-        chmod 600 /root/.ssh/authorized_keys && \
-        rc-service sshd start && \
-        rc-service docker start'"
-      
-      # Wait for SSH to become available
-      echo "Waiting for SSH on ${each.value.ip} to become available..."
-      count=0
-      while ! ssh -o StrictHostKeyChecking=no -o ConnectTimeout=3 -o BatchMode=yes root@${each.value.ip} exit 2>/dev/null; do
-        count=$((count+1))
-        if [ $count -gt 10 ]; then
-          echo "WARNING: SSH connection could not be established after 10 attempts. Container may need manual SSH configuration."
-          break
-        fi
-        echo "Attempt $count: SSH not ready yet. Waiting 5 seconds..."
-        sleep 5
-      done
-    EOT
-    on_failure = continue
-  }
-}
-
-output "lxc_ips" {
-  value = {
-    for name, container in proxmox_lxc.lxc_container : name => container.network[0].ip
-  }
-}
-EOF
-
-# Create terraform.tfvars with username/password and selected storage
-cat > terraform/terraform.tfvars << EOF
-# Proxmox connection settings
-proxmox_api_url = "https://${proxmox_ip}:8006/api2/json"
-proxmox_user = "${proxmox_user}"
-proxmox_password = "${PROXMOX_PASSWORD}"
-
-# Node settings
-target_node = "${DEFAULT_PROXMOX_NODE}"
-
-# Storage settings
-storage_pool = "${STORAGE_POOL}"
-storage_pool_type = "${STORAGE_POOL_TYPE}"
-
-# OS template - automatically detected latest version
-ostemplate = "${ALPINE_TEMPLATE}"
-
-# Network settings
-network_bridge = "vmbr0" 
-private_network = "192.168.1"
-
-# LXC containers configuration
-lxc_containers = {
-  "media" = {
-    id = 102
-    hostname = "media"
-    ip = "192.168.1.102"
-    cores = 4
-    memory = 16384
-    storage = 32
-  },
-  "monitoring" = {
-    id = 103
-    hostname = "monitoring"
-    ip = "192.168.1.103"
-    cores = 2
-    memory = 4096
-    storage = 16
-  },
-  "logging" = {
-    id = 104
-    hostname = "logging"
-    ip = "192.168.1.104"
-    cores = 2
-    memory = 4096
-    storage = 16
-  },
-  "proxy" = {
-    id = 125
-    hostname = "proxy"
-    ip = "192.168.1.125"
-    cores = 2
-    memory = 2048
-    storage = 8
-  }
-}
-EOF
-
-echo -e "${GREEN}Terraform configuration completely rebuilt with username/password authentication and automatically detected Alpine template.${NC}"
-
-# --------------------------------------
-# Run Terraform
-# --------------------------------------
-echo -e "${YELLOW}[10/10] Running Terraform${NC}"
-
-cd terraform
-
-# Check for existing Terraform state and offer to reset it
-if [ -f .terraform.lock.hcl ] || [ -f terraform.tfstate ]; then
-    echo -e "${YELLOW}Existing Terraform state detected.${NC}"
-    read -p "Would you like to reset the Terraform state before continuing? (y/n): " reset_state
-    if [ "$reset_state" == "y" ]; then
-        echo "Removing existing Terraform state files..."
-        rm -f .terraform.lock.hcl terraform.tfstate terraform.tfstate.backup
-        echo -e "${GREEN}Terraform state reset.${NC}"
-    fi
-fi
-
-# Test Proxmox API connection before proceeding
-echo -e "${YELLOW}Testing connection to Proxmox API...${NC}"
-curl -k -s "https://${proxmox_ip}:8006/api2/json/version" \
-  -u "${proxmox_user}:${PROXMOX_PASSWORD}" > /dev/null
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Failed to connect to Proxmox API. Please check your credentials and network settings.${NC}"
-    read -p "Do you want to continue anyway? (y/n): " continue_anyway
-    if [ "$continue_anyway" != "y" ]; then
-        exit 1
-    fi
-fi
-
-# Initialize Terraform
-echo "Initializing Terraform..."
-terraform init -reconfigure || {
-    echo -e "${RED}Terraform initialization failed.${NC}"
-    exit 1
-}
-
-# Validate the Terraform configuration
-echo "Validating Terraform configuration..."
-terraform validate || {
-    echo -e "${RED}Terraform validation failed. Please check your configuration files.${NC}"
-    exit 1
-}
-
-# Show plan before applying
-echo -e "${BLUE}Generating Terraform execution plan...${NC}"
-terraform plan || {
-    echo -e "${RED}Terraform plan generation failed. This may indicate configuration or API issues.${NC}"
-    read -p "Do you want to continue and attempt to apply anyway? (y/n): " continue_plan
-    if [ "$continue_plan" != "y" ]; then
-        exit 1
-    fi
-}
-
-echo -e "${BLUE}Terraform will now create the LXC containers on your Proxmox server.${NC}"
-echo -e "${BLUE}This may take several minutes to complete.${NC}"
-read -p "Press Enter to continue..." confirm
-
-# Apply with auto-approve, but with better error handling
-terraform apply -auto-approve
-terraform_result=$?
-
-if [ $terraform_result -ne 0 ]; then
-    echo -e "${RED}Terraform apply failed with exit code: $terraform_result${NC}"
-    
-    # Show detailed troubleshooting options
-    echo -e "${YELLOW}Terraform troubleshooting options:${NC}"
-    echo -e "1. Check Proxmox web UI (https://${proxmox_ip}:8006) to verify if any containers were partially created"
-    echo -e "2. Ensure the Proxmox user has sufficient permissions (root@pam or user with appropriate role)"
-    echo -e "3. Verify the selected storage pool '${STORAGE_POOL}' exists and is accessible"
-    echo -e "4. Check that the Alpine template '${ALPINE_TEMPLATE}' is properly downloaded"
-    echo -e "5. Verify network settings (bridge: ${network_bridge}, subnet: ${private_network}.0/24)"
-    
-    # Offer to clean up any partial resources
-    read -p "Would you like to attempt to destroy any partially created resources? (y/n): " cleanup
-    if [ "$cleanup" == "y" ]; then
-        echo "Attempting to clean up resources..."
-        terraform destroy -auto-approve || echo -e "${RED}Resource cleanup failed. You may need to manually remove resources.${NC}"
-    fi
-    
-    # Offer different continuation options
-    echo -e "${YELLOW}How would you like to proceed?${NC}"
-    echo -e "1. Exit script"
-    echo -e "2. Continue with Ansible deployment (assuming containers exist)"
-    echo -e "3. Attempt to create containers manually and then continue"
-    read -p "Choose an option (1-3): " continue_option
-    
-    case $continue_option in
-        1)
-            echo "Exiting script."
-            exit 1
+select opt in "${options[@]}"; do
+    case $opt in
+        "All")
+            services_to_install=("media" "monitoring" "logging" "proxy")
+            break
             ;;
-        2)
-            echo "Continuing with Ansible deployment..."
+        "Media")
+            services_to_install=("media")
+            break
             ;;
-        3)
-            echo -e "${BLUE}Please follow these steps to manually create the containers:${NC}"
-            echo -e "1. Log in to Proxmox web interface at https://${proxmox_ip}:8006"
-            echo -e "2. Create LXC containers with IDs 102, 103, 104, and 125 using Alpine template"
-            echo -e "3. Configure IPs: 192.168.1.102, 192.168.1.103, 192.168.1.104, 192.168.1.125"
-            echo -e "4. Install required packages: docker, docker-compose, openssh, bash, curl"
-            echo -e "5. Mount /datapool to each container if available"
-            read -p "Press Enter when you have completed these steps..." manual_continue
-            echo "Continuing with Ansible deployment..."
+        "Monitoring")
+            services_to_install=("monitoring")
+            break
             ;;
-        *)
-            echo "Invalid option. Exiting."
-            exit 1
+        "Logging")
+            services_to_install=("logging")
+            break
+            ;;
+        "Proxy")
+            services_to_install=("proxy")
+            break
+            ;;
+        "Exit")
+            exit 0
+            ;;
+        *) 
+            print_status "$RED" "Invalid option $REPLY"
             ;;
     esac
-else
-    echo -e "${GREEN}Terraform execution completed successfully.${NC}"
+done
+
+# Ask for container IDs and set up containers
+installed_containers=()
+
+for service in "${services_to_install[@]}"; do
+    # Find default ID for this service
+    default_ctid=""
+    default_cores=""
+    default_memory=""
+    default_storage=""
     
-    # Verify containers by checking their IP connectivity
-    echo "Verifying container connectivity..."
-    for container in "media:192.168.1.102" "monitoring:192.168.1.103" "logging:192.168.1.104" "proxy:192.168.1.125"; do
+    for container in "${DEFAULT_CONTAINERS[@]}"; do
         name=$(echo $container | cut -d: -f1)
-        ip=$(echo $container | cut -d: -f2)
-        
-        echo -n "Testing connectivity to ${name} (${ip})... "
-        ping -c 1 -W 1 $ip > /dev/null 2>&1
-        if [ $? -eq 0 ]; then
-            echo -e "${GREEN}Success${NC}"
-        else
-            echo -e "${RED}Failed${NC}"
+        if [ "$name" == "$service" ]; then
+            default_ctid=$(echo $container | cut -d: -f2)
+            default_cores=$(echo $container | cut -d: -f3)
+            default_memory=$(echo $container | cut -d: -f4)
+            default_storage=$(echo $container | cut -d: -f5)
+            break
         fi
     done
-fi
-
-cd ..
-
-# --------------------------------------
-# Ansible Inventory setup
-# --------------------------------------
-echo -e "${YELLOW}Ansible deployment phase${NC}"
-
-if [ ! -f ansible/inventory.ini ]; then
-    echo "Setting up Ansible inventory..."
-    cp ansible/inventory.ini.example ansible/inventory.ini
-    echo -e "${GREEN}Ansible inventory file created.${NC}"
-else
-    echo "Ansible inventory file already exists."
-fi
-
-# --------------------------------------
-# Run Ansible
-# --------------------------------------
-echo -e "${YELLOW}Running Ansible${NC}"
-
-echo "Waiting for LXC containers to start..."
-echo -e "${BLUE}This may take up to a minute...${NC}"
-sleep 60
-
-cd ansible
-ansible-playbook -i inventory.ini deploy.yml || {
-    echo -e "${RED}Ansible playbook execution failed.${NC}"
-    exit 1
-}
-cd ..
-
-echo -e "${GREEN}Ansible execution completed successfully.${NC}"
+    
+    print_status "$BLUE" "Setting up $service service:"
+    
+    # Ask for CTID with default values
+    read -p "Enter container ID (CTID) for $service [$default_ctid]: " ctid
+    ctid=${ctid:-$default_ctid}
+    
+    # Ask for resources if needed
+    read -p "Enter CPU cores for $service [$default_cores]: " cores
+    cores=${cores:-$default_cores}
+    
+    read -p "Enter memory in MB for $service [$default_memory]: " memory
+    memory=${memory:-$default_memory}
+    
+    read -p "Enter storage in GB for $service [$default_storage]: " storage
+    storage=${storage:-$default_storage}
+    
+    # Set up the container
+    container_info=$(setup_container "$service" "$ctid" "$cores" "$memory" "$storage")
+    installed_containers+=("$container_info")
+done
 
 # --------------------------------------
 # Final status check
 # --------------------------------------
-echo -e "${YELLOW}Checking container status...${NC}"
+print_status "$YELLOW" "Checking container status..."
 
-cd ansible
-# Use set +e to prevent status check from stopping the script
-set +e
-ansible -i inventory.ini all -a "docker ps"
-set -e
-cd ..
-
-echo -e "${GREEN}===== Homelab setup completed successfully! =====${NC}"
-echo ""
-echo "You can access your services at the following addresses:"
-echo "- Media services: http://192.168.1.102:{8989,7878,6767,8096,5055,8080,9696,8191,8998}"
-echo "- Monitoring: http://192.168.1.103:{9090,3000,9093,9100}"
-echo "- Logging: http://192.168.1.104:{9200,5601}"
-echo "- Proxy: http://192.168.1.125:{3000,80}"
-echo ""
-echo "Enjoy your homelab!"
+if [ ${#installed_containers[@]} -gt 0 ]; then
+    for container_info in "${installed_containers[@]}"; do
+        name=$(echo $container_info | cut -d: -f1)
+        ctid=$(echo $container_info | cut -d: -f2)
+        ip=$(echo $container_info | cut -d: -f3)
+        
+        print_status "$BLUE" "Checking ${name} container (${ip})..."
+        run_proxmox_command "pct exec $ctid -- docker ps"
+    done
+    
+    print_status "$GREEN" "===== Homelab setup completed successfully! ====="
+    print_status "$BLUE" "You can access your services at the following addresses:"
+    
+    # Create a formatted summary of all services
+    echo ""
+    echo "┌────────────────────────────────────────────────────────────────┐"
+    echo "│                       SERVICE SUMMARY                           │"
+    echo "├────────────┬─────────┬────────────────┬────────────────────────┤"
+    echo "│ Service    │ CTID    │ IP Address     │ Available Ports        │"
+    echo "├────────────┼─────────┼────────────────┼────────────────────────┤"
+    
+    for container_info in "${installed_containers[@]}"; do
+        name=$(echo $container_info | cut -d: -f1)
+        ctid=$(echo $container_info | cut -d: -f2)
+        ip=$(echo $container_info | cut -d: -f3)
+        
+        case $name in
+            "media")
+                ports="8989,7878,6767,8096,5055,8080..."
+                printf "│ %-10s │ %-7s │ %-14s │ %-22s │\n" "Media" "$ctid" "$ip" "$ports"
+                ;;
+            "monitoring")
+                ports="9090,3000,9093,9100"
+                printf "│ %-10s │ %-7s │ %-14s │ %-22s │\n" "Monitoring" "$ctid" "$ip" "$ports"
+                ;;
+            "logging")
+                ports="9200,5601,5044"
+                printf "│ %-10s │ %-7s │ %-14s │ %-22s │\n" "Logging" "$ctid" "$ip" "$ports"
+                ;;
+            "proxy")
+                ports="3000,80,53"
+                printf "│ %-10s │ %-7s │ %-14s │ %-22s │\n" "Proxy" "$ctid" "$ip" "$ports"
+                ;;
+        esac
+    done
+    
+    echo "└────────────┴─────────┴────────────────┴────────────────────────┘"
+    echo ""
+    
+    # Detailed service URLs
+    print_status "$BLUE" "Detailed service URLs:"
+    for container_info in "${installed_containers[@]}"; do
+        name=$(echo $container_info | cut -d: -f1)
+        ip=$(echo $container_info | cut -d: -f3)
+        
+        case $name in
+            "media")
+                echo "- Media Stack (${ip}):"
+                echo "  ├─ Sonarr: http://${ip}:8989"
+                echo "  ├─ Radarr: http://${ip}:7878"
+                echo "  ├─ Bazarr: http://${ip}:6767"
+                echo "  ├─ Jellyfin: http://${ip}:8096"
+                echo "  ├─ Jellyseerr: http://${ip}:5055"
+                echo "  ├─ qBittorrent: http://${ip}:8080"
+                echo "  ├─ Prowlarr: http://${ip}:9696"
+                echo "  ├─ FlareSolverr: http://${ip}:8191"
+                echo "  └─ Youtube-DL: http://${ip}:8998"
+                ;;
+            "monitoring")
+                echo "- Monitoring Stack (${ip}):"
+                echo "  ├─ Prometheus: http://${ip}:9090"
+                echo "  ├─ Grafana: http://${ip}:3000"
+                echo "  ├─ Alertmanager: http://${ip}:9093"
+                echo "  └─ Node Exporter: http://${ip}:9100"
+                ;;
+            "logging")
+                echo "- Logging Stack (${ip}):"
+                echo "  ├─ Elasticsearch: http://${ip}:9200"
+                echo "  └─ Kibana: http://${ip}:5601"
+                ;;
+            "proxy")
+                echo "- Proxy Stack (${ip}):"
+                echo "  └─ AdGuard Home: http://${ip}:3000"
+                ;;
+        esac
+    done
+    
+    # Save summary to a file in the current directory
+    SUMMARY_FILE="homelab_summary.txt"
+    {
+        echo "Proxmox Homelab - Installation Summary"
+        echo "====================================="
+        echo "Date: $(date)"
+        echo "Proxmox Server: ${proxmox_ip} (${proxmox_node})"
+        echo ""
+        echo "Installed Services:"
+        
+        for container_info in "${installed_containers[@]}"; do
+            name=$(echo $container_info | cut -d: -f1)
+            ctid=$(echo $container_info | cut -d: -f2)
+            ip=$(echo $container_info | cut -d: -f3)
+            echo "- ${name} (CTID: ${ctid}, IP: ${ip})"
+        done
+        
+        echo ""
+        echo "Access Information:"
+        
+        for container_info in "${installed_containers[@]}"; do
+            name=$(echo $container_info | cut -d: -f1)
+            ip=$(echo $container_info | cut -d: -f3)
+            
+            case $name in
+                "media")
+                    echo "- Media Stack (${ip}):"
+                    echo "  * Sonarr: http://${ip}:8989"
+                    echo "  * Radarr: http://${ip}:7878"
+                    echo "  * Bazarr: http://${ip}:6767"
+                    echo "  * Jellyfin: http://${ip}:8096"
+                    echo "  * Jellyseerr: http://${ip}:5055"
+                    echo "  * qBittorrent: http://${ip}:8080"
+                    echo "  * Prowlarr: http://${ip}:9696"
+                    echo "  * FlareSolverr: http://${ip}:8191"
+                    echo "  * Youtube-DL: http://${ip}:8998"
+                    ;;
+                "monitoring")
+                    echo "- Monitoring Stack (${ip}):"
+                    echo "  * Prometheus: http://${ip}:9090"
+                    echo "  * Grafana: http://${ip}:3000 (admin / ${grafana_password})"
+                    echo "  * Alertmanager: http://${ip}:9093"
+                    echo "  * Node Exporter: http://${ip}:9100"
+                    ;;
+                "logging")
+                    echo "- Logging Stack (${ip}):"
+                    echo "  * Elasticsearch: http://${ip}:9200"
+                    echo "  * Kibana: http://${ip}:5601"
+                    ;;
+                "proxy")
+                    echo "- Proxy Stack (${ip}):"
+                    echo "  * AdGuard Home: http://${ip}:3000"
+                    if [ "$cloudflared_token" != "your_token_here" ]; then
+                        echo "  * Cloudflared Tunnel: Configured with your token"
+                    else
+                        echo "  * Cloudflared Tunnel: Not configured (token missing)"
+                    fi
+                    ;;
+            esac
+        done
+        
+        echo ""
+        echo "Notes:"
+        echo "- All containers are using Alpine Linux"
+        echo "- All data is stored in /datapool for persistence"
+        echo "- Container console access is passwordless (root)"
+        echo ""
+        echo "Maintenance Commands:"
+        echo "- Docker Compose commands: pct exec CTID -- cd /root/docker && docker-compose <command>"
+        echo "- Container shell access: pct enter CTID"
+        echo "- Container restart: pct restart CTID"
+        echo ""
+    } > "$SUMMARY_FILE"
+    
+    print_status "$GREEN" "A detailed summary has been saved to: $SUMMARY_FILE"
+    echo ""
+    echo "Enjoy your homelab!"
+else
+    print_status "$RED" "No containers were installed."
+fi
 
 exit 0

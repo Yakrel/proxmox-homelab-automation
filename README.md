@@ -116,3 +116,7 @@ Each with isolated environments and dedicated networks for service groups:
 - `terraform/terraform.tfvars.example`: Example LXC container configuration, copy to `terraform.tfvars` before use
 - `docker/`: Docker Compose configuration files for each service
 - `ansible/`: Ansible playbooks for automatic configuration of all containers
+
+
+
+alpine linux indirmesi kontrol edilecek.
