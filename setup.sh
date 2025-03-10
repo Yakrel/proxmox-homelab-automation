@@ -10,7 +10,7 @@ DEFAULT_PROXMOX_USER="root@pam"
 DEFAULT_PROXMOX_NODE="pve01"
 DEFAULT_STORAGE_POOL="datapool"
 DEFAULT_TIMEZONE="Europe/Istanbul"
-DEFAULT_GRAFANA_PASSWORD="admin"
+DEFAULT_GRAFANA_PASSWORD=$(openssl rand -base64 12)
 DEFAULT_PRIVATE_NETWORK="192.168.1"
 
 DEFAULT_CONTAINERS=(
@@ -105,7 +105,7 @@ EOF
             ;;
     esac
 
-    local compose_url="https://raw.githubusercontent.com/yourusername/yourrepository/main/docker/$service/docker-compose.yml"
+    local compose_url="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/docker/$service/docker-compose.yml"
     local compose_file="/tmp/docker-compose.yml"
     wget --retry-connrefused --waitretry=5 --quiet -O "$compose_file" "$compose_url"
     run_proxmox_command "pct push $ctid $compose_file /root/docker/docker-compose.yml"
