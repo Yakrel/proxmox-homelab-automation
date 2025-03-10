@@ -108,10 +108,6 @@ echo "[*] Enabling Sanoid Service"
 systemctl enable sanoid.timer
 systemctl start sanoid.timer
 
-# Create initial snapshots
-echo "[*] Creating Initial Snapshots"
-sanoid --take-snapshots --verbose
-
 # --------------------------------------
 # Installation Check
 # --------------------------------------

@@ -9,23 +9,19 @@ To use this project, follow these steps:
 1. **Prerequisites**:
    - Proxmox VE server installed and configured
    - ZFS datapool already set up on the Proxmox host
+   
 2. **Initial Setup on Proxmox Host**:
    - Transfer the `setup.sh` script to your Proxmox host
-   - Run the setup script: `bash setup.sh`
-   - Follow the prompts to configure your Proxmox server and deploy services
-
-3. **Configure Environment Variables**:
-   - Copy `.env.example` files to `.env` in the respective directories:
-     - `cp docker/monitoring/.env.example docker/monitoring/.env`
-     - `cp docker/proxy/.env.example docker/proxy/.env`
-   - Edit the `.env` files with your credentials
+   - Make it executable: `chmod +x setup.sh`
+   - Run the setup script directly on the Proxmox host: `./setup.sh`
+   - Follow the prompts to configure your environment and deploy services
 
 ## System Architecture
 
 ### LXC Containers
 Each with isolated environments and dedicated networks for service groups:
 
-1. **Proxy Stack**: ID 125, IP 192.168.1.125
+1. **Proxy Stack**: ID 101, IP 192.168.1.101
    - **Operating System**: Alpine Linux
    - **Resources**: 2GB RAM, 2 CPU cores
    - Cloudflared (Cloudflare tunnel)
@@ -83,6 +79,7 @@ Each with isolated environments and dedicated networks for service groups:
 - Docker Compose files are downloaded from the GitHub repository during script execution
 - CPU and RAM values are optimized for a server with 32GB RAM, adjust if necessary
 - RAM values for LXC containers are not strict limits, unused RAM can be utilized by other containers
+- Environment variables for services are automatically configured during setup
 
 ## Configuration
 
