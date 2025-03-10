@@ -88,16 +88,14 @@ prepare_container_for_service() {
             ;;
         monitoring)
             run_proxmox_command "pct exec $ctid -- mkdir -p /datapool/config/{prometheus-config,grafana-config,alertmanager-config,watchtower-monitoring-config}"
-            download_env_example "$service" "$ctid"
-            prompt_and_fill_env "$service" "$ctid"
+            download_and_create_env "$service" "$ctid"
             ;;
         logging)
             run_proxmox_command "pct exec $ctid -- mkdir -p /datapool/config/{elasticsearch-config,logstash-config,kibana-config,filebeat-config,watchtower-logging-config}"
             ;;
         proxy)
             run_proxmox_command "pct exec $ctid -- mkdir -p /datapool/config/{cloudflared-config,watchtower-proxy-config,adguard-config/{work,conf}}"
-            download_env_example "$service" "$ctid"
-            prompt_and_fill_env "$service" "$ctid"
+            download_and_create_env "$service" "$ctid"
             ;;
     esac
 
@@ -109,13 +107,14 @@ prepare_container_for_service() {
     run_proxmox_command "pct exec $ctid -- bash -c 'cd /root/docker && docker-compose up -d'"
 }
 
-download_env_example() {
+download_and_create_env() {
     local service="$1"
     local ctid="$2"
     local env_example_url="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/docker/$service/.env.example"
     local env_example_file="/tmp/.env.example"
     wget --retry-connrefused --waitretry=5 --quiet -O "$env_example_file" "$env_example_url"
     run_proxmox_command "pct push $ctid $env_example_file /root/docker/.env.example"
+    prompt_and_fill_env "$service" "$ctid"
 }
 
 prompt_and_fill_env() {
