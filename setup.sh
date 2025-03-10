@@ -11,10 +11,10 @@ DEFAULT_GRAFANA_PASSWORD=$(openssl rand -base64 12)
 DEFAULT_PRIVATE_NETWORK="192.168.1"
 
 DEFAULT_CONTAINERS=(
+    "proxy:101:2:2048:8" 
     "media:102:4:16384:32"
     "monitoring:103:2:4096:16"
     "logging:104:2:4096:16"
-    "proxy:101:2:2048:8"  # CTID 125 yerine 101 olarak güncellendi
 )
 
 ALPINE_TEMPLATE=""
@@ -49,11 +49,11 @@ setup_container() {
         fi
     fi
 
-    pct exec $ctid -- ash -c "apk update && 
-        apk add --no-cache docker docker-compose curl bash openssh && 
-        rc-update add docker default && 
-        rc-service docker start"
-    pct exec $ctid -- ash -c "passwd -d root"
+    pct exec $ctid -- ash -c "apk update && \
+        apk add --no-cache docker docker-compose curl bash openssh && \
+        rc-update add docker default && \
+        rc-service docker start" || exit 1
+    pct exec $ctid -- ash -c "passwd -d root" || exit 1
     prepare_container_for_service "$name" "$ctid" "$ip"
     echo "$name:$ctid:$ip"
 }
@@ -106,12 +106,20 @@ create_env_file() {
     if [ "$service" == "monitoring" ]; then
         sed "s/your_grafana_password_here/$value/" "$env_example_file" > "$env_file"
     elif [ "$service" == "proxy" ]; then
+        if [ -z "$value" ]; then
+            echo "Error: Cloudflare Tunnel Token cannot be empty."
+            exit 1
+        fi
         sed "s/your_cloudflare_tunnel_token_here/$value/" "$env_example_file" > "$env_file"
     else
         cp "$env_example_file" "$env_file"
     fi
-    
-    pct push $ctid "$env_file" /root/docker/.env
+
+    if [ -f "/root/docker/.env" ]; then
+        echo "Warning: .env file already exists. Skipping creation."
+    else
+        pct push $ctid "$env_file" /root/docker/.env
+    fi
     rm -f "$env_example_file" "$env_file"
 }
 

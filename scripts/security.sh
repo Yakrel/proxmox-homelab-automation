@@ -5,7 +5,7 @@
 # ======================================================
 
 # Daha esnek hata yönetimi - çıkış yapmak yerine hataları raporla
-set +e
+set -e
 
 echo "===== Starting Proxmox Security Configuration ====="
 
