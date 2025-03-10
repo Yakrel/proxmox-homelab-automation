@@ -88,20 +88,16 @@ prepare_container_for_service() {
             ;;
         monitoring)
             run_proxmox_command "pct exec $ctid -- mkdir -p /datapool/config/{prometheus-config,grafana-config,alertmanager-config,watchtower-monitoring-config}"
-            cat > /tmp/monitoring.env << EOF
-GRAFANA_PASSWORD=$grafana_password
-EOF
-            run_proxmox_command "pct push $ctid /tmp/monitoring.env /root/docker/.env"
+            download_env_example "$service" "$ctid"
+            prompt_and_fill_env "$service" "$ctid"
             ;;
         logging)
             run_proxmox_command "pct exec $ctid -- mkdir -p /datapool/config/{elasticsearch-config,logstash-config,kibana-config,filebeat-config,watchtower-logging-config}"
             ;;
         proxy)
             run_proxmox_command "pct exec $ctid -- mkdir -p /datapool/config/{cloudflared-config,watchtower-proxy-config,adguard-config/{work,conf}}"
-            cat > /tmp/proxy.env << EOF
-CLOUDFLARED_TOKEN=$cloudflared_token
-EOF
-            run_proxmox_command "pct push $ctid /tmp/proxy.env /root/docker/.env"
+            download_env_example "$service" "$ctid"
+            prompt_and_fill_env "$service" "$ctid"
             ;;
     esac
 
@@ -111,6 +107,36 @@ EOF
     run_proxmox_command "pct push $ctid $compose_file /root/docker/docker-compose.yml"
     run_proxmox_command "pct exec $ctid -- sed -i 's|Europe/Istanbul|$timezone|g' /root/docker/docker-compose.yml"
     run_proxmox_command "pct exec $ctid -- bash -c 'cd /root/docker && docker-compose up -d'"
+}
+
+download_env_example() {
+    local service="$1"
+    local ctid="$2"
+    local env_example_url="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/docker/$service/.env.example"
+    local env_example_file="/tmp/.env.example"
+    wget --retry-connrefused --waitretry=5 --quiet -O "$env_example_file" "$env_example_url"
+    run_proxmox_command "pct push $ctid $env_example_file /root/docker/.env.example"
+}
+
+prompt_and_fill_env() {
+    local service="$1"
+    local ctid="$2"
+    local env_example_file="/root/docker/.env.example"
+    local env_file="/root/docker/.env"
+
+    if ! run_proxmox_command "pct exec $ctid -- test -f $env_example_file"; then
+        echo "No .env.example file found for $service. Skipping .env creation."
+        return
+    fi
+
+    run_proxmox_command "pct exec $ctid -- cp $env_example_file $env_file"
+
+    local env_vars=$(run_proxmox_command "pct exec $ctid -- grep -v '^#' $env_example_file | grep -v '^$' | cut -d= -f1")
+
+    for var in $env_vars; do
+        read -p "Enter value for $var: " value
+        run_proxmox_command "pct exec $ctid -- sed -i 's|$var=.*|$var=$value|' $env_file"
+    done
 }
 
 echo "===== Proxmox Homelab Automation Setup ====="
