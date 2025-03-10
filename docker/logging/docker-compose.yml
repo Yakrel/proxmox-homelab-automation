@@ -4,7 +4,7 @@ networks:
 
 services:
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.10
+    image: docker.elastic.co/elasticsearch/elasticsearch:latest
     container_name: elasticsearch
     environment:
       - node.name=elasticsearch
@@ -31,7 +31,7 @@ services:
         max-file: "3"
     
   logstash:
-    image: docker.elastic.co/logstash/logstash:7.17.10
+    image: docker.elastic.co/logstash/logstash:latest
     container_name: logstash
     volumes:
       - /datapool/config/logstash-config:/usr/share/logstash/pipeline
@@ -53,7 +53,7 @@ services:
         max-file: "3"
     
   kibana:
-    image: docker.elastic.co/kibana/kibana:7.17.10
+    image: docker.elastic.co/kibana/kibana:latest
     container_name: kibana
     ports:
       - "5601:5601"
@@ -71,7 +71,7 @@ services:
         max-file: "3"
     
   filebeat:
-    image: docker.elastic.co/beats/filebeat:7.17.10
+    image: docker.elastic.co/beats/filebeat:latest
     container_name: filebeat
     volumes:
       - /datapool/config/filebeat-config/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
