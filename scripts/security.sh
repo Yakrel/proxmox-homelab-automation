@@ -6,8 +6,15 @@
 
 # Daha esnek hata yönetimi - çıkış yapmak yerine hataları raporla
 set -e
+trap 'echo "An error occurred. Script terminating..."; exit 1' ERR
 
 echo "===== Starting Proxmox Security Configuration ====="
+
+# Root check
+if [ "$(id -u)" -ne 0 ]; then
+    echo "This script requires root privileges. Please run with 'sudo'."
+    exit 1
+fi
 
 # --------------------------------------
 # Fail2ban Installation
@@ -23,7 +30,11 @@ fi
 # Basic Configuration
 # --------------------------------------
 echo "[2/5] Creating Base Configuration File"
-cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local 2>/dev/null || echo "Warning: Configuration file copy had issues but continuing..."
+if [ -f /etc/fail2ban/jail.conf ]; then
+    cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local 2>/dev/null || echo "Warning: Configuration file copy had issues but continuing..."
+else
+    echo "Warning: /etc/fail2ban/jail.conf does not exist. Skipping copy."
+fi
 
 # --------------------------------------
 # Proxmox Filter Configuration

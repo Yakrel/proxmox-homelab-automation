@@ -28,7 +28,8 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "[2/4] Configuring Samba"
-cat >> /etc/samba/smb.conf << 'EOF'
+if ! grep -q "\[datapool\]" /etc/samba/smb.conf; then
+    cat >> /etc/samba/smb.conf << 'EOF'
 
 [datapool]
    path = /datapool
@@ -43,6 +44,9 @@ cat >> /etc/samba/smb.conf << 'EOF'
    write raw = yes
    strict locking = no
 EOF
+else
+    echo "Samba configuration for [datapool] already exists. Skipping..."
+fi
 
 echo "[*] Setting Samba password for root user"
 smbpasswd -a root
