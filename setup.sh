@@ -28,7 +28,8 @@ setup_container() {
     local ip="${private_network}.${ctid}"
 
     if pct list | grep -q " $ctid "; then
-        echo "Container $ctid already exists. Skipping creation."
+        echo "Container $ctid already exists. Skipping creation and setup."
+        return
     else
         pct create $ctid $STORAGE_POOL:vztmpl/$ALPINE_TEMPLATE \
             --hostname $name \
@@ -62,6 +63,11 @@ prepare_container_for_service() {
     local service="$1"
     local ctid="$2"
     local ip="$3"
+
+    if pct list | grep -q " $ctid "; then
+        echo "Container $ctid already exists. Skipping service setup."
+        return
+    fi
 
     pct exec $ctid -- mkdir -p /root/docker
 
@@ -113,6 +119,11 @@ create_env_file() {
         sed "s/your_cloudflare_tunnel_token_here/$value/" "$env_example_file" > "$env_file"
     else
         cp "$env_example_file" "$env_file"
+    fi
+
+    if pct list | grep -q " $ctid "; then
+        echo "Container $ctid already exists. Skipping .env file creation."
+        return
     fi
 
     if [ -f "/root/docker/.env" ]; then
