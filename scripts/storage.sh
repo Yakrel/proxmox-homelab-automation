@@ -45,7 +45,6 @@ cat >> /etc/samba/smb.conf << 'EOF'
 EOF
 
 echo "[*] Setting Samba password for root user"
-echo "Note: It's recommended to use the same password as your Proxmox root password"
 smbpasswd -a root
 
 echo "[3/4] Restarting Samba Service"
