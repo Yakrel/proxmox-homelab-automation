@@ -41,7 +41,7 @@ fi
 echo "LXC işlemleri başlatılıyor..."
 
 # LXC ID'leri
-LXC_IDS=("102" "103" "104" "101")
+LXC_IDS=("101" "102" "103" "100")
 LXC_NAMES=("media" "monitoring" "logging" "proxy")
 
 # LXC'leri kontrol et ve işlemleri yap
@@ -51,44 +51,33 @@ for i in "${!LXC_IDS[@]}"; do
     
     # LXC'nin varlığını kontrol et
     if pct status $LXC_ID &>/dev/null; then
-        echo "LXC $LXC_ID ($LXC_NAME) bulundu, işlemler yapılıyor..."
+        echo "LXC $LXC_ID ($LXC_NAME) bulundu, dosyalar kopyalanıyor..."
+        
+        # Docker Compose dosyasından yorum satırlarını ayrıştır ve komutları çalıştır
+        if [ -f "$TEMP_DIR/docker/$LXC_NAME/docker-compose.yml" ]; then
+            # mkdir komutlarını çalıştır
+            grep -A 10 "STEP 1: PROXMOX HOST COMMANDS" $TEMP_DIR/docker/$LXC_NAME/docker-compose.yml | grep "mkdir -p" | sed 's/^#\s*//' | sh
+            
+            # chown komutlarını çalıştır
+            grep -A 15 "STEP 1: PROXMOX HOST COMMANDS" $TEMP_DIR/docker/$LXC_NAME/docker-compose.yml | grep "chown" | sed 's/^#\s*//' | sh
+            
+            # mount komutlarını çalıştır
+            grep -A 20 "STEP 1: PROXMOX HOST COMMANDS" $TEMP_DIR/docker/$LXC_NAME/docker-compose.yml | grep "pct set" | sed "s/pct set [0-9]\\{1,3\\}/pct set $LXC_ID/" | sed 's/^#\s*//' | sh
+            
+            # LXC içerisinde docker klasörünü oluştur
+            pct exec $LXC_ID -- mkdir -p /root/docker
+            
+            # Docker Compose dosyasını LXC'ye kopyala
+            pct push $LXC_ID $TEMP_DIR/docker/$LXC_NAME/docker-compose.yml /root/docker/docker-compose.yml
+            
+            # Eğer .env.example dosyası varsa, onu .env olarak kopyala
+            if [ -f "$TEMP_DIR/docker/$LXC_NAME/.env.example" ]; then
+                pct push $LXC_ID $TEMP_DIR/docker/$LXC_NAME/.env.example /root/docker/.env
+                echo "LXC $LXC_ID için .env dosyası kopyalandı"
+            fi
+        fi
     else
-        echo "LXC $LXC_ID ($LXC_NAME) bulunamadı, oluşturuluyor..."
-        # Burada LXC oluşturma kodunu ekleyebilirsiniz
-        # Örnek: pct create $LXC_ID <template> --hostname $LXC_NAME ...
-        read -p "LXC $LXC_ID ($LXC_NAME) oluşturmak ve devam etmek istiyor musunuz? (e/h): " create_lxc
-        if [[ $create_lxc != "e" && $create_lxc != "E" ]]; then
-            echo "LXC $LXC_ID oluşturulmadı, bu konteyner için işlemler atlanıyor."
-            continue
-        fi
-        
-        # Burada LXC oluşturma işlemi yapılacak
-        # Bu kısımda kullanıcıdan gerekli bilgileri alıp LXC oluşturabilirsiniz
-        echo "LXC $LXC_ID oluşturuldu."
-    fi
-    
-    # Docker Compose dosyasından yorum satırlarını ayrıştır ve komutları çalıştır
-    if [ -f "$TEMP_DIR/docker/$LXC_NAME/docker-compose.yml" ]; then
-        # mkdir komutlarını çalıştır
-        grep -A 10 "STEP 1: PROXMOX HOST COMMANDS" $TEMP_DIR/docker/$LXC_NAME/docker-compose.yml | grep "mkdir -p" | sed 's/^#\s*//' | sh
-        
-        # chown komutlarını çalıştır
-        grep -A 15 "STEP 1: PROXMOX HOST COMMANDS" $TEMP_DIR/docker/$LXC_NAME/docker-compose.yml | grep "chown" | sed 's/^#\s*//' | sh
-        
-        # mount komutlarını çalıştır
-        grep -A 20 "STEP 1: PROXMOX HOST COMMANDS" $TEMP_DIR/docker/$LXC_NAME/docker-compose.yml | grep "pct set" | sed 's/^#\s*//' | sh
-        
-        # LXC içerisinde docker klasörünü oluştur
-        pct exec $LXC_ID -- mkdir -p /root/docker
-        
-        # Docker Compose dosyasını LXC'ye kopyala
-        pct push $LXC_ID $TEMP_DIR/docker/$LXC_NAME/docker-compose.yml /root/docker/docker-compose.yml
-        
-        # Eğer .env.example dosyası varsa, onu .env olarak kopyala
-        if [ -f "$TEMP_DIR/docker/$LXC_NAME/.env.example" ]; then
-            pct push $LXC_ID $TEMP_DIR/docker/$LXC_NAME/.env.example /root/docker/.env
-            echo "LXC $LXC_ID için .env dosyası kopyalandı"
-        fi
+        echo "LXC $LXC_ID ($LXC_NAME) bulunamadı, bu konteyner için işlemler atlanıyor."
     fi
 done
 
