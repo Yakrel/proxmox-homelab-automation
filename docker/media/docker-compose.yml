@@ -224,7 +224,7 @@ services:
       - /datapool/config/youtube-dl-config:/config
       - /datapool/media/youtube:/downloads
     ports:
-      - "8998:8080"
+      - "8998:8998"
     networks:
       - media-net
     restart: unless-stopped
