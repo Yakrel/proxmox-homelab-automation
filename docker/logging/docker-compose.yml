@@ -32,7 +32,7 @@ services:
         soft: -1
         hard: -1
     volumes:
-      - /datapool/config/elasticsearch-config:/usr/share/elasticsearch/data
+      - /datapool/config/elasticsearch-config:/usr/share/elasticsearch/config
     ports:
       - "9200:9200"
     networks:
