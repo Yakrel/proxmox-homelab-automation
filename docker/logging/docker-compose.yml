@@ -1,4 +1,4 @@
-# LOGGING STACK INSTALLATION (LXC ID: 104)
+# LOGGING STACK INSTALLATION (LXC ID: 103)
 #
 # === STEP 1: PROXMOX HOST COMMANDS ===
 # Run these commands on the Proxmox host system:
@@ -10,7 +10,7 @@
 #    chown -R 100000:100000 /datapool
 #    
 #    # Mount datapool to LXC
-#    pct set 104 -mp0 /datapool,mp=/datapool
+#    pct set 103 -mp0 /datapool,mp=/datapool
 
 networks:
   logging-net:

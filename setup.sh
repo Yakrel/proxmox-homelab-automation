@@ -48,8 +48,8 @@ fi
 echo "LXC konteynerlerine kurulum yapılıyor..."
 
 # LXC ID'leri
-LXC_IDS=("102" "103" "104" "125")
-LXC_NAMES=("media" "monitoring" "logging" "proxy")
+LXC_IDS=("100" "101" "102" "103")
+LXC_NAMES=("proxy" "media" "monitoring" "logging")
 
 # LXC'leri kontrol et ve işlemleri yap
 for i in "${!LXC_IDS[@]}"; do

@@ -1,4 +1,4 @@
-# MONITORING STACK INSTALLATION (LXC ID: 103)
+# MONITORING STACK INSTALLATION (LXC ID: 102)
 #
 # === STEP 1: PROXMOX HOST COMMANDS ===
 # Run these commands on the Proxmox host system:
@@ -10,7 +10,7 @@
 #    chown -R 100000:100000 /datapool
 #    
 #    # Mount datapool to LXC
-#    pct set 103 -mp0 /datapool,mp=/datapool
+#    pct set 102 -mp0 /datapool,mp=/datapool
 
 networks:
   monitoring-net:

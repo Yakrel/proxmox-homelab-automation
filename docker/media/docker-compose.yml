@@ -1,4 +1,4 @@
-# MEDIA STACK INSTALLATION (LXC ID: 102)
+# MEDIA STACK INSTALLATION (LXC ID: 101)
 #
 # === STEP 1: PROXMOX HOST COMMANDS ===
 # Run these commands on the Proxmox host system:
@@ -12,7 +12,7 @@
 #    chown -R 100000:100000 /datapool
 #    
 #    # Mount datapool to LXC
-#    pct set 102 -mp0 /datapool,mp=/datapool
+#    pct set 101 -mp0 /datapool,mp=/datapool
 
 networks:
   media-net:

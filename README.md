@@ -26,16 +26,20 @@ Bu projeyle aşağıdaki hizmetleri kurabilirsiniz:
 - Proxmox VE 7.0 veya üzeri
 - ZFS depolama alanı (datapool)
 - Aşağıdaki LXC konteynerleri:
-  - **Media** (ID: 102): Sonarr, Radarr, Jellyfin vb. için
-  - **Monitoring** (ID: 103): Prometheus ve Grafana için  
-  - **Logging** (ID: 104): ELK Stack için
-  - **Proxy** (ID: 125): Cloudflared ve AdGuard Home için
+  - **Proxy** (ID: 100): Cloudflared ve AdGuard Home için
+  - **Media** (ID: 101): Sonarr, Radarr, Jellyfin vb. için
+  - **Monitoring** (ID: 102): Prometheus ve Grafana için  
+  - **Logging** (ID: 103): ELK Stack için
 
 > **Not**: Tüm konteynerlerde Docker kurulu olmalıdır.
 
 ## LXC Konteynerleri İçerikleri
 
-### Media Server (ID: 102)
+### Proxy (ID: 100)
+- Cloudflared - Cloudflare Tunnel
+- AdGuard Home - DNS filtreleme
+
+### Media Server (ID: 101)
 - Sonarr, Radarr - TV şovları ve film takibi
 - Bazarr - Altyazı yönetimi
 - Jellyfin - Medya sunucusu
@@ -43,21 +47,18 @@ Bu projeyle aşağıdaki hizmetleri kurabilirsiniz:
 - qBittorrent, Prowlarr, Flaresolverr, Recyclarr
 - Youtube-dl - YouTube video indirme
 
-### Monitoring (ID: 103)
+### Monitoring (ID: 102)
 - Prometheus - Metrik toplama
 - Grafana - Metrik görselleştirme
 - Alertmanager - Alarm yönetimi
 - Node Exporter - Host metrikleri
 
-### Logging (ID: 104)
+### Logging (ID: 103)
 - Elasticsearch - Log depolama
 - Logstash - Log işleme
 - Kibana - Log görselleştirme 
 - Filebeat - Log toplama
 
-### Proxy (ID: 125)
-- Cloudflared - Cloudflare Tunnel
-- AdGuard Home - DNS filtreleme
 
 ## Lisans
 
