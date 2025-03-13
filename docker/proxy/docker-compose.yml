@@ -1,4 +1,4 @@
-# PROXY STACK INSTALLATION (LXC ID: 125)
+# PROXY STACK INSTALLATION (LXC ID: 100)
 #
 # === STEP 1: PROXMOX HOST COMMANDS ===
 # Run these commands on the Proxmox host system:
@@ -10,7 +10,7 @@
 #    chown -R 100000:100000 /datapool
 #    
 #    # Mount datapool to LXC
-#    pct set 125 -mp0 /datapool,mp=/datapool
+#    pct set 100 -mp0 /datapool,mp=/datapool
 
 networks:
   proxy-net:
