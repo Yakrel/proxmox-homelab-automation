@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e  # Herhangi bir komut hata verdiğinde scripti durdur
 
 # Samba kurulumu
 apt update

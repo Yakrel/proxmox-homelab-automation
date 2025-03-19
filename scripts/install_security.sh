@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e  # Herhangi bir komut hata verdiğinde scripti durdur
 
 # 1. Fail2ban Kurulumu
 apt update

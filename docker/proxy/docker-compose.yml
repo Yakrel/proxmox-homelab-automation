@@ -4,7 +4,7 @@
 # Run these commands on the Proxmox host system:
 #
 #    # Create directory structure
-#    mkdir -p /datapool/config/{cloudflared-config,watchtower-proxy-config,adguard-config/{work,conf}}
+#    mkdir -p /datapool/config/{cloudflared-config,watchtower-proxy-config,adguard-config/{work,conf},firefox-config}
 #    
 #    # Set LXC ownership (100000 is the default LXC UID/GID mapping)
 #    chown -R 100000:100000 /datapool
@@ -14,6 +14,8 @@
 
 networks:
   proxy-net:
+    driver: bridge
+  firefox-net:
     driver: bridge
 
 services:
@@ -74,6 +76,31 @@ services:
     restart: unless-stopped
     networks:
       - proxy-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        
+  firefox:
+    image: jlesage/firefox:latest
+    container_name: firefox
+    restart: unless-stopped
+    ports:
+      - "5800:5800"
+      - "5900:5900"
+    volumes:
+      - /datapool/config/firefox-config:/config:rw
+    environment:
+      - TZ=Europe/Istanbul
+      - VNC_PASSWORD=password
+      - PUID=1000
+      - PGID=1000
+      - KEEP_APP_RUNNING=1
+      - DISPLAY_WIDTH=1920
+      - DISPLAY_HEIGHT=1080
+    networks:
+      - firefox-net
     logging:
       driver: "json-file"
       options:
