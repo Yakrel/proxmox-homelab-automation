@@ -12,10 +12,14 @@ bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-a
 
 ## Deployment Approach
 
-This project uses a **semi-automated installation** approach:
-- The `setup.sh` script performs only the security and storage installations.
-- For Docker Compose deployments, manually copy the Docker Compose files to the respective LXC containers and run `docker compose up -d`.
-- Each Docker Compose file includes the necessary initial setup commands.
+This project uses an **improved automated installation** approach:
+- The `setup.sh` script now includes options for:
+  - Security installation (Fail2Ban)
+  - Storage setup (Samba, Sanoid)
+  - Proxy LXC preparation
+  - Media Server LXC preparation
+- Each script automates the directory structure creation, permission setting, and volume mounting.
+- You'll still need to manually install Docker and Docker Compose inside the LXC containers.
 
 ## Overview
 
@@ -24,8 +28,6 @@ With this project, you can deploy the following services:
 - **Security Setup**: Enhance Proxmox and SSH security with Fail2Ban.
 - **Storage Setup**: Configure Samba sharing and manage ZFS snapshots with Sanoid.
 - **Media Server**: Deploy Sonarr, Radarr, Jellyfin, and more.
-- **Monitoring System**: Deploy Prometheus, Grafana, and Alertmanager.
-- **Logging System**: Deploy an ELK Stack (Elasticsearch, Logstash, Kibana).
 - **Proxy System**: Deploy Cloudflared, AdGuard Home, and Firefox Remote Browser.
 
 ## Container Contents
@@ -43,13 +45,17 @@ With this project, you can deploy the following services:
 - qBittorrent, Prowlarr, Flaresolverr, Recyclarr
 - YouTube-DL – YouTube video downloading
 
-### Monitoring (ID: 102)
+## Planned Features
+
+These features are planned for future releases:
+
+### Monitoring System
 - Prometheus – Metrics collection
 - Grafana – Metrics visualization
 - Alertmanager – Alert management
 - Node Exporter – Host metrics
 
-### Logging (ID: 103)
+### Logging System
 - Elasticsearch – Log storage
 - Logstash – Log processing
 - Kibana – Log visualization

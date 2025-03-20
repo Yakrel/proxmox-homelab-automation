@@ -7,7 +7,8 @@
 #    mkdir -p /datapool/config/{cloudflared-config,watchtower-proxy-config,adguard-config/{work,conf},firefox-config}
 #    
 #    # Set LXC ownership (100000 is the default LXC UID/GID mapping)
-#    chown -R 100000:100000 /datapool
+#    # Only set ownership for directories needed by this LXC
+#    chown -R 100000:100000 /datapool/config/{cloudflared-config,watchtower-proxy-config,adguard-config,firefox-config}
 #    
 #    # Mount datapool to LXC
 #    pct set 100 -mp0 /datapool,mp=/datapool
@@ -93,7 +94,7 @@ services:
       - /datapool/config/firefox-config:/config:rw
     environment:
       - TZ=Europe/Istanbul
-      - VNC_PASSWORD=password
+      - VNC_PASSWORD=${FIREFOX_VNC_PASSWORD:?Firefox VNC şifresi tanımlanmalıdır}
       - PUID=1000
       - PGID=1000
       - KEEP_APP_RUNNING=1
