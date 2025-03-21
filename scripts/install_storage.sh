@@ -1,11 +1,11 @@
 #!/bin/bash
-set -e  # Herhangi bir komut hata verdiğinde scripti durdur
+set -e  # Stop the script if any command fails
 
-# Samba kurulumu
+# Samba installation
 apt update
 apt install -y samba
 
-# Samba konfigürasyonu
+# Samba configuration
 cat >> /etc/samba/smb.conf << 'EOF'
 
 [datapool]
@@ -15,33 +15,33 @@ cat >> /etc/samba/smb.conf << 'EOF'
    force create mode = 0660
    force directory mode = 0770
    valid users = root
-   # Performans optimizasyonları
+   # Performance optimizations
    socket options = TCP_NODELAY IPTOS_LOWDELAY
    read raw = yes
    write raw = yes
    strict locking = no
 EOF
 
-# Root kullanıcısı için Samba şifresi belirleme
-echo "Lütfen Samba root şifresini girin:"
+# Set Samba password for root user
+echo "Please enter the Samba root password:"
 read -s samba_root_password
 (echo "$samba_root_password"; echo "$samba_root_password") | smbpasswd -a root
 
-# Servisi yeniden başlat
+# Restart the service
 systemctl restart smbd
 
-# Servis durumunu kontrol et
+# Check the service status
 sleep 3
 systemctl status smbd
 
-# Sanoid kurulumu
+# Sanoid installation
 apt update
 apt install -y sanoid
 
-# Sanoid config klasörünü oluştur
+# Create Sanoid config directory
 mkdir -p /etc/sanoid
 
-# Yapılandırma dosyasını oluştur
+# Create configuration file
 cat > /etc/sanoid/sanoid.conf << EOF
 [rpool/ROOT/pve-1]
         use_template = system
@@ -70,10 +70,10 @@ cat > /etc/sanoid/sanoid.conf << EOF
         autoprune = yes
 EOF
 
-# Servisi etkinleştir ve başlat
+# Enable and start the service
 systemctl enable sanoid.timer
 systemctl start sanoid.timer
 
-# Servis durumunu kontrol et
+# Check the service status
 sleep 3
 systemctl status sanoid.timer

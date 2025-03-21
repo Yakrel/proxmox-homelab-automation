@@ -47,7 +47,7 @@ services:
     ports:
       - "53:53/tcp"
       - "53:53/udp"
-      - "3000:3000/tcp"  # Web arayüzü
+      - "3000:3000/tcp"  # Web interface
       - "8080:8080/tcp"  # HTTP redirect
     volumes:
       - /datapool/config/adguard-config/work:/opt/adguardhome/work
@@ -94,7 +94,7 @@ services:
       - /datapool/config/firefox-config:/config:rw
     environment:
       - TZ=Europe/Istanbul
-      - VNC_PASSWORD=${FIREFOX_VNC_PASSWORD:?Firefox VNC şifresi tanımlanmalıdır}
+      - VNC_PASSWORD=${FIREFOX_VNC_PASSWORD:?Firefox VNC password must be defined}
       - PUID=1000
       - PGID=1000
       - KEEP_APP_RUNNING=1

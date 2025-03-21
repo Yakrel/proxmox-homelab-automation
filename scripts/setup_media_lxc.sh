@@ -1,31 +1,31 @@
 #!/bin/bash
 set -e
 
-echo "Media LXC (ID: 101) hazırlığı yapılacak."
-read -p "Media LXC için klasörler oluşturulsun ve izinler ayarlansın mı? (y/N): " response
+echo "Media LXC (ID: 101) preparation will be done."
+read -p "Do you want to create folders and set permissions for Media LXC? (y/N): " response
 
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-    # Dizin yapısını oluştur
+    # Create directory structure
     mkdir -p /datapool/config/{sonarr-config,radarr-config,bazarr-config,jellyfin-config,jellyseerr-config,qbittorrent-config,prowlarr-config,flaresolverr-config,watchtower-media-config,recyclarr-config,youtube-dl-config}
     mkdir -p /datapool/media/{tv,movies,youtube/{playlists,channels}}
     mkdir -p /datapool/torrents/{tv,movies}
     
-    # İzinleri ayarla (100000 varsayılan LXC UID/GID)
+    # Set permissions (100000 is the default LXC UID/GID)
     chown -R 100000:100000 /datapool/config/{sonarr-config,radarr-config,bazarr-config,jellyfin-config,jellyseerr-config,qbittorrent-config,prowlarr-config,flaresolverr-config,watchtower-media-config,recyclarr-config,youtube-dl-config}
     chown -R 100000:100000 /datapool/media
     chown -R 100000:100000 /datapool/torrents
     
-    # LXC'ye datapool'u bağla
+    # Mount datapool to LXC
     pct set 101 -mp0 /datapool,mp=/datapool
     
-    echo "Media LXC hazırlığı tamamlandı."
+    echo "Media LXC preparation completed."
 else
-    echo "İşlem iptal edildi."
+    echo "Operation cancelled."
 fi
 
 echo "-------------------------------------"
-echo "Şimdi LXC'nin içine geçip Docker ve Docker Compose'u yükleyin:"
+echo "Now enter the LXC and install Docker and Docker Compose:"
 echo "pct enter 101"
 echo ""
-echo "Ardından docker-compose.yml dosyasını kopyalayıp çalıştırın."
+echo "Then copy and run the docker-compose.yml file."
 echo "-------------------------------------"
