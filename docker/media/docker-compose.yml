@@ -6,7 +6,7 @@
 #    # Create directory structure
 #    mkdir -p /datapool/config/{sonarr-config,radarr-config,bazarr-config,jellyfin-config,jellyseerr-config,qbittorrent-config,prowlarr-config,flaresolverr-config,watchtower-media-config,recyclarr-config,youtube-dl-config}
 #    mkdir -p /datapool/media/{tv,movies,youtube/{playlists,channels}}
-#    mkdir -p /datapool/torrents/{tv,movies}
+#    mkdir -p /datapool/torrents/{tv,movies,incomplete}
 #    
 #    # Set LXC ownership (100000 is the default LXC UID/GID mapping)
 #    # Only set ownership for directories needed by this LXC
@@ -32,8 +32,8 @@ services:
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/sonarr-config:/config
-      - /datapool/media:/media
-      - /datapool/torrents:/torrents
+      - /datapool/media:/data/media
+      - /datapool/torrents:/data/torrents
     ports:
       - "8989:8989"
     networks:
@@ -55,8 +55,8 @@ services:
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/radarr-config:/config
-      - /datapool/media:/media
-      - /datapool/torrents:/torrents
+      - /datapool/media:/data/media
+      - /datapool/torrents:/data/torrents
     ports:
       - "7878:7878"
     networks:
@@ -78,7 +78,7 @@ services:
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/bazarr-config:/config
-      - /datapool/media:/media
+      - /datapool/media:/data/media
     ports:
       - "6767:6767"
     networks:
@@ -100,7 +100,7 @@ services:
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/jellyfin-config:/config
-      - /datapool/media:/media
+      - /datapool/media:/data/media
     ports:
       - "8096:8096"
     networks:
@@ -144,7 +144,7 @@ services:
       - WEBUI_PORT=8080
     volumes:
       - /datapool/config/qbittorrent-config:/config
-      - /datapool/torrents:/torrents
+      - /datapool/torrents:/data/torrents
     ports:
       - "8080:8080"
       - "6881:6881"
@@ -187,6 +187,9 @@ services:
       - LOG_HTML=false
       - CAPTCHA_SOLVER=flaresolverr
       - TZ=Europe/Istanbul
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
     ports:
       - "8191:8191"
     networks:
@@ -204,6 +207,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
+      - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/recyclarr-config:/config
@@ -222,6 +226,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
+      - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/youtube-dl-config:/config
@@ -249,6 +254,7 @@ services:
       - WATCHTOWER_SCHEDULE=0 0 3 * * *
       - PUID=1000
       - PGID=1000
+      - UMASK=002
     restart: unless-stopped
     networks:
       - media-net

@@ -8,7 +8,7 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     # Create directory structure
     mkdir -p /datapool/config/{sonarr-config,radarr-config,bazarr-config,jellyfin-config,jellyseerr-config,qbittorrent-config,prowlarr-config,flaresolverr-config,watchtower-media-config,recyclarr-config,youtube-dl-config}
     mkdir -p /datapool/media/{tv,movies,youtube/{playlists,channels}}
-    mkdir -p /datapool/torrents/{tv,movies}
+    mkdir -p /datapool/torrents/{tv,movies,incomplete}
     
     # Set permissions (100000 is the default LXC UID/GID)
     chown -R 100000:100000 /datapool/config/{sonarr-config,radarr-config,bazarr-config,jellyfin-config,jellyseerr-config,qbittorrent-config,prowlarr-config,flaresolverr-config,watchtower-media-config,recyclarr-config,youtube-dl-config}
