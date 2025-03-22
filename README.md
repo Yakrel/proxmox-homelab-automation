@@ -82,15 +82,15 @@ To ensure proper hardlinks and atomic moves, the following folder structure is u
 For proper hardlinks and optimal performance, configure qBittorrent as follows:
 
 1. Go to Settings > Downloads
-   - Set "Default Save Path" to: `/data/torrents/incomplete`
+   - Set "Default Save Path" to: `/datapool/torrents/incomplete`
    - Enable "Move completed to" and set to: (leave blank, will be set by category)
-   - Disable "Append .!qB extension to incomplete files"
+   - Disable "Append .!qB extension to incomplete files`
 
 2. Add Categories:
    - Category: `tv`
-     - Save Path: `/data/torrents/tv`
+     - Save Path: `/datapool/torrents/tv`
    - Category: `movies`
-     - Save Path: `/data/torrents/movies`
+     - Save Path: `/datapool/torrents/movies`
 
 3. Go to Settings > BitTorrent:
    - Disable "Automatically add torrents from:" option
@@ -105,8 +105,8 @@ For proper hardlinks and optimal performance, configure qBittorrent as follows:
    - Disable "Copy using Hardlinks when importing from torrents"
 
 2. Root Folders:
-   - Sonarr: `/data/media/tv`
-   - Radarr: `/data/media/movies`
+   - Sonarr: `/datapool/media/tv`
+   - Radarr: `/datapool/media/movies`
 
 3. Download Client Settings (qBittorrent):
    - Host: qbittorrent

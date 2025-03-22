@@ -26,14 +26,14 @@ services:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/sonarr-config:/config
-      - /datapool/media:/data/media
-      - /datapool/torrents:/data/torrents
+      - /datapool/media:/datapool/media
+      - /datapool/torrents:/datapool/torrents
     ports:
       - "8989:8989"
     networks:
@@ -49,14 +49,14 @@ services:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/radarr-config:/config
-      - /datapool/media:/data/media
-      - /datapool/torrents:/data/torrents
+      - /datapool/media:/datapool/media
+      - /datapool/torrents:/datapool/torrents
     ports:
       - "7878:7878"
     networks:
@@ -72,13 +72,13 @@ services:
     image: lscr.io/linuxserver/bazarr:latest
     container_name: bazarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/bazarr-config:/config
-      - /datapool/media:/data/media
+      - /datapool/media:/datapool/media
     ports:
       - "6767:6767"
     networks:
@@ -94,13 +94,13 @@ services:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/jellyfin-config:/config
-      - /datapool/media:/data/media
+      - /datapool/media:/datapool/media
     ports:
       - "8096:8096"
     networks:
@@ -116,8 +116,8 @@ services:
     image: fallenbagel/jellyseerr:latest
     container_name: jellyseerr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -137,14 +137,14 @@ services:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
       - WEBUI_PORT=8080
     volumes:
       - /datapool/config/qbittorrent-config:/config
-      - /datapool/torrents:/data/torrents
+      - /datapool/torrents:/datapool/torrents
     ports:
       - "8080:8080"
       - "6881:6881"
@@ -162,8 +162,8 @@ services:
     image: lscr.io/linuxserver/prowlarr:develop
     container_name: prowlarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -187,8 +187,8 @@ services:
       - LOG_HTML=false
       - CAPTCHA_SOLVER=flaresolverr
       - TZ=Europe/Istanbul
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
     ports:
       - "8191:8191"
@@ -205,8 +205,8 @@ services:
     image: recyclarr/recyclarr:latest
     container_name: recyclarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -224,13 +224,13 @@ services:
     image: alexta69/youtube-dlp:latest
     container_name: youtube-dl
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/youtube-dl-config:/config
-      - /datapool/media/youtube:/downloads
+      - /datapool/media/youtube:/datapool/media/youtube
     ports:
       - "8998:8998"
     networks:
@@ -252,8 +252,8 @@ services:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 3 * * *
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
     restart: unless-stopped
     networks:
