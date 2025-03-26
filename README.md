@@ -64,17 +64,17 @@ To ensure proper hardlinks and atomic moves, the following folder structure is u
 ```
 /datapool
 ├── config/
-│   ├── sonarr-config/
-│   ├── radarr-config/
-│   ├── bazarr-config/
-│   ├── jellyfin-config/
-│   ├── jellyseerr-config/
-│   ├── qbittorrent-config/
-│   ├── prowlarr-config/
-│   ├── flaresolverr-config/
-│   ├── watchtower-media-config/
-│   ├── recyclarr-config/
-│   └── youtube-dl-config/
+│   ├── sonarr/
+│   ├── radarr/
+│   ├── bazarr/
+│   ├── jellyfin/
+│   ├── jellyseerr/
+│   ├── qbittorrent/
+│   ├── prowlarr/
+│   ├── flaresolverr/
+│   ├── watchtower-media/
+│   ├── recyclarr/
+│   └── youtube-dl/
 ├── torrents/
 │   ├── movies/        # Complete movie torrents
 │   ├── tv/            # Complete TV show torrents 
