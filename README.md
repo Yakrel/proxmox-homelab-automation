@@ -35,19 +35,19 @@ With this project, you can deploy the following services:
 
 ### Recommended Resource Allocation
 
-| LXC ID | Purpose | CPU Cores | RAM | Storage | IP Address | Container Type |
-|--------|---------|-----------|-----|---------|------------|----------------|
-| 100    | Proxy   | 2 cores   | 4GB | 10GB + datapool | 192.168.1.100/24 | Unprivileged LXC |
-| 101    | Media   | 4 cores   | 12GB | 20GB + datapool | 192.168.1.101/24 | Unprivileged LXC |
+| Container Name | ID  | Purpose | CPU Cores | RAM | Storage | IP Address | Container Type |
+|---------------|-----|---------|-----------|-----|---------|------------|----------------|
+| lxc-proxy-01  | 100 | Proxy   | 2 cores   | 4GB | 10GB + datapool | 192.168.1.100/24 | Unprivileged LXC |
+| lxc-media-01  | 101 | Media   | 4 cores   | 12GB | 20GB + datapool | 192.168.1.101/24 | Unprivileged LXC |
 
 ## Container Contents
 
-### Proxy (ID: 100)
+### Proxy (lxc-proxy-01, ID: 100)
 - Cloudflared – Cloudflare Tunnel
 - AdGuard Home – DNS filtering
 - Firefox – Remote accessible browser
 
-### Media Server (ID: 101)
+### Media Server (lxc-media-01, ID: 101)
 - Sonarr, Radarr – TV shows and movie tracking
 - Bazarr – Subtitle management
 - Jellyfin – Media server

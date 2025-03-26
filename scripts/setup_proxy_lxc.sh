@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Proxy LXC (ID: 100) preparation will be done."
+echo "Proxy LXC (lxc-proxy-01, ID: 100) preparation will be done."
 read -p "Do you want to create folders and set permissions for Proxy LXC? (y/N): " response
 
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then

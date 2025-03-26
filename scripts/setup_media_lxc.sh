@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Media LXC (ID: 101) preparation will be done."
+echo "Media LXC (lxc-media-01, ID: 101) preparation will be done."
 read -p "Do you want to create folders and set permissions for Media LXC? (y/N): " response
 
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
