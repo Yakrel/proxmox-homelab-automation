@@ -4,11 +4,10 @@
 # Run these commands on the Proxmox host system:
 #
 #    # Create directory structure
-#    mkdir -p /datapool/config/{cloudflared,watchtower-proxy,adguard/{work,conf},firefox,nginx-proxy-manager/{data,letsencrypt}}
+#    mkdir -p /datapool/config/{cloudflared,watchtower-proxy,adguard/{work,conf},firefox}
 #    
-#    # Set LXC ownership (1000 is the recommended UID/GID for Docker containers)
-#    # Only set ownership for directories needed by this LXC
-#    chown -R 1000:1000 /datapool/config/{cloudflared,watchtower-proxy,adguard,firefox,nginx-proxy-manager}
+#    # Set ownership for the entire config directory
+#    chown -R 1000:1000 /datapool/config
 #    
 #    # Mount datapool to LXC
 #    pct set 100 -mp0 /datapool,mp=/datapool
@@ -20,29 +19,6 @@ networks:
     driver: bridge
 
 services:
-  nginx-proxy-manager:
-    image: 'jc21/nginx-proxy-manager:latest'
-    container_name: nginx-proxy-manager
-    restart: unless-stopped
-    ports:
-      - '80:80'      # HTTP Port
-      - '443:443'    # HTTPS Port 
-      - '81:81'      # Admin Web Port
-    volumes:
-      - /datapool/config/nginx-proxy-manager/data:/data
-      - /datapool/config/nginx-proxy-manager/letsencrypt:/etc/letsencrypt
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Istanbul
-    networks:
-      - proxy-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared

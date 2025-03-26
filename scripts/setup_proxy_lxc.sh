@@ -11,8 +11,6 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     mkdir -p /datapool/config/adguard/work
     mkdir -p /datapool/config/adguard/conf
     mkdir -p /datapool/config/firefox
-    mkdir -p /datapool/config/nginx-proxy-manager/data
-    mkdir -p /datapool/config/nginx-proxy-manager/letsencrypt
 
     # Set ownership directly for the main config directory
     chown -R 1000:1000 /datapool/config
