@@ -4,11 +4,11 @@
 # Run these commands on the Proxmox host system:
 #
 #    # Create directory structure
-#    mkdir -p /datapool/config/{cloudflared,watchtower-proxy,adguard/{work,conf},firefox}
+#    mkdir -p /datapool/config/{cloudflared,watchtower-proxy,adguard/{work,conf},firefox,nginx-proxy-manager/{data,letsencrypt}}
 #    
 #    # Set LXC ownership (100000 is the default LXC UID/GID mapping)
 #    # Only set ownership for directories needed by this LXC
-#    chown -R 100000:100000 /datapool/config/{cloudflared,watchtower-proxy,adguard,firefox}
+#    chown -R 100000:100000 /datapool/config/{cloudflared,watchtower-proxy,adguard,firefox,nginx-proxy-manager}
 #    
 #    # Mount datapool to LXC
 #    pct set 100 -mp0 /datapool,mp=/datapool
@@ -20,6 +20,29 @@ networks:
     driver: bridge
 
 services:
+  nginx-proxy-manager:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - '80:80'      # HTTP Port
+      - '443:443'    # HTTPS Port 
+      - '81:81'      # Admin Web Port
+    volumes:
+      - /datapool/config/nginx-proxy-manager/data:/data
+      - /datapool/config/nginx-proxy-manager/letsencrypt:/etc/letsencrypt
+    environment:
+      - PUID=100000
+      - PGID=100000
+      - TZ=Europe/Istanbul
+    networks:
+      - proxy-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
@@ -47,7 +70,7 @@ services:
     ports:
       - "53:53/tcp"
       - "53:53/udp"
-      - "80:80/tcp"
+      - "3080:80/tcp"
       - "3000:3000/tcp"
       - "8080:8080/tcp"
     volumes:
