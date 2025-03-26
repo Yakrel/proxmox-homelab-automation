@@ -53,7 +53,7 @@ With this project, you can deploy the following services:
 - Jellyfin – Media server
 - Jellyseerr – Media requests
 - qBittorrent, Prowlarr, Flaresolverr, Recyclarr
-- YouTube-DL – YouTube video downloading
+- MeTube – YouTube video downloading
 
 ## Media Server: Folder Structure & Configuration
 
@@ -74,7 +74,7 @@ To ensure proper hardlinks and atomic moves, the following folder structure is u
 │   ├── flaresolverr/
 │   ├── watchtower-media/
 │   ├── recyclarr/
-│   └── youtube-dl/
+│   └── metube/
 ├── torrents/
 │   ├── movies/        # Complete movie torrents
 │   ├── tv/            # Complete TV show torrents 

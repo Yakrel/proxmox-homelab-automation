@@ -16,7 +16,7 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     mkdir -p /datapool/config/flaresolverr
     mkdir -p /datapool/config/watchtower-media
     mkdir -p /datapool/config/recyclarr
-    mkdir -p /datapool/config/youtube-dl
+    mkdir -p /datapool/config/metube
     
     # Create media directories
     mkdir -p /datapool/media/tv
@@ -30,9 +30,9 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     mkdir -p /datapool/torrents/incomplete
     
     # Set ownership for main directories only
-    chown -R 1000:1000 /datapool/config
-    chown -R 1000:1000 /datapool/media
-    chown -R 1000:1000 /datapool/torrents
+    chown -R 100000:100000 /datapool/config
+    chown -R 100000:100000 /datapool/media
+    chown -R 100000:100000 /datapool/torrents
     
     # Mount datapool to LXC
     pct set 101 -mp0 /datapool,mp=/datapool

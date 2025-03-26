@@ -7,15 +7,13 @@
 #    mkdir -p /datapool/config/{cloudflared,watchtower-proxy,adguard/{work,conf},firefox}
 #    
 #    # Set ownership for the entire config directory
-#    chown -R 1000:1000 /datapool/config
+#    chown -R 100000:100000 /datapool/config
 #    
 #    # Mount datapool to LXC
 #    pct set 100 -mp0 /datapool,mp=/datapool
 
 networks:
   proxy-net:
-    driver: bridge
-  firefox-net:
     driver: bridge
 
 services:
@@ -26,8 +24,8 @@ services:
     command: tunnel run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARED_TOKEN}
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/cloudflared:/etc/cloudflared:ro
@@ -54,6 +52,9 @@ services:
       - /datapool/config/adguard/conf:/opt/adguardhome/conf
     environment:
       - TZ=Europe/Istanbul
+      - PUID=100000
+      - PGID=100000
+      - UMASK=002
     networks:
       - proxy-net
     logging:
@@ -72,8 +73,9 @@ services:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 2 * * *
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
+      - UMASK=002
     restart: unless-stopped
     networks:
       - proxy-net
@@ -95,13 +97,13 @@ services:
     environment:
       - TZ=Europe/Istanbul
       - VNC_PASSWORD=${FIREFOX_VNC_PASSWORD:?Firefox VNC password must be defined}
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - KEEP_APP_RUNNING=1
       - DISPLAY_WIDTH=1920
       - DISPLAY_HEIGHT=1080
     networks:
-      - firefox-net
+      - proxy-net
     logging:
       driver: "json-file"
       options:

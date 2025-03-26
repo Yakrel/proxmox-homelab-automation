@@ -4,15 +4,15 @@
 # Run these commands on the Proxmox host system:
 #
 #    # Create directory structure
-#    mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,watchtower-media,recyclarr,youtube-dl}
+#    mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,watchtower-media,recyclarr,metube}
 #    mkdir -p /datapool/media/{tv,movies,youtube/{playlists,channels}}
 #    mkdir -p /datapool/torrents/{tv,movies,incomplete}
 #    
-#    # Set LXC ownership (1000 is the recommended UID/GID for Docker containers)
+#    # Set LXC ownership (100000 is the recommended UID/GID for Docker containers)
 #    # Only set ownership for directories needed by this LXC
-#    chown -R 1000:1000 /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,watchtower-media,recyclarr,youtube-dl}
-#    chown -R 1000:1000 /datapool/media
-#    chown -R 1000:1000 /datapool/torrents
+#    chown -R 100000:100000 /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,watchtower-media,recyclarr,metube}
+#    chown -R 100000:100000 /datapool/media
+#    chown -R 100000:100000 /datapool/torrents
 #    
 #    # Mount datapool to LXC
 #    pct set 101 -mp0 /datapool,mp=/datapool
@@ -26,8 +26,8 @@ services:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -49,8 +49,8 @@ services:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -72,8 +72,8 @@ services:
     image: lscr.io/linuxserver/bazarr:latest
     container_name: bazarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -94,8 +94,8 @@ services:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -111,13 +111,14 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
   jellyseerr:
     image: fallenbagel/jellyseerr:latest
     container_name: jellyseerr
+    depends_on:
+      - jellyfin
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -137,14 +138,15 @@ services:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
       - WEBUI_PORT=8080
     volumes:
       - /datapool/config/qbittorrent:/config
       - /datapool/torrents:/datapool/torrents
+      - /datapool/media:/datapool/media
     ports:
       - "8080:8080"
       - "6881:6881"
@@ -162,8 +164,8 @@ services:
     image: lscr.io/linuxserver/prowlarr:develop
     container_name: prowlarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -187,8 +189,8 @@ services:
       - LOG_HTML=false
       - CAPTCHA_SOLVER=flaresolverr
       - TZ=Europe/Istanbul
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
     ports:
       - "8191:8191"
@@ -205,8 +207,8 @@ services:
     image: recyclarr/recyclarr:latest
     container_name: recyclarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -220,19 +222,19 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  youtube-dl:
-    image: alexta69/youtube-dlp:latest
-    container_name: youtube-dl
+  metube:
+    image: ghcr.io/alexta69/metube
+    container_name: metube
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/youtube-dl:/config
-      - /datapool/media/youtube:/datapool/media/youtube
+      - /datapool/config/metube:/config
+      - /datapool/media/youtube:/downloads
     ports:
-      - "8998:8998"
+      - "8081:8081"
     networks:
       - media-net
     restart: unless-stopped
@@ -252,8 +254,8 @@ services:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 3 * * *
-      - PUID=1000
-      - PGID=1000
+      - PUID=100000
+      - PGID=100000
       - UMASK=002
     restart: unless-stopped
     networks:

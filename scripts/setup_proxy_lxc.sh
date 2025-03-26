@@ -13,7 +13,7 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     mkdir -p /datapool/config/firefox
 
     # Set ownership directly for the main config directory
-    chown -R 1000:1000 /datapool/config
+    chown -R 100000:100000 /datapool/config
 
     # Mount datapool to LXC
     pct set 100 -mp0 /datapool,mp=/datapool
