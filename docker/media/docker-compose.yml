@@ -111,6 +111,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
   jellyseerr:
     image: fallenbagel/jellyseerr:latest
     container_name: jellyseerr
@@ -161,7 +162,7 @@ services:
         max-file: "3"
 
   prowlarr:
-    image: lscr.io/linuxserver/prowlarr:develop
+    image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
     environment:
       - PUID=100000
@@ -223,7 +224,7 @@ services:
         max-file: "3"
 
   metube:
-    image: ghcr.io/alexta69/metube
+    image: ghcr.io/alexta69/metube:latest
     container_name: metube
     environment:
       - PUID=100000
@@ -244,9 +245,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  watchtower:
+  watchtower-media:
     image: containrrr/watchtower:latest
-    container_name: watchtower
+    container_name: watchtower-media
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /datapool/config/watchtower-media:/config:ro
