@@ -2,7 +2,7 @@
 set -e
 
 echo "Proxy LXC (lxc-proxy-01, ID: 100) preparation will be done."
-read -p "Do you want to create folders and set permissions for Proxy LXC? (y/N): " response
+read -p "Do you want to create folders for Proxy LXC? (y/N): " response
 
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     # Create directory structure
@@ -13,14 +13,10 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     mkdir -p /datapool/config/firefox
     mkdir -p /datapool/config/nginx-proxy-manager/data
     mkdir -p /datapool/config/nginx-proxy-manager/letsencrypt
-    
-    # Set permissions (1000 is the recommended UID/GID for Docker containers)
-    chown -R 1000:1000 /datapool/config/cloudflared
-    chown -R 1000:1000 /datapool/config/watchtower-proxy
-    chown -R 1000:1000 /datapool/config/adguard
-    chown -R 1000:1000 /datapool/config/firefox
-    chown -R 1000:1000 /datapool/config/nginx-proxy-manager
-    
+
+    # Set ownership directly for the main config directory
+    chown -R 1000:1000 /datapool/config
+
     # Mount datapool to LXC
     pct set 100 -mp0 /datapool,mp=/datapool
     
