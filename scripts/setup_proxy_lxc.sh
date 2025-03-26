@@ -6,10 +6,17 @@ read -p "Do you want to create folders and set permissions for Proxy LXC? (y/N):
 
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     # Create directory structure
-    mkdir -p /datapool/config/{cloudflared-config,watchtower-proxy-config,adguard-config/{work,conf},firefox-config}
+    mkdir -p /datapool/config/cloudflared-config
+    mkdir -p /datapool/config/watchtower-proxy-config
+    mkdir -p /datapool/config/adguard-config/work
+    mkdir -p /datapool/config/adguard-config/conf
+    mkdir -p /datapool/config/firefox-config
     
     # Set permissions (100000 is the default LXC UID/GID)
-    chown -R 100000:100000 /datapool/config/{cloudflared-config,watchtower-proxy-config,adguard-config,firefox-config}
+    chown -R 100000:100000 /datapool/config/cloudflared-config
+    chown -R 100000:100000 /datapool/config/watchtower-proxy-config
+    chown -R 100000:100000 /datapool/config/adguard-config
+    chown -R 100000:100000 /datapool/config/firefox-config
     
     # Mount datapool to LXC
     pct set 100 -mp0 /datapool,mp=/datapool
