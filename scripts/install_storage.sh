@@ -25,8 +25,26 @@ EOF
 # Set Samba password for root user
 echo "Please enter the Samba root password:"
 read -s samba_root_password
+echo
+echo "Please confirm the Samba root password:"
+read -s samba_root_password_confirm
+echo
+
+# Check if passwords match
+if [ "$samba_root_password" != "$samba_root_password_confirm" ]; then
+    echo "Error: Passwords do not match. Please try again."
+    exit 1
+fi
+
 echo "Configuring Samba password..."
-(echo "$samba_root_password"; echo "$samba_root_password") | smbpasswd -a root 2>/dev/null
+(echo "$samba_root_password"; echo "$samba_root_password") | smbpasswd -a root > /dev/null 2>&1
+
+if [ $? -eq 0 ]; then
+    echo "Samba password configured successfully."
+else
+    echo "Failed to set Samba password. Please check the error and try again."
+    exit 1
+fi
 
 # Restart the service
 systemctl restart smbd
