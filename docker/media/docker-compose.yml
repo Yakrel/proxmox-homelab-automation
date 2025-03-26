@@ -4,13 +4,13 @@
 # Run these commands on the Proxmox host system:
 #
 #    # Create directory structure
-#    mkdir -p /datapool/config/{sonarr-config,radarr-config,bazarr-config,jellyfin-config,jellyseerr-config,qbittorrent-config,prowlarr-config,flaresolverr-config,watchtower-media-config,recyclarr-config,youtube-dl-config}
+#    mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,watchtower-media,recyclarr,youtube-dl}
 #    mkdir -p /datapool/media/{tv,movies,youtube/{playlists,channels}}
 #    mkdir -p /datapool/torrents/{tv,movies,incomplete}
 #    
 #    # Set LXC ownership (100000 is the default LXC UID/GID mapping)
 #    # Only set ownership for directories needed by this LXC
-#    chown -R 100000:100000 /datapool/config/{sonarr-config,radarr-config,bazarr-config,jellyfin-config,jellyseerr-config,qbittorrent-config,prowlarr-config,flaresolverr-config,watchtower-media-config,recyclarr-config,youtube-dl-config}
+#    chown -R 100000:100000 /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,watchtower-media,recyclarr,youtube-dl}
 #    chown -R 100000:100000 /datapool/media
 #    chown -R 100000:100000 /datapool/torrents
 #    
@@ -31,7 +31,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/sonarr-config:/config
+      - /datapool/config/sonarr:/config
       - /datapool/media:/datapool/media
       - /datapool/torrents:/datapool/torrents
     ports:
@@ -54,7 +54,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/radarr-config:/config
+      - /datapool/config/radarr:/config
       - /datapool/media:/datapool/media
       - /datapool/torrents:/datapool/torrents
     ports:
@@ -77,7 +77,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/bazarr-config:/config
+      - /datapool/config/bazarr:/config
       - /datapool/media:/datapool/media
     ports:
       - "6767:6767"
@@ -99,7 +99,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/jellyfin-config:/config
+      - /datapool/config/jellyfin:/config
       - /datapool/media:/datapool/media
     ports:
       - "8096:8096"
@@ -121,7 +121,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/jellyseerr-config:/app/config
+      - /datapool/config/jellyseerr:/app/config
     ports:
       - "5055:5055"
     networks:
@@ -143,7 +143,7 @@ services:
       - TZ=Europe/Istanbul
       - WEBUI_PORT=8080
     volumes:
-      - /datapool/config/qbittorrent-config:/config
+      - /datapool/config/qbittorrent:/config
       - /datapool/torrents:/datapool/torrents
     ports:
       - "8080:8080"
@@ -167,7 +167,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/prowlarr-config:/config
+      - /datapool/config/prowlarr:/config
     ports:
       - "9696:9696"
     networks:
@@ -210,7 +210,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/recyclarr-config:/config
+      - /datapool/config/recyclarr:/config
     networks:
       - media-net
     restart: unless-stopped
@@ -229,7 +229,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/youtube-dl-config:/config
+      - /datapool/config/youtube-dl:/config
       - /datapool/media/youtube:/datapool/media/youtube
     ports:
       - "8998:8998"
@@ -247,7 +247,7 @@ services:
     container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /datapool/config/watchtower-media-config:/config:ro
+      - /datapool/config/watchtower-media:/config:ro
     environment:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true

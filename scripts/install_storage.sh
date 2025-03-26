@@ -25,14 +25,15 @@ EOF
 # Set Samba password for root user
 echo "Please enter the Samba root password:"
 read -s samba_root_password
-(echo "$samba_root_password"; echo "$samba_root_password") | smbpasswd -a root
+echo "Configuring Samba password..."
+(echo "$samba_root_password"; echo "$samba_root_password") | smbpasswd -a root 2>/dev/null
 
 # Restart the service
 systemctl restart smbd
 
 # Check the service status
 sleep 3
-systemctl status smbd
+systemctl status smbd | head -20
 
 # Sanoid installation
 apt update

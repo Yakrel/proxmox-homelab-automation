@@ -4,11 +4,11 @@
 # Run these commands on the Proxmox host system:
 #
 #    # Create directory structure
-#    mkdir -p /datapool/config/{cloudflared-config,watchtower-proxy-config,adguard-config/{work,conf},firefox-config}
+#    mkdir -p /datapool/config/{cloudflared,watchtower-proxy,adguard/{work,conf},firefox}
 #    
 #    # Set LXC ownership (100000 is the default LXC UID/GID mapping)
 #    # Only set ownership for directories needed by this LXC
-#    chown -R 100000:100000 /datapool/config/{cloudflared-config,watchtower-proxy-config,adguard-config,firefox-config}
+#    chown -R 100000:100000 /datapool/config/{cloudflared,watchtower-proxy,adguard,firefox}
 #    
 #    # Mount datapool to LXC
 #    pct set 100 -mp0 /datapool,mp=/datapool
@@ -31,7 +31,7 @@ services:
       - PGID=100000
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/cloudflared-config:/etc/cloudflared:ro
+      - /datapool/config/cloudflared:/etc/cloudflared:ro
     networks:
       - proxy-net
     logging:
@@ -50,8 +50,8 @@ services:
       - "3000:3000/tcp"  # Web interface
       - "8080:8080/tcp"  # HTTP redirect
     volumes:
-      - /datapool/config/adguard-config/work:/opt/adguardhome/work
-      - /datapool/config/adguard-config/conf:/opt/adguardhome/conf
+      - /datapool/config/adguard/work:/opt/adguardhome/work
+      - /datapool/config/adguard/conf:/opt/adguardhome/conf
     environment:
       - TZ=Europe/Istanbul
     networks:
@@ -67,7 +67,7 @@ services:
     container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /datapool/config/watchtower-proxy-config:/config:ro
+      - /datapool/config/watchtower-proxy:/config:ro
     environment:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
@@ -91,7 +91,7 @@ services:
       - "5800:5800"
       - "5900:5900"
     volumes:
-      - /datapool/config/firefox-config:/config:rw
+      - /datapool/config/firefox:/config:rw
     environment:
       - TZ=Europe/Istanbul
       - VNC_PASSWORD=${FIREFOX_VNC_PASSWORD:?Firefox VNC password must be defined}
