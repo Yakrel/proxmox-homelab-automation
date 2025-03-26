@@ -14,12 +14,12 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     mkdir -p /datapool/config/nginx-proxy-manager/data
     mkdir -p /datapool/config/nginx-proxy-manager/letsencrypt
     
-    # Set permissions (100000 is the default LXC UID/GID)
-    chown -R 100000:100000 /datapool/config/cloudflared
-    chown -R 100000:100000 /datapool/config/watchtower-proxy
-    chown -R 100000:100000 /datapool/config/adguard
-    chown -R 100000:100000 /datapool/config/firefox
-    chown -R 100000:100000 /datapool/config/nginx-proxy-manager
+    # Set permissions (1000 is the recommended UID/GID for Docker containers)
+    chown -R 1000:1000 /datapool/config/cloudflared
+    chown -R 1000:1000 /datapool/config/watchtower-proxy
+    chown -R 1000:1000 /datapool/config/adguard
+    chown -R 1000:1000 /datapool/config/firefox
+    chown -R 1000:1000 /datapool/config/nginx-proxy-manager
     
     # Mount datapool to LXC
     pct set 100 -mp0 /datapool,mp=/datapool

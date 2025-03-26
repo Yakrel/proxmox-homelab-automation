@@ -29,20 +29,20 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     mkdir -p /datapool/torrents/movies
     mkdir -p /datapool/torrents/incomplete
     
-    # Set permissions (100000 is the default LXC UID/GID)
-    chown -R 100000:100000 /datapool/config/sonarr
-    chown -R 100000:100000 /datapool/config/radarr
-    chown -R 100000:100000 /datapool/config/bazarr
-    chown -R 100000:100000 /datapool/config/jellyfin
-    chown -R 100000:100000 /datapool/config/jellyseerr
-    chown -R 100000:100000 /datapool/config/qbittorrent
-    chown -R 100000:100000 /datapool/config/prowlarr
-    chown -R 100000:100000 /datapool/config/flaresolverr
-    chown -R 100000:100000 /datapool/config/watchtower-media
-    chown -R 100000:100000 /datapool/config/recyclarr
-    chown -R 100000:100000 /datapool/config/youtube-dl
-    chown -R 100000:100000 /datapool/media
-    chown -R 100000:100000 /datapool/torrents
+    # Set permissions (1000 is the recommended UID/GID for Docker containers)
+    chown -R 1000:1000 /datapool/config/sonarr
+    chown -R 1000:1000 /datapool/config/radarr
+    chown -R 1000:1000 /datapool/config/bazarr
+    chown -R 1000:1000 /datapool/config/jellyfin
+    chown -R 1000:1000 /datapool/config/jellyseerr
+    chown -R 1000:1000 /datapool/config/qbittorrent
+    chown -R 1000:1000 /datapool/config/prowlarr
+    chown -R 1000:1000 /datapool/config/flaresolverr
+    chown -R 1000:1000 /datapool/config/watchtower-media
+    chown -R 1000:1000 /datapool/config/recyclarr
+    chown -R 1000:1000 /datapool/config/youtube-dl
+    chown -R 1000:1000 /datapool/media
+    chown -R 1000:1000 /datapool/torrents
     
     # Mount datapool to LXC
     pct set 101 -mp0 /datapool,mp=/datapool
