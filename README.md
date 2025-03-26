@@ -10,6 +10,8 @@ This repository contains a collection of automation tools designed to customize 
 bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
 ```
 
+The setup script will automatically download all necessary script files from the GitHub repository, so you don't need to manually transfer any files to your Proxmox server.
+
 ## Deployment Approach
 
 This project uses an **improved automated installation** approach:
@@ -19,7 +21,6 @@ This project uses an **improved automated installation** approach:
   - Proxy LXC preparation
   - Media Server LXC preparation
 - Each script automates the directory structure creation, permission setting, and volume mounting.
-- You'll still need to manually install Docker and Docker Compose inside the LXC containers.
 
 ## Overview
 
@@ -29,6 +30,15 @@ With this project, you can deploy the following services:
 - **Storage Setup**: Configure Samba sharing and manage ZFS snapshots with Sanoid.
 - **Media Server**: Deploy Sonarr, Radarr, Jellyfin, and more.
 - **Proxy System**: Deploy Cloudflared, AdGuard Home, and Firefox Remote Browser.
+
+## LXC Container Specifications
+
+### Recommended Resource Allocation
+
+| LXC ID | Purpose | CPU Cores | RAM | Storage | IP Address | Container Type |
+|--------|---------|-----------|-----|---------|------------|----------------|
+| 100    | Proxy   | 2 cores   | 4GB | 10GB + datapool | 192.168.1.100/24 | Unprivileged LXC |
+| 101    | Media   | 4 cores   | 12GB | 20GB + datapool | 192.168.1.101/24 | Unprivileged LXC |
 
 ## Container Contents
 
