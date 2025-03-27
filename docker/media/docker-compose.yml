@@ -26,8 +26,8 @@ services:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
     environment:
-      - PUID=100000
-      - PGID=100000
+      - PUID=1000 #Should stay like this else it doesnt work
+      - PGID=1000 #Should stay like this else it doesnt work
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -49,8 +49,8 @@ services:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
     environment:
-      - PUID=100000
-      - PGID=100000
+      - PUID=1000 #Should stay like this else it doesnt work
+      - PGID=1000 #Should stay like this else it doesnt work
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
