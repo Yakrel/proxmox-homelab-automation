@@ -6,13 +6,13 @@
 #    # Create directory structure
 #    mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,watchtower-media,recyclarr,metube}
 #    mkdir -p /datapool/media/{tv,movies,youtube/{playlists,channels}}
-#    mkdir -p /datapool/torrents/{tv,movies,incomplete}
+#    mkdir -p /datapool/torrents/{tv,movies}
 #    
 #    # Set LXC ownership (100000 is the recommended UID/GID for Docker containers)
 #    # Only set ownership for directories needed by this LXC
-#    chown -R 100000:100000 /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,watchtower-media,recyclarr,metube}
-#    chown -R 100000:100000 /datapool/media
-#    chown -R 100000:100000 /datapool/torrents
+#    chown -R 101000:101000 /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,watchtower-media,recyclarr,metube}
+#    chown -R 101000:101000 /datapool/media
+#    chown -R 101000:101000 /datapool/torrents
 #    
 #    # Mount datapool to LXC
 #    pct set 101 -mp0 /datapool,mp=/datapool

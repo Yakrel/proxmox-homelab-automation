@@ -27,12 +27,11 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     # Create torrents directories
     mkdir -p /datapool/torrents/tv
     mkdir -p /datapool/torrents/movies
-    mkdir -p /datapool/torrents/incomplete
     
     # Set ownership for main directories only
-    chown -R 100000:100000 /datapool/config
-    chown -R 100000:100000 /datapool/media
-    chown -R 100000:100000 /datapool/torrents
+    chown -R 101000:101000 /datapool/config
+    chown -R 101000:101000 /datapool/media
+    chown -R 101000:101000 /datapool/torrents
     
     # Mount datapool to LXC
     pct set 101 -mp0 /datapool,mp=/datapool
