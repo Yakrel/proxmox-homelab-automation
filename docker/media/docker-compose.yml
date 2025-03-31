@@ -26,8 +26,8 @@ services:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=101000
+      - PGID=101000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -49,8 +49,8 @@ services:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=101000
+      - PGID=101000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -72,8 +72,8 @@ services:
     image: lscr.io/linuxserver/bazarr:latest
     container_name: bazarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=101000
+      - PGID=101000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -94,8 +94,8 @@ services:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=101000
+      - PGID=101000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -118,8 +118,8 @@ services:
     depends_on:
       - jellyfin
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=101000
+      - PGID=101000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -139,8 +139,8 @@ services:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=101000
+      - PGID=101000
       - UMASK=002
       - TZ=Europe/Istanbul
       - WEBUI_PORT=8080
@@ -165,8 +165,8 @@ services:
     image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=101000
+      - PGID=101000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -190,8 +190,8 @@ services:
       - LOG_HTML=false
       - CAPTCHA_SOLVER=flaresolverr
       - TZ=Europe/Istanbul
-      - PUID=1000
-      - PGID=1000
+      - PUID=101000
+      - PGID=101000
       - UMASK=002
     ports:
       - "8191:8191"
@@ -208,8 +208,8 @@ services:
     image: recyclarr/recyclarr:latest
     container_name: recyclarr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=101000
+      - PGID=101000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -227,8 +227,8 @@ services:
     image: ghcr.io/alexta69/metube:latest
     container_name: metube
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=101000
+      - PGID=101000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -255,8 +255,8 @@ services:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 3 * * *
-      - PUID=1000
-      - PGID=1000
+      - PUID=101000
+      - PGID=101000
       - UMASK=002
     restart: unless-stopped
     networks:

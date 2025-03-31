@@ -77,8 +77,7 @@ To ensure proper hardlinks and atomic moves, the following folder structure is u
 │   └── metube/
 ├── torrents/
 │   ├── movies/        # Complete movie torrents
-│   ├── tv/            # Complete TV show torrents 
-│   └── incomplete/    # Temporary download location
+│   └── tv/            # Complete TV show torrents 
 └── media/
     ├── movies/        # Final location for movies
     ├── tv/            # Final location for TV shows
@@ -92,8 +91,8 @@ To ensure proper hardlinks and atomic moves, the following folder structure is u
 For proper hardlinks and optimal performance, configure qBittorrent as follows:
 
 1. Go to Settings > Downloads
-   - Set "Default Save Path" to: `/datapool/torrents/incomplete`
-   - Enable "Move completed to" and set to: (leave blank, will be set by category)
+   - Enable "Keep incomplete torrents in:" and set it to a temporary location *inside* the container if desired (e.g., `/tmp/incomplete`), but it's often simpler to let qBittorrent manage this internally without a specific path.
+   - Ensure "Move completed torrents to" is **disabled** (categories will handle this).
    - Disable "Append .!qB extension to incomplete files`
 
 2. Add Categories:

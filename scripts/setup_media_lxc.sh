@@ -28,9 +28,20 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     mkdir -p /datapool/torrents/tv
     mkdir -p /datapool/torrents/movies
     
-    # Set ownership for main directories only
-    chown -R 101000:101000 /datapool/config
-    chown -R 101000:101000 /datapool/media
+    # Set ownership for specific config subdirectories and other main directories
+    chown -R 101000:101000 /datapool/config/sonarr
+    chown -R 101000:101000 /datapool/config/radarr
+    chown -R 101000:101000 /datapool/config/bazarr
+    chown -R 101000:101000 /datapool/config/jellyfin
+    chown -R 101000:101000 /datapool/config/jellyseerr
+    chown -R 101000:101000 /datapool/config/qbittorrent
+    chown -R 101000:101000 /datapool/config/prowlarr
+    chown -R 101000:101000 /datapool/config/flaresolverr
+    chown -R 101000:101000 /datapool/config/watchtower-media
+    chown -R 101000:101000 /datapool/config/recyclarr
+    chown -R 101000:101000 /datapool/config/metube
+    # Keep chown for media and torrents directories
+    chown -R 101000:101000 /datapool/media 
     chown -R 101000:101000 /datapool/torrents
     
     # Mount datapool to LXC

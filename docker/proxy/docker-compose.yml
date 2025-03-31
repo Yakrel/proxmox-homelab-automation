@@ -6,8 +6,11 @@
 #    # Create directory structure
 #    mkdir -p /datapool/config/{cloudflared,watchtower-proxy,adguard/{work,conf},firefox}
 #    
-#    # Set ownership for the entire config directory
-#    chown -R 100000:100000 /datapool/config
+#    # Set ownership for specific config subdirectories needed by this LXC
+#    chown -R 100000:100000 /datapool/config/cloudflared
+#    chown -R 100000:100000 /datapool/config/watchtower-proxy
+#    chown -R 100000:100000 /datapool/config/adguard
+#    chown -R 100000:100000 /datapool/config/firefox
 #    
 #    # Mount datapool to LXC
 #    pct set 100 -mp0 /datapool,mp=/datapool
