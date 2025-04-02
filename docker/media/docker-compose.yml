@@ -31,9 +31,8 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/sonarr:/config
-      - /datapool/media:/datapool/media
-      - /datapool/torrents:/datapool/torrents
+      - /datapool/config/sonarr:/config # Config mount'u aynı kaldı
+      - /datapool:/datapool           # Ortak üst dizin mount'u
     ports:
       - "8989:8989"
     networks:
@@ -54,9 +53,8 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/radarr:/config
-      - /datapool/media:/datapool/media
-      - /datapool/torrents:/datapool/torrents
+      - /datapool/config/radarr:/config # Config mount'u aynı kaldı
+      - /datapool:/datapool           # Ortak üst dizin mount'u
     ports:
       - "7878:7878"
     networks:
@@ -77,8 +75,8 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/bazarr:/config
-      - /datapool/media:/datapool/media
+      - /datapool/config/bazarr:/config # Config mount'u aynı kaldı
+      - /datapool:/datapool           # Ortak üst dizin mount'u (Bazarr içinde /datapool/media/... kullanılacak)
     ports:
       - "6767:6767"
     networks:
@@ -99,8 +97,8 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/jellyfin:/config
-      - /datapool/media:/datapool/media
+      - /datapool/config/jellyfin:/config # Config mount'u aynı kaldı
+      - /datapool:/datapool           # Ortak üst dizin mount'u (Jellyfin içinde /datapool/media/... kullanılacak)
     ports:
       - "8096:8096"
     networks:
@@ -123,7 +121,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/jellyseerr:/app/config
+      - /datapool/config/jellyseerr:/app/config # Değişiklik yok
     ports:
       - "5055:5055"
     networks:
@@ -145,9 +143,8 @@ services:
       - TZ=Europe/Istanbul
       - WEBUI_PORT=8080
     volumes:
-      - /datapool/config/qbittorrent:/config
-      - /datapool/torrents:/datapool/torrents
-      - /datapool/media:/datapool/media
+      - /datapool/config/qbittorrent:/config # Config mount'u aynı kaldı
+      - /datapool:/datapool                # Ortak üst dizin mount'u (qBittorrent içinde /datapool/torrents/... kullanılacak)
     ports:
       - "8080:8080"
       - "6881:6881"
@@ -170,7 +167,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/prowlarr:/config
+      - /datapool/config/prowlarr:/config # Değişiklik yok
     ports:
       - "9696:9696"
     networks:
@@ -198,7 +195,7 @@ services:
     networks:
       - media-net
     restart: unless-stopped
-    logging:
+    logging: # Değişiklik yok
       driver: "json-file"
       options:
         max-size: "10m"
@@ -213,11 +210,11 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/recyclarr:/config
+      - /datapool/config/recyclarr:/config # Değişiklik yok
     networks:
       - media-net
     restart: unless-stopped
-    logging:
+    logging: # Değişiklik yok
       driver: "json-file"
       options:
         max-size: "10m"
@@ -232,8 +229,9 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/metube:/config
-      - /datapool/media/youtube:/downloads
+      - /datapool/config/metube:/config # Config mount'u aynı kaldı
+      # Eski: - /datapool/media/youtube:/downloads
+      - /datapool:/datapool           # Ortak üst dizin mount'u (MeTube içinde /datapool/media/youtube/... kullanılacak)
     ports:
       - "8081:8081"
     networks:
@@ -250,7 +248,7 @@ services:
     container_name: watchtower-media
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /datapool/config/watchtower-media:/config:ro
+      - /datapool/config/watchtower-media:/config:ro # Değişiklik yok
     environment:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
@@ -261,7 +259,7 @@ services:
     restart: unless-stopped
     networks:
       - media-net
-    logging:
+    logging: # Değişiklik yok
       driver: "json-file"
       options:
         max-size: "10m"
