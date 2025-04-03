@@ -1,21 +1,9 @@
-# MEDIA STACK INSTALLATION (LXC ID: 101)
-#
-# === STEP 1: PROXMOX HOST COMMANDS ===
-# Run these commands on the Proxmox host system:
-#
-#    # Create directory structure
-#    mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,watchtower-media,recyclarr,metube}
-#    mkdir -p /datapool/media/{tv,movies,youtube/{playlists,channels}}
-#    mkdir -p /datapool/torrents/{tv,movies}
-#    
-#    # Set LXC ownership (100000 is the recommended UID/GID for Docker containers)
-#    # Only set ownership for directories needed by this LXC
-#    chown -R 101000:101000 /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,watchtower-media,recyclarr,metube}
-#    chown -R 101000:101000 /datapool/media
-#    chown -R 101000:101000 /datapool/torrents
-#    
-#    # Mount datapool to LXC
-#    pct set 101 -mp0 /datapool,mp=/datapool
+# IMPORTANT NOTE ON PUID/PGID:
+# While the setup_media_lxc.sh script sets host directory ownership to 101000:101000 (mapped from LXC ID 101),
+# the containers below MUST run with PUID=1000 and PGID=1000.
+# Using the host-mapped IDs (e.g., 101000) causes permission errors, preventing containers
+# from starting correctly or writing to the mounted /datapool volumes.
+# The current PUID/PGID=1000 configuration is confirmed to work correctly in this setup.
 
 networks:
   media-net:
