@@ -27,6 +27,7 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     # Create torrents directories
     mkdir -p /datapool/torrents/tv
     mkdir -p /datapool/torrents/movies
+    mkdir -p /datapool/torrents/other
     
     # Set ownership for specific config subdirectories and other main directories
     chown -R 101000:101000 /datapool/config/sonarr

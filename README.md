@@ -77,7 +77,8 @@ To ensure proper hardlinks and atomic moves, the following folder structure is u
 │   └── metube/
 ├── torrents/
 │   ├── movies/        # Complete movie torrents
-│   └── tv/            # Complete TV show torrents 
+│   ├── tv/            # Complete TV show torrents
+│   └── other/         # Other torrents
 └── media/
     ├── movies/        # Final location for movies
     ├── tv/            # Final location for TV shows
