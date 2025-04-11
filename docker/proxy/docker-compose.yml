@@ -1,3 +1,8 @@
+# IMPORTANT NOTE ON PUID/PGID:
+# The setup_proxy_lxc.sh script sets host directory ownership to 100000:100000 (mapped from LXC ID 100).
+# The PUID/PGID=100000 configuration below is confirmed to work correctly in this setup 
+# and aligns with the host directory permissions.
+
 networks:
   proxy-net:
     driver: bridge
