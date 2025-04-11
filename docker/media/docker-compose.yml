@@ -252,3 +252,31 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  jdownloader2:
+    image: jlesage/jdownloader-2:latest
+    container_name: jdownloader2
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+      # - JDOWNLOADER_MYJD_EMAIL= # Optional: Your MyJDownloader email
+      # - JDOWNLOADER_MYJD_PASSWORD= # Optional: Your MyJDownloader password
+      # - JDOWNLOADER_MYJD_DEVICE_NAME=homelab # Optional: Device name for MyJDownloader
+      - KEEP_APP_RUNNING=1
+      - DISPLAY_WIDTH=1280
+      - DISPLAY_HEIGHT=768
+    volumes:
+      - /datapool/config/jdownloader2:/config
+      - /datapool:/datapool
+    ports:
+      - "5800:5800" # Web UI port
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

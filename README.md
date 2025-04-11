@@ -54,6 +54,7 @@ With this project, you can deploy the following services:
 - Jellyseerr – Media requests
 - qBittorrent, Prowlarr, Flaresolverr, Recyclarr
 - MeTube – YouTube video downloading
+- JDownloader 2 – Download manager
 
 ## Media Server: Folder Structure & Configuration
 
@@ -74,7 +75,8 @@ To ensure proper hardlinks and atomic moves, the following folder structure is u
 │   ├── flaresolverr/
 │   ├── watchtower-media/
 │   ├── recyclarr/
-│   └── metube/
+│   ├── metube/
+│   └── jdownloader2/
 ├── torrents/
 │   ├── movies/        # Complete movie torrents
 │   ├── tv/            # Complete TV show torrents
