@@ -14,7 +14,7 @@ services:
     restart: unless-stopped
     command: tunnel run
     environment:
-      - TUNNEL_TOKEN=${CLOUDFLARED_TOKEN}
+      - TUNNEL_TOKEN=${CLOUDFLARED_TOKEN:?Cloudflare tunnel token must be defined}
       - PUID=100000
       - PGID=100000
       - TZ=Europe/Istanbul
