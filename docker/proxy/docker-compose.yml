@@ -27,6 +27,9 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    cap_add:
+      - NET_RAW
+      - SYS_RESOURCE
 
   adguard:
     image: adguard/adguardhome:latest
