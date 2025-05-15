@@ -261,12 +261,10 @@ services:
       - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
-      # - JDOWNLOADER_MYJD_EMAIL= # Optional: Your MyJDownloader email
-      # - JDOWNLOADER_MYJD_PASSWORD= # Optional: Your MyJDownloader password
-      # - JDOWNLOADER_MYJD_DEVICE_NAME=homelab # Optional: Device name for MyJDownloader
       - KEEP_APP_RUNNING=1
       - DISPLAY_WIDTH=1280
       - DISPLAY_HEIGHT=768
+      - VNC_PASSWORD=${JDOWNLOADER_VNC_PASSWORD:?JDownloader VNC password must be defined}
     volumes:
       - /datapool/config/jdownloader2:/config
       - /datapool:/datapool
