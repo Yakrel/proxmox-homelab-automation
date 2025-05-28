@@ -1,0 +1,280 @@
+# IMPORTANT NOTE ON PUID/PGID:
+# While the setup_media_lxc.sh script sets host directory ownership to 101000:101000 (mapped from LXC ID 101),
+# the containers below MUST run with PUID=1000 and PGID=1000.
+# Using the host-mapped IDs (e.g., 101000) causes permission errors, preventing containers
+# from starting correctly or writing to the mounted /datapool volumes.
+# The current PUID/PGID=1000 configuration is confirmed to work correctly in this setup.
+
+networks:
+  media-net:
+    driver: bridge
+
+services:
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/sonarr:/config # Config mount'u aynı kaldı
+      - /datapool:/datapool           # Ortak üst dizin mount'u
+    ports:
+      - "8989:8989"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/radarr:/config # Config mount'u aynı kaldı
+      - /datapool:/datapool           # Ortak üst dizin mount'u
+    ports:
+      - "7878:7878"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/bazarr:/config # Config mount'u aynı kaldı
+      - /datapool:/datapool           # Ortak üst dizin mount'u (Bazarr içinde /datapool/media/... kullanılacak)
+    ports:
+      - "6767:6767"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/jellyfin:/config # Config mount'u aynı kaldı
+      - /datapool:/datapool           # Ortak üst dizin mount'u (Jellyfin içinde /datapool/media/... kullanılacak)
+    ports:
+      - "8096:8096"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    depends_on:
+      - jellyfin
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/jellyseerr:/app/config # Değişiklik yok
+    ports:
+      - "5055:5055"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+      - WEBUI_PORT=8080
+    volumes:
+      - /datapool/config/qbittorrent:/config # Config mount'u aynı kaldı
+      - /datapool:/datapool                # Ortak üst dizin mount'u (qBittorrent içinde /datapool/torrents/... kullanılacak)
+    ports:
+      - "8080:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/prowlarr:/config # Değişiklik yok
+    ports:
+      - "9696:9696"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - LOG_LEVEL=info
+      - LOG_HTML=false
+      - CAPTCHA_SOLVER=flaresolverr
+      - TZ=Europe/Istanbul
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+    ports:
+      - "8191:8191"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging: # Değişiklik yok
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  recyclarr:
+    image: recyclarr/recyclarr:latest
+    container_name: recyclarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/recyclarr:/config # Değişiklik yok
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging: # Değişiklik yok
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  metube:
+    image: ghcr.io/alexta69/metube:latest
+    container_name: metube
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/metube:/config # Config mount'u aynı kaldı
+      # Eski: - /datapool/media/youtube:/downloads
+      - /datapool:/datapool           # Ortak üst dizin mount'u (MeTube içinde /datapool/media/youtube/... kullanılacak)
+    ports:
+      - "8081:8081"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower-media:
+    image: containrrr/watchtower:latest
+    container_name: watchtower-media
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /datapool/config/watchtower-media:/config:ro # Değişiklik yok
+    environment:
+      - TZ=Europe/Istanbul
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 3 * * *
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+    restart: unless-stopped
+    networks:
+      - media-net
+    logging: # Değişiklik yok
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  jdownloader2:
+    image: jlesage/jdownloader-2:latest
+    container_name: jdownloader2
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+      - KEEP_APP_RUNNING=1
+      - DISPLAY_WIDTH=1280
+      - DISPLAY_HEIGHT=768
+      - VNC_PASSWORD=${JDOWNLOADER_VNC_PASSWORD:?JDownloader VNC password must be defined}
+    volumes:
+      - /datapool/config/jdownloader2:/config
+      - /datapool:/datapool
+    ports:
+      - "5800:5800" # Web UI port
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
