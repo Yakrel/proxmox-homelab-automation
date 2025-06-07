@@ -35,3 +35,8 @@ Desktop.ini
 notes.txt
 config.local
 personal/
+
+# Claude Code local settings
+.claude/
+*.local.json
+setting.local.json
