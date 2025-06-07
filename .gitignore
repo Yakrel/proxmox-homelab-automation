@@ -1,0 +1,42 @@
+# CLAUDE.md - Personal development assistant file
+CLAUDE.md
+
+# Environment files with secrets
+.env
+
+# Temporary files
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.backup
+
+# Log files
+*.log
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Personal notes and configurations
+notes.txt
+config.local
+personal/
+
+# Claude Code local settings
+.claude/
+*.local.json
+setting.local.json

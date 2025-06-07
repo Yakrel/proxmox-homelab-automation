@@ -4,32 +4,48 @@ This repository contains a collection of automation tools designed to customize 
 
 ## Quick Setup
 
-**Remote Execution:**
+### One-Command Complete Deployment
 
+**Deploy Everything (All 4 Stacks):**
 ```bash
-bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
+bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)" && echo "7" | bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
 ```
 
-The setup script will automatically download all necessary script files from the GitHub repository, so you don't need to manually transfer any files to your Proxmox server.
+**Individual Stack Deployment:**
+```bash
+# Download and run setup script
+bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
+
+# Choose option 7 (Automated Deployment) from menu
+# Then select individual stack or complete deployment
+```
+
+### Manual Setup Options
+The setup script provides these options:
+1. Security Installation (Fail2Ban)
+2. Storage Installation (Samba, Sanoid) 
+3. Individual LXC preparation
+4. **Automated Deployment (Recommended)**
 
 ## Deployment Approach
 
-This project uses an **improved automated installation** approach:
-- The `setup.sh` script now includes options for:
-  - Security installation (Fail2Ban)
-  - Storage setup (Samba, Sanoid)
-  - Proxy LXC preparation
-  - Media Server LXC preparation
-- Each script automates the directory structure creation, permission setting, and volume mounting.
+This project uses a **fully automated deployment** approach with 4 specialized LXC containers:
+- **Automated LXC Creation**: Uses community Alpine Docker templates for consistent setup
+- **Stack-based Architecture**: 4 separate stacks for better resource management and isolation
+- **One-Click Deployment**: Complete homelab deployment with a single command
+- **Interactive Configuration**: Automated password and configuration setup
+- Each stack includes its own watchtower for automatic updates
 
 ## Overview
 
-With this project, you can deploy the following services:
+This project deploys a complete homelab automation solution with 4 specialized stacks:
 
-- **Security Setup**: Enhance Proxmox and SSH security with Fail2Ban.
-- **Storage Setup**: Configure Samba sharing and manage ZFS snapshots with Sanoid.
-- **Media Server**: Deploy Sonarr, Radarr, Jellyfin, and more.
-- **Proxy System**: Deploy Cloudflared, AdGuard Home, and Firefox Remote Browser.
+- **Security & Storage Setup**: Enhance Proxmox security with Fail2Ban and configure Samba/Sanoid
+- **Media Stack (LXC 101)**: Complete media automation with Sonarr, Radarr, Jellyfin, qBittorrent
+- **Proxy Stack (LXC 100)**: Secure external access via Cloudflare tunnels
+- **Downloads Stack (LXC 102)**: General downloading with JDownloader2 and MeTube
+- **Utility Stack (LXC 103)**: Administrative tools including remote Firefox browser
+- **Monitoring Stack (LXC 104)**: System monitoring with Prometheus, Grafana, and Alertmanager
 
 ## LXC Container Specifications
 
@@ -37,24 +53,42 @@ With this project, you can deploy the following services:
 
 | Container Name | ID  | Purpose | CPU Cores | RAM | Storage | IP Address | Container Type |
 |---------------|-----|---------|-----------|-----|---------|------------|----------------|
-| lxc-proxy-01  | 100 | Proxy   | 2 cores   | 4GB | 10GB + datapool | 192.168.1.100/24 | Unprivileged LXC |
-| lxc-media-01  | 101 | Media   | 4 cores   | 12GB | 20GB + datapool | 192.168.1.101/24 | Unprivileged LXC |
+| lxc-proxy-01     | 100 | Proxy Services | 1 core | 2GB | 8GB + datapool | 192.168.1.100/24 | Unprivileged LXC |
+| lxc-media-01     | 101 | Media Automation | 4 cores | 8GB | 16GB + datapool | 192.168.1.101/24 | Unprivileged LXC |
+| lxc-downloads-01 | 102 | Download Management | 2 cores | 4GB | 8GB + datapool | 192.168.1.102/24 | Unprivileged LXC |
+| lxc-utility-01   | 103 | Utility Services | 2 cores | 4GB | 8GB + datapool | 192.168.1.103/24 | Unprivileged LXC |
+| lxc-monitoring-01| 104 | Monitoring & Metrics | 2 cores | 4GB | 10GB + datapool | 192.168.1.104/24 | Unprivileged LXC |
 
-## Container Contents
+## Stack Contents & Access URLs
 
-### Proxy (lxc-proxy-01, ID: 100)
-- Cloudflared – Cloudflare Tunnel
-- AdGuard Home – DNS filtering
-- Firefox – Remote accessible browser
+### Proxy Stack (lxc-proxy-01, ID: 100)
+- **Cloudflared** – Secure tunnel to external services
+- **Access**: Check Cloudflare Zero Trust dashboard for tunnel status
 
-### Media Server (lxc-media-01, ID: 101)
-- Sonarr, Radarr – TV shows and movie tracking
-- Bazarr – Subtitle management
-- Jellyfin – Media server
-- Jellyseerr – Media requests
-- qBittorrent, Prowlarr, Flaresolverr, Recyclarr
-- MeTube – YouTube video downloading
-- JDownloader 2 – Download manager
+### Media Stack (lxc-media-01, ID: 101)
+- **Sonarr** – TV show automation | http://192.168.1.101:8989
+- **Radarr** – Movie automation | http://192.168.1.101:7878  
+- **Bazarr** – Subtitle management | http://192.168.1.101:6767
+- **Jellyfin** – Media server | http://192.168.1.101:8096
+- **Jellyseerr** – Media requests | http://192.168.1.101:5055
+- **qBittorrent** – Torrent client | http://192.168.1.101:8080
+- **Prowlarr** – Indexer proxy | http://192.168.1.101:9696
+- **Flaresolverr** – Cloudflare bypass | http://192.168.1.101:8191
+- **Recyclarr** – *arr configuration tool (no web UI)
+
+### Downloads Stack (lxc-downloads-01, ID: 102)  
+- **JDownloader2** – Download manager | http://192.168.1.102:5801
+- **MeTube** – YouTube downloader | http://192.168.1.102:8081
+
+### Utility Stack (lxc-utility-01, ID: 103)
+- **Firefox** – Remote browser | http://192.168.1.103:5800 | VNC: 192.168.1.103:5900
+
+### Monitoring Stack (lxc-monitoring-01, ID: 104)
+- **Grafana** – Metrics dashboard | http://192.168.1.104:3000
+- **Prometheus** – Metrics collection | http://192.168.1.104:9090
+- **Alertmanager** – Alert management | http://192.168.1.104:9093
+- **cAdvisor** – Container metrics | http://192.168.1.104:8080
+- **Proxmox Exporter** – Proxmox metrics | http://192.168.1.104:9221
 
 ## Media Server: Folder Structure & Configuration
 
@@ -65,18 +99,28 @@ To ensure proper hardlinks and atomic moves, the following folder structure is u
 ```
 /datapool
 ├── config/
-│   ├── sonarr/
-│   ├── radarr/
-│   ├── bazarr/
-│   ├── jellyfin/
-│   ├── jellyseerr/
-│   ├── qbittorrent/
-│   ├── prowlarr/
-│   ├── flaresolverr/
-│   ├── watchtower-media/
-│   ├── recyclarr/
-│   ├── metube/
-│   └── jdownloader2/
+│   ├── sonarr/           # Media Stack (LXC 101)
+│   ├── radarr/           # Media Stack (LXC 101)
+│   ├── bazarr/           # Media Stack (LXC 101)
+│   ├── jellyfin/         # Media Stack (LXC 101)
+│   ├── jellyseerr/       # Media Stack (LXC 101)
+│   ├── qbittorrent/      # Media Stack (LXC 101)
+│   ├── prowlarr/         # Media Stack (LXC 101)
+│   ├── flaresolverr/     # Media Stack (LXC 101)
+│   ├── recyclarr/        # Media Stack (LXC 101)
+│   ├── watchtower-media/ # Media Stack (LXC 101)
+│   ├── cloudflared/      # Proxy Stack (LXC 100)
+│   ├── watchtower-proxy/ # Proxy Stack (LXC 100)
+│   ├── jdownloader2/     # Downloads Stack (LXC 102)
+│   ├── metube/           # Downloads Stack (LXC 102)
+│   ├── watchtower-downloads/ # Downloads Stack (LXC 102)
+│   ├── firefox/          # Utility Stack (LXC 103)
+│   ├── watchtower-utility/   # Utility Stack (LXC 103)
+│   ├── monitoring/       # Monitoring Stack (LXC 104)
+│   │   ├── prometheus/   # Prometheus configuration
+│   │   ├── grafana/      # Grafana configuration
+│   │   └── alertmanager/ # Alertmanager configuration
+│   └── watchtower-monitoring/ # Monitoring Stack (LXC 104)
 ├── torrents/
 │   ├── movies/        # Complete movie torrents
 │   ├── tv/            # Complete TV show torrents
@@ -146,15 +190,76 @@ rm /datapool/torrents/movies/test-file /datapool/media/movies/test-hardlink
 
 If both files show the same inode number, hardlinks are working correctly.
 
-## Planned Features
+## Monitoring System Setup
+
+The monitoring stack provides comprehensive system and application monitoring using Prometheus, Grafana, and Alertmanager.
+
+### Automated Setup
+The monitoring stack can be deployed automatically using the setup script:
+```bash
+# Run setup script and choose option 8 (Automated Deployment)
+bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
+# Then select option 5 (Deploy Monitoring Stack)
+```
+
+### Manual Configuration Steps
+
+After the automated deployment, complete these manual steps:
+
+#### 1. Proxmox API User Setup
+Create a monitoring user in Proxmox for the PVE exporter:
+
+1. Go to Datacenter > Permissions > Users
+2. Add user: `monitoring@pve`
+3. Set a strong password
+4. Go to Datacenter > Permissions > Groups
+5. Create group: `monitoring`
+6. Go to Datacenter > Permissions
+7. Add permission: Path: `/`, User: `monitoring@pve`, Role: `PVEAuditor`
+
+#### 2. Environment Variables
+Set these environment variables in your monitoring LXC before starting services:
+```bash
+export GRAFANA_ADMIN_PASSWORD="your_secure_password"
+export PVE_USER="monitoring@pve"
+export PVE_PASSWORD="your_proxmox_monitoring_password"
+export PVE_URL="https://your_proxmox_ip:8006"
+```
+
+#### 3. Update Prometheus Configuration
+Edit `/datapool/config/monitoring/prometheus/prometheus.yml` and update the IP addresses to match your LXC containers:
+- Replace `10.0.0.100` with your Proxy LXC IP
+- Replace `10.0.0.101` with your Media LXC IP  
+- Replace `10.0.0.102` with your Downloads LXC IP
+- Replace `10.0.0.103` with your Utility LXC IP
+
+#### 4. Grafana Dashboard Import
+After services start, access Grafana at `http://your_monitoring_lxc_ip:3000`:
+
+1. Login with admin/your_password
+2. Go to Dashboards > Import
+3. Import these dashboard IDs:
+   - **10347** - Proxmox via Prometheus
+   - **1860** - Node Exporter Full
+   - **193** - Docker Container & Host Metrics
+
+#### 5. Configure Alertmanager (Optional)
+Edit `/datapool/config/monitoring/alertmanager/alertmanager.yml` to configure notifications:
+- Email alerts
+- Slack/Discord webhooks
+- Custom notification channels
+
+### Port Overview
+- **Grafana**: 3000
+- **Prometheus**: 9090  
+- **Alertmanager**: 9093
+- **cAdvisor**: 8080
+- **PVE Exporter**: 9221
+- **Node Exporters**: 9100-9103 (one per LXC)
+
+### Planned Features
 
 These features are planned for future releases:
-
-### Monitoring System
-- Prometheus – Metrics collection
-- Grafana – Metrics visualization
-- Alertmanager – Alert management
-- Node Exporter – Host metrics
 
 ### Logging System
 - Elasticsearch – Log storage
