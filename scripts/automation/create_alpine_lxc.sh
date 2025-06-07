@@ -243,7 +243,14 @@ create_complete_lxc "$STACK_TYPE"
 if [ $? -eq 0 ]; then
     print_info "🎉 $STACK_TYPE stack LXC created successfully!"
     print_info "Next steps:"
-    print_info "1. Enter the LXC: pct enter $(case $STACK_TYPE in media) echo 101;; proxy) echo 100;; downloads) echo 102;; utility) echo 103;; esac)"
+    case $STACK_TYPE in
+        media) LXC_ID=101;;
+        proxy) LXC_ID=100;;
+        downloads) LXC_ID=102;;
+        utility) LXC_ID=103;;
+        monitoring) LXC_ID=104;;
+    esac
+    print_info "1. Enter the LXC: pct enter $LXC_ID"
     print_info "2. Deploy the stack using the deployment script"
 else
     print_error "Failed to create $STACK_TYPE stack LXC"

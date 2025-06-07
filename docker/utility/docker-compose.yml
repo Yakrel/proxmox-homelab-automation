@@ -24,6 +24,38 @@ services:
       - KEEP_APP_RUNNING=1
       - DISPLAY_WIDTH=1920
       - DISPLAY_HEIGHT=1080
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          memory: 1G
+    networks:
+      - utility-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  node-exporter-utility:
+    image: prom/node-exporter:latest
+    container_name: node-exporter-utility
+    restart: unless-stopped
+    ports:
+      - "9103:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    environment:
+      - TZ=Europe/Istanbul
     networks:
       - utility-net
     logging:

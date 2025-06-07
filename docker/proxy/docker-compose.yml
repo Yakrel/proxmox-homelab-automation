@@ -15,8 +15,8 @@ services:
     command: tunnel run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARED_TOKEN:?Cloudflare tunnel token must be defined}
-      - PUID=100000
-      - PGID=100000
+      - PUID=1000
+      - PGID=1000
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/cloudflared:/etc/cloudflared:ro
@@ -29,6 +29,31 @@ services:
         max-file: "3"
 
 
+  node-exporter-proxy:
+    image: prom/node-exporter:latest
+    container_name: node-exporter-proxy
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    environment:
+      - TZ=Europe/Istanbul
+    networks:
+      - proxy-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   watchtower:
     image: containrrr/watchtower:latest
     container_name: watchtower
@@ -39,8 +64,8 @@ services:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 2 * * *
-      - PUID=100000
-      - PGID=100000
+      - PUID=1000
+      - PGID=1000
       - UMASK=002
     restart: unless-stopped
     networks:

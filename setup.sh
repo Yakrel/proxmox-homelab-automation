@@ -44,11 +44,12 @@ automated_deployment_menu() {
     echo "2) Deploy Proxy Stack (Auto LXC + Services)"
     echo "3) Deploy Downloads Stack (Auto LXC + Services)"
     echo "4) Deploy Utility Stack (Auto LXC + Services)"
-    echo "5) Deploy All Stacks (Complete Homelab)"
-    echo "6) Back to Main Menu"
+    echo "5) Deploy Monitoring Stack (Auto LXC + Services)"
+    echo "6) Deploy All Stacks (Complete Homelab)"
+    echo "7) Back to Main Menu"
     echo ""
     
-    read -p "Your choice (1-6): " auto_choice
+    read -p "Your choice (1-7): " auto_choice
     
     case $auto_choice in
         1)
@@ -80,6 +81,13 @@ automated_deployment_menu() {
             fi
             ;;
         5)
+            echo "Starting automated Monitoring stack deployment..."
+            if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh"; then
+                bash "$TEMP_DIR/create_alpine_lxc.sh" monitoring
+                bash "$TEMP_DIR/deploy_stack.sh" monitoring
+            fi
+            ;;
+        6)
             echo "Starting complete homelab deployment..."
             if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh"; then
                 echo "Deploying Proxy stack..."
@@ -98,10 +106,14 @@ automated_deployment_menu() {
                 bash "$TEMP_DIR/create_alpine_lxc.sh" utility
                 bash "$TEMP_DIR/deploy_stack.sh" utility
                 
+                echo "Deploying Monitoring stack..."
+                bash "$TEMP_DIR/create_alpine_lxc.sh" monitoring
+                bash "$TEMP_DIR/deploy_stack.sh" monitoring
+                
                 echo "Complete homelab deployment finished!"
             fi
             ;;
-        6)
+        7)
             return 0
             ;;
         *)
@@ -119,11 +131,12 @@ echo "3) Proxy LXC (lxc-proxy-01, ID: 100) Preparation"
 echo "4) Media LXC (lxc-media-01, ID: 101) Preparation"
 echo "5) Downloads LXC (lxc-downloads-01, ID: 102) Preparation"
 echo "6) Utility LXC (lxc-utility-01, ID: 103) Preparation"
-echo "7) Automated Deployment (Advanced)"
-echo "8) Exit"
+echo "7) Monitoring LXC (lxc-monitoring-01, ID: 104) Preparation"
+echo "8) Automated Deployment (Advanced)"
+echo "9) Exit"
 echo ""
 
-read -p "Your choice (1-8): " choice
+read -p "Your choice (1-9): " choice
 
 case $choice in
     1)
@@ -169,10 +182,17 @@ case $choice in
         fi
         ;;
     7)
+        # Monitoring LXC preparation
+        if download_script "scripts/lxc/setup_monitoring_lxc.sh"; then
+            echo "Starting Monitoring LXC preparation..."
+            bash "$TEMP_DIR/setup_monitoring_lxc.sh"
+        fi
+        ;;
+    8)
         # Automated deployment submenu
         automated_deployment_menu
         ;;
-    8)
+    9)
         # Exit
         echo "Exiting..."
         exit 0

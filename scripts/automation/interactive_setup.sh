@@ -83,9 +83,10 @@ CLOUDFLARED_TOKEN=$cloudflare_token
 # Timezone setting
 TZ=Europe/Istanbul
 
-# PUID/PGID for file permissions (proxy stack uses 100000)
-PUID=100000
-PGID=100000
+# PUID/PGID for file permissions (testing unified 1000:1000 approach)
+# FALLBACK: If issues occur, revert to PUID=100000/PGID=100000
+PUID=1000
+PGID=1000
 EOF
     
     print_info "✓ Proxy stack .env file created successfully"
