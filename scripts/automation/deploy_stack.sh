@@ -264,21 +264,28 @@ deploy_complete_stack() {
     
     # Deploy stack inside LXC
     print_info "Deploying stack inside LXC..."
-    pct exec "$lxc_id" -- sh -c "cd $target_dir && docker-compose pull && docker-compose up -d"
+    
+    # Determine docker compose command for LXC (check inside container)
+    local lxc_compose_cmd="docker-compose"
+    if pct exec "$lxc_id" -- sh -c "command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1"; then
+        lxc_compose_cmd="docker compose"
+    fi
+    
+    pct exec "$lxc_id" -- sh -c "cd $target_dir && $lxc_compose_cmd pull && $lxc_compose_cmd up -d"
     
     if [ $? -eq 0 ]; then
         print_info "🎉 $stack_type stack deployed successfully in LXC $lxc_id!"
         
         # Show status
         print_info "Container status:"
-        pct exec "$lxc_id" -- sh -c "cd $target_dir && docker-compose ps"
+        pct exec "$lxc_id" -- sh -c "cd $target_dir && $lxc_compose_cmd ps"
         
         # Show important notes
         print_warning "⚠️  IMPORTANT NOTES:"
         print_info "1. Configure passwords in: $target_dir/.env"
         print_info "2. Access LXC: pct enter $lxc_id"
         print_info "3. Stack location: $target_dir"
-        print_info "4. Restart services: cd $target_dir && docker-compose restart"
+        print_info "4. Restart services: cd $target_dir && $lxc_compose_cmd restart"
         
         return 0
     else
