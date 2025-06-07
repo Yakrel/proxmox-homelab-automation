@@ -1,0 +1,103 @@
+# Downloads Stack - LXC ID: 102
+# Services: JDownloader2, MeTube
+# Purpose: General download management separate from media automation
+
+networks:
+  downloads-net:
+    driver: bridge
+
+services:
+  jdownloader2:
+    image: jlesage/jdownloader-2:latest
+    container_name: jdownloader2
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+      - KEEP_APP_RUNNING=1
+      - DISPLAY_WIDTH=1280
+      - DISPLAY_HEIGHT=768
+      - VNC_PASSWORD=${JDOWNLOADER_VNC_PASSWORD:?JDownloader VNC password must be defined}
+    volumes:
+      - /datapool/config/jdownloader2:/config
+      - /datapool:/datapool
+    ports:
+      - "5801:5800" # Web UI port (changed to avoid conflict with Firefox)
+    networks:
+      - downloads-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  metube:
+    image: ghcr.io/alexta69/metube:latest
+    container_name: metube
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/metube:/config
+      - /datapool:/datapool
+    ports:
+      - "8081:8081"
+    networks:
+      - downloads-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  node-exporter-downloads:
+    image: prom/node-exporter:latest
+    container_name: node-exporter-downloads
+    restart: unless-stopped
+    ports:
+      - "9102:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    environment:
+      - TZ=Europe/Istanbul
+    networks:
+      - downloads-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower-downloads:
+    image: containrrr/watchtower:latest
+    container_name: watchtower-downloads
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /datapool/config/watchtower-downloads:/config:ro
+    environment:
+      - TZ=Europe/Istanbul
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 4 * * *
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+    restart: unless-stopped
+    networks:
+      - downloads-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
