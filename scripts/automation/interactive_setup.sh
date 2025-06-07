@@ -36,8 +36,7 @@ get_password() {
     local password_confirm
     
     while true; do
-        echo -n "$prompt: "
-        read -s password
+        read -sp "$prompt: " password
         echo ""
         
         if [ ${#password} -lt 8 ]; then
@@ -45,8 +44,7 @@ get_password() {
             continue
         fi
         
-        echo -n "Confirm password: "
-        read -s password_confirm
+        read -sp "Confirm password: " password_confirm
         echo ""
         
         if [ "$password" = "$password_confirm" ]; then
