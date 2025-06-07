@@ -17,6 +17,13 @@ GITHUB_REPO="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
+# Docker Compose command (use V2 syntax if available)
+if command -v "docker" &> /dev/null && docker compose version &> /dev/null; then
+    DOCKER_COMPOSE_CMD="docker compose"
+else
+    DOCKER_COMPOSE_CMD="docker-compose"
+fi
+
 # Function to print colored output
 print_info() {
     echo -e "${GREEN}[INFO]${NC} $1"
@@ -107,7 +114,7 @@ deploy_with_compose() {
     
     # Pull latest images
     print_info "Pulling latest Docker images..."
-    docker-compose pull
+    $DOCKER_COMPOSE_CMD pull
     
     if [ $? -ne 0 ]; then
         print_warning "Some images failed to pull, continuing anyway..."
@@ -115,14 +122,14 @@ deploy_with_compose() {
     
     # Start services
     print_info "Starting services..."
-    docker-compose up -d
+    $DOCKER_COMPOSE_CMD up -d
     
     if [ $? -eq 0 ]; then
         print_info "✓ $stack_type stack deployed successfully!"
         
         # Show running containers
         print_info "Running containers:"
-        docker-compose ps
+        $DOCKER_COMPOSE_CMD ps
         
         return 0
     else
@@ -137,8 +144,32 @@ verify_deployment() {
     
     print_step "Verifying $stack_type stack deployment..."
     
+    # Define container name patterns for each stack type
+    local container_patterns=""
+    case $stack_type in
+        "media")
+            container_patterns="sonarr|radarr|jellyfin|qbittorrent|prowlarr"
+            ;;
+        "proxy")
+            container_patterns="cloudflared"
+            ;;
+        "downloads")
+            container_patterns="jdownloader|metube"
+            ;;
+        "utility")
+            container_patterns="firefox"
+            ;;
+        "monitoring")
+            container_patterns="prometheus|grafana|alertmanager"
+            ;;
+        *)
+            print_error "Unknown stack type: $stack_type"
+            return 1
+            ;;
+    esac
+    
     # Check if containers are running
-    local running_containers=$(docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "(sonarr|radarr|jellyfin|qbittorrent|cloudflared|firefox|jdownloader|metube)" | wc -l)
+    local running_containers=$(docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "(${container_patterns})" | wc -l)
     
     if [ "$running_containers" -gt 0 ]; then
         print_info "✓ Found $running_containers running containers"
