@@ -56,6 +56,26 @@ get_password() {
     done
 }
 
+# Helper function to create common environment settings
+create_common_env_content() {
+    local stack_name=$1
+    local custom_content=$2
+    
+    cat << EOF
+# ${stack_name} Stack Environment Variables - Generated $(date)
+
+# Timezone setting
+TZ=Europe/Istanbul
+
+# PUID/PGID for file permissions (currently testing unified 1000)
+# FALLBACK: Use stack-specific values if issues occur
+PUID=1000
+PGID=1000
+
+${custom_content}
+EOF
+}
+
 # Function to setup proxy stack environment
 setup_proxy_env() {
     local stack_dir=$1
@@ -71,21 +91,11 @@ setup_proxy_env() {
         return 1
     fi
     
-    # Create .env file
-    cat > "$stack_dir/.env" << EOF
-# Proxy Stack Environment Variables - Generated $(date)
-
-# Cloudflare tunnel token for secure connections
-CLOUDFLARED_TOKEN=$cloudflare_token
-
-# Timezone setting
-TZ=Europe/Istanbul
-
-# PUID/PGID for file permissions (testing unified 1000:1000 approach)
-# FALLBACK: If issues occur, revert to PUID=100000/PGID=100000
-PUID=1000
-PGID=1000
-EOF
+    # Create .env file with common settings and proxy-specific content
+    local proxy_content="# Cloudflare tunnel token for secure connections
+CLOUDFLARED_TOKEN=$cloudflare_token"
+    
+    create_common_env_content "Proxy" "$proxy_content" > "$stack_dir/.env"
     
     print_info "✓ Proxy stack .env file created successfully"
     return 0
@@ -98,19 +108,10 @@ setup_media_env() {
     print_step "Setting up Media stack environment..."
     
     # Media stack doesn't require passwords, just create basic .env
-    cat > "$stack_dir/.env" << EOF
-# Media Stack Environment Variables - Generated $(date)
-
-# Timezone setting
-TZ=Europe/Istanbul
-
-# PUID/PGID for file permissions
-PUID=1000
-PGID=1000
-
-# No additional passwords required for media stack
-# All services use web-based configuration interfaces
-EOF
+    local media_content="# No additional passwords required for media stack
+# All services use web-based configuration interfaces"
+    
+    create_common_env_content "Media" "$media_content" > "$stack_dir/.env"
     
     print_info "✓ Media stack .env file created successfully"
     print_info "Configure services through their web UIs after deployment"
@@ -126,20 +127,11 @@ setup_downloads_env() {
     # Get JDownloader VNC password
     local jdownloader_password=$(get_password "Enter JDownloader VNC password (min 8 chars)")
     
-    # Create .env file
-    cat > "$stack_dir/.env" << EOF
-# Downloads Stack Environment Variables - Generated $(date)
-
-# JDownloader2 VNC password for web interface access
-JDOWNLOADER_VNC_PASSWORD=$jdownloader_password
-
-# Timezone setting
-TZ=Europe/Istanbul
-
-# PUID/PGID for file permissions  
-PUID=1000
-PGID=1000
-EOF
+    # Create .env file with common settings and downloads-specific content
+    local downloads_content="# JDownloader2 VNC password for web interface access
+JDOWNLOADER_VNC_PASSWORD=$jdownloader_password"
+    
+    create_common_env_content "Downloads" "$downloads_content" > "$stack_dir/.env"
     
     print_info "✓ Downloads stack .env file created successfully"
     return 0
@@ -154,20 +146,11 @@ setup_utility_env() {
     # Get Firefox VNC password
     local firefox_password=$(get_password "Enter Firefox VNC password (min 8 chars)")
     
-    # Create .env file
-    cat > "$stack_dir/.env" << EOF
-# Utility Stack Environment Variables - Generated $(date)
-
-# Firefox VNC password for web interface access
-FIREFOX_VNC_PASSWORD=$firefox_password
-
-# Timezone setting
-TZ=Europe/Istanbul
-
-# PUID/PGID for file permissions
-PUID=1000
-PGID=1000
-EOF
+    # Create .env file with common settings and utility-specific content
+    local utility_content="# Firefox VNC password for web interface access
+FIREFOX_VNC_PASSWORD=$firefox_password"
+    
+    create_common_env_content "Utility" "$utility_content" > "$stack_dir/.env"
     
     print_info "✓ Utility stack .env file created successfully"
     return 0
