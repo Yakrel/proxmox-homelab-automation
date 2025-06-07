@@ -1,0 +1,55 @@
+# Utility Stack - LXC ID: 103
+# Services: Firefox (remote browser)
+# Purpose: Administrative and utility access
+
+networks:
+  utility-net:
+    driver: bridge
+
+services:
+  firefox:
+    image: jlesage/firefox:latest
+    container_name: firefox
+    restart: unless-stopped
+    ports:
+      - "5800:5800"
+      - "5900:5900"
+    volumes:
+      - /datapool/config/firefox:/config:rw
+    environment:
+      - TZ=Europe/Istanbul
+      - VNC_PASSWORD=${FIREFOX_VNC_PASSWORD:?Firefox VNC password must be defined}
+      - PUID=1000
+      - PGID=1000
+      - KEEP_APP_RUNNING=1
+      - DISPLAY_WIDTH=1920
+      - DISPLAY_HEIGHT=1080
+    networks:
+      - utility-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower-utility:
+    image: containrrr/watchtower:latest
+    container_name: watchtower-utility
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /datapool/config/watchtower-utility:/config:ro
+    environment:
+      - TZ=Europe/Istanbul
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 5 * * *
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+    restart: unless-stopped
+    networks:
+      - utility-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -28,31 +28,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  adguard:
-    image: adguard/adguardhome:latest
-    container_name: adguardhome
-    restart: unless-stopped
-    ports:
-      - "53:53/tcp"
-      - "53:53/udp"
-      - "8080:80/tcp"
-      - "443:443/tcp"
-      - "3000:3000/tcp"
-    volumes:
-      - /datapool/config/adguard/work:/opt/adguardhome/work
-      - /datapool/config/adguard/conf:/opt/adguardhome/conf
-    environment:
-      - TZ=Europe/Istanbul
-      - PUID=100000
-      - PGID=100000
-      - UMASK=002
-    networks:
-      - proxy-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   watchtower:
     image: containrrr/watchtower:latest
@@ -76,27 +51,3 @@ services:
         max-size: "10m"
         max-file: "3"
         
-  firefox:
-    image: jlesage/firefox:latest
-    container_name: firefox
-    restart: unless-stopped
-    ports:
-      - "5800:5800"
-      - "5900:5900"
-    volumes:
-      - /datapool/config/firefox:/config:rw
-    environment:
-      - TZ=Europe/Istanbul
-      - VNC_PASSWORD=${FIREFOX_VNC_PASSWORD:?Firefox VNC password must be defined}
-      - PUID=100000
-      - PGID=100000
-      - KEEP_APP_RUNNING=1
-      - DISPLAY_WIDTH=1920
-      - DISPLAY_HEIGHT=1080
-    networks:
-      - proxy-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"

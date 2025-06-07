@@ -208,28 +208,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  metube:
-    image: ghcr.io/alexta69/metube:latest
-    container_name: metube
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - UMASK=002
-      - TZ=Europe/Istanbul
-    volumes:
-      - /datapool/config/metube:/config # Config mount'u aynı kaldı
-      # Eski: - /datapool/media/youtube:/downloads
-      - /datapool:/datapool           # Ortak üst dizin mount'u (MeTube içinde /datapool/media/youtube/... kullanılacak)
-    ports:
-      - "8081:8081"
-    networks:
-      - media-net
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   watchtower-media:
     image: containrrr/watchtower:latest
@@ -253,23 +231,41 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  jdownloader2:
-    image: jlesage/jdownloader-2:latest
-    container_name: jdownloader2
+  cleanuperr:
+    image: ghcr.io/flmorg/cleanuperr:latest
+    container_name: cleanuperr
     environment:
       - PUID=1000
       - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
-      - KEEP_APP_RUNNING=1
-      - DISPLAY_WIDTH=1280
-      - DISPLAY_HEIGHT=768
-      - VNC_PASSWORD=${JDOWNLOADER_VNC_PASSWORD:?JDownloader VNC password must be defined}
     volumes:
-      - /datapool/config/jdownloader2:/config
+      - /datapool/config/cleanuperr:/config
       - /datapool:/datapool
     ports:
-      - "5800:5800" # Web UI port
+      - "9555:9555"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  huntarr:
+    image: plexguide/huntarr:latest
+    container_name: huntarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/huntarr:/config
+      - /datapool:/datapool
+    ports:
+      - "9705:9705"
     networks:
       - media-net
     restart: unless-stopped
