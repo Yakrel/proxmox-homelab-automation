@@ -277,7 +277,7 @@ deploy_complete_stack() {
 
 # Enhanced input validation
 if [ $# -eq 0 ] || [ $# -gt 2 ]; then
-    print_error "Usage: $0 <stack_type> [lxc_id]"
+    print_info "Usage: $0 <stack_type> [lxc_id]"
     echo "Available stack types: media, proxy, downloads, utility, monitoring"
     echo "Examples:"
     echo "  $0 media      # Deploy to LXC 101"

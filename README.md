@@ -78,7 +78,7 @@ This project deploys a complete homelab automation solution with 5 specialized s
 
 ### Downloads Stack (lxc-downloads-01, ID: 102)  
 - **JDownloader2** – Download manager | http://192.168.1.102:5801
-- **MeTube** – YouTube downloader | http://192.168.1.102:8082
+  - **MeTube** – YouTube downloader | http://192.168.1.102:8082
 
 ### Utility Stack (lxc-utility-01, ID: 103)
 - **Firefox** – Remote browser | http://192.168.1.103:5800 | VNC: 192.168.1.103:5900
@@ -87,7 +87,7 @@ This project deploys a complete homelab automation solution with 5 specialized s
 - **Grafana** – Metrics dashboard | http://192.168.1.104:3000
 - **Prometheus** – Metrics collection | http://192.168.1.104:9090
 - **Alertmanager** – Alert management | http://192.168.1.104:9093
-- **cAdvisor** – Container metrics | http://192.168.1.104:8081
+  - **cAdvisor** – Container metrics | http://192.168.1.104:8081
 - **Proxmox Exporter** – Proxmox metrics | http://192.168.1.104:9221
 
 ## Media Server: Folder Structure & Configuration

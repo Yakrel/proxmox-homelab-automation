@@ -97,7 +97,7 @@ create_alpine_lxc_auto() {
     cat > /tmp/alpine_auto.sh << 'EOF'
 #!/bin/bash
 # Auto-answer script for tteck's Alpine Docker
-echo "1" | bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh)
+TEMPLATE_SELECTION=1 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh)
 EOF
     
     chmod +x /tmp/alpine_auto.sh
@@ -155,8 +155,12 @@ add_datapool_mount() {
         sleep 3
     fi
     
+    # Determine the next available mount index
+    local next_mp_index=$(pct config "$lxc_id" | grep -oP 'mp\d+' | sort -V | tail -n 1 | grep -oP '\d+' | awk '{print $1+1}')
+    next_mp_index=${next_mp_index:-0} # Default to 0 if no mount points exist
+    
     # Add mount point
-    if pct set "$lxc_id" -mp0 /datapool,mp=/datapool; then
+    if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool; then
         # Start container
         pct start "$lxc_id"
         sleep 5
