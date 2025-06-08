@@ -92,8 +92,8 @@ validate_cloudflare_token() {
     local token=$1
     
     # Cloudflare tunnel tokens are typically 40+ character alphanumeric strings
-    if [ ${#token} -lt 20 ]; then
-        print_error "Cloudflare token appears too short (expected 20+ characters)"
+    if [ ${#token} -lt 40 ]; then
+        print_error "Cloudflare token appears too short (expected 40+ characters)"
         return 1
     fi
     

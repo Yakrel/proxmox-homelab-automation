@@ -36,6 +36,9 @@ create_alpine_lxc_auto() {
     local ram_mb=$4
     local disk_gb=$5
 
+    # Ensure temporary script cleanup on exit
+    trap 'rm -f /tmp/alpine_auto.sh' EXIT
+
     print_info "Creating Alpine Docker LXC: $lxc_name (ID: $lxc_id)"
     print_info "Specs: ${cpu_cores} cores, ${ram_mb}MB RAM, ${disk_gb}GB disk"
     
@@ -51,6 +54,10 @@ create_alpine_lxc_auto() {
     export var_cpu="$cpu_cores"
     export var_ram="$ram_mb"
     export var_disk="$disk_gb"
+    # Also export with expected variable names for community script compatibility
+    export CPU_CORES="$cpu_cores"
+    export RAM_SIZE="$ram_mb"
+    export DISK_SIZE="$disk_gb"
     export var_os="alpine"
     export var_version="latest"  # Always use latest Alpine
     export var_unprivileged="1"

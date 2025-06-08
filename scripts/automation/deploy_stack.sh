@@ -295,7 +295,7 @@ case "$1" in
         ;;
     *)
         print_error "Invalid stack type: $1"
-        echo "Available stack types: media, proxy, downloads, utility, monitoring"
+        print_error "Available stack types: media, proxy, downloads, utility, monitoring"
         exit 1
         ;;
 esac
