@@ -265,7 +265,6 @@ services:
     container_name: watchtower-media
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /datapool/config/watchtower-media:/config:ro # Config mount unchanged
     environment:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
