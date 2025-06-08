@@ -17,12 +17,8 @@ GITHUB_REPO="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
-# Docker Compose command (use V2 syntax if available)
-if command -v "docker" &> /dev/null && docker compose version &> /dev/null; then
-    DOCKER_COMPOSE_CMD="docker compose"
-else
-    DOCKER_COMPOSE_CMD="docker-compose"
-fi
+# Docker Compose command (Alpine Docker template uses V2 syntax)
+DOCKER_COMPOSE_CMD="docker compose"
 
 # Function to print colored output
 print_info() {
@@ -217,6 +213,7 @@ deploy_complete_stack() {
             "proxy") lxc_id=100 ;;
             "downloads") lxc_id=102 ;;
             "utility") lxc_id=103 ;;
+            "monitoring") lxc_id=104 ;;
             *) 
                 print_error "Unknown stack type: $stack_type"
                 return 1
@@ -224,19 +221,8 @@ deploy_complete_stack() {
         esac
     fi
     
-    # Check if LXC exists and is running
-    if ! pct status "$lxc_id" >/dev/null 2>&1; then
-        print_error "LXC $lxc_id does not exist!"
-        print_info "Run: ./create_alpine_lxc.sh $stack_type"
-        return 1
-    fi
-    
-    # Start LXC if not running
-    if [ "$(pct status $lxc_id)" != "status: running" ]; then
-        print_info "Starting LXC $lxc_id..."
-        pct start "$lxc_id"
-        sleep 10
-    fi
+    # Wait a moment for LXC to be fully ready
+    sleep 5
     
     # Set target directory inside LXC
     local target_dir="/opt/$stack_type-stack"
@@ -265,27 +251,22 @@ deploy_complete_stack() {
     # Deploy stack inside LXC
     print_info "Deploying stack inside LXC..."
     
-    # Determine docker compose command for LXC (check inside container)
-    local lxc_compose_cmd="docker-compose"
-    if pct exec "$lxc_id" -- sh -c "command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1"; then
-        lxc_compose_cmd="docker compose"
-    fi
-    
-    pct exec "$lxc_id" -- sh -c "cd $target_dir && $lxc_compose_cmd pull && $lxc_compose_cmd up -d"
+    # Deploy with docker compose (Alpine Docker template uses V2 syntax)
+    pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose pull && docker compose up -d"
     
     if [ $? -eq 0 ]; then
         print_info "🎉 $stack_type stack deployed successfully in LXC $lxc_id!"
         
         # Show status
         print_info "Container status:"
-        pct exec "$lxc_id" -- sh -c "cd $target_dir && $lxc_compose_cmd ps"
+        pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose ps"
         
         # Show important notes
         print_warning "⚠️  IMPORTANT NOTES:"
         print_info "1. Configure passwords in: $target_dir/.env"
         print_info "2. Access LXC: pct enter $lxc_id"
         print_info "3. Stack location: $target_dir"
-        print_info "4. Restart services: cd $target_dir && $lxc_compose_cmd restart"
+        print_info "4. Restart services: cd $target_dir && docker compose restart"
         
         return 0
     else
@@ -297,12 +278,13 @@ deploy_complete_stack() {
 # Main script execution
 if [ $# -eq 0 ]; then
     echo "Usage: $0 <stack_type> [lxc_id]"
-    echo "Available stack types: media, proxy, downloads, utility"
+    echo "Available stack types: media, proxy, downloads, utility, monitoring"
     echo "Examples:"
     echo "  $0 media      # Deploy to LXC 101"
     echo "  $0 proxy      # Deploy to LXC 100"
     echo "  $0 downloads  # Deploy to LXC 102"
     echo "  $0 utility    # Deploy to LXC 103"
+    echo "  $0 monitoring # Deploy to LXC 104"
     exit 1
 fi
 

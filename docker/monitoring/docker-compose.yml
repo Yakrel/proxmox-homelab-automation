@@ -53,7 +53,7 @@ services:
       - /datapool/config/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
     environment:
       - TZ=Europe/Istanbul
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin123}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?Grafana admin password must be defined}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
       - GF_SECURITY_ALLOW_EMBEDDING=true

@@ -15,9 +15,7 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     mkdir -p /datapool/config/prowlarr
     mkdir -p /datapool/config/flaresolverr
     mkdir -p /datapool/config/watchtower-media
-    mkdir -p /datapool/config/recyclarr
-    mkdir -p /datapool/config/metube
-    mkdir -p /datapool/config/jdownloader2 
+    mkdir -p /datapool/config/recyclarr 
     
     # Create media directories
     mkdir -p /datapool/media/tv
@@ -40,9 +38,7 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     chown -R 101000:101000 /datapool/config/prowlarr
     chown -R 101000:101000 /datapool/config/flaresolverr
     chown -R 101000:101000 /datapool/config/watchtower-media
-    chown -R 101000:101000 /datapool/config/recyclarr
-    chown -R 101000:101000 /datapool/config/metube
-    chown -R 101000:101000 /datapool/config/jdownloader2 
+    chown -R 101000:101000 /datapool/config/recyclarr 
     # Keep chown for media and torrents directories
     chown -R 101000:101000 /datapool/media 
     chown -R 101000:101000 /datapool/torrents

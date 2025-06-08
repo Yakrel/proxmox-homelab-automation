@@ -206,6 +206,12 @@ check_stack_services() {
         "utility")
             check_service_connectivity "Firefox" "$host_ip" "5800"
             ;;
+        "monitoring")
+            check_service_connectivity "Grafana" "$host_ip" "3000"
+            check_service_connectivity "Prometheus" "$host_ip" "9090"
+            check_service_connectivity "Alertmanager" "$host_ip" "9093"
+            check_service_connectivity "cAdvisor" "$host_ip" "8080"
+            ;;
     esac
 }
 
@@ -273,7 +279,7 @@ generate_health_report() {
         
         echo "LXC Status:"
         echo "-----------"
-        for lxc_id in 100 101 102 103; do
+        for lxc_id in 100 101 102 103 104; do
             if pct status "$lxc_id" >/dev/null 2>&1; then
                 echo "LXC $lxc_id: $(pct status $lxc_id)"
             fi
@@ -282,7 +288,7 @@ generate_health_report() {
         
         echo "Docker Containers:"
         echo "------------------"
-        for lxc_id in 100 101 102 103; do
+        for lxc_id in 100 101 102 103 104; do
             if pct status "$lxc_id" | grep -q "running"; then
                 echo "LXC $lxc_id containers:"
                 pct exec "$lxc_id" -- docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "  Docker not available"
@@ -313,7 +319,7 @@ run_full_health_check() {
     echo ""
     
     # Check each stack
-    local stacks=("proxy:100" "media:101" "downloads:102" "utility:103")
+    local stacks=("proxy:100" "media:101" "downloads:102" "utility:103" "monitoring:104")
     
     for stack_info in "${stacks[@]}"; do
         local stack_type=$(echo "$stack_info" | cut -d: -f1)
