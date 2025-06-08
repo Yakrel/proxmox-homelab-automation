@@ -29,19 +29,19 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     mkdir -p /datapool/torrents/other
     
     # Set ownership for specific config subdirectories and other main directories
-    chown -R 101000:101000 /datapool/config/sonarr
-    chown -R 101000:101000 /datapool/config/radarr
-    chown -R 101000:101000 /datapool/config/bazarr
-    chown -R 101000:101000 /datapool/config/jellyfin
-    chown -R 101000:101000 /datapool/config/jellyseerr
-    chown -R 101000:101000 /datapool/config/qbittorrent
-    chown -R 101000:101000 /datapool/config/prowlarr
-    chown -R 101000:101000 /datapool/config/flaresolverr
-    chown -R 101000:101000 /datapool/config/watchtower-media
-    chown -R 101000:101000 /datapool/config/recyclarr 
+    chown -R 1000:1000 /datapool/config/sonarr
+    chown -R 1000:1000 /datapool/config/radarr
+    chown -R 1000:1000 /datapool/config/bazarr
+    chown -R 1000:1000 /datapool/config/jellyfin
+    chown -R 1000:1000 /datapool/config/jellyseerr
+    chown -R 1000:1000 /datapool/config/qbittorrent
+    chown -R 1000:1000 /datapool/config/prowlarr
+    chown -R 1000:1000 /datapool/config/flaresolverr
+    chown -R 1000:1000 /datapool/config/watchtower-media
+    chown -R 1000:1000 /datapool/config/recyclarr 
     # Keep chown for media and torrents directories
-    chown -R 101000:101000 /datapool/media 
-    chown -R 101000:101000 /datapool/torrents
+    chown -R 1000:1000 /datapool/media 
+    chown -R 1000:1000 /datapool/torrents
     
     # Mount datapool to LXC
     pct set 101 -mp0 /datapool,mp=/datapool

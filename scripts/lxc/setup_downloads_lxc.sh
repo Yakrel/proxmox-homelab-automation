@@ -11,9 +11,9 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     mkdir -p /datapool/config/watchtower-downloads
     
     # Set ownership for specific config subdirectories
-    chown -R 102000:102000 /datapool/config/jdownloader2
-    chown -R 102000:102000 /datapool/config/metube
-    chown -R 102000:102000 /datapool/config/watchtower-downloads
+    chown -R 1000:1000 /datapool/config/jdownloader2
+    chown -R 1000:1000 /datapool/config/metube
+    chown -R 1000:1000 /datapool/config/watchtower-downloads
     
     # Mount datapool to LXC
     pct set 102 -mp0 /datapool,mp=/datapool

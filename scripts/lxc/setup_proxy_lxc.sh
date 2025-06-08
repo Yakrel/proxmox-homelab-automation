@@ -10,8 +10,8 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     mkdir -p /datapool/config/watchtower-proxy
 
     # Set ownership for specific subdirectories only
-    chown -R 100000:100000 /datapool/config/cloudflared
-    chown -R 100000:100000 /datapool/config/watchtower-proxy
+    chown -R 1000:1000 /datapool/config/cloudflared
+    chown -R 1000:1000 /datapool/config/watchtower-proxy
 
     # Mount datapool to LXC
     pct set 100 -mp0 /datapool,mp=/datapool

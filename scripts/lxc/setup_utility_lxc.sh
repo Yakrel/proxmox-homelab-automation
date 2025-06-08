@@ -10,8 +10,8 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     mkdir -p /datapool/config/watchtower-utility
     
     # Set ownership for specific config subdirectories
-    chown -R 103000:103000 /datapool/config/firefox
-    chown -R 103000:103000 /datapool/config/watchtower-utility
+    chown -R 1000:1000 /datapool/config/firefox
+    chown -R 1000:1000 /datapool/config/watchtower-utility
     
     # Mount datapool to LXC
     pct set 103 -mp0 /datapool,mp=/datapool
