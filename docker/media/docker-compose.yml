@@ -1,9 +1,7 @@
 # IMPORTANT NOTE ON PUID/PGID:
-# While the setup_media_lxc.sh script sets host directory ownership to 101000:101000 (mapped from LXC ID 101),
-# the containers below MUST run with PUID=1000 and PGID=1000.
-# Using the host-mapped IDs (e.g., 101000) causes permission errors, preventing containers
-# from starting correctly or writing to the mounted /datapool volumes.
-# The current PUID/PGID=1000 configuration is confirmed to work correctly in this setup.
+# All containers use PUID=1000 and PGID=1000 for consistency.
+# Host directories are owned by 1000:1000 (set by setup_media_lxc.sh).
+# This unified approach eliminates permission issues and simplifies maintenance.
 
 version: '3.8'
 

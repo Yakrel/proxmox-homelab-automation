@@ -29,7 +29,83 @@ print_step() {
     echo -e "${BLUE}[STEP]${NC} $1"
 }
 
-# Function to get secure password input
+# Enhanced password validation function
+validate_password_strength() {
+    local password=$1
+    local errors=()
+    
+    # Check minimum length
+    if [ ${#password} -lt 8 ]; then
+        errors+=("Password must be at least 8 characters long")
+    fi
+    
+    # Check for at least one number
+    if ! [[ "$password" =~ [0-9] ]]; then
+        errors+=("Password must contain at least one number")
+    fi
+    
+    # Check for at least one letter
+    if ! [[ "$password" =~ [a-zA-Z] ]]; then
+        errors+=("Password must contain at least one letter")
+    fi
+    
+    # Check for weak patterns
+    if [[ "$password" =~ ^[0-9]+$ ]] || [[ "$password" =~ ^[a-zA-Z]+$ ]]; then
+        errors+=("Password should contain a mix of letters and numbers")
+    fi
+    
+    if [ ${#errors[@]} -gt 0 ]; then
+        for error in "${errors[@]}"; do
+            print_error "$error"
+        done
+        return 1
+    fi
+    
+    return 0
+}
+
+# Function to validate input (not empty)
+validate_not_empty() {
+    local input=$1
+    local field_name=$2
+    
+    if [ -z "$input" ]; then
+        print_error "$field_name cannot be empty"
+        return 1
+    fi
+    return 0
+}
+
+# Function to validate URL format
+validate_url() {
+    local url=$1
+    
+    if [[ ! "$url" =~ ^https?://[a-zA-Z0-9.-]+:[0-9]+/?$ ]]; then
+        print_error "Invalid URL format. Expected format: http(s)://hostname:port"
+        return 1
+    fi
+    return 0
+}
+
+# Function to validate Cloudflare token format
+validate_cloudflare_token() {
+    local token=$1
+    
+    # Cloudflare tunnel tokens are typically 40+ character alphanumeric strings
+    if [ ${#token} -lt 20 ]; then
+        print_error "Cloudflare token appears too short (expected 20+ characters)"
+        return 1
+    fi
+    
+    if ! [[ "$token" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        print_error "Cloudflare token contains invalid characters"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Function to get secure password input with enhanced validation
 get_password() {
     local prompt=$1
     local password
@@ -39,8 +115,8 @@ get_password() {
         read -sp "$prompt: " password
         echo ""
         
-        if [ ${#password} -lt 8 ]; then
-            print_error "Password must be at least 8 characters long"
+        if ! validate_password_strength "$password"; then
+            print_warning "Please choose a stronger password"
             continue
         fi
         
@@ -82,14 +158,16 @@ setup_proxy_env() {
     
     print_step "Setting up Proxy stack environment..."
     
-    # Get Cloudflare tunnel token
-    echo -n "Enter your Cloudflare tunnel token: "
-    read cloudflare_token
-    
-    if [ -z "$cloudflare_token" ]; then
-        print_error "Cloudflare tunnel token is required for proxy stack"
-        return 1
-    fi
+    # Get Cloudflare tunnel token with validation
+    while true; do
+        echo -n "Enter your Cloudflare tunnel token: "
+        read cloudflare_token
+        
+        if validate_not_empty "$cloudflare_token" "Cloudflare tunnel token" && validate_cloudflare_token "$cloudflare_token"; then
+            break
+        fi
+        print_warning "Please enter a valid Cloudflare tunnel token"
+    done
     
     # Create .env file with common settings and proxy-specific content
     local proxy_content="# Cloudflare tunnel token for secure connections
@@ -172,10 +250,46 @@ setup_monitoring_env() {
     # Get Proxmox monitoring user password
     local pve_password=$(get_password "Enter Proxmox monitoring user password (min 8 chars)")
     
-    # Get Proxmox URL
-    echo -n "Enter Proxmox URL [https://192.168.1.1:8006]: "
-    read pve_url
-    pve_url=${pve_url:-"https://192.168.1.1:8006"}
+    # Auto-detect Proxmox local IP and construct URL
+    # Try multiple methods to get the primary local network IP
+    local detected_ip
+    
+    # Method 1: Get IP from default route interface
+    detected_ip=$(ip route show default | head -1 | awk '{print $5}' | xargs -I {} ip addr show {} | grep 'inet ' | grep -v '127.0.0.1' | head -1 | awk '{print $2}' | cut -d'/' -f1 2>/dev/null)
+    
+    # Method 2: Fallback to first non-loopback IP
+    if [ -z "$detected_ip" ]; then
+        detected_ip=$(ip addr show | grep 'inet ' | grep -v '127.0.0.1' | head -1 | awk '{print $2}' | cut -d'/' -f1 2>/dev/null)
+    fi
+    
+    # Method 3: Final fallback
+    if [ -z "$detected_ip" ]; then
+        detected_ip=$(hostname -I | awk '{print $1}' 2>/dev/null)
+    fi
+    
+    # If still no IP found, use placeholder
+    if [ -z "$detected_ip" ]; then
+        detected_ip="YOUR_PROXMOX_IP"
+    fi
+    
+    local default_pve_url="https://${detected_ip}:8006"
+    
+    # Get Proxmox URL with validation
+    while true; do
+        echo -n "Enter Proxmox URL [$default_pve_url]: "
+        read pve_url
+        pve_url=${pve_url:-"$default_pve_url"}
+        
+        if validate_url "$pve_url"; then
+            break
+        fi
+        print_warning "Please enter a valid Proxmox URL (e.g., $default_pve_url)"
+    done
+    
+    print_info "✓ Using Proxmox URL: $pve_url"
+    if [ "$detected_ip" != "YOUR_PROXMOX_IP" ]; then
+        print_info "  (Auto-detected IP: $detected_ip)"
+    fi
     
     # Create .env file with common settings and monitoring-specific content
     local monitoring_content="# Grafana admin password for dashboard access

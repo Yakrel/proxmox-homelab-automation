@@ -274,12 +274,24 @@ create_complete_lxc() {
     esac
 }
 
-# Script execution
-if [ $# -eq 0 ]; then
-    echo "Usage: $0 <stack_type>"
+# Enhanced input validation
+if [ $# -ne 1 ]; then
+    print_error "Usage: $0 <stack_type>"
     echo "Available stack types: media, proxy, downloads, utility, monitoring"
     exit 1
 fi
+
+# Validate stack type
+case "$1" in
+    media|proxy|downloads|utility|monitoring)
+        # Valid stack type
+        ;;
+    *)
+        print_error "Invalid stack type: $1"
+        echo "Available stack types: media, proxy, downloads, utility, monitoring"
+        exit 1
+        ;;
+esac
 
 # Check if running as root
 if [ "$(id -u)" -ne 0 ]; then
