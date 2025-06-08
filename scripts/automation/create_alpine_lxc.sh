@@ -137,62 +137,103 @@ prepare_media_directories() {
     local lxc_id=$1
     print_info "Preparing media stack directories..."
     
-    # Create directories (same as existing setup_media_lxc.sh)
-    mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,watchtower-media,recyclarr,cleanuperr,huntarr}
+    # Configuration variables
+    local PUID=1000
+    local PGID=1000
+    
+    # Directory arrays for bulk operations
+    local CONFIG_DIRS=("sonarr" "radarr" "bazarr" "jellyfin" "jellyseerr" "qbittorrent" "prowlarr" "flaresolverr" "watchtower-media" "recyclarr" "cleanuperr" "huntarr")
+    
+    # Create config directories
+    for dir in "${CONFIG_DIRS[@]}"; do
+        mkdir -p "/datapool/config/$dir"
+        chown -R "${PUID}:${PGID}" "/datapool/config/$dir"
+    done
+    
+    # Create media and torrent directories
     mkdir -p /datapool/media/{tv,movies}
     mkdir -p /datapool/media/youtube/{playlists,channels}
     mkdir -p /datapool/torrents/{tv,movies,other}
     
-    # Set ownership (mapped UID for LXC 101)
-    chown -R 101000:101000 /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,watchtower-media,recyclarr,cleanuperr,huntarr}
-    chown -R 101000:101000 /datapool/media
-    chown -R 101000:101000 /datapool/torrents
+    # Set unified ownership
+    chown -R "${PUID}:${PGID}" /datapool/media
+    chown -R "${PUID}:${PGID}" /datapool/torrents
 }
 
 prepare_proxy_directories() {
     local lxc_id=$1
     print_info "Preparing proxy stack directories..."
     
-    # Create directories (same as existing setup_proxy_lxc.sh)
-    mkdir -p /datapool/config/{cloudflared,watchtower-proxy}
+    # Configuration variables
+    local PUID=1000
+    local PGID=1000
     
-    # Set ownership (mapped UID for LXC 100)
-    chown -R 100000:100000 /datapool/config/{cloudflared,watchtower-proxy}
+    # Directory arrays for bulk operations
+    local CONFIG_DIRS=("cloudflared" "watchtower-proxy")
+    
+    # Create config directories
+    for dir in "${CONFIG_DIRS[@]}"; do
+        mkdir -p "/datapool/config/$dir"
+        chown -R "${PUID}:${PGID}" "/datapool/config/$dir"
+    done
 }
 
 prepare_downloads_directories() {
     local lxc_id=$1
     print_info "Preparing downloads stack directories..."
     
-    # Create directories for downloads stack
-    mkdir -p /datapool/config/{jdownloader2,metube,watchtower-downloads}
+    # Configuration variables
+    local PUID=1000
+    local PGID=1000
     
-    # Set ownership (mapped UID for LXC 102)
-    chown -R 102000:102000 /datapool/config/{jdownloader2,metube,watchtower-downloads}
+    # Directory arrays for bulk operations
+    local CONFIG_DIRS=("jdownloader2" "metube" "watchtower-downloads")
+    
+    # Create config directories
+    for dir in "${CONFIG_DIRS[@]}"; do
+        mkdir -p "/datapool/config/$dir"
+        chown -R "${PUID}:${PGID}" "/datapool/config/$dir"
+    done
 }
 
 prepare_utility_directories() {
     local lxc_id=$1
     print_info "Preparing utility stack directories..."
     
-    # Create directories for utility stack
-    mkdir -p /datapool/config/{firefox,watchtower-utility}
+    # Configuration variables
+    local PUID=1000
+    local PGID=1000
     
-    # Set ownership (mapped UID for LXC 103)
-    chown -R 103000:103000 /datapool/config/{firefox,watchtower-utility}
+    # Directory arrays for bulk operations
+    local CONFIG_DIRS=("firefox" "watchtower-utility")
+    
+    # Create config directories
+    for dir in "${CONFIG_DIRS[@]}"; do
+        mkdir -p "/datapool/config/$dir"
+        chown -R "${PUID}:${PGID}" "/datapool/config/$dir"
+    done
 }
 
 prepare_monitoring_directories() {
     local lxc_id=$1
     print_info "Preparing monitoring stack directories..."
     
-    # Create directories for monitoring stack
-    mkdir -p /datapool/config/{prometheus,grafana,alertmanager,watchtower-monitoring}
-    mkdir -p /datapool/config/monitoring/{prometheus,grafana/provisioning,alertmanager}
+    # Configuration variables
+    local PUID=1000
+    local PGID=1000
     
-    # Set ownership (mapped UID for LXC 104) - containers will use PUID=1000
-    chown -R 104000:104000 /datapool/config/{prometheus,grafana,alertmanager,watchtower-monitoring}
-    chown -R 104000:104000 /datapool/config/monitoring
+    # Directory arrays for bulk operations
+    local CONFIG_DIRS=("prometheus" "grafana" "alertmanager" "watchtower-monitoring")
+    
+    # Create config directories
+    for dir in "${CONFIG_DIRS[@]}"; do
+        mkdir -p "/datapool/config/$dir"
+        chown -R "${PUID}:${PGID}" "/datapool/config/$dir"
+    done
+    
+    # Create monitoring specific directories
+    mkdir -p /datapool/config/monitoring/{prometheus,grafana/provisioning,alertmanager}
+    chown -R "${PUID}:${PGID}" /datapool/config/monitoring
 }
 
 # Main function to create complete LXC setup
