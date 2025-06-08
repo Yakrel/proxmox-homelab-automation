@@ -1,55 +1,65 @@
 #!/bin/bash
-# Monitoring LXC Setup Script
+# Monitoring LXC Directory Setup Script
 # LXC ID: 104 - Monitoring Stack
 # Services: Prometheus, Grafana, Node Exporter, cAdvisor
 
 set -e
 
 LXC_ID=104
+PUID=1000
+PGID=1000
+
 YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-echo -e "${YELLOW}Setting up Monitoring LXC (ID: $LXC_ID)...${NC}"
+echo -e "${YELLOW}Setting up directory structure for Monitoring LXC (ID: $LXC_ID)...${NC}"
+echo -e "${GREEN}Note: Alpine LXC with Docker should be created first using create_alpine_lxc.sh${NC}"
 
-# Check if running in LXC
-if [ ! -f /.dockerenv ] && [ -f /proc/1/cgroup ] && grep -q lxc /proc/1/cgroup 2>/dev/null; then
-    echo -e "${GREEN}Running inside LXC container ${LXC_ID}${NC}"
-    
-    # Update system
-    echo -e "${YELLOW}Updating system packages...${NC}"
-    apt update && apt upgrade -y
-    
-    # Install required packages
-    echo -e "${YELLOW}Installing required packages...${NC}"
-    apt install -y curl wget gnupg lsb-release ca-certificates
-    
-    # Install Docker
-    echo -e "${YELLOW}Installing Docker...${NC}"
-    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-    apt update
-    apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-    
-    # Start and enable Docker
-    systemctl start docker
-    systemctl enable docker
-    
-    # Create monitoring directories
-    echo -e "${YELLOW}Creating monitoring directory structure...${NC}"
-    mkdir -p /datapool/config/monitoring/{prometheus,grafana,alertmanager}
-    mkdir -p /datapool/config/monitoring/prometheus/rules
-    mkdir -p /datapool/config/monitoring/grafana/provisioning/{datasources,dashboards}
-    
-    # Set proper permissions
-    chown -R 1000:1000 /datapool/config/monitoring
-    
-    echo -e "${GREEN}Monitoring LXC setup completed successfully!${NC}"
-    echo -e "${YELLOW}Next: Deploy monitoring stack with deploy_stack.sh${NC}"
-    
-else
-    echo -e "${RED}Error: This script should be run inside LXC container ${LXC_ID}${NC}"
-    echo -e "${YELLOW}Run from Proxmox host: pct exec ${LXC_ID} -- bash -c 'curl -sSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/lxc/setup_monitoring_lxc.sh | bash'${NC}"
-    exit 1
-fi
+# Define directory arrays for monitoring stack
+CONFIG_DIRS=("prometheus" "grafana" "alertmanager" "watchtower-monitoring")
+PROMETHEUS_SUBDIRS=("rules")
+GRAFANA_SUBDIRS=("provisioning/datasources" "provisioning/dashboards")
+
+echo -e "${YELLOW}Creating monitoring configuration directories...${NC}"
+
+# Create main config directories
+for dir in "${CONFIG_DIRS[@]}"; do
+    mkdir -p "/datapool/config/$dir"
+    echo "Created: /datapool/config/$dir"
+done
+
+# Create Prometheus subdirectories
+for subdir in "${PROMETHEUS_SUBDIRS[@]}"; do
+    mkdir -p "/datapool/config/prometheus/$subdir"
+    echo "Created: /datapool/config/prometheus/$subdir"
+done
+
+# Create Grafana subdirectories
+for subdir in "${GRAFANA_SUBDIRS[@]}"; do
+    mkdir -p "/datapool/config/grafana/$subdir"
+    echo "Created: /datapool/config/grafana/$subdir"
+done
+
+# Set proper ownership for all directories
+echo -e "${YELLOW}Setting ownership (${PUID}:${PGID}) for monitoring directories...${NC}"
+chown -R "${PUID}:${PGID}" "/datapool/config/prometheus"
+chown -R "${PUID}:${PGID}" "/datapool/config/grafana"
+chown -R "${PUID}:${PGID}" "/datapool/config/alertmanager"
+chown -R "${PUID}:${PGID}" "/datapool/config/watchtower-monitoring"
+
+echo -e "${GREEN}✓ Monitoring LXC directory structure created successfully!${NC}"
+echo -e "${YELLOW}Directory structure:${NC}"
+echo -e "  /datapool/config/prometheus/"
+echo -e "  ├── rules/"
+echo -e "  /datapool/config/grafana/"
+echo -e "  ├── provisioning/"
+echo -e "  │   ├── datasources/"
+echo -e "  │   └── dashboards/"
+echo -e "  /datapool/config/alertmanager/"
+echo -e "  /datapool/config/watchtower-monitoring/"
+echo ""
+echo -e "${GREEN}Next steps:${NC}"
+echo -e "1. Create Alpine LXC: ${YELLOW}bash scripts/automation/create_alpine_lxc.sh monitoring${NC}"
+echo -e "2. Deploy monitoring stack: ${YELLOW}bash scripts/automation/deploy_stack.sh monitoring 104${NC}"
