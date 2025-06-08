@@ -156,6 +156,40 @@ FIREFOX_VNC_PASSWORD=$firefox_password"
     return 0
 }
 
+# Function to setup monitoring stack environment
+setup_monitoring_env() {
+    local stack_dir=$1
+    
+    print_step "Setting up Monitoring stack environment..."
+    
+    # Get Grafana admin password
+    local grafana_password=$(get_password "Enter Grafana admin password (min 8 chars)")
+    
+    # Get Proxmox monitoring user password
+    local pve_password=$(get_password "Enter Proxmox monitoring user password (min 8 chars)")
+    
+    # Get Proxmox URL
+    echo -n "Enter Proxmox URL [https://192.168.1.1:8006]: "
+    read pve_url
+    pve_url=${pve_url:-"https://192.168.1.1:8006"}
+    
+    # Create .env file with common settings and monitoring-specific content
+    local monitoring_content="# Grafana admin password for dashboard access
+GRAFANA_ADMIN_PASSWORD=$grafana_password
+
+# Proxmox monitoring credentials
+PVE_USER=monitoring@pve
+PVE_PASSWORD=$pve_password
+PVE_URL=$pve_url
+PVE_VERIFY_SSL=false"
+    
+    create_common_env_content "Monitoring" "$monitoring_content" > "$stack_dir/.env"
+    
+    print_info "✓ Monitoring stack .env file created successfully"
+    print_warning "Remember to create 'monitoring@pve' user in Proxmox with PVEAuditor role"
+    return 0
+}
+
 # Function to setup environment for specific stack
 setup_stack_environment() {
     local stack_type=$1
@@ -177,6 +211,9 @@ setup_stack_environment() {
         "utility")
             setup_utility_env "$stack_dir"
             ;;
+        "monitoring")
+            setup_monitoring_env "$stack_dir"
+            ;;
         *)
             print_error "Unknown stack type: $stack_type"
             return 1
@@ -193,7 +230,7 @@ main() {
     echo ""
     
     case $stack_type in
-        "proxy"|"media"|"downloads"|"utility")
+        "proxy"|"media"|"downloads"|"utility"|"monitoring")
             print_info "Setting up $stack_type stack configuration..."
             setup_stack_environment "$stack_type" "$base_dir/$stack_type-stack"
             ;;
@@ -201,7 +238,7 @@ main() {
             print_info "Setting up all stack configurations..."
             
             # Setup each stack
-            for stack in proxy media downloads utility; do
+            for stack in proxy media downloads utility monitoring; do
                 echo ""
                 print_info "Setting up $stack stack..."
                 setup_stack_environment "$stack" "$base_dir/$stack-stack"
@@ -209,12 +246,13 @@ main() {
             ;;
         *)
             echo "Usage: $0 <stack_type> [base_dir]"
-            echo "Stack types: proxy, media, downloads, utility, all"
+            echo "Stack types: proxy, media, downloads, utility, monitoring, all"
             echo "Base dir: Directory where stack folders are located (default: /opt)"
             echo ""
             echo "Examples:"
-            echo "  $0 downloads /opt    # Setup downloads stack only"
-            echo "  $0 all /opt          # Setup all stacks"
+            echo "  $0 downloads /opt     # Setup downloads stack only"
+            echo "  $0 monitoring /opt    # Setup monitoring stack only"
+            echo "  $0 all /opt           # Setup all stacks"
             exit 1
             ;;
     esac

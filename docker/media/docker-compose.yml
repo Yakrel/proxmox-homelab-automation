@@ -5,6 +5,8 @@
 # from starting correctly or writing to the mounted /datapool volumes.
 # The current PUID/PGID=1000 configuration is confirmed to work correctly in this setup.
 
+version: '3.8'
+
 networks:
   media-net:
     driver: bridge
@@ -19,8 +21,8 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/sonarr:/config # Config mount'u aynı kaldı
-      - /datapool:/datapool           # Ortak üst dizin mount'u
+      - /datapool/config/sonarr:/config # Config mount unchanged
+      - /datapool:/datapool           # Shared parent directory mount
     ports:
       - "8989:8989"
     networks:
@@ -41,8 +43,8 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/radarr:/config # Config mount'u aynı kaldı
-      - /datapool:/datapool           # Ortak üst dizin mount'u
+      - /datapool/config/radarr:/config # Config mount unchanged
+      - /datapool:/datapool           # Shared parent directory mount
     ports:
       - "7878:7878"
     networks:
@@ -63,8 +65,8 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/bazarr:/config # Config mount'u aynı kaldı
-      - /datapool:/datapool           # Ortak üst dizin mount'u (Bazarr içinde /datapool/media/... kullanılacak)
+      - /datapool/config/bazarr:/config # Config mount unchanged
+      - /datapool:/datapool           # Shared parent directory mount (Bazarr will use /datapool/media/...)
     ports:
       - "6767:6767"
     networks:
@@ -85,8 +87,8 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/jellyfin:/config # Config mount'u aynı kaldı
-      - /datapool:/datapool           # Ortak üst dizin mount'u (Jellyfin içinde /datapool/media/... kullanılacak)
+      - /datapool/config/jellyfin:/config # Config mount unchanged
+      - /datapool:/datapool           # Shared parent directory mount (Jellyfin will use /datapool/media/...)
     ports:
       - "8096:8096"
     networks:
@@ -109,7 +111,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/jellyseerr:/app/config # Değişiklik yok
+      - /datapool/config/jellyseerr:/app/config # Config mount unchanged
     ports:
       - "5055:5055"
     networks:
@@ -131,8 +133,8 @@ services:
       - TZ=Europe/Istanbul
       - WEBUI_PORT=8080
     volumes:
-      - /datapool/config/qbittorrent:/config # Config mount'u aynı kaldı
-      - /datapool:/datapool                # Ortak üst dizin mount'u (qBittorrent içinde /datapool/torrents/... kullanılacak)
+      - /datapool/config/qbittorrent:/config # Config mount unchanged
+      - /datapool:/datapool                # Shared parent directory mount (qBittorrent will use /datapool/torrents/...)
     ports:
       - "8080:8080"
       - "6881:6881"
@@ -155,7 +157,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/prowlarr:/config # Değişiklik yok
+      - /datapool/config/prowlarr:/config # Config mount unchanged
     ports:
       - "9696:9696"
     networks:
@@ -198,7 +200,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/recyclarr:/config # Değişiklik yok
+      - /datapool/config/recyclarr:/config # Config mount unchanged
     networks:
       - media-net
     restart: unless-stopped
@@ -239,7 +241,7 @@ services:
     container_name: watchtower-media
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /datapool/config/watchtower-media:/config:ro # Değişiklik yok
+      - /datapool/config/watchtower-media:/config:ro # Config mount unchanged
     environment:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
