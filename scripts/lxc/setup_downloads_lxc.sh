@@ -1,19 +1,26 @@
 #!/bin/bash
 set -e
 
+# Configuration
+PUID=1000
+PGID=1000
+
 echo "Downloads LXC (lxc-downloads-01, ID: 102) preparation will be done."
 read -p "Do you want to create folders for Downloads LXC? (y/N): " response
 
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-    # Create directory structure for downloads stack
-    mkdir -p /datapool/config/jdownloader2
-    mkdir -p /datapool/config/metube
-    mkdir -p /datapool/config/watchtower-downloads
+    # Define config directories
+    CONFIG_DIRS=("jdownloader2" "metube" "watchtower-downloads")
     
-    # Set ownership for specific config subdirectories
-    chown -R 102000:102000 /datapool/config/jdownloader2
-    chown -R 102000:102000 /datapool/config/metube
-    chown -R 102000:102000 /datapool/config/watchtower-downloads
+    # Create directory structure for downloads stack
+    for dir in "${CONFIG_DIRS[@]}"; do
+        mkdir -p "/datapool/config/$dir"
+    done
+    
+    # Set ownership for config directories
+    for dir in "${CONFIG_DIRS[@]}"; do
+        chown -R "${PUID}:${PGID}" "/datapool/config/$dir"
+    done
     
     # Mount datapool to LXC
     pct set 102 -mp0 /datapool,mp=/datapool

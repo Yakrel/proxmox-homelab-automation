@@ -34,21 +34,21 @@ scrape_configs:
   # Node Exporter - Media LXC (101)
   - job_name: 'node-exporter-media'
     static_configs:
-      - targets: ['192.168.1.101:9101']  # Media LXC IP
+      - targets: ['192.168.1.101:9100']  # Media LXC IP
         labels:
           instance: 'media-lxc-101'
 
   # Node Exporter - Downloads LXC (102)
   - job_name: 'node-exporter-downloads'
     static_configs:
-      - targets: ['192.168.1.102:9102']  # Downloads LXC IP
+      - targets: ['192.168.1.102:9100']  # Downloads LXC IP
         labels:
           instance: 'downloads-lxc-102'
 
   # Node Exporter - Utility LXC (103)
   - job_name: 'node-exporter-utility'
     static_configs:
-      - targets: ['192.168.1.103:9103']  # Utility LXC IP
+      - targets: ['192.168.1.103:9100']  # Utility LXC IP
         labels:
           instance: 'utility-lxc-103'
 
