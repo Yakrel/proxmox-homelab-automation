@@ -96,8 +96,9 @@ setup_proxy_env() {
 CLOUDFLARED_TOKEN=$cloudflare_token"
     
     create_common_env_content "Proxy" "$proxy_content" > "$stack_dir/.env"
+    chmod 600 "$stack_dir/.env"
     
-    print_info "✓ Proxy stack .env file created successfully"
+    print_info "✓ Proxy stack .env file created successfully with secure permissions"
     return 0
 }
 
@@ -112,8 +113,9 @@ setup_media_env() {
 # All services use web-based configuration interfaces"
     
     create_common_env_content "Media" "$media_content" > "$stack_dir/.env"
+    chmod 600 "$stack_dir/.env"
     
-    print_info "✓ Media stack .env file created successfully"
+    print_info "✓ Media stack .env file created successfully with secure permissions"
     print_info "Configure services through their web UIs after deployment"
     return 0
 }
@@ -132,8 +134,9 @@ setup_downloads_env() {
 JDOWNLOADER_VNC_PASSWORD=$jdownloader_password"
     
     create_common_env_content "Downloads" "$downloads_content" > "$stack_dir/.env"
+    chmod 600 "$stack_dir/.env"
     
-    print_info "✓ Downloads stack .env file created successfully"
+    print_info "✓ Downloads stack .env file created successfully with secure permissions"
     return 0
 }
 
@@ -151,8 +154,9 @@ setup_utility_env() {
 FIREFOX_VNC_PASSWORD=$firefox_password"
     
     create_common_env_content "Utility" "$utility_content" > "$stack_dir/.env"
+    chmod 600 "$stack_dir/.env"
     
-    print_info "✓ Utility stack .env file created successfully"
+    print_info "✓ Utility stack .env file created successfully with secure permissions"
     return 0
 }
 
@@ -184,8 +188,9 @@ PVE_URL=$pve_url
 PVE_VERIFY_SSL=false"
     
     create_common_env_content "Monitoring" "$monitoring_content" > "$stack_dir/.env"
+    chmod 600 "$stack_dir/.env"
     
-    print_info "✓ Monitoring stack .env file created successfully"
+    print_info "✓ Monitoring stack .env file created successfully with secure permissions"
     print_warning "Remember to create 'monitoring@pve' user in Proxmox with PVEAuditor role"
     return 0
 }
