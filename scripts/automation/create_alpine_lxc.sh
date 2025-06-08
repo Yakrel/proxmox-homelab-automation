@@ -78,16 +78,6 @@ create_alpine_lxc() {
         # Wait a moment for container to be ready
         sleep 5
         
-        # Verify Docker is installed and running
-        print_info "Verifying Docker installation..."
-        pct exec "$lxc_id" -- docker --version
-        
-        if [ $? -eq 0 ]; then
-            print_info "✓ Docker is installed and working"
-        else
-            print_warning "Docker installation may need verification"
-        fi
-        
         return 0
     else
         print_error "Failed to create LXC $lxc_name"
@@ -132,6 +122,9 @@ prepare_directories() {
             ;;
         "utility")
             prepare_utility_directories "$lxc_id"
+            ;;
+        "monitoring")
+            prepare_monitoring_directories "$lxc_id"
             ;;
         *)
             print_error "Unknown stack type: $stack_type"
@@ -189,6 +182,19 @@ prepare_utility_directories() {
     chown -R 103000:103000 /datapool/config/{firefox,watchtower-utility}
 }
 
+prepare_monitoring_directories() {
+    local lxc_id=$1
+    print_info "Preparing monitoring stack directories..."
+    
+    # Create directories for monitoring stack
+    mkdir -p /datapool/config/{prometheus,grafana,alertmanager,watchtower-monitoring}
+    mkdir -p /datapool/config/monitoring/{prometheus,grafana/provisioning,alertmanager}
+    
+    # Set ownership (mapped UID for LXC 104) - containers will use PUID=1000
+    chown -R 104000:104000 /datapool/config/{prometheus,grafana,alertmanager,watchtower-monitoring}
+    chown -R 104000:104000 /datapool/config/monitoring
+}
+
 # Main function to create complete LXC setup
 create_complete_lxc() {
     local stack_type=$1
@@ -214,9 +220,14 @@ create_complete_lxc() {
             setup_mount_points 103 "/datapool" "/datapool"
             prepare_directories "utility" 103
             ;;
+        "monitoring")
+            create_alpine_lxc 104 "lxc-monitoring-01" 2 4096 16 "192.168.1.104/24"
+            setup_mount_points 104 "/datapool" "/datapool"
+            prepare_directories "monitoring" 104
+            ;;
         *)
             print_error "Unknown stack type: $stack_type"
-            print_info "Available types: media, proxy, downloads, utility"
+            print_info "Available types: media, proxy, downloads, utility, monitoring"
             return 1
             ;;
     esac
@@ -225,7 +236,7 @@ create_complete_lxc() {
 # Script execution
 if [ $# -eq 0 ]; then
     echo "Usage: $0 <stack_type>"
-    echo "Available stack types: media, proxy, downloads, utility"
+    echo "Available stack types: media, proxy, downloads, utility, monitoring"
     exit 1
 fi
 

@@ -1,7 +1,9 @@
 # IMPORTANT NOTE ON PUID/PGID:
 # The setup_proxy_lxc.sh script sets host directory ownership to 100000:100000 (mapped from LXC ID 100).
-# The PUID/PGID=100000 configuration below is confirmed to work correctly in this setup 
-# and aligns with the host directory permissions.
+# However, containers use PUID/PGID=1000 for consistency across all stacks.
+# LXC namespace mapping handles the permission translation automatically.
+
+version: '3.8'
 
 networks:
   proxy-net:

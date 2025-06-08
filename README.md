@@ -6,9 +6,9 @@ This repository contains a collection of automation tools designed to customize 
 
 ### One-Command Complete Deployment
 
-**Deploy Everything (All 4 Stacks):**
+**Deploy Everything (All 5 Stacks):**
 ```bash
-bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)" && echo "7" | bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
+bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)" && echo "8" | bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
 ```
 
 **Individual Stack Deployment:**
@@ -16,7 +16,7 @@ bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-a
 # Download and run setup script
 bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
 
-# Choose option 7 (Automated Deployment) from menu
+# Choose option 8 (Automated Deployment) from menu
 # Then select individual stack or complete deployment
 ```
 
@@ -25,20 +25,20 @@ The setup script provides these options:
 1. Security Installation (Fail2Ban)
 2. Storage Installation (Samba, Sanoid) 
 3. Individual LXC preparation
-4. **Automated Deployment (Recommended)**
+8. **Automated Deployment (Recommended)**
 
 ## Deployment Approach
 
-This project uses a **fully automated deployment** approach with 4 specialized LXC containers:
+This project uses a **fully automated deployment** approach with 5 specialized LXC containers:
 - **Automated LXC Creation**: Uses community Alpine Docker templates for consistent setup
-- **Stack-based Architecture**: 4 separate stacks for better resource management and isolation
+- **Stack-based Architecture**: 5 separate stacks for better resource management and isolation
 - **One-Click Deployment**: Complete homelab deployment with a single command
 - **Interactive Configuration**: Automated password and configuration setup
 - Each stack includes its own watchtower for automatic updates
 
 ## Overview
 
-This project deploys a complete homelab automation solution with 4 specialized stacks:
+This project deploys a complete homelab automation solution with 5 specialized stacks:
 
 - **Security & Storage Setup**: Enhance Proxmox security with Fail2Ban and configure Samba/Sanoid
 - **Media Stack (LXC 101)**: Complete media automation with Sonarr, Radarr, Jellyfin, qBittorrent
@@ -140,7 +140,7 @@ For proper hardlinks and optimal performance, configure qBittorrent as follows:
 1. Go to Settings > Downloads
    - Enable "Keep incomplete torrents in:" and set it to a temporary location *inside* the container if desired (e.g., `/tmp/incomplete`), but it's often simpler to let qBittorrent manage this internally without a specific path.
    - Ensure "Move completed torrents to" is **disabled** (categories will handle this).
-   - Disable "Append .!qB extension to incomplete files`
+   - Disable "Append .!qB extension to incomplete files"
 
 2. Add Categories:
    - Category: `tv`
