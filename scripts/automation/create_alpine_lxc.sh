@@ -77,91 +77,73 @@ create_alpine_lxc_auto() {
     export AUTO_INSTALL="yes"
     export SKIP_PROMPTS="yes"
     
-    print_step "Downloading and executing tteck's Alpine Docker script..."
-    print_warning "DEBUG MODE: Will show which automation method works..."
+    print_step "Creating Alpine Docker LXC using direct Proxmox commands..."
+    print_warning "Bypassing tteck script - using native Proxmox CT creation"
     
-    # Direct automation without temporary files (works with remote execution)
-    print_step "Method 1: Using NEWT_COLORS automation for whiptail..."
-    print_info "DEBUG: Starting Method 1 with printf newlines..."
-    # Set environment to handle whiptail dialogs automatically
-    export NEWT_COLORS=""
-    export DISPLAY=""
-    if printf '\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n' | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh); then
-        print_info "✓ Method 1 succeeded - printf newlines worked!"
+    # Get latest Alpine template
+    print_step "Finding latest Alpine template..."
+    local template_name=$(pveam available | grep alpine | grep default | sort -V | tail -1 | awk '{print $2}')
+    if [ -z "$template_name" ]; then
+        template_name="alpine-3.21-default_20241226_amd64.tar.xz"
+    fi
+    
+    # Download template if not exists
+    print_step "Downloading Alpine template: $template_name"
+    if ! pveam list local | grep -q "$template_name"; then
+        pveam download local "$template_name"
+    fi
+    
+    # Create LXC container directly with Alpine
+    print_step "Creating LXC container $lxc_id..."
+    if pct create "$lxc_id" "local:vztmpl/$template_name" \
+        --hostname "$lxc_name" \
+        --cores "$cpu_cores" \
+        --memory "$ram_mb" \
+        --rootfs "local-lvm:$disk_gb" \
+        --net0 "name=eth0,bridge=vmbr0,ip=dhcp" \
+        --onboot 1 \
+        --unprivileged 1 \
+        --features "nesting=1"; then
+        
+        print_info "✓ LXC container created successfully!"
+        
+        # Start the container
+        print_step "Starting LXC container..."
+        pct start "$lxc_id"
+        sleep 10
+        
+        # Update Alpine and install Docker
+        print_step "Updating Alpine and installing Docker..."
+        pct exec "$lxc_id" -- ash -c "
+            # Update Alpine
+            apk update && apk upgrade
+            
+            # Install Docker and Docker Compose
+            apk add docker docker-compose docker-cli-compose
+            
+            # Enable and start Docker service
+            rc-update add docker boot
+            service docker start
+            
+            # Disable SSH for security (tteck's approach)
+            rc-update del sshd
+            service sshd stop
+            
+            # Configure root console access (passwordless like tteck)
+            passwd -d root
+            
+            # Install useful packages (like tteck does)
+            apk add curl wget bash nano htop
+            
+            # Set bash as default shell for root
+            chsh -s /bin/bash root
+        "
+        
+        print_info "✓ Direct Alpine Docker LXC creation completed!"
     else
-        print_warning "Method 1 failed (printf newlines didn't work)"
-        print_step "DEBUG: Trying Method 2 with expect..."
-        
-        # Method 2: Install expect and use it
-        if ! command -v expect >/dev/null 2>&1; then
-            print_step "Installing expect for dialog automation..."
-            apt-get update >/dev/null 2>&1 && apt-get install -y expect >/dev/null 2>&1
-        fi
-        
-        if command -v expect >/dev/null 2>&1; then
-            print_step "Method 2: Using expect automation with TAB navigation..."
-            print_info "DEBUG: Expect is available, starting automated interaction..."
-            if expect << 'EXPECT_EOF'
-set timeout 300
-spawn bash -c "curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh | bash"
-expect {
-    "*Alpine-Docker LXC*" { send "\t\r"; exp_continue }
-    "*Proceed*" { send "\t\r"; exp_continue }
-    "*Create*" { send "\t\r"; exp_continue }
-    "*Yes*" { send "\r"; exp_continue }
-    "*No*" { send "\t\r"; exp_continue }
-    "*(y/N)*" { send "y\r"; exp_continue }
-    "*(Y/n)*" { send "Y\r"; exp_continue }
-    eof { puts "Script completed" }
-    timeout { puts "Script timed out"; exit 1 }
-}
-EXPECT_EOF
-            then
-                print_info "✓ Method 2 succeeded"
-            else
-                print_warning "Method 2 failed, trying Method 3..."
-                
-                # Method 3: printf with specific key sequences for whiptail
-                print_step "Method 3: Using specific whiptail key sequences..."
-                # Whiptail navigation: Space to select, Tab to move, Enter to confirm
-                if (echo -e "\t\r"; sleep 1; echo -e "\r"; sleep 1; echo -e "\r") | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null; then
-                    print_info "✓ Method 3 succeeded"
-                else
-                    print_error "All automation methods failed!"
-                    print_warning "═══════════════════════════════════════════════"
-                    print_warning "MANUAL INTERVENTION REQUIRED:"
-                    print_warning "Run this command manually in another terminal:"
-                    print_warning "bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh)"
-                    print_warning "Choose: Yes -> Accept defaults -> Continue"
-                    print_warning "Then press CTRL+C here and re-run setup"
-                    print_warning "═══════════════════════════════════════════════"
-                    
-                    # Give user time to see the message
-                    sleep 10
-                    return 1
-                fi
-            fi
-        else
-            print_error "Could not install expect, trying final method..."
-            # Method 3: Fallback with simple key sequences
-            print_step "Method 3: Using simple key sequence fallback..."
-            if (echo -e "\t\r"; sleep 1; echo -e "\r"; sleep 1; echo -e "\r") | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null; then
-                print_info "✓ Method 3 succeeded"
-            else
-                print_error "All automation methods failed!"
-                print_warning "═══════════════════════════════════════════════"
-                print_warning "MANUAL INTERVENTION REQUIRED:"
-                print_warning "Run this command manually in another terminal:"
-                print_warning "bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh)"
-                print_warning "Choose: Yes -> Accept defaults -> Continue"
-                print_warning "Then press CTRL+C here and re-run setup"
-                print_warning "═══════════════════════════════════════════════"
-                
-                # Give user time to see the message
-                sleep 10
-                return 1
-            fi
-        fi
+        print_error "Direct LXC creation failed!"
+        print_error "Please check Proxmox logs and try again"
+        return 1
     fi
     
     # If we reach here, one of the methods succeeded
