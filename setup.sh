@@ -34,22 +34,21 @@ download_script() {
     return 0
 }
 
-# Automated deployment submenu
-automated_deployment_menu() {
+# Main deployment menu
+main_deployment_menu() {
     echo ""
-    echo "======================================================"
-    echo "Automated Deployment Menu"
-    echo "======================================================"
+    echo "Please select the operation you want to perform:"
     echo "1) Deploy Media Stack (Auto LXC + Services)"
     echo "2) Deploy Proxy Stack (Auto LXC + Services)"
     echo "3) Deploy Downloads Stack (Auto LXC + Services)"
     echo "4) Deploy Utility Stack (Auto LXC + Services)"
     echo "5) Deploy Monitoring Stack (Auto LXC + Services)"
     echo "6) Deploy All Stacks (Complete Homelab)"
-    echo "7) Back to Main Menu"
+    echo "7) Other Utilities (Security, Storage, Network)"
+    echo "8) Exit"
     echo ""
     
-    read -p "Your choice (1-7): " auto_choice
+    read -p "Your choice (1-8): " auto_choice
     
     case $auto_choice in
         1)
@@ -114,7 +113,13 @@ automated_deployment_menu() {
             fi
             ;;
         7)
-            return 0
+            # Other utilities submenu
+            other_utilities_menu
+            ;;
+        8)
+            # Exit
+            echo "Exiting..."
+            exit 0
             ;;
         *)
             echo "Invalid choice!"
@@ -156,6 +161,10 @@ other_utilities_menu() {
             if download_script "scripts/network/setup_bonding.sh"; then
                 echo "Starting network bonding setup..."
                 bash "$TEMP_DIR/setup_bonding.sh"
+                echo ""
+                read -p "Press Enter to return to utilities menu..."
+                other_utilities_menu
+                return
             fi
             ;;
         4)
@@ -167,75 +176,8 @@ other_utilities_menu() {
     esac
 }
 
-# Menu
-echo ""
-echo "Please select the operation you want to perform:"
-echo "1) Proxy LXC (lxc-proxy-01, ID: 100) Preparation"
-echo "2) Media LXC (lxc-media-01, ID: 101) Preparation"
-echo "3) Downloads LXC (lxc-downloads-01, ID: 102) Preparation"
-echo "4) Utility LXC (lxc-utility-01, ID: 103) Preparation"
-echo "5) Monitoring LXC (lxc-monitoring-01, ID: 104) Preparation"
-echo "6) Automated Deployment (Advanced)"
-echo "7) Other Utilities (Security, Storage, Network)"
-echo "8) Exit"
-echo ""
-
-read -p "Your choice (1-8): " choice
-
-case $choice in
-    1)
-        # Proxy LXC preparation
-        if download_script "scripts/lxc/setup_proxy_lxc.sh"; then
-            echo "Starting Proxy LXC preparation..."
-            bash "$TEMP_DIR/setup_proxy_lxc.sh"
-        fi
-        ;;
-    2)
-        # Media LXC preparation
-        if download_script "scripts/lxc/setup_media_lxc.sh"; then
-            echo "Starting Media LXC preparation..."
-            bash "$TEMP_DIR/setup_media_lxc.sh"
-        fi
-        ;;
-    3)
-        # Downloads LXC preparation
-        if download_script "scripts/lxc/setup_downloads_lxc.sh"; then
-            echo "Starting Downloads LXC preparation..."
-            bash "$TEMP_DIR/setup_downloads_lxc.sh"
-        fi
-        ;;
-    4)
-        # Utility LXC preparation
-        if download_script "scripts/lxc/setup_utility_lxc.sh"; then
-            echo "Starting Utility LXC preparation..."
-            bash "$TEMP_DIR/setup_utility_lxc.sh"
-        fi
-        ;;
-    5)
-        # Monitoring LXC preparation
-        if download_script "scripts/lxc/setup_monitoring_lxc.sh"; then
-            echo "Starting Monitoring LXC preparation..."
-            bash "$TEMP_DIR/setup_monitoring_lxc.sh"
-        fi
-        ;;
-    6)
-        # Automated deployment submenu
-        automated_deployment_menu
-        ;;
-    7)
-        # Other utilities submenu
-        other_utilities_menu
-        ;;
-    8)
-        # Exit
-        echo "Exiting..."
-        exit 0
-        ;;
-    *)
-        echo "Invalid choice!"
-        exit 1
-        ;;
-esac
+# Execute main menu
+main_deployment_menu
 
 echo "======================================================"
 echo "Operation completed!"
