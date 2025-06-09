@@ -49,40 +49,77 @@ create_alpine_lxc_direct() {
     
     # Detect available storages
     print_step "Detecting available storage options..."
-    local template_storages=$(pvesm status -content vztmpl | awk 'NR>1 && $2=="active" {print $1}' | head -5)
-    local disk_storages=$(pvesm status -content images | awk 'NR>1 && $2=="active" {print $1}' | head -5)
+    
+    # Get all storages and filter properly
+    print_step "Checking storage configuration..."
+    local all_template_storages=$(pvesm status -content vztmpl 2>/dev/null | awk 'NR>1 {print $1}' | grep -v "^$" | sort)
+    local all_disk_storages=$(pvesm status -content images 2>/dev/null | awk 'NR>1 {print $1}' | grep -v "^$" | sort)
+    
+    # Filter for active storages
+    local template_storages=""
+    for storage in $all_template_storages; do
+        if pvesm status "$storage" 2>/dev/null | grep -q "active"; then
+            template_storages="$template_storages $storage"
+        fi
+    done
+    template_storages=$(echo "$template_storages" | xargs -n1 | head -5)
+    
+    local disk_storages=""  
+    for storage in $all_disk_storages; do
+        if pvesm status "$storage" 2>/dev/null | grep -q "active"; then
+            disk_storages="$disk_storages $storage"
+        fi
+    done
+    disk_storages=$(echo "$disk_storages" | xargs -n1 | head -5)
+    
+    print_info "Found template storages: $template_storages"
+    print_info "Found disk storages: $disk_storages"
     
     # Select template storage
     local template_storage=""
-    local template_count=$(echo "$template_storages" | wc -l)
-    if [ "$template_count" -eq 1 ]; then
-        template_storage=$(echo "$template_storages" | head -1)
-        print_info "Using template storage: $template_storage"
-    elif [ "$template_count" -gt 1 ]; then
-        print_step "Multiple template storages available:"
-        echo "$template_storages" | nl
-        read -p "Select template storage (1-$template_count): " choice
-        template_storage=$(echo "$template_storages" | sed -n "${choice}p")
-        print_info "Selected template storage: $template_storage"
-    else
+    local template_count=$(echo "$template_storages" | wc -w)
+    
+    if [ "$template_count" -eq 0 ]; then
         print_error "No active template storage found!"
+        print_info "Available storages:"
+        pvesm status
         return 1
+    elif [ "$template_count" -eq 1 ]; then
+        template_storage="$template_storages"
+        print_info "Using template storage: $template_storage"
+    else
+        print_step "Multiple template storages available:"
+        echo "$template_storages" | tr ' ' '\n' | nl
+        read -p "Select template storage (1-$template_count): " choice
+        template_storage=$(echo "$template_storages" | tr ' ' '\n' | sed -n "${choice}p")
+        print_info "Selected template storage: $template_storage"
     fi
     
     # Select disk storage
     local disk_storage=""
-    local disk_count=$(echo "$disk_storages" | wc -l)
-    if [ "$disk_count" -eq 1 ]; then
-        disk_storage=$(echo "$disk_storages" | head -1)
-        print_info "Using disk storage: $disk_storage"
-    elif [ "$disk_count" -gt 1 ]; then
-        print_step "Multiple disk storages available:"
-        echo "$disk_storages" | nl
-        read -p "Select disk storage (1-$disk_count): " choice
-        disk_storage=$(echo "$disk_storages" | sed -n "${choice}p")
-        print_info "Selected disk storage: $disk_storage"
-    else
+    local disk_count=$(echo "$disk_storages" | wc -w)
+    
+    if [ "$disk_count" -eq 0 ]; then
         print_error "No active disk storage found!"
+        print_info "Available storages:"
+        pvesm status
+        return 1
+    elif [ "$disk_count" -eq 1 ]; then
+        disk_storage="$disk_storages"
+        print_info "Using disk storage: $disk_storage"
+    else
+        print_step "Multiple disk storages available:"
+        echo "$disk_storages" | tr ' ' '\n' | nl
+        read -p "Select disk storage (1-$disk_count): " choice
+        disk_storage=$(echo "$disk_storages" | tr ' ' '\n' | sed -n "${choice}p")
+        print_info "Selected disk storage: $disk_storage"
+    fi
+    
+    # Validate selections
+    if [ -z "$template_storage" ] || [ -z "$disk_storage" ]; then
+        print_error "Storage selection failed!"
+        print_info "Template storage: '$template_storage'"
+        print_info "Disk storage: '$disk_storage'"
         return 1
     fi
     
