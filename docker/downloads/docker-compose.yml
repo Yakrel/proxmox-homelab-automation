@@ -47,7 +47,7 @@ services:
       - /datapool/config/metube:/config
       - /datapool:/datapool
     ports:
-      - "8081:8081"
+      - "8082:8081"
     networks:
       - downloads-net
     restart: unless-stopped
@@ -87,7 +87,6 @@ services:
     container_name: watchtower-downloads
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /datapool/config/watchtower-downloads:/config:ro
     environment:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true

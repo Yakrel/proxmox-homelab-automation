@@ -275,9 +275,9 @@ deploy_complete_stack() {
     fi
 }
 
-# Main script execution
-if [ $# -eq 0 ]; then
-    echo "Usage: $0 <stack_type> [lxc_id]"
+# Enhanced input validation
+if [ $# -eq 0 ] || [ $# -gt 2 ]; then
+    print_info "Usage: $0 <stack_type> [lxc_id]"
     echo "Available stack types: media, proxy, downloads, utility, monitoring"
     echo "Examples:"
     echo "  $0 media      # Deploy to LXC 101"
@@ -286,6 +286,26 @@ if [ $# -eq 0 ]; then
     echo "  $0 utility    # Deploy to LXC 103"
     echo "  $0 monitoring # Deploy to LXC 104"
     exit 1
+fi
+
+# Validate stack type
+case "$1" in
+    media|proxy|downloads|utility|monitoring)
+        # Valid stack type
+        ;;
+    *)
+        print_error "Invalid stack type: $1"
+        print_error "Available stack types: media, proxy, downloads, utility, monitoring"
+        exit 1
+        ;;
+esac
+
+# Validate LXC ID if provided
+if [ $# -eq 2 ]; then
+    if ! [[ "$2" =~ ^[0-9]+$ ]] || [ "$2" -lt 100 ] || [ "$2" -gt 999 ]; then
+        print_error "Invalid LXC ID: $2 (must be a number between 100-999)"
+        exit 1
+    fi
 fi
 
 # Check if running as root

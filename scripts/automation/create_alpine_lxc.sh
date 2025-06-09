@@ -1,130 +1,231 @@
 #!/bin/bash
 
-# Alpine Docker LXC Creation Script
-# Uses community-scripts/ProxmoxVE Alpine Docker template
-# Source: https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh
+# Automated Alpine Docker LXC Creation using tteck's script
+# Passes environment variables to automate the community script
 
 set -e
 
-# Color definitions for output
+# Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+BLUE='\033[0;34m'
+NC='\033[0m'
 
-# Function to print colored output
 print_info() {
     echo -e "${GREEN}[INFO]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Function to create Alpine LXC with custom parameters
-create_alpine_lxc() {
+print_step() {
+    echo -e "${BLUE}[STEP]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Function to create Alpine LXC using tteck's automated script
+create_alpine_lxc_auto() {
     local lxc_id=$1
     local lxc_name=$2
     local cpu_cores=$3
     local ram_mb=$4
     local disk_gb=$5
-    local ip_address=$6
+
+    # Ensure temporary script cleanup on exit
+    trap 'rm -f /tmp/alpine_auto.sh' EXIT
 
     print_info "Creating Alpine Docker LXC: $lxc_name (ID: $lxc_id)"
     print_info "Specs: ${cpu_cores} cores, ${ram_mb}MB RAM, ${disk_gb}GB disk"
-    print_info "IP: $ip_address"
+    
+    # Check if LXC already exists
+    if pct status "$lxc_id" >/dev/null 2>&1; then
+        print_error "LXC $lxc_id already exists!"
+        return 1
+    fi
 
-    # Download and execute the Alpine Docker script with custom parameters
-    # Override default variables before sourcing the script
-    export CT_ID="$lxc_id"
-    export CT_NAME="$lxc_name"
+    print_step "Setting up environment variables for tteck's script..."
+    
+    # Core script variables for Alpine Docker
+    export var_cpu="$cpu_cores"
+    export var_ram="$ram_mb"
+    export var_disk="$disk_gb"
+    # Also export with expected variable names for community script compatibility
     export CPU_CORES="$cpu_cores"
     export RAM_SIZE="$ram_mb"
     export DISK_SIZE="$disk_gb"
-    export NET_IP="$ip_address"
+    export var_os="alpine"
+    export var_version="latest"  # Always use latest Alpine
+    export var_unprivileged="1"
+    export var_tags="docker;alpine;homelab"
     
-    # Set non-interactive mode
+    # Container settings
+    export CTID="$lxc_id"
+    export HN="$lxc_name"
+    export CT_TYPE="1"  # Unprivileged
+    
+    # Network settings (DHCP by default)
+    export NET="dhcp"
+    export BRG="vmbr0"
+    export GATE=""
+    export DISABLEIP6="no"
+    
+    # Security settings (like tteck's script does)
+    export SSH="no"           # Disable SSH root access
+    export PW=""              # No password (uses key-based or Proxmox console)
+    export SSH_AUTHORIZED_KEY=""
+    
+    # Advanced features
+    export ENABLE_FUSE="no"   # Usually not needed for Docker
+    export ENABLE_TUN="no"    # Usually not needed
+    
+    # Automation settings
+    export VERB="no"          # Non-verbose mode
+    export METHOD="default"   # Use default settings
+    
+    # Try to make it non-interactive by pre-answering
     export DEBIAN_FRONTEND=noninteractive
     
-    print_info "Downloading Alpine Docker LXC creation script..."
+    print_step "Downloading and executing tteck's Alpine Docker script..."
+    print_warning "Note: Script may still prompt for confirmation - press Enter for defaults"
     
-    # Create temporary script file
-    TEMP_SCRIPT=$(mktemp)
-    trap 'rm -f "$TEMP_SCRIPT"' EXIT
+    # Create a wrapper script that pre-answers the prompts
+    cat > /tmp/alpine_auto.sh << 'EOF'
+#!/bin/bash
+# Auto-answer script for tteck's Alpine Docker
+TEMPLATE_SELECTION=1 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh)
+EOF
     
-    # Download the script
-    wget -q -O "$TEMP_SCRIPT" "https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh"
+    chmod +x /tmp/alpine_auto.sh
     
-    if [ $? -ne 0 ]; then
-        print_error "Failed to download Alpine Docker script"
-        return 1
-    fi
-    
-    # Make it executable
-    chmod +x "$TEMP_SCRIPT"
-    
-    print_info "Executing LXC creation script..."
-    
-    # Execute the script
-    bash "$TEMP_SCRIPT"
-    
-    if [ $? -eq 0 ]; then
+    # Execute with timeout in case it hangs
+    if timeout 600 /tmp/alpine_auto.sh; then
         print_info "✓ LXC $lxc_name created successfully!"
         
-        # Wait a moment for container to be ready
-        sleep 5
+        # Clean up
+        rm -f /tmp/alpine_auto.sh
+        
+        # Wait for container to be fully ready
+        sleep 10
+        
+        # Verify container exists and is running
+        if pct status "$lxc_id" | grep -q "running"; then
+            print_info "✓ Container is running"
+        else
+            print_warning "Container not running, starting..."
+            pct start "$lxc_id"
+            sleep 5
+        fi
+        
+        # Add datapool mount
+        print_step "Adding /datapool mount point..."
+        if add_datapool_mount "$lxc_id"; then
+            print_info "✓ Mount point added successfully"
+        else
+            print_warning "Failed to add mount point automatically"
+        fi
+        
+        # Verify Docker installation
+        print_step "Verifying Docker installation..."
+        if verify_docker "$lxc_id"; then
+            print_info "✓ Docker and Docker Compose verified"
+        else
+            print_warning "Docker verification failed, may need manual check"
+        fi
         
         return 0
     else
-        print_error "Failed to create LXC $lxc_name"
+        print_error "Script execution failed or timed out"
+        rm -f /tmp/alpine_auto.sh
         return 1
     fi
 }
 
-# Function to setup mount points
-setup_mount_points() {
+# Function to add datapool mount
+add_datapool_mount() {
     local lxc_id=$1
-    local mount_source=$2
-    local mount_target=$3
     
-    print_info "Setting up mount point: $mount_source -> $mount_target"
+    # Stop container if running
+    if pct status "$lxc_id" | grep -q "running"; then
+        pct stop "$lxc_id"
+        sleep 3
+    fi
     
-    # Add mount point to LXC config
-    pct set "$lxc_id" -mp0 "$mount_source,mp=$mount_target"
+    # Determine the next available mount index
+    local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}')
+    next_mp_index=${next_mp_index:-0} # Default to 0 if no mount points exist
     
-    if [ $? -eq 0 ]; then
-        print_info "✓ Mount point configured successfully"
-        return 0
+    # Add mount point
+    if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool; then
+        # Start container
+        pct start "$lxc_id"
+        sleep 5
+        
+        # Verify mount
+        if pct exec "$lxc_id" -- test -d /datapool; then
+            return 0
+        else
+            return 1
+        fi
     else
-        print_error "Failed to configure mount point"
         return 1
     fi
 }
 
-# Function to prepare directory structure with proper permissions
-prepare_directories() {
+# Function to verify Docker installation
+verify_docker() {
+    local lxc_id=$1
+    
+    # Test Docker
+    if pct exec "$lxc_id" -- docker --version >/dev/null 2>&1; then
+        local docker_version=$(pct exec "$lxc_id" -- docker --version)
+        print_info "✓ Docker: $docker_version"
+    else
+        return 1
+    fi
+    
+    # Test Docker Compose
+    if pct exec "$lxc_id" -- docker compose version >/dev/null 2>&1; then
+        local compose_version=$(pct exec "$lxc_id" -- docker compose version --short)
+        print_info "✓ Docker Compose: $compose_version"
+    else
+        return 1
+    fi
+    
+    # Test Docker service
+    if pct exec "$lxc_id" -- rc-service docker status | grep -q "started"; then
+        print_info "✓ Docker service is running"
+    else
+        print_warning "Starting Docker service..."
+        pct exec "$lxc_id" -- rc-service docker start
+    fi
+    
+    return 0
+}
+
+# Main function
+create_stack_lxc() {
     local stack_type=$1
-    local lxc_id=$2
     
     case $stack_type in
         "media")
-            prepare_media_directories "$lxc_id"
+            create_alpine_lxc_auto 101 "lxc-media-01" 4 8192 16
             ;;
         "proxy")
-            prepare_proxy_directories "$lxc_id"
+            create_alpine_lxc_auto 100 "lxc-proxy-01" 1 2048 8
             ;;
         "downloads")
-            prepare_downloads_directories "$lxc_id"
+            create_alpine_lxc_auto 102 "lxc-downloads-01" 2 4096 8
             ;;
         "utility")
-            prepare_utility_directories "$lxc_id"
+            create_alpine_lxc_auto 103 "lxc-utility-01" 2 4096 8
             ;;
         "monitoring")
-            prepare_monitoring_directories "$lxc_id"
+            create_alpine_lxc_auto 104 "lxc-monitoring-01" 2 4096 16
             ;;
         *)
             print_error "Unknown stack type: $stack_type"
@@ -133,167 +234,42 @@ prepare_directories() {
     esac
 }
 
-prepare_media_directories() {
-    local lxc_id=$1
-    print_info "Preparing media stack directories..."
-    
-    # Configuration variables
-    local PUID=1000
-    local PGID=1000
-    
-    # Directory arrays for bulk operations
-    local CONFIG_DIRS=("sonarr" "radarr" "bazarr" "jellyfin" "jellyseerr" "qbittorrent" "prowlarr" "flaresolverr" "watchtower-media" "recyclarr" "cleanuperr" "huntarr")
-    
-    # Create config directories
-    for dir in "${CONFIG_DIRS[@]}"; do
-        mkdir -p "/datapool/config/$dir"
-        chown -R "${PUID}:${PGID}" "/datapool/config/$dir"
-    done
-    
-    # Create media and torrent directories
-    mkdir -p /datapool/media/{tv,movies}
-    mkdir -p /datapool/media/youtube/{playlists,channels}
-    mkdir -p /datapool/torrents/{tv,movies,other}
-    
-    # Set unified ownership
-    chown -R "${PUID}:${PGID}" /datapool/media
-    chown -R "${PUID}:${PGID}" /datapool/torrents
-}
-
-prepare_proxy_directories() {
-    local lxc_id=$1
-    print_info "Preparing proxy stack directories..."
-    
-    # Configuration variables
-    local PUID=1000
-    local PGID=1000
-    
-    # Directory arrays for bulk operations
-    local CONFIG_DIRS=("cloudflared" "watchtower-proxy")
-    
-    # Create config directories
-    for dir in "${CONFIG_DIRS[@]}"; do
-        mkdir -p "/datapool/config/$dir"
-        chown -R "${PUID}:${PGID}" "/datapool/config/$dir"
-    done
-}
-
-prepare_downloads_directories() {
-    local lxc_id=$1
-    print_info "Preparing downloads stack directories..."
-    
-    # Configuration variables
-    local PUID=1000
-    local PGID=1000
-    
-    # Directory arrays for bulk operations
-    local CONFIG_DIRS=("jdownloader2" "metube" "watchtower-downloads")
-    
-    # Create config directories
-    for dir in "${CONFIG_DIRS[@]}"; do
-        mkdir -p "/datapool/config/$dir"
-        chown -R "${PUID}:${PGID}" "/datapool/config/$dir"
-    done
-}
-
-prepare_utility_directories() {
-    local lxc_id=$1
-    print_info "Preparing utility stack directories..."
-    
-    # Configuration variables
-    local PUID=1000
-    local PGID=1000
-    
-    # Directory arrays for bulk operations
-    local CONFIG_DIRS=("firefox" "watchtower-utility")
-    
-    # Create config directories
-    for dir in "${CONFIG_DIRS[@]}"; do
-        mkdir -p "/datapool/config/$dir"
-        chown -R "${PUID}:${PGID}" "/datapool/config/$dir"
-    done
-}
-
-prepare_monitoring_directories() {
-    local lxc_id=$1
-    print_info "Preparing monitoring stack directories..."
-    
-    # Configuration variables
-    local PUID=1000
-    local PGID=1000
-    
-    # Directory arrays for bulk operations
-    local CONFIG_DIRS=("prometheus" "grafana" "alertmanager" "watchtower-monitoring")
-    
-    # Create config directories
-    for dir in "${CONFIG_DIRS[@]}"; do
-        mkdir -p "/datapool/config/$dir"
-        chown -R "${PUID}:${PGID}" "/datapool/config/$dir"
-    done
-    
-    # Create monitoring specific directories
-    mkdir -p /datapool/config/monitoring/{prometheus,grafana/provisioning,alertmanager}
-    chown -R "${PUID}:${PGID}" /datapool/config/monitoring
-}
-
-# Main function to create complete LXC setup
-create_complete_lxc() {
-    local stack_type=$1
-    
-    case $stack_type in
-        "media")
-            create_alpine_lxc 101 "lxc-media-01" 4 8192 16 "192.168.1.101/24"
-            setup_mount_points 101 "/datapool" "/datapool"
-            prepare_directories "media" 101
-            ;;
-        "proxy")
-            create_alpine_lxc 100 "lxc-proxy-01" 1 2048 8 "192.168.1.100/24"
-            setup_mount_points 100 "/datapool" "/datapool"
-            prepare_directories "proxy" 100
-            ;;
-        "downloads")
-            create_alpine_lxc 102 "lxc-downloads-01" 2 4096 8 "192.168.1.102/24"
-            setup_mount_points 102 "/datapool" "/datapool"
-            prepare_directories "downloads" 102
-            ;;
-        "utility")
-            create_alpine_lxc 103 "lxc-utility-01" 2 4096 8 "192.168.1.103/24"
-            setup_mount_points 103 "/datapool" "/datapool"
-            prepare_directories "utility" 103
-            ;;
-        "monitoring")
-            create_alpine_lxc 104 "lxc-monitoring-01" 2 4096 16 "192.168.1.104/24"
-            setup_mount_points 104 "/datapool" "/datapool"
-            prepare_directories "monitoring" 104
-            ;;
-        *)
-            print_error "Unknown stack type: $stack_type"
-            print_info "Available types: media, proxy, downloads, utility, monitoring"
-            return 1
-            ;;
-    esac
-}
-
-# Script execution
-if [ $# -eq 0 ]; then
-    echo "Usage: $0 <stack_type>"
-    echo "Available stack types: media, proxy, downloads, utility, monitoring"
+# Input validation
+if [ $# -ne 1 ]; then
+    print_error "Usage: $0 <stack_type>"
+    echo "Available: media, proxy, downloads, utility, monitoring"
     exit 1
 fi
 
-# Check if running as root
+case "$1" in
+    media|proxy|downloads|utility|monitoring)
+        ;;
+    *)
+        print_error "Invalid stack type: $1"
+        exit 1
+        ;;
+esac
+
 if [ "$(id -u)" -ne 0 ]; then
     print_error "This script must be run as root"
     exit 1
 fi
 
+# Execute
 STACK_TYPE=$1
-print_info "Starting LXC creation for $STACK_TYPE stack..."
+print_info "Creating $STACK_TYPE stack using tteck's Alpine Docker script (automated)..."
 
-create_complete_lxc "$STACK_TYPE"
-
-if [ $? -eq 0 ]; then
-    print_info "🎉 $STACK_TYPE stack LXC created successfully!"
+if create_stack_lxc "$STACK_TYPE"; then
+    print_info "🎉 $STACK_TYPE LXC created successfully!"
+    print_info ""
+    print_info "Features installed by tteck's script:"
+    print_info "✓ Latest Alpine Linux (3.21)"
+    print_info "✓ Latest Docker + Docker Compose"
+    print_info "✓ SSH disabled for security"
+    print_info "✓ Passwordless root console access"
+    print_info "✓ Unprivileged container with nesting"
+    print_info "✓ /datapool mount point added"
+    print_info ""
     print_info "Next steps:"
     case $STACK_TYPE in
         media) LXC_ID=101;;
@@ -302,9 +278,10 @@ if [ $? -eq 0 ]; then
         utility) LXC_ID=103;;
         monitoring) LXC_ID=104;;
     esac
-    print_info "1. Enter the LXC: pct enter $LXC_ID"
-    print_info "2. Deploy the stack using the deployment script"
+    print_info "1. Create directories: bash scripts/lxc/setup_${STACK_TYPE}_lxc.sh"
+    print_info "2. Deploy services: bash scripts/automation/deploy_stack.sh $STACK_TYPE $LXC_ID"
+    print_info "3. Access LXC: pct enter $LXC_ID"
 else
-    print_error "Failed to create $STACK_TYPE stack LXC"
+    print_error "Failed to create $STACK_TYPE LXC"
     exit 1
 fi

@@ -1,7 +1,7 @@
 # IMPORTANT NOTE ON PUID/PGID:
-# The setup_proxy_lxc.sh script sets host directory ownership to 100000:100000 (mapped from LXC ID 100).
-# However, containers use PUID/PGID=1000 for consistency across all stacks.
-# LXC namespace mapping handles the permission translation automatically.
+# All containers use PUID=1000 and PGID=1000 for consistency.
+# Host directories are owned by 1000:1000 (set by setup_proxy_lxc.sh).
+# This unified approach eliminates permission issues and simplifies maintenance.
 
 version: '3.8'
 
@@ -36,7 +36,7 @@ services:
     container_name: node-exporter-proxy
     restart: unless-stopped
     ports:
-      - "9100:9100"
+      - "9104:9100"
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -61,7 +61,6 @@ services:
     container_name: watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /datapool/config/watchtower-proxy:/config:ro
     environment:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
