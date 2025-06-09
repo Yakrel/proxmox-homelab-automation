@@ -48,56 +48,64 @@ create_alpine_lxc_auto() {
         return 1
     fi
 
-    print_step "Setting up environment variables for tteck's script..."
+    print_step "Setting up environment variables for tteck's script automation..."
     
-    # Core script variables for Alpine Docker
-    export var_cpu="$cpu_cores"
-    export var_ram="$ram_mb"
-    export var_disk="$disk_gb"
-    # Also export with expected variable names for community script compatibility
-    export CPU_CORES="$cpu_cores"
-    export RAM_SIZE="$ram_mb"
-    export DISK_SIZE="$disk_gb"
-    export var_os="alpine"
-    export var_version="latest"  # Always use latest Alpine
-    export var_unprivileged="1"
-    export var_tags="docker;alpine;homelab"
-    
-    # Container settings
+    # Core LXC specifications that tteck's script will use
     export CTID="$lxc_id"
     export HN="$lxc_name"
-    export CT_TYPE="1"  # Unprivileged
+    export DISK_SIZE="$disk_gb"
+    export RAM_SIZE="$ram_mb"
+    export CPU_CORES="$cpu_cores"
     
-    # Network settings (DHCP by default)
+    # Force unprivileged container (safer and what we want)
+    export CT_TYPE="1"
+    export UNPRIVILEGED="yes"
+    
+    # Network configuration (DHCP on default bridge)
     export NET="dhcp"
     export BRG="vmbr0"
     export GATE=""
     export DISABLEIP6="no"
     
-    # Security settings (like tteck's script does)
-    export SSH="no"           # Disable SSH root access
-    export PW=""              # No password (uses key-based or Proxmox console)
-    export SSH_AUTHORIZED_KEY=""
+    # Security: Disable SSH, enable console-only access (exactly what we want)
+    export SSH="no"
+    export VERBOSE="no"
     
-    # Advanced features
-    export ENABLE_FUSE="no"   # Usually not needed for Docker
-    export ENABLE_TUN="no"    # Usually not needed
-    
-    # Automation settings
-    export VERB="no"          # Non-verbose mode
-    export METHOD="default"   # Use default settings
-    
-    # Try to make it non-interactive by pre-answering
+    # Automation flags to skip prompts
     export DEBIAN_FRONTEND=noninteractive
+    export INTERACTIVE="no"
+    export AUTO_INSTALL="yes"
+    export SKIP_PROMPTS="yes"
     
     print_step "Downloading and executing tteck's Alpine Docker script..."
     print_warning "Note: Script may still prompt for confirmation - press Enter for defaults"
     
-    # Create a wrapper script that pre-answers the prompts
+    # Create a fully automated wrapper script 
     cat > /tmp/alpine_auto.sh << 'EOF'
 #!/bin/bash
-# Auto-answer script for tteck's Alpine Docker
-TEMPLATE_SELECTION=1 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh)
+# Fully automated tteck's Alpine Docker script with pre-configured answers
+set -e
+
+# Function to send automated responses to tteck's script
+send_responses() {
+    # Wait a bit for script to load
+    sleep 2
+    
+    # Send "yes" multiple times to handle all possible prompts
+    for i in {1..10}; do
+        echo "yes"
+        sleep 0.5
+    done
+    
+    # Send some enters for default values
+    for i in {1..5}; do
+        echo ""
+        sleep 0.5
+    done
+}
+
+# Execute tteck's script with our automated responses
+send_responses | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh)
 EOF
     
     chmod +x /tmp/alpine_auto.sh
