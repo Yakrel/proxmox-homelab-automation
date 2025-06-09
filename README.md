@@ -75,6 +75,8 @@ This project deploys a complete homelab automation solution with 5 specialized s
 - **Prowlarr** – Indexer proxy | http://192.168.1.101:9696
 - **Flaresolverr** – Cloudflare bypass | http://192.168.1.101:8191
 - **Recyclarr** – *arr configuration tool (no web UI)
+- **Cleanuperr** – Media library cleanup | http://192.168.1.101:9555
+- **Huntarr** – Torrent hunting tool | http://192.168.1.101:9705
 
 ### Downloads Stack (lxc-downloads-01, ID: 102)  
 - **JDownloader2** – Download manager | http://192.168.1.102:5801

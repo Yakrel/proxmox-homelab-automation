@@ -181,6 +181,9 @@ services:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 6 * * *
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
     restart: unless-stopped
     networks:
       - monitoring-net
