@@ -78,17 +78,19 @@ create_alpine_lxc_auto() {
     export SKIP_PROMPTS="yes"
     
     print_step "Downloading and executing tteck's Alpine Docker script..."
-    print_warning "Attempting automated tteck script execution..."
+    print_warning "DEBUG MODE: Will show which automation method works..."
     
     # Direct automation without temporary files (works with remote execution)
     print_step "Method 1: Using NEWT_COLORS automation for whiptail..."
+    print_info "DEBUG: Starting Method 1 with printf newlines..."
     # Set environment to handle whiptail dialogs automatically
     export NEWT_COLORS=""
     export DISPLAY=""
-    if printf '\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n' | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null; then
-        print_info "✓ Method 1 succeeded"
+    if printf '\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n' | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh); then
+        print_info "✓ Method 1 succeeded - printf newlines worked!"
     else
-        print_warning "Method 1 failed, trying Method 2..."
+        print_warning "Method 1 failed (printf newlines didn't work)"
+        print_step "DEBUG: Trying Method 2 with expect..."
         
         # Method 2: Install expect and use it
         if ! command -v expect >/dev/null 2>&1; then
@@ -98,6 +100,7 @@ create_alpine_lxc_auto() {
         
         if command -v expect >/dev/null 2>&1; then
             print_step "Method 2: Using expect automation with TAB navigation..."
+            print_info "DEBUG: Expect is available, starting automated interaction..."
             if expect << 'EXPECT_EOF'
 set timeout 300
 spawn bash -c "curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh | bash"
@@ -124,7 +127,17 @@ EXPECT_EOF
                 if (echo -e "\t\r"; sleep 1; echo -e "\r"; sleep 1; echo -e "\r") | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null; then
                     print_info "✓ Method 3 succeeded"
                 else
-                    print_error "All automation methods failed"
+                    print_error "All automation methods failed!"
+                    print_warning "═══════════════════════════════════════════════"
+                    print_warning "MANUAL INTERVENTION REQUIRED:"
+                    print_warning "Run this command manually in another terminal:"
+                    print_warning "bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh)"
+                    print_warning "Choose: Yes -> Accept defaults -> Continue"
+                    print_warning "Then press CTRL+C here and re-run setup"
+                    print_warning "═══════════════════════════════════════════════"
+                    
+                    # Give user time to see the message
+                    sleep 10
                     return 1
                 fi
             fi
@@ -135,7 +148,17 @@ EXPECT_EOF
             if (echo -e "\t\r"; sleep 1; echo -e "\r"; sleep 1; echo -e "\r") | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null; then
                 print_info "✓ Method 3 succeeded"
             else
-                print_error "All automation methods failed"
+                print_error "All automation methods failed!"
+                print_warning "═══════════════════════════════════════════════"
+                print_warning "MANUAL INTERVENTION REQUIRED:"
+                print_warning "Run this command manually in another terminal:"
+                print_warning "bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh)"
+                print_warning "Choose: Yes -> Accept defaults -> Continue"
+                print_warning "Then press CTRL+C here and re-run setup"
+                print_warning "═══════════════════════════════════════════════"
+                
+                # Give user time to see the message
+                sleep 10
                 return 1
             fi
         fi
