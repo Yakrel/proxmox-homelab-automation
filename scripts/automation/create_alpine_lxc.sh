@@ -108,25 +108,8 @@ create_alpine_lxc_direct() {
             # Configure passwordless root login (tteck style)
             passwd -d root
             
-            # Set 256-color terminal (tteck style)
+            # Set 256-color terminal
             echo "export TERM=\"xterm-256color\"" >> /root/.bashrc
-            
-            # Create tteck-style MOTD with branding
-            IP=$(ip -4 addr show eth0 | awk "/inet / {print \$2}" | cut -d/ -f1 | head -n 1)
-            OS_NAME=$(grep ^NAME /etc/os-release | cut -d= -f2 | tr -d "\"")
-            OS_VERSION=$(grep ^VERSION_ID /etc/os-release | cut -d= -f2 | tr -d "\"")
-            
-            # Create tteck-style profile with colors and branding
-            mkdir -p /etc/profile.d
-            cat > /etc/profile.d/00_lxc-details.sh << "EOF"
-echo -e ""
-echo -e "\033[1mAlpine-Docker LXC Container\033[m"
-echo -e "  \033[33m🌐 Provided by: \033[92mcommunity-scripts ORG \033[33m| GitHub: \033[92mhttps://github.com/community-scripts/ProxmoxVE\033[m"
-echo ""
-echo -e "  \033[33m🖥️ OS: \033[92m${OS_NAME} - Version: ${OS_VERSION}\033[m"
-echo -e "  \033[33m🏠 Hostname: \033[92m$(hostname)\033[m"
-echo -e "  \033[33m💡 IP Address: \033[92m$(ip -4 addr show eth0 | awk "/inet / {print \$2}" | cut -d/ -f1 | head -n 1)\033[m"
-EOF
             
             # Configure SSH (disabled by default like tteck)
             rc-update del sshd 2>/dev/null || true
@@ -324,11 +307,10 @@ print_info "Creating $STACK_TYPE stack using direct Alpine Docker LXC creation..
 if create_stack_lxc "$STACK_TYPE"; then
     print_info "🎉 $STACK_TYPE LXC created successfully!"
     print_info ""
-    print_info "Features installed (tteck-compatible):"
-    print_info "✓ Latest Alpine Linux with all tteck configurations"
-    print_info "✓ Docker + Docker Compose + Core packages"
+    print_info "Features installed:"
+    print_info "✓ Latest Alpine Linux with core configurations"
+    print_info "✓ Docker + Docker Compose + Essential packages"
     print_info "✓ SSH disabled, passwordless console access"
-    print_info "✓ tteck-style MOTD and branding"
     print_info "✓ IPv6 disabled, 256-color terminal"
     print_info "✓ Autologin console, unprivileged container"
     print_info "✓ /datapool mount point added"
