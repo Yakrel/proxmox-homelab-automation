@@ -78,39 +78,57 @@ create_alpine_lxc_auto() {
     export SKIP_PROMPTS="yes"
     
     print_step "Downloading and executing tteck's Alpine Docker script..."
-    print_warning "Note: Script may still prompt for confirmation - press Enter for defaults"
+    print_warning "Attempting multiple automation methods..."
     
-    # Create a fully automated wrapper script 
+    # Method 1: Simple yes command approach
     cat > /tmp/alpine_auto.sh << 'EOF'
 #!/bin/bash
-# Fully automated tteck's Alpine Docker script with pre-configured answers
-set -e
+# Multiple automation approaches for tteck's Alpine Docker script
 
-# Function to send automated responses to tteck's script
-send_responses() {
-    # Wait a bit for script to load
-    sleep 2
-    
-    # Send "yes" multiple times to handle all possible prompts
-    for i in {1..10}; do
-        echo "yes"
-        sleep 0.5
-    done
-    
-    # Send some enters for default values
-    for i in {1..5}; do
-        echo ""
-        sleep 0.5
-    done
+# Method 1: Simple yes pipe (works for many dialogs)
+method1() {
+    echo "Trying Method 1: yes command"
+    yes "" | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null
 }
 
-# Execute tteck's script with our automated responses
-send_responses | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh)
+# Method 2: Expect automation (if available)
+method2() {
+    echo "Trying Method 2: expect automation"
+    if command -v expect >/dev/null 2>&1; then
+        expect << 'EXPECT_EOF'
+set timeout 300
+spawn bash -c "curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh | bash"
+expect {
+    "*Alpine-Docker LXC*" { send "\r"; exp_continue }
+    "*Proceed*" { send "\r"; exp_continue }
+    "*Create*" { send "\r"; exp_continue }
+    "*Yes*" { send "\r"; exp_continue }
+    eof { puts "Script completed" }
+    timeout { puts "Script timed out"; exit 1 }
+}
+EXPECT_EOF
+    else
+        return 1
+    fi
+}
+
+# Method 3: printf approach
+method3() {
+    echo "Trying Method 3: printf multiple enters"
+    printf '\n\n\n\n\n\n\n\n\n\n' | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null
+}
+
+# Try methods in order
+method1 || method2 || method3 || {
+    echo "All automation methods failed"
+    exit 1
+}
 EOF
     
     chmod +x /tmp/alpine_auto.sh
     
     # Execute with timeout in case it hangs
+    print_step "Executing tteck's script with automation..."
     if timeout 600 /tmp/alpine_auto.sh; then
         print_info "✓ LXC $lxc_name created successfully!"
         
