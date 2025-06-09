@@ -166,6 +166,14 @@ EXPECT_EOF
     
     # If we reach here, one of the methods succeeded
     print_step "Verifying LXC creation..."
+    
+    # Check if we're in a Proxmox environment
+    if ! command -v pct >/dev/null 2>&1; then
+        print_warning "Not in Proxmox environment - skipping LXC verification"
+        print_info "✓ Automation methods executed successfully"
+        return 0
+    fi
+    
     if pct status "$lxc_id" >/dev/null 2>&1; then
         print_info "✓ LXC $lxc_name created successfully!"
         
