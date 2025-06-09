@@ -47,26 +47,68 @@ create_alpine_lxc_direct() {
 
     print_step "Creating Alpine Docker LXC using direct Proxmox commands..."
     
+    # Detect available storages
+    print_step "Detecting available storage options..."
+    local template_storages=$(pvesm status -content vztmpl | awk 'NR>1 && $2=="active" {print $1}' | head -5)
+    local disk_storages=$(pvesm status -content images | awk 'NR>1 && $2=="active" {print $1}' | head -5)
+    
+    # Select template storage
+    local template_storage=""
+    local template_count=$(echo "$template_storages" | wc -l)
+    if [ "$template_count" -eq 1 ]; then
+        template_storage=$(echo "$template_storages" | head -1)
+        print_info "Using template storage: $template_storage"
+    elif [ "$template_count" -gt 1 ]; then
+        print_step "Multiple template storages available:"
+        echo "$template_storages" | nl
+        read -p "Select template storage (1-$template_count): " choice
+        template_storage=$(echo "$template_storages" | sed -n "${choice}p")
+        print_info "Selected template storage: $template_storage"
+    else
+        print_error "No active template storage found!"
+        return 1
+    fi
+    
+    # Select disk storage
+    local disk_storage=""
+    local disk_count=$(echo "$disk_storages" | wc -l)
+    if [ "$disk_count" -eq 1 ]; then
+        disk_storage=$(echo "$disk_storages" | head -1)
+        print_info "Using disk storage: $disk_storage"
+    elif [ "$disk_count" -gt 1 ]; then
+        print_step "Multiple disk storages available:"
+        echo "$disk_storages" | nl
+        read -p "Select disk storage (1-$disk_count): " choice
+        disk_storage=$(echo "$disk_storages" | sed -n "${choice}p")
+        print_info "Selected disk storage: $disk_storage"
+    else
+        print_error "No active disk storage found!"
+        return 1
+    fi
+    
     # Get latest Alpine template
     print_step "Finding latest Alpine template..."
     local template_name=$(pveam available | grep alpine | grep default | sort -V | tail -1 | awk '{print $2}')
     if [ -z "$template_name" ]; then
-        template_name="alpine-3.21-default_20241226_amd64.tar.xz"
+        template_name="alpine-3.21-default_20241217_amd64.tar.xz"
     fi
     
     # Download template if not exists
     print_step "Downloading Alpine template: $template_name"
-    if ! pveam list local | grep -q "$template_name"; then
-        pveam download local "$template_name"
+    if ! pveam list "$template_storage" | grep -q "$template_name"; then
+        print_info "Downloading template to $template_storage..."
+        pveam download "$template_storage" "$template_name"
+    else
+        print_info "Template already exists in $template_storage"
     fi
     
     # Create LXC container directly with Alpine
     print_step "Creating LXC container $lxc_id..."
-    if pct create "$lxc_id" "local:vztmpl/$template_name" \
+    if pct create "$lxc_id" "$template_storage:vztmpl/$template_name" \
         --hostname "$lxc_name" \
         --cores "$cpu_cores" \
         --memory "$ram_mb" \
-        --rootfs "local-lvm:$disk_gb" \
+        --rootfs "$disk_storage:$disk_gb" \
         --net0 "name=eth0,bridge=vmbr0,ip=dhcp" \
         --onboot 1 \
         --unprivileged 1 \
