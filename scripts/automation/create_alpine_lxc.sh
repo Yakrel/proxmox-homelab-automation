@@ -50,27 +50,30 @@ create_alpine_lxc_direct() {
     # Detect available storages
     print_step "Detecting available storage options..."
     
-    # Get all storages and filter properly
+    # Get all storages with proper parsing
     print_step "Checking storage configuration..."
-    local all_template_storages=$(pvesm status -content vztmpl 2>/dev/null | awk 'NR>1 {print $1}' | grep -v "^$" | sort)
-    local all_disk_storages=$(pvesm status -content images 2>/dev/null | awk 'NR>1 {print $1}' | grep -v "^$" | sort)
     
-    # Filter for active storages
+    # Get active storages only (exclude disabled)
+    local active_storages=$(pvesm status 2>/dev/null | awk 'NR>1 && $3=="active" {print $1}' | grep -v "^$")
+    print_info "Active storages found: $active_storages"
+    
+    # Filter template storages (support vztmpl content)
     local template_storages=""
-    for storage in $all_template_storages; do
-        if pvesm status "$storage" 2>/dev/null | grep -q "active"; then
+    for storage in $active_storages; do
+        if pvesm status -content vztmpl 2>/dev/null | grep -q "^$storage"; then
             template_storages="$template_storages $storage"
         fi
     done
-    template_storages=$(echo "$template_storages" | xargs -n1 | head -5)
+    template_storages=$(echo "$template_storages" | xargs)
     
-    local disk_storages=""  
-    for storage in $all_disk_storages; do
-        if pvesm status "$storage" 2>/dev/null | grep -q "active"; then
+    # Filter disk storages (support images content)  
+    local disk_storages=""
+    for storage in $active_storages; do
+        if pvesm status -content images 2>/dev/null | grep -q "^$storage"; then
             disk_storages="$disk_storages $storage"
         fi
     done
-    disk_storages=$(echo "$disk_storages" | xargs -n1 | head -5)
+    disk_storages=$(echo "$disk_storages" | xargs)
     
     print_info "Found template storages: $template_storages"
     print_info "Found disk storages: $disk_storages"
