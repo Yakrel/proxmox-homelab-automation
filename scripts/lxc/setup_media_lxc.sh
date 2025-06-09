@@ -10,7 +10,7 @@ read -p "Do you want to create folders for Media LXC? (y/N): " response
 
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     # Define directory arrays
-    CONFIG_DIRS=("sonarr" "radarr" "bazarr" "jellyfin" "jellyseerr" "qbittorrent" "prowlarr" "flaresolverr" "watchtower-media" "recyclarr")
+    CONFIG_DIRS=("sonarr" "radarr" "bazarr" "jellyfin" "jellyseerr" "qbittorrent" "prowlarr" "flaresolverr" "watchtower-media" "recyclarr" "cleanuperr" "huntarr")
     MEDIA_DIRS=("tv" "movies" "youtube/playlists" "youtube/channels")
     TORRENT_DIRS=("tv" "movies" "other")
     

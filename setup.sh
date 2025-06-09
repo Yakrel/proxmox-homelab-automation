@@ -122,77 +122,111 @@ automated_deployment_menu() {
     esac
 }
 
+# Function for Other Utilities submenu
+other_utilities_menu() {
+    echo ""
+    echo "======================================================"
+    echo "Other Utilities Menu"
+    echo "======================================================"
+    echo "1) Security Setup (Fail2Ban)"
+    echo "2) Storage Setup (Samba, Sanoid)"
+    echo "3) Network Bonding Setup"
+    echo "4) Back to Main Menu"
+    echo ""
+    
+    read -p "Your choice (1-4): " util_choice
+    
+    case $util_choice in
+        1)
+            # Security installation
+            if download_script "scripts/core/install_security.sh"; then
+                echo "Starting security installation..."
+                bash "$TEMP_DIR/install_security.sh"
+            fi
+            ;;
+        2)
+            # Storage installation
+            if download_script "scripts/core/install_storage.sh"; then
+                echo "Starting storage installation..."
+                bash "$TEMP_DIR/install_storage.sh"
+            fi
+            ;;
+        3)
+            # Network bonding setup
+            if download_script "scripts/network/setup_bonding.sh"; then
+                echo "Starting network bonding setup..."
+                bash "$TEMP_DIR/setup_bonding.sh"
+            fi
+            ;;
+        4)
+            return 0
+            ;;
+        *)
+            echo "Invalid choice!"
+            ;;
+    esac
+}
+
 # Menu
 echo ""
 echo "Please select the operation you want to perform:"
-echo "1) Security Installation (Fail2Ban)"
-echo "2) Storage Installation (Samba, Sanoid)"
-echo "3) Proxy LXC (lxc-proxy-01, ID: 100) Preparation"
-echo "4) Media LXC (lxc-media-01, ID: 101) Preparation"
-echo "5) Downloads LXC (lxc-downloads-01, ID: 102) Preparation"
-echo "6) Utility LXC (lxc-utility-01, ID: 103) Preparation"
-echo "7) Monitoring LXC (lxc-monitoring-01, ID: 104) Preparation"
-echo "8) Automated Deployment (Advanced)"
-echo "9) Exit"
+echo "1) Proxy LXC (lxc-proxy-01, ID: 100) Preparation"
+echo "2) Media LXC (lxc-media-01, ID: 101) Preparation"
+echo "3) Downloads LXC (lxc-downloads-01, ID: 102) Preparation"
+echo "4) Utility LXC (lxc-utility-01, ID: 103) Preparation"
+echo "5) Monitoring LXC (lxc-monitoring-01, ID: 104) Preparation"
+echo "6) Automated Deployment (Advanced)"
+echo "7) Other Utilities (Security, Storage, Network)"
+echo "8) Exit"
 echo ""
 
-read -p "Your choice (1-9): " choice
+read -p "Your choice (1-8): " choice
 
 case $choice in
     1)
-        # Security installation
-        if download_script "scripts/core/install_security.sh"; then
-            echo "Starting security installation..."
-            bash "$TEMP_DIR/install_security.sh"
-        fi
-        ;;
-    2)
-        # Storage installation
-        if download_script "scripts/core/install_storage.sh"; then
-            echo "Starting storage installation..."
-            bash "$TEMP_DIR/install_storage.sh"
-        fi
-        ;;
-    3)
         # Proxy LXC preparation
         if download_script "scripts/lxc/setup_proxy_lxc.sh"; then
             echo "Starting Proxy LXC preparation..."
             bash "$TEMP_DIR/setup_proxy_lxc.sh"
         fi
         ;;
-    4)
+    2)
         # Media LXC preparation
         if download_script "scripts/lxc/setup_media_lxc.sh"; then
             echo "Starting Media LXC preparation..."
             bash "$TEMP_DIR/setup_media_lxc.sh"
         fi
         ;;
-    5)
+    3)
         # Downloads LXC preparation
         if download_script "scripts/lxc/setup_downloads_lxc.sh"; then
             echo "Starting Downloads LXC preparation..."
             bash "$TEMP_DIR/setup_downloads_lxc.sh"
         fi
         ;;
-    6)
+    4)
         # Utility LXC preparation
         if download_script "scripts/lxc/setup_utility_lxc.sh"; then
             echo "Starting Utility LXC preparation..."
             bash "$TEMP_DIR/setup_utility_lxc.sh"
         fi
         ;;
-    7)
+    5)
         # Monitoring LXC preparation
         if download_script "scripts/lxc/setup_monitoring_lxc.sh"; then
             echo "Starting Monitoring LXC preparation..."
             bash "$TEMP_DIR/setup_monitoring_lxc.sh"
         fi
         ;;
-    8)
+    6)
         # Automated deployment submenu
         automated_deployment_menu
         ;;
-    9)
+    7)
+        # Other utilities submenu
+        other_utilities_menu
+        ;;
+    8)
         # Exit
         echo "Exiting..."
         exit 0

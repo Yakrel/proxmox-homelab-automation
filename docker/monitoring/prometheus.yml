@@ -44,28 +44,28 @@ scrape_configs:
   # Node Exporter - Media LXC (101)
   - job_name: 'node-exporter-media'
     static_configs:
-      - targets: ['192.168.1.101:9100']  # Media LXC IP
+      - targets: ['192.168.1.101:9101']  # Media LXC IP (port 9101)
         labels:
           instance: 'media-lxc-101'
 
   # Node Exporter - Downloads LXC (102)
   - job_name: 'node-exporter-downloads'
     static_configs:
-      - targets: ['192.168.1.102:9100']  # Downloads LXC IP
+      - targets: ['192.168.1.102:9102']  # Downloads LXC IP (port 9102)
         labels:
           instance: 'downloads-lxc-102'
 
   # Node Exporter - Utility LXC (103)
   - job_name: 'node-exporter-utility'
     static_configs:
-      - targets: ['192.168.1.103:9100']  # Utility LXC IP
+      - targets: ['192.168.1.103:9103']  # Utility LXC IP (port 9103)
         labels:
           instance: 'utility-lxc-103'
 
   # cAdvisor - Container metrics from Monitoring LXC
   - job_name: 'cadvisor'
     static_configs:
-      - targets: ['cadvisor:8080']
+      - targets: ['cadvisor:8081']
 
   # Proxmox VE Exporter
   - job_name: 'proxmox'
