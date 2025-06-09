@@ -162,8 +162,8 @@ create_alpine_lxc_direct() {
         sleep 10
         
         # Configure Alpine exactly like tteck's script
-        print_step "Configuring Alpine container (tteck clone)..."
-        pct exec "$lxc_id" -- ash -c '
+        print_step "Configuring Alpine container (with timeout)..."
+        timeout 300 pct exec "$lxc_id" -- ash -c '
             # Set up network and container OS (tteck style)
             echo "Setting up Container OS..."
             
