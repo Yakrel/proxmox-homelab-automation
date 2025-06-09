@@ -80,8 +80,8 @@ validate_not_empty() {
 validate_url() {
     local url=$1
     
-    if [[ ! "$url" =~ ^https?://[a-zA-Z0-9.-]+:[0-9]+/?$ ]]; then
-        print_error "Invalid URL format. Expected format: http(s)://hostname:port"
+    if [[ ! "$url" =~ ^https?://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$ ]]; then
+        print_error "Invalid URL format. Expected format: http(s)://hostname[:port][/path][?query][#fragment]"
         return 1
     fi
     return 0
