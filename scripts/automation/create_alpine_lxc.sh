@@ -81,8 +81,11 @@ create_alpine_lxc_auto() {
     print_warning "Attempting automated tteck script execution..."
     
     # Direct automation without temporary files (works with remote execution)
-    print_step "Method 1: Using yes command automation..."
-    if yes "" | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null; then
+    print_step "Method 1: Using NEWT_COLORS automation for whiptail..."
+    # Set environment to handle whiptail dialogs automatically
+    export NEWT_COLORS=""
+    export DISPLAY=""
+    if printf '\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n' | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null; then
         print_info "✓ Method 1 succeeded"
     else
         print_warning "Method 1 failed, trying Method 2..."
@@ -94,15 +97,18 @@ create_alpine_lxc_auto() {
         fi
         
         if command -v expect >/dev/null 2>&1; then
-            print_step "Method 2: Using expect automation..."
+            print_step "Method 2: Using expect automation with TAB navigation..."
             if expect << 'EXPECT_EOF'
 set timeout 300
 spawn bash -c "curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh | bash"
 expect {
-    "*Alpine-Docker LXC*" { send "\r"; exp_continue }
-    "*Proceed*" { send "\r"; exp_continue }
-    "*Create*" { send "\r"; exp_continue }
+    "*Alpine-Docker LXC*" { send "\t\r"; exp_continue }
+    "*Proceed*" { send "\t\r"; exp_continue }
+    "*Create*" { send "\t\r"; exp_continue }
     "*Yes*" { send "\r"; exp_continue }
+    "*No*" { send "\t\r"; exp_continue }
+    "*(y/N)*" { send "y\r"; exp_continue }
+    "*(Y/n)*" { send "Y\r"; exp_continue }
     eof { puts "Script completed" }
     timeout { puts "Script timed out"; exit 1 }
 }
@@ -112,9 +118,10 @@ EXPECT_EOF
             else
                 print_warning "Method 2 failed, trying Method 3..."
                 
-                # Method 3: printf approach
-                print_step "Method 3: Using printf automation..."
-                if printf '\n\n\n\n\n\n\n\n\n\n' | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null; then
+                # Method 3: printf with specific key sequences for whiptail
+                print_step "Method 3: Using specific whiptail key sequences..."
+                # Whiptail navigation: Space to select, Tab to move, Enter to confirm
+                if (echo -e "\t\r"; sleep 1; echo -e "\r"; sleep 1; echo -e "\r") | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null; then
                     print_info "✓ Method 3 succeeded"
                 else
                     print_error "All automation methods failed"
@@ -123,9 +130,9 @@ EXPECT_EOF
             fi
         else
             print_error "Could not install expect, trying final method..."
-            # Method 3: printf approach
-            print_step "Method 3: Using printf automation..."
-            if printf '\n\n\n\n\n\n\n\n\n\n' | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null; then
+            # Method 3: Fallback with simple key sequences
+            print_step "Method 3: Using simple key sequence fallback..."
+            if (echo -e "\t\r"; sleep 1; echo -e "\r"; sleep 1; echo -e "\r") | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null; then
                 print_info "✓ Method 3 succeeded"
             else
                 print_error "All automation methods failed"
