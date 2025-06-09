@@ -156,7 +156,7 @@ add_datapool_mount() {
     fi
     
     # Determine the next available mount index
-    local next_mp_index=$(pct config "$lxc_id" | grep -oP 'mp\d+' | sort -V | tail -n 1 | grep -oP '\d+' | awk '{print $1+1}')
+    local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}')
     next_mp_index=${next_mp_index:-0} # Default to 0 if no mount points exist
     
     # Add mount point
