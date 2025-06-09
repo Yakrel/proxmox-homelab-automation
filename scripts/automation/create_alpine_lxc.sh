@@ -78,24 +78,24 @@ create_alpine_lxc_auto() {
     export SKIP_PROMPTS="yes"
     
     print_step "Downloading and executing tteck's Alpine Docker script..."
-    print_warning "Attempting multiple automation methods..."
+    print_warning "Attempting automated tteck script execution..."
     
-    # Method 1: Simple yes command approach
-    cat > /tmp/alpine_auto.sh << 'EOF'
-#!/bin/bash
-# Multiple automation approaches for tteck's Alpine Docker script
-
-# Method 1: Simple yes pipe (works for many dialogs)
-method1() {
-    echo "Trying Method 1: yes command"
-    yes "" | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null
-}
-
-# Method 2: Expect automation (if available)
-method2() {
-    echo "Trying Method 2: expect automation"
-    if command -v expect >/dev/null 2>&1; then
-        expect << 'EXPECT_EOF'
+    # Direct automation without temporary files (works with remote execution)
+    print_step "Method 1: Using yes command automation..."
+    if yes "" | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null; then
+        print_info "✓ Method 1 succeeded"
+    else
+        print_warning "Method 1 failed, trying Method 2..."
+        
+        # Method 2: Install expect and use it
+        if ! command -v expect >/dev/null 2>&1; then
+            print_step "Installing expect for dialog automation..."
+            apt-get update >/dev/null 2>&1 && apt-get install -y expect >/dev/null 2>&1
+        fi
+        
+        if command -v expect >/dev/null 2>&1; then
+            print_step "Method 2: Using expect automation..."
+            if expect << 'EXPECT_EOF'
 set timeout 300
 spawn bash -c "curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh | bash"
 expect {
@@ -107,33 +107,37 @@ expect {
     timeout { puts "Script timed out"; exit 1 }
 }
 EXPECT_EOF
-    else
-        return 1
+            then
+                print_info "✓ Method 2 succeeded"
+            else
+                print_warning "Method 2 failed, trying Method 3..."
+                
+                # Method 3: printf approach
+                print_step "Method 3: Using printf automation..."
+                if printf '\n\n\n\n\n\n\n\n\n\n' | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null; then
+                    print_info "✓ Method 3 succeeded"
+                else
+                    print_error "All automation methods failed"
+                    return 1
+                fi
+            fi
+        else
+            print_error "Could not install expect, trying final method..."
+            # Method 3: printf approach
+            print_step "Method 3: Using printf automation..."
+            if printf '\n\n\n\n\n\n\n\n\n\n' | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null; then
+                print_info "✓ Method 3 succeeded"
+            else
+                print_error "All automation methods failed"
+                return 1
+            fi
+        fi
     fi
-}
-
-# Method 3: printf approach
-method3() {
-    echo "Trying Method 3: printf multiple enters"
-    printf '\n\n\n\n\n\n\n\n\n\n' | timeout 300 bash <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh) 2>/dev/null
-}
-
-# Try methods in order
-method1 || method2 || method3 || {
-    echo "All automation methods failed"
-    exit 1
-}
-EOF
     
-    chmod +x /tmp/alpine_auto.sh
-    
-    # Execute with timeout in case it hangs
-    print_step "Executing tteck's script with automation..."
-    if timeout 600 /tmp/alpine_auto.sh; then
+    # If we reach here, one of the methods succeeded
+    print_step "Verifying LXC creation..."
+    if pct status "$lxc_id" >/dev/null 2>&1; then
         print_info "✓ LXC $lxc_name created successfully!"
-        
-        # Clean up
-        rm -f /tmp/alpine_auto.sh
         
         # Wait for container to be fully ready
         sleep 10
