@@ -161,10 +161,6 @@ other_utilities_menu() {
             if download_script "scripts/network/setup_bonding.sh"; then
                 echo "Starting network bonding setup..."
                 bash "$TEMP_DIR/setup_bonding.sh"
-                echo ""
-                read -p "Press Enter to return to utilities menu..."
-                other_utilities_menu
-                return
             fi
             ;;
         4)
