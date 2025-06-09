@@ -185,7 +185,7 @@ verify_deployment() {
                 ;;
             "downloads")
                 print_info "- JDownloader2: http://$(hostname -I | awk '{print $1}'):5801"
-                print_info "- MeTube: http://$(hostname -I | awk '{print $1}'):8081"
+                print_info "- MeTube: http://$(hostname -I | awk '{print $1}'):8082"
                 ;;
             "utility")
                 print_info "- Firefox: http://$(hostname -I | awk '{print $1}'):5800"
