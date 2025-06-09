@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Automated Alpine Docker LXC Creation using tteck's script
-# Passes environment variables to automate the community script
+# Direct Alpine Docker LXC Creation using native Proxmox commands
+# Creates Alpine LXC with Docker installed - no external dependencies
 
 set -e
 
@@ -28,16 +28,13 @@ print_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
-# Function to create Alpine LXC using tteck's automated script
-create_alpine_lxc_auto() {
+# Function to create Alpine LXC using direct Proxmox commands
+create_alpine_lxc_direct() {
     local lxc_id=$1
     local lxc_name=$2
     local cpu_cores=$3
     local ram_mb=$4
     local disk_gb=$5
-
-    # Ensure temporary script cleanup on exit
-    trap 'rm -f /tmp/alpine_auto.sh' EXIT
 
     print_info "Creating Alpine Docker LXC: $lxc_name (ID: $lxc_id)"
     print_info "Specs: ${cpu_cores} cores, ${ram_mb}MB RAM, ${disk_gb}GB disk"
@@ -48,37 +45,7 @@ create_alpine_lxc_auto() {
         return 1
     fi
 
-    print_step "Setting up environment variables for tteck's script automation..."
-    
-    # Core LXC specifications that tteck's script will use
-    export CTID="$lxc_id"
-    export HN="$lxc_name"
-    export DISK_SIZE="$disk_gb"
-    export RAM_SIZE="$ram_mb"
-    export CPU_CORES="$cpu_cores"
-    
-    # Force unprivileged container (safer and what we want)
-    export CT_TYPE="1"
-    export UNPRIVILEGED="yes"
-    
-    # Network configuration (DHCP on default bridge)
-    export NET="dhcp"
-    export BRG="vmbr0"
-    export GATE=""
-    export DISABLEIP6="no"
-    
-    # Security: Disable SSH, enable console-only access (exactly what we want)
-    export SSH="no"
-    export VERBOSE="no"
-    
-    # Automation flags to skip prompts
-    export DEBIAN_FRONTEND=noninteractive
-    export INTERACTIVE="no"
-    export AUTO_INSTALL="yes"
-    export SKIP_PROMPTS="yes"
-    
     print_step "Creating Alpine Docker LXC using direct Proxmox commands..."
-    print_warning "Bypassing tteck script - using native Proxmox CT creation"
     
     # Get latest Alpine template
     print_step "Finding latest Alpine template..."
@@ -112,32 +79,77 @@ create_alpine_lxc_auto() {
         pct start "$lxc_id"
         sleep 10
         
-        # Update Alpine and install Docker
-        print_step "Updating Alpine and installing Docker..."
-        pct exec "$lxc_id" -- ash -c "
-            # Update Alpine
-            apk update && apk upgrade
+        # Configure Alpine exactly like tteck's script
+        print_step "Configuring Alpine container (tteck clone)..."
+        pct exec "$lxc_id" -- ash -c '
+            # Set up network and container OS (tteck style)
+            echo "Setting up Container OS..."
             
-            # Install Docker and Docker Compose
+            # IPv6 disable if needed (tteck default)
+            sysctl -w net.ipv6.conf.all.disable_ipv6=1
+            echo "net.ipv6.conf.all.disable_ipv6 = 1" >> /etc/sysctl.conf
+            rc-update add sysctl default
+            
+            # Update Alpine (tteck style)
+            echo "Updating Container OS..."
+            apk -U upgrade
+            
+            # Install core dependencies (exactly like tteck)
+            echo "Installing core dependencies..."
+            apk update
+            apk add newt curl openssh nano mc ncurses gpg bash util-linux
+            
+            # Install Docker (tteck does this via separate script)
+            echo "Installing Docker and Docker Compose..."
             apk add docker docker-compose docker-cli-compose
-            
-            # Enable and start Docker service
             rc-update add docker boot
             service docker start
             
-            # Disable SSH for security (tteck's approach)
-            rc-update del sshd
-            service sshd stop
-            
-            # Configure root console access (passwordless like tteck)
+            # Configure passwordless root login (tteck style)
             passwd -d root
             
-            # Install useful packages (like tteck does)
-            apk add curl wget bash nano htop
+            # Set 256-color terminal (tteck style)
+            echo "export TERM=\"xterm-256color\"" >> /root/.bashrc
             
-            # Set bash as default shell for root
+            # Create tteck-style MOTD with branding
+            IP=$(ip -4 addr show eth0 | awk "/inet / {print \$2}" | cut -d/ -f1 | head -n 1)
+            OS_NAME=$(grep ^NAME /etc/os-release | cut -d= -f2 | tr -d "\"")
+            OS_VERSION=$(grep ^VERSION_ID /etc/os-release | cut -d= -f2 | tr -d "\"")
+            
+            # Create tteck-style profile with colors and branding
+            mkdir -p /etc/profile.d
+            cat > /etc/profile.d/00_lxc-details.sh << "EOF"
+echo -e ""
+echo -e "\033[1mAlpine-Docker LXC Container\033[m"
+echo -e "  \033[33m🌐 Provided by: \033[92mcommunity-scripts ORG \033[33m| GitHub: \033[92mhttps://github.com/community-scripts/ProxmoxVE\033[m"
+echo ""
+echo -e "  \033[33m🖥️ OS: \033[92m${OS_NAME} - Version: ${OS_VERSION}\033[m"
+echo -e "  \033[33m🏠 Hostname: \033[92m$(hostname)\033[m"
+echo -e "  \033[33m💡 IP Address: \033[92m$(ip -4 addr show eth0 | awk "/inet / {print \$2}" | cut -d/ -f1 | head -n 1)\033[m"
+EOF
+            
+            # Configure SSH (disabled by default like tteck)
+            rc-update del sshd 2>/dev/null || true
+            service sshd stop 2>/dev/null || true
+            
+            # Create autologin for console (tteck style)
+            mkdir -p /etc/local.d
+            cat > /etc/local.d/autologin.start << "EOF"
+#!/bin/sh
+# Enable autologin on tty1
+if [ -f /sbin/agetty ]; then
+    busybox pkill -f "agetty.*tty1" 2>/dev/null || true
+    setsid /sbin/agetty --autologin root --noclear tty1 linux &
+fi
+EOF
+            chmod +x /etc/local.d/autologin.start
+            rc-update add local default
+            
+            # Set bash as default shell (tteck style)
             chsh -s /bin/bash root
-        "
+            
+            echo "Alpine container configured successfully!"
+        '
         
         print_info "✓ Direct Alpine Docker LXC creation completed!"
     else
@@ -263,19 +275,19 @@ create_stack_lxc() {
     
     case $stack_type in
         "media")
-            create_alpine_lxc_auto 101 "lxc-media-01" 4 8192 16
+            create_alpine_lxc_direct 101 "lxc-media-01" 4 8192 16
             ;;
         "proxy")
-            create_alpine_lxc_auto 100 "lxc-proxy-01" 1 2048 8
+            create_alpine_lxc_direct 100 "lxc-proxy-01" 1 2048 8
             ;;
         "downloads")
-            create_alpine_lxc_auto 102 "lxc-downloads-01" 2 4096 8
+            create_alpine_lxc_direct 102 "lxc-downloads-01" 2 4096 8
             ;;
         "utility")
-            create_alpine_lxc_auto 103 "lxc-utility-01" 2 4096 8
+            create_alpine_lxc_direct 103 "lxc-utility-01" 2 4096 8
             ;;
         "monitoring")
-            create_alpine_lxc_auto 104 "lxc-monitoring-01" 2 4096 16
+            create_alpine_lxc_direct 104 "lxc-monitoring-01" 2 4096 16
             ;;
         *)
             print_error "Unknown stack type: $stack_type"
@@ -307,17 +319,18 @@ fi
 
 # Execute
 STACK_TYPE=$1
-print_info "Creating $STACK_TYPE stack using tteck's Alpine Docker script (automated)..."
+print_info "Creating $STACK_TYPE stack using direct Alpine Docker LXC creation..."
 
 if create_stack_lxc "$STACK_TYPE"; then
     print_info "🎉 $STACK_TYPE LXC created successfully!"
     print_info ""
-    print_info "Features installed by tteck's script:"
-    print_info "✓ Latest Alpine Linux (3.21)"
-    print_info "✓ Latest Docker + Docker Compose"
-    print_info "✓ SSH disabled for security"
-    print_info "✓ Passwordless root console access"
-    print_info "✓ Unprivileged container with nesting"
+    print_info "Features installed (tteck-compatible):"
+    print_info "✓ Latest Alpine Linux with all tteck configurations"
+    print_info "✓ Docker + Docker Compose + Core packages"
+    print_info "✓ SSH disabled, passwordless console access"
+    print_info "✓ tteck-style MOTD and branding"
+    print_info "✓ IPv6 disabled, 256-color terminal"
+    print_info "✓ Autologin console, unprivileged container"
     print_info "✓ /datapool mount point added"
     print_info ""
     print_info "Next steps:"
