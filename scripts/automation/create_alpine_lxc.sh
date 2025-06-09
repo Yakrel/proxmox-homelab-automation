@@ -300,7 +300,7 @@ create_stack_lxc() {
     
     case $stack_type in
         "media")
-            create_alpine_lxc_direct 101 "lxc-media-01" 4 8192 16
+            create_alpine_lxc_direct 101 "lxc-media-01" 6 12288 20
             ;;
         "proxy")
             create_alpine_lxc_direct 100 "lxc-proxy-01" 1 2048 8
@@ -309,10 +309,10 @@ create_stack_lxc() {
             create_alpine_lxc_direct 102 "lxc-downloads-01" 2 4096 8
             ;;
         "utility")
-            create_alpine_lxc_direct 103 "lxc-utility-01" 2 4096 8
+            create_alpine_lxc_direct 103 "lxc-utility-01" 2 6144 8
             ;;
         "monitoring")
-            create_alpine_lxc_direct 104 "lxc-monitoring-01" 2 4096 16
+            create_alpine_lxc_direct 104 "lxc-monitoring-01" 2 4096 12
             ;;
         *)
             print_error "Unknown stack type: $stack_type"
