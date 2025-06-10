@@ -170,27 +170,6 @@ verify_deployment() {
     if [ "$running_containers" -gt 0 ]; then
         print_info "✓ Found $running_containers running containers"
         
-        # Show service URLs
-        print_info "Service access URLs:"
-        case $stack_type in
-            "media")
-                print_info "- Sonarr: http://$(hostname -I | awk '{print $1}'):8989"
-                print_info "- Radarr: http://$(hostname -I | awk '{print $1}'):7878"
-                print_info "- Jellyfin: http://$(hostname -I | awk '{print $1}'):8096"
-                print_info "- qBittorrent: http://$(hostname -I | awk '{print $1}'):8080"
-                print_info "- Prowlarr: http://$(hostname -I | awk '{print $1}'):9696"
-                ;;
-            "proxy")
-                print_info "- Cloudflared: Check Cloudflare dashboard for tunnel status"
-                ;;
-            "downloads")
-                print_info "- JDownloader2: http://$(hostname -I | awk '{print $1}'):5801"
-                print_info "- MeTube: http://$(hostname -I | awk '{print $1}'):8082"
-                ;;
-            "utility")
-                print_info "- Firefox: http://$(hostname -I | awk '{print $1}'):5800"
-                ;;
-        esac
         
         return 0
     else

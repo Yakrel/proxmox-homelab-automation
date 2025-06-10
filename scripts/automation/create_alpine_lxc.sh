@@ -150,7 +150,8 @@ create_alpine_lxc_direct() {
         --cores "$cpu_cores" \
         --memory "$ram_mb" \
         --rootfs "$disk_storage:$disk_gb" \
-        --net0 "name=eth0,bridge=vmbr0,ip=dhcp" \
+        --net0 "name=eth0,bridge=vmbr0,ip=192.168.1.${lxc_id}/24,gw=192.168.1.1" \
+        --nameserver "192.168.1.1" \
         --onboot 1 \
         --unprivileged 1 \
         --features "nesting=1"; then
