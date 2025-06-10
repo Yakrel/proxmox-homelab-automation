@@ -2,6 +2,7 @@
 
 # Direct Alpine Docker LXC Creation using native Proxmox commands
 # Creates Alpine LXC with Docker installed - no external dependencies
+# Adapted from: https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh
 
 set -e
 
@@ -161,43 +162,43 @@ create_alpine_lxc_direct() {
         pct start "$lxc_id"
         sleep 10
         
-        # Configure Alpine exactly like tteck's script
+        # Configure Alpine container
         print_step "Configuring Alpine container (with timeout)..."
         timeout 300 pct exec "$lxc_id" -- ash -c '
-            # Set up network and container OS (tteck style)
+            # Set up network and container OS
             echo "Setting up Container OS..."
             
-            # IPv6 disable if needed (tteck default)
+            # IPv6 disable if needed
             sysctl -w net.ipv6.conf.all.disable_ipv6=1
             echo "net.ipv6.conf.all.disable_ipv6 = 1" >> /etc/sysctl.conf
             rc-update add sysctl default
             
-            # Update Alpine (tteck style)
+            # Update Alpine
             echo "Updating Container OS..."
-            apk -U upgrade
+            apk -U upgrade --no-interactive
             
-            # Install core dependencies (exactly like tteck)
+            # Install core dependencies
             echo "Installing core dependencies..."
-            apk update
-            apk add newt curl openssh nano mc ncurses gpg bash util-linux
+            apk update --no-interactive
+            apk add --no-interactive newt curl openssh nano mc ncurses gpg bash util-linux
             
-            # Install Docker (tteck does this via separate script)
+            # Install Docker
             echo "Installing Docker and Docker Compose..."
-            apk add docker docker-compose docker-cli-compose
+            apk add --no-interactive docker docker-compose docker-cli-compose
             rc-update add docker boot
             service docker start
             
-            # Configure passwordless root login (tteck style)
+            # Configure passwordless root login
             passwd -d root
             
             # Set 256-color terminal
             echo "export TERM=\"xterm-256color\"" >> /root/.bashrc
             
-            # Configure SSH (disabled by default like tteck)
+            # Configure SSH (disabled by default)
             rc-update del sshd 2>/dev/null || true
             service sshd stop 2>/dev/null || true
             
-            # Create autologin for console (tteck style)
+            # Create autologin for console
             mkdir -p /etc/local.d
             cat > /etc/local.d/autologin.start << "EOF"
 #!/bin/sh
@@ -210,7 +211,7 @@ EOF
             chmod +x /etc/local.d/autologin.start
             rc-update add local default
             
-            # Set bash as default shell (tteck style)
+            # Set bash as default shell
             chsh -s /bin/bash root
             
             echo "Alpine container configured successfully!"
@@ -276,10 +277,15 @@ EOF
 add_datapool_mount() {
     local lxc_id=$1
     
-    # Stop container if running
+    # Shutdown container if running
     if pct status "$lxc_id" | grep -q "running"; then
-        pct stop "$lxc_id"
-        sleep 3
+        pct shutdown "$lxc_id"
+        sleep 10
+        # If shutdown doesn't work, force stop
+        if pct status "$lxc_id" | grep -q "running"; then
+            pct stop "$lxc_id"
+            sleep 3
+        fi
     fi
     
     # Determine the next available mount index

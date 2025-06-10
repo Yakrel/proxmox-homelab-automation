@@ -110,19 +110,14 @@ To ensure proper hardlinks and atomic moves, the following folder structure is u
 │   ├── prowlarr/         # Media Stack (LXC 101)
 │   ├── flaresolverr/     # Media Stack (LXC 101)
 │   ├── recyclarr/        # Media Stack (LXC 101)
-│   ├── watchtower-media/ # Media Stack (LXC 101)
 │   ├── cloudflared/      # Proxy Stack (LXC 100)
-│   ├── watchtower-proxy/ # Proxy Stack (LXC 100)
 │   ├── jdownloader2/     # Downloads Stack (LXC 102)
 │   ├── metube/           # Downloads Stack (LXC 102)
-│   ├── watchtower-downloads/ # Downloads Stack (LXC 102)
 │   ├── firefox/          # Utility Stack (LXC 103)
-│   ├── watchtower-utility/   # Utility Stack (LXC 103)
-│   ├── monitoring/       # Monitoring Stack (LXC 104)
-│   │   ├── prometheus/   # Prometheus configuration
-│   │   ├── grafana/      # Grafana configuration
-│   │   └── alertmanager/ # Alertmanager configuration
-│   └── watchtower-monitoring/ # Monitoring Stack (LXC 104)
+│   └── monitoring/       # Monitoring Stack (LXC 104)
+│       ├── prometheus/   # Prometheus configuration
+│       ├── grafana/      # Grafana configuration
+│       └── alertmanager/ # Alertmanager configuration
 ├── torrents/
 │   ├── movies/        # Complete movie torrents
 │   ├── tv/            # Complete TV show torrents
