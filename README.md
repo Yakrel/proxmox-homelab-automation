@@ -5,7 +5,6 @@ This repository contains a collection of automation tools designed to customize 
 ## Quick Setup
 
 ```bash
-# Download and run setup script
 bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
 ```
 
