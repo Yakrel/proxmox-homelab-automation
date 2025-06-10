@@ -2,7 +2,7 @@
 
 # Direct Alpine Docker LXC Creation using native Proxmox commands
 # Creates Alpine LXC with Docker installed - no external dependencies
-# Adapted from: https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh
+# Adapted from: https://raw.githubusercontent.com/community-scripts/ProxmoxVE/9140fd52acd532b263f100f7ef0a6139000d8376/ct/alpine-docker.sh
 
 set -e
 
