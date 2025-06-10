@@ -43,12 +43,11 @@ main_deployment_menu() {
     echo "3) Deploy Downloads Stack (LXC 102 - JDownloader, MeTube)"
     echo "4) Deploy Utility Stack (LXC 103 - Firefox Browser)"
     echo "5) Deploy Monitoring Stack (LXC 104 - Grafana, Prometheus)"
-    echo "6) Deploy All Stacks (Complete Homelab)"
-    echo "7) Other Utilities (Security, Storage, Network)"
-    echo "8) Exit"
+    echo "6) Other Utilities (Security, Storage, Network)"
+    echo "7) Exit"
     echo ""
     
-    read -p "Your choice (1-8): " auto_choice
+    read -p "Your choice (1-7): " auto_choice
     
     case $auto_choice in
         1)
@@ -87,36 +86,10 @@ main_deployment_menu() {
             fi
             ;;
         6)
-            echo "Starting complete homelab deployment..."
-            if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh"; then
-                echo "Deploying Proxy stack..."
-                bash "$TEMP_DIR/create_alpine_lxc.sh" proxy
-                bash "$TEMP_DIR/deploy_stack.sh" proxy
-                
-                echo "Deploying Media stack..."
-                bash "$TEMP_DIR/create_alpine_lxc.sh" media
-                bash "$TEMP_DIR/deploy_stack.sh" media
-                
-                echo "Deploying Downloads stack..."
-                bash "$TEMP_DIR/create_alpine_lxc.sh" downloads
-                bash "$TEMP_DIR/deploy_stack.sh" downloads
-                
-                echo "Deploying Utility stack..."
-                bash "$TEMP_DIR/create_alpine_lxc.sh" utility
-                bash "$TEMP_DIR/deploy_stack.sh" utility
-                
-                echo "Deploying Monitoring stack..."
-                bash "$TEMP_DIR/create_alpine_lxc.sh" monitoring
-                bash "$TEMP_DIR/deploy_stack.sh" monitoring
-                
-                echo "Complete homelab deployment finished!"
-            fi
-            ;;
-        7)
             # Other utilities submenu
             other_utilities_menu
             ;;
-        8)
+        7)
             # Exit
             echo "Exiting..."
             exit 0

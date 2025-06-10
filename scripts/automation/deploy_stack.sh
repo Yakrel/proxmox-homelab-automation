@@ -295,12 +295,19 @@ setup_downloads_env() {
     echo
     print_info "⬇️ Downloads Stack Configuration"
     
+    read -p "Enter JDownloader VNC password: " jdownloader_password
+    while [ -z "$jdownloader_password" ]; do
+        print_error "JDownloader VNC password is required!"
+        read -p "Enter JDownloader VNC password: " jdownloader_password
+    done
+    
     read -p "Enter timezone [Europe/Istanbul]: " timezone
     timezone=${timezone:-Europe/Istanbul}
     
     # Create .env file in LXC
     pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
 # Downloads Stack Environment Variables
+JDOWNLOADER_VNC_PASSWORD=$jdownloader_password
 TZ=$timezone
 PUID=1000
 PGID=1000
@@ -317,12 +324,19 @@ setup_utility_env() {
     echo
     print_info "🛠️ Utility Stack Configuration"
     
+    read -p "Enter Firefox VNC password: " vnc_password
+    while [ -z "$vnc_password" ]; do
+        print_error "VNC password is required!"
+        read -p "Enter Firefox VNC password: " vnc_password
+    done
+    
     read -p "Enter timezone [Europe/Istanbul]: " timezone
     timezone=${timezone:-Europe/Istanbul}
     
     # Create .env file in LXC
     pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
 # Utility Stack Environment Variables
+FIREFOX_VNC_PASSWORD=$vnc_password
 TZ=$timezone
 PUID=1000
 PGID=1000
