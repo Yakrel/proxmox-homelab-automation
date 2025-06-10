@@ -25,13 +25,6 @@ services:
       - KEEP_APP_RUNNING=1
       - DISPLAY_WIDTH=1920
       - DISPLAY_HEIGHT=1080
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 4G
-        reservations:
-          memory: 1G
     networks:
       - utility-net
     logging:
