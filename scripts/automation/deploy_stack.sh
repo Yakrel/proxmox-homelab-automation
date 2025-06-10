@@ -400,9 +400,14 @@ update_existing_stack() {
         return $?
     fi
     
-    # Backup existing .env file
-    print_info "Backing up existing environment file..."
-    pct exec "$lxc_id" -- sh -c "cd $target_dir && if [ -f .env ]; then cp .env .env.backup; fi"
+    # Check if .env exists (skip configuration if it does)
+    if pct exec "$lxc_id" -- test -f "$target_dir/.env"; then
+        print_info "✓ Environment file exists, skipping configuration prompts"
+        skip_env_setup=true
+    else
+        print_warning "No .env file found, will need configuration setup"
+        skip_env_setup=false
+    fi
     
     # Download latest stack files
     download_stack_files "$stack_type" "$TEMP_DIR/$stack_type"
@@ -411,8 +416,11 @@ update_existing_stack() {
     print_info "Updating docker-compose.yml..."
     pct push "$lxc_id" "$TEMP_DIR/$stack_type/docker-compose.yml" "$target_dir/docker-compose.yml"
     
-    # Restore .env file if backup exists
-    pct exec "$lxc_id" -- sh -c "cd $target_dir && if [ -f .env.backup ]; then mv .env.backup .env; fi"
+    # Setup environment if .env doesn't exist
+    if [ "$skip_env_setup" = false ]; then
+        print_info "Setting up environment configuration..."
+        setup_stack_env "$stack_type" "$lxc_id" "$target_dir"
+    fi
     
     # Update stack with latest compose file
     print_info "Updating services with latest configuration..."
@@ -479,6 +487,10 @@ deploy_complete_stack() {
         # Show status
         print_info "Container status:"
         pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose ps"
+        
+        # Clean up .env.example file
+        print_info "Cleaning up temporary files..."
+        pct exec "$lxc_id" -- sh -c "cd $target_dir && rm -f .env.example"
         
         # Show important notes
         print_warning "⚠️  IMPORTANT NOTES:"
