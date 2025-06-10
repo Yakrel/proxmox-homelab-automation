@@ -5,11 +5,19 @@ set -e  # Stop the script if any command fails
 apt update
 apt install -y samba
 
-# Create dedicated samba user instead of root
-useradd -r -s /bin/false smbuser 2>/dev/null || true
+# Get custom Samba username
+echo "Samba Configuration:"
+read -p "Enter Samba username: " samba_username
+while [ -z "$samba_username" ]; do
+    echo "Username cannot be empty!"
+    read -p "Enter Samba username: " samba_username
+done
+
+# Create dedicated samba user
+useradd -r -s /bin/false "$samba_username" 2>/dev/null || true
 
 # Samba configuration with security improvements
-cat >> /etc/samba/smb.conf << 'EOF'
+cat >> /etc/samba/smb.conf << EOF
 
 [datapool]
    path = /datapool
@@ -17,9 +25,9 @@ cat >> /etc/samba/smb.conf << 'EOF'
    read only = no
    force create mode = 0660
    force directory mode = 0770
-   valid users = smbuser
-   force user = smbuser
-   force group = smbuser
+   valid users = $samba_username
+   force user = $samba_username
+   force group = $samba_username
    # Security settings
    guest ok = no
    security = user
@@ -30,11 +38,11 @@ cat >> /etc/samba/smb.conf << 'EOF'
    strict locking = no
 EOF
 
-# Set ownership of datapool to smbuser
-chown -R smbuser:smbuser /datapool 2>/dev/null || true
+# Set ownership of datapool to custom user
+chown -R "$samba_username:$samba_username" /datapool 2>/dev/null || true
 
-# Set Samba password for smbuser
-echo "Please enter the Samba password for user 'smbuser':"
+# Set Samba password for custom user
+echo "Please enter the Samba password for user '$samba_username':"
 read -s samba_password
 echo
 echo "Please confirm the Samba password:"
@@ -48,10 +56,10 @@ if [ "$samba_password" != "$samba_password_confirm" ]; then
 fi
 
 echo "Configuring Samba password..."
-(echo "$samba_password"; echo "$samba_password") | smbpasswd -a smbuser > /dev/null 2>&1
+(echo "$samba_password"; echo "$samba_password") | smbpasswd -a "$samba_username" > /dev/null 2>&1
 
 if [ $? -eq 0 ]; then
-    echo "Samba password configured successfully for user 'smbuser'."
+    echo "Samba password configured successfully for user '$samba_username'."
 else
     echo "Failed to set Samba password. Please check the error and try again."
     exit 1
