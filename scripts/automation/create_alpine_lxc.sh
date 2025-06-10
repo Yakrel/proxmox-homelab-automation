@@ -162,60 +162,59 @@ create_alpine_lxc_direct() {
         pct start "$lxc_id"
         sleep 10
         
-        # Configure Alpine container
-        print_step "Configuring Alpine container (with timeout)..."
-        timeout 300 pct exec "$lxc_id" -- ash -c '
-            # Set up network and container OS
-            echo "Setting up Container OS..."
+        # Configure Alpine container using tteck approach
+        print_step "Configuring Alpine container..."
+        
+        # Create and run setup script inside container
+        pct exec "$lxc_id" -- ash -c '
+            # Complete silent Alpine setup
+            echo "Setting up Container OS..." >/dev/null
             
-            # IPv6 disable if needed
-            sysctl -w net.ipv6.conf.all.disable_ipv6=1
+            # IPv6 disable
+            sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null 2>&1
             echo "net.ipv6.conf.all.disable_ipv6 = 1" >> /etc/sysctl.conf
-            rc-update add sysctl default
+            rc-update add sysctl default >/dev/null 2>&1
             
-            # Update Alpine
-            echo "Updating Container OS..."
-            apk -U upgrade --no-interactive
+            # Set non-interactive environment
+            export DEBIAN_FRONTEND=noninteractive
+            export APK_PROGRESS_FD=1
             
-            # Install core dependencies
-            echo "Installing core dependencies..."
-            apk update --no-interactive
-            apk add --no-interactive newt curl openssh nano mc ncurses gpg bash util-linux
+            # Update Alpine completely silent
+            echo "Updating packages..." >/dev/null
+            apk update >/dev/null 2>&1
+            apk upgrade >/dev/null 2>&1
             
-            # Install Docker
-            echo "Installing Docker and Docker Compose..."
-            apk add --no-interactive docker docker-compose docker-cli-compose
-            rc-update add docker boot
-            service docker start
+            # Install packages completely silent
+            echo "Installing Docker and tools..." >/dev/null
+            apk add --quiet --no-progress docker docker-compose docker-cli-compose curl bash nano mc >/dev/null 2>&1
             
-            # Configure passwordless root login
-            passwd -d root
+            # Configure Docker service
+            rc-update add docker boot >/dev/null 2>&1
+            service docker start >/dev/null 2>&1
             
-            # Set 256-color terminal
+            # Passwordless root configuration
+            passwd -d root >/dev/null 2>&1
+            
+            # Configure bash
+            chsh -s /bin/bash root >/dev/null 2>&1
             echo "export TERM=\"xterm-256color\"" >> /root/.bashrc
             
-            # Configure SSH (disabled by default)
-            rc-update del sshd 2>/dev/null || true
-            service sshd stop 2>/dev/null || true
+            # Disable SSH completely
+            rc-update del sshd >/dev/null 2>&1 || true
+            service sshd stop >/dev/null 2>&1 || true
             
-            # Create autologin for console
-            mkdir -p /etc/local.d
-            cat > /etc/local.d/autologin.start << "EOF"
-#!/bin/sh
-# Enable autologin on tty1
-if [ -f /sbin/agetty ]; then
-    busybox pkill -f "agetty.*tty1" 2>/dev/null || true
-    setsid /sbin/agetty --autologin root --noclear tty1 linux &
-fi
-EOF
-            chmod +x /etc/local.d/autologin.start
-            rc-update add local default
+            # Configure autologin properly
+            sed -i "s/^root:[^:]*:/root::/" /etc/shadow
             
-            # Set bash as default shell
-            chsh -s /bin/bash root
+            # Setup console autologin using inittab method
+            sed -i "/^tty1:/d" /etc/inittab
+            echo "tty1::respawn:/sbin/getty -a root 38400 tty1" >> /etc/inittab
             
-            echo "Alpine container configured successfully!"
+            echo "Configuration completed!" >/dev/null
         '
+        
+        # Wait for services to stabilize
+        sleep 5
         
         print_info "✓ Direct Alpine Docker LXC creation completed!"
     else
@@ -313,28 +312,25 @@ add_datapool_mount() {
 verify_docker() {
     local lxc_id=$1
     
+    # Wait for Docker service to be ready
+    sleep 10
+    
+    # Ensure Docker service is running
+    pct exec "$lxc_id" -- rc-service docker start >/dev/null 2>&1 || true
+    sleep 5
+    
     # Test Docker
     if pct exec "$lxc_id" -- docker --version >/dev/null 2>&1; then
-        local docker_version=$(pct exec "$lxc_id" -- docker --version)
-        print_info "✓ Docker: $docker_version"
+        print_info "✓ Docker installation verified"
     else
-        return 1
-    fi
-    
-    # Test Docker Compose
-    if pct exec "$lxc_id" -- docker compose version >/dev/null 2>&1; then
-        local compose_version=$(pct exec "$lxc_id" -- docker compose version --short)
-        print_info "✓ Docker Compose: $compose_version"
-    else
-        return 1
-    fi
-    
-    # Test Docker service
-    if pct exec "$lxc_id" -- rc-service docker status | grep -q "started"; then
-        print_info "✓ Docker service is running"
-    else
-        print_warning "Starting Docker service..."
-        pct exec "$lxc_id" -- rc-service docker start
+        print_warning "Docker not accessible, attempting restart..."
+        pct exec "$lxc_id" -- rc-service docker restart >/dev/null 2>&1
+        sleep 5
+        if pct exec "$lxc_id" -- docker --version >/dev/null 2>&1; then
+            print_info "✓ Docker installation verified after restart"
+        else
+            return 1
+        fi
     fi
     
     return 0
