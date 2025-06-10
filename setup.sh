@@ -38,11 +38,11 @@ download_script() {
 main_deployment_menu() {
     echo ""
     echo "Please select the operation you want to perform:"
-    echo "1) Deploy Media Stack (Auto LXC + Services)"
-    echo "2) Deploy Proxy Stack (Auto LXC + Services)"
-    echo "3) Deploy Downloads Stack (Auto LXC + Services)"
-    echo "4) Deploy Utility Stack (Auto LXC + Services)"
-    echo "5) Deploy Monitoring Stack (Auto LXC + Services)"
+    echo "1) Deploy Proxy Stack (LXC 100 - Cloudflare Tunnels)"
+    echo "2) Deploy Media Stack (LXC 101 - Sonarr, Radarr, Jellyfin)"
+    echo "3) Deploy Downloads Stack (LXC 102 - JDownloader, MeTube)"
+    echo "4) Deploy Utility Stack (LXC 103 - Firefox Browser)"
+    echo "5) Deploy Monitoring Stack (LXC 104 - Grafana, Prometheus)"
     echo "6) Deploy All Stacks (Complete Homelab)"
     echo "7) Other Utilities (Security, Storage, Network)"
     echo "8) Exit"
@@ -52,17 +52,17 @@ main_deployment_menu() {
     
     case $auto_choice in
         1)
-            echo "Starting automated Media stack deployment..."
-            if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh"; then
-                bash "$TEMP_DIR/create_alpine_lxc.sh" media
-                bash "$TEMP_DIR/deploy_stack.sh" media
-            fi
-            ;;
-        2)
             echo "Starting automated Proxy stack deployment..."
             if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh"; then
                 bash "$TEMP_DIR/create_alpine_lxc.sh" proxy
                 bash "$TEMP_DIR/deploy_stack.sh" proxy
+            fi
+            ;;
+        2)
+            echo "Starting automated Media stack deployment..."
+            if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh"; then
+                bash "$TEMP_DIR/create_alpine_lxc.sh" media
+                bash "$TEMP_DIR/deploy_stack.sh" media
             fi
             ;;
         3)

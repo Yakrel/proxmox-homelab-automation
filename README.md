@@ -27,8 +27,8 @@ This project uses a **fully automated deployment** approach with 5 specialized L
 This project deploys a complete homelab automation solution with 5 specialized stacks:
 
 - **Security & Storage Setup**: Enhance Proxmox security with Fail2Ban and configure Samba/Sanoid
-- **Media Stack (LXC 101)**: Complete media automation with Sonarr, Radarr, Jellyfin, qBittorrent
 - **Proxy Stack (LXC 100)**: Secure external access via Cloudflare tunnels
+- **Media Stack (LXC 101)**: Complete media automation with Sonarr, Radarr, Jellyfin, qBittorrent
 - **Downloads Stack (LXC 102)**: General downloading with JDownloader2 and MeTube
 - **Utility Stack (LXC 103)**: Administrative tools including remote Firefox browser
 - **Monitoring Stack (LXC 104)**: System monitoring with Prometheus, Grafana, and Alertmanager
