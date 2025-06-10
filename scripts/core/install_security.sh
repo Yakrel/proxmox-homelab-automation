@@ -37,4 +37,7 @@ systemctl restart fail2ban
 
 # 6. Check the Service Status
 sleep 3
-systemctl status fail2ban
+echo "Fail2ban status:"
+systemctl is-active fail2ban && echo "✓ Fail2ban is running"
+echo "Active jails:"
+fail2ban-client status
