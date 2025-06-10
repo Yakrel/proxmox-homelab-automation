@@ -4,28 +4,15 @@ This repository contains a collection of automation tools designed to customize 
 
 ## Quick Setup
 
-### One-Command Complete Deployment
-
-**Deploy Everything (All 5 Stacks):**
-```bash
-bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)" && echo "8" | bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
-```
-
-**Individual Stack Deployment:**
 ```bash
 # Download and run setup script
 bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
-
-# Choose option 8 (Automated Deployment) from menu
-# Then select individual stack or complete deployment
 ```
 
-### Manual Setup Options
-The setup script provides these options:
-1. Security Installation (Fail2Ban)
-2. Storage Installation (Samba, Sanoid) 
-3. Individual LXC preparation
-8. **Automated Deployment (Recommended)**
+From the menu you can choose:
+- **Option 8**: Automated Deployment (deploy individual stacks or all 5 stacks at once)
+- **Other options**: Security setup, storage setup, individual LXC preparation
+
 
 ## Deployment Approach
 
