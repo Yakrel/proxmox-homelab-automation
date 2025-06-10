@@ -132,7 +132,6 @@ setup_bonding_module() {
     # Add to modules for persistent loading
     if ! grep -q "^bonding" /etc/modules 2>/dev/null; then
         echo 'bonding' >> /etc/modules
-        print_status "Added bonding to /etc/modules"
     fi
 }
 
@@ -185,7 +184,6 @@ iface $BRIDGE_NAME inet static
 source /etc/network/interfaces.d/*
 EOF
 
-    print_status "Network interfaces configuration created"
 }
 
 # Function to create 1Gbps optimization
@@ -218,7 +216,6 @@ EOF
 
     chmod +x /etc/rc.local
     systemctl enable rc-local 2>/dev/null || true
-    print_status "Speed optimization script created"
 }
 
 # Function to apply configuration
@@ -234,35 +231,18 @@ apply_configuration() {
     # Wait for interfaces to stabilize
     sleep 5
     
-    print_status "Network configuration applied"
 }
 
 # Function to verify configuration
 verify_configuration() {
     print_status "Verifying configuration..."
     
-    # Check bond status
-    if [ -f /proc/net/bonding/$BOND_NAME ]; then
-        echo
-        print_status "Bond status:"
-        grep -E "Bonding Mode|Currently Active Slave|MII Status" /proc/net/bonding/$BOND_NAME
-        echo
-    fi
-    
     # Test connectivity
-    print_status "Testing connectivity..."
-    
     if ping -c 2 -W 3 "$GATEWAY" >/dev/null 2>&1; then
-        echo "✅ Gateway ($GATEWAY): OK"
+        print_status "Network connectivity verified"
     else
-        echo "❌ Gateway ($GATEWAY): FAILED"
+        print_error "Gateway connectivity failed"
         return 1
-    fi
-    
-    if ping -c 2 -W 3 8.8.8.8 >/dev/null 2>&1; then
-        echo "✅ Internet (8.8.8.8): OK"
-    else
-        echo "⚠️  Internet: Limited (might be DNS/firewall)"
     fi
 }
 
@@ -270,20 +250,7 @@ verify_configuration() {
 show_completion() {
     echo
     print_status "Network bonding setup completed successfully!"
-    echo
-    echo -e "${BLUE}✅ Configuration Benefits:${NC}"
-    echo "• All ethernet ports bonded for redundancy"
-    echo "• Automatic failover between interfaces"  
-    echo "• 1Gbps speed optimization enabled"
-    echo "• VM/CT networking ready"
-    echo
-    echo -e "${BLUE}🔧 Useful Commands:${NC}"
-    echo "• Bond status: cat /proc/net/bonding/$BOND_NAME"
-    echo "• Interface status: ip link show"
-    echo "• Test failover: unplug cable and plug into different port"
-    echo
-    echo -e "${BLUE}📁 Backup Location:${NC}"
-    echo "• Configuration backup saved for rollback if needed"
+    print_status "Cable redundancy enabled - you can plug into any ethernet port"
     echo
 }
 
