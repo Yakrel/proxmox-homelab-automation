@@ -393,6 +393,66 @@ EOF"
     print_info "✓ Monitoring environment configured"
 }
 
+# Function to update existing stack
+update_existing_stack() {
+    local stack_type=$1
+    local lxc_id=$2
+    local target_dir="/opt/$stack_type-stack"
+    
+    print_info "🔄 Updating existing $stack_type stack in LXC $lxc_id"
+    
+    # Check if LXC exists and is running
+    if ! pct status "$lxc_id" &>/dev/null; then
+        print_error "LXC $lxc_id does not exist!"
+        return 1
+    fi
+    
+    # Start LXC if not running
+    if pct status "$lxc_id" | grep -q "stopped"; then
+        print_info "Starting LXC $lxc_id..."
+        pct start "$lxc_id"
+        sleep 10
+    fi
+    
+    # Check if stack directory exists
+    if ! pct exec "$lxc_id" -- test -d "$target_dir"; then
+        print_warning "Stack directory $target_dir doesn't exist, creating new deployment..."
+        deploy_complete_stack "$stack_type" "$lxc_id"
+        return $?
+    fi
+    
+    # Backup existing .env file
+    print_info "Backing up existing environment file..."
+    pct exec "$lxc_id" -- sh -c "cd $target_dir && if [ -f .env ]; then cp .env .env.backup; fi"
+    
+    # Download latest stack files
+    download_stack_files "$stack_type" "$TEMP_DIR/$stack_type"
+    
+    # Copy updated docker-compose.yml to LXC
+    print_info "Updating docker-compose.yml..."
+    pct push "$lxc_id" "$TEMP_DIR/$stack_type/docker-compose.yml" "$target_dir/docker-compose.yml"
+    
+    # Restore .env file if backup exists
+    pct exec "$lxc_id" -- sh -c "cd $target_dir && if [ -f .env.backup ]; then mv .env.backup .env; fi"
+    
+    # Update stack with latest compose file
+    print_info "Updating services with latest configuration..."
+    pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose pull && docker compose up -d"
+    
+    if [ $? -eq 0 ]; then
+        print_info "✅ $stack_type stack updated successfully!"
+        
+        # Show status
+        print_info "Container status:"
+        pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose ps"
+        
+        return 0
+    else
+        print_error "Failed to update $stack_type stack"
+        return 1
+    fi
+}
+
 # Function to deploy complete stack
 deploy_complete_stack() {
     local stack_type=$1
@@ -400,20 +460,6 @@ deploy_complete_stack() {
     
     print_info "🚀 Starting complete deployment for $stack_type stack (LXC $lxc_id)"
     
-    # Determine LXC ID based on stack type if not provided
-    if [ -z "$lxc_id" ]; then
-        case $stack_type in
-            "media") lxc_id=101 ;;
-            "proxy") lxc_id=100 ;;
-            "downloads") lxc_id=102 ;;
-            "utility") lxc_id=103 ;;
-            "monitoring") lxc_id=104 ;;
-            *) 
-                print_error "Unknown stack type: $stack_type"
-                return 1
-                ;;
-        esac
-    fi
     
     # Wait a moment for LXC to be fully ready
     sleep 5
@@ -512,7 +558,28 @@ LXC_ID=$2
 
 print_info "Starting deployment process for $STACK_TYPE stack..."
 
-deploy_complete_stack "$STACK_TYPE" "$LXC_ID"
+# Determine LXC ID if not provided
+if [ -z "$LXC_ID" ]; then
+    case $STACK_TYPE in
+        "media") LXC_ID=101 ;;
+        "proxy") LXC_ID=100 ;;
+        "downloads") LXC_ID=102 ;;
+        "utility") LXC_ID=103 ;;
+        "monitoring") LXC_ID=104 ;;
+        *) 
+            print_error "Unknown stack type: $STACK_TYPE"
+            exit 1
+            ;;
+    esac
+fi
+
+# Check if LXC exists and has existing stack
+if pct status "$LXC_ID" &>/dev/null && pct exec "$LXC_ID" -- test -d "/opt/$STACK_TYPE-stack"; then
+    print_info "🔍 Found existing $STACK_TYPE stack in LXC $LXC_ID - updating compose files..."
+    update_existing_stack "$STACK_TYPE" "$LXC_ID"
+else
+    deploy_complete_stack "$STACK_TYPE" "$LXC_ID"
+fi
 
 if [ $? -eq 0 ]; then
     print_info "✅ Deployment completed successfully!"
