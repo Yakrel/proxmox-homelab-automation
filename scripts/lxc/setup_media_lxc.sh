@@ -29,14 +29,14 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
         mkdir -p "/datapool/torrents/$dir"
     done
     
-    # Set ownership for config directories
+    # Set ownership for config directories (host-side unprivileged LXC mapping)
     for dir in "${CONFIG_DIRS[@]}"; do
-        chown -R "${PUID}:${PGID}" "/datapool/config/$dir"
+        chown -R 101000:101000 "/datapool/config/$dir"
     done
     
-    # Set ownership for media and torrents directories
-    chown -R "${PUID}:${PGID}" /datapool/media 
-    chown -R "${PUID}:${PGID}" /datapool/torrents
+    # Set ownership for media and torrents directories (host-side unprivileged LXC mapping)
+    chown -R 101000:101000 /datapool/media 
+    chown -R 101000:101000 /datapool/torrents
     
     # Mount datapool to LXC
     pct set 101 -mp0 /datapool,mp=/datapool

@@ -292,8 +292,8 @@ add_datapool_mount() {
     local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}')
     next_mp_index=${next_mp_index:-0} # Default to 0 if no mount points exist
     
-    # Add mount point
-    if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool; then
+    # Add mount point with ACL support for proper permissions
+    if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool,acl=1; then
         # Start container
         pct start "$lxc_id"
         sleep 5

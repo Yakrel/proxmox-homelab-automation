@@ -42,12 +42,12 @@ for subdir in "${GRAFANA_SUBDIRS[@]}"; do
     echo "Created: /datapool/config/grafana/$subdir"
 done
 
-# Set proper ownership for all directories
-echo -e "${YELLOW}Setting ownership (${PUID}:${PGID}) for monitoring directories...${NC}"
-chown -R "${PUID}:${PGID}" "/datapool/config/prometheus"
-chown -R "${PUID}:${PGID}" "/datapool/config/grafana"
-chown -R "${PUID}:${PGID}" "/datapool/config/alertmanager"
-chown -R "${PUID}:${PGID}" "/datapool/config/watchtower-monitoring"
+# Set proper ownership for all directories (host-side unprivileged LXC mapping)
+echo -e "${YELLOW}Setting ownership (101000:101000) for monitoring directories...${NC}"
+chown -R 101000:101000 "/datapool/config/prometheus"
+chown -R 101000:101000 "/datapool/config/grafana"
+chown -R 101000:101000 "/datapool/config/alertmanager"
+chown -R 101000:101000 "/datapool/config/watchtower-monitoring"
 
 echo -e "${GREEN}✓ Monitoring LXC directory structure created successfully!${NC}"
 echo -e "${YELLOW}Directory structure:${NC}"

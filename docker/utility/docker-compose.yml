@@ -17,6 +17,8 @@ services:
       - "5900:5900"
     volumes:
       - /datapool/config/firefox:/config:rw
+    tmpfs:
+      - /config/log:rw,noexec,nosuid,size=100m
     environment:
       - TZ=Europe/Istanbul
       - VNC_PASSWORD=${FIREFOX_VNC_PASSWORD:?Firefox VNC password must be defined}
