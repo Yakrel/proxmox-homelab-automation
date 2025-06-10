@@ -2,7 +2,6 @@
 # Services: JDownloader2, MeTube
 # Purpose: General download management separate from media automation
 
-version: '3.8'
 
 networks:
   downloads-net:

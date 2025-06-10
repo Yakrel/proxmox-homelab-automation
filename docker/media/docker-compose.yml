@@ -3,7 +3,6 @@
 # Host directories are owned by 1000:1000 (set by setup_media_lxc.sh).
 # This unified approach eliminates permission issues and simplifies maintenance.
 
-version: '3.8'
 
 networks:
   media-net:

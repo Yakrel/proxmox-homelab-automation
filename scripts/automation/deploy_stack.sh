@@ -199,6 +199,186 @@ verify_deployment() {
     fi
 }
 
+# Function to setup stack environment interactively
+setup_stack_env() {
+    local stack_type=$1
+    local lxc_id=$2
+    local target_dir=$3
+    
+    print_step "Interactive configuration for $stack_type stack..."
+    
+    case $stack_type in
+        "proxy")
+            setup_proxy_env "$lxc_id" "$target_dir"
+            ;;
+        "media")
+            setup_media_env "$lxc_id" "$target_dir"
+            ;;
+        "downloads")
+            setup_downloads_env "$lxc_id" "$target_dir"
+            ;;
+        "utility")
+            setup_utility_env "$lxc_id" "$target_dir"
+            ;;
+        "monitoring")
+            setup_monitoring_env "$lxc_id" "$target_dir"
+            ;;
+        *)
+            # Default: just copy .env.example to .env
+            pct exec "$lxc_id" -- sh -c "cd $target_dir && if [ -f .env.example ]; then cp .env.example .env; fi"
+            ;;
+    esac
+}
+
+# Function to setup proxy stack environment
+setup_proxy_env() {
+    local lxc_id=$1
+    local target_dir=$2
+    
+    echo
+    print_info "🔧 Cloudflare Tunnel Configuration"
+    echo "You need to create a Cloudflare tunnel first:"
+    echo "1. Go to https://one.dash.cloudflare.com/"
+    echo "2. Navigate to 'Networks' > 'Tunnels'"
+    echo "3. Create a new tunnel"
+    echo "4. Copy the tunnel token"
+    echo
+    
+    read -p "Enter your Cloudflare tunnel token: " tunnel_token
+    while [ -z "$tunnel_token" ]; do
+        print_error "Tunnel token is required!"
+        read -p "Enter your Cloudflare tunnel token: " tunnel_token
+    done
+    
+    read -p "Enter timezone [Europe/Istanbul]: " timezone
+    timezone=${timezone:-Europe/Istanbul}
+    
+    # Create .env file in LXC
+    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
+# Proxy Stack Environment Variables
+CLOUDFLARED_TOKEN=$tunnel_token
+TZ=$timezone
+PUID=1000
+PGID=1000
+EOF"
+    
+    print_info "✓ Proxy environment configured"
+}
+
+# Function to setup media stack environment  
+setup_media_env() {
+    local lxc_id=$1
+    local target_dir=$2
+    
+    echo
+    print_info "🎬 Media Stack Configuration"
+    
+    read -p "Enter timezone [Europe/Istanbul]: " timezone
+    timezone=${timezone:-Europe/Istanbul}
+    
+    # Create .env file in LXC
+    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
+# Media Stack Environment Variables
+TZ=$timezone
+PUID=1000
+PGID=1000
+EOF"
+    
+    print_info "✓ Media environment configured"
+}
+
+# Function to setup downloads stack environment
+setup_downloads_env() {
+    local lxc_id=$1
+    local target_dir=$2
+    
+    echo
+    print_info "⬇️ Downloads Stack Configuration"
+    
+    read -p "Enter timezone [Europe/Istanbul]: " timezone
+    timezone=${timezone:-Europe/Istanbul}
+    
+    # Create .env file in LXC
+    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
+# Downloads Stack Environment Variables
+TZ=$timezone
+PUID=1000
+PGID=1000
+EOF"
+    
+    print_info "✓ Downloads environment configured"
+}
+
+# Function to setup utility stack environment
+setup_utility_env() {
+    local lxc_id=$1
+    local target_dir=$2
+    
+    echo
+    print_info "🛠️ Utility Stack Configuration"
+    
+    read -p "Enter timezone [Europe/Istanbul]: " timezone
+    timezone=${timezone:-Europe/Istanbul}
+    
+    # Create .env file in LXC
+    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
+# Utility Stack Environment Variables
+TZ=$timezone
+PUID=1000
+PGID=1000
+EOF"
+    
+    print_info "✓ Utility environment configured"
+}
+
+# Function to setup monitoring stack environment
+setup_monitoring_env() {
+    local lxc_id=$1
+    local target_dir=$2
+    
+    echo
+    print_info "📊 Monitoring Stack Configuration"
+    echo "You'll need Proxmox credentials for monitoring..."
+    echo
+    
+    read -p "Enter Grafana admin password: " grafana_password
+    while [ -z "$grafana_password" ]; do
+        print_error "Grafana password is required!"
+        read -p "Enter Grafana admin password: " grafana_password
+    done
+    
+    read -p "Enter Proxmox server IP [$(ip route get 1 | sed -n 's/.*src \([0-9.]*\).*/\1/p')]: " proxmox_ip
+    proxmox_ip=${proxmox_ip:-$(ip route get 1 | sed -n 's/.*src \([0-9.]*\).*/\1/p')}
+    
+    read -p "Enter Proxmox monitoring user [monitoring@pve]: " pve_user
+    pve_user=${pve_user:-monitoring@pve}
+    
+    read -s -p "Enter Proxmox monitoring password: " pve_password
+    echo
+    while [ -z "$pve_password" ]; do
+        print_error "Proxmox password is required!"
+        read -s -p "Enter Proxmox monitoring password: " pve_password
+        echo
+    done
+    
+    read -p "Enter timezone [Europe/Istanbul]: " timezone
+    timezone=${timezone:-Europe/Istanbul}
+    
+    # Create .env file in LXC
+    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
+# Monitoring Stack Environment Variables
+GRAFANA_ADMIN_PASSWORD=$grafana_password
+PVE_USER=$pve_user
+PVE_PASSWORD=$pve_password
+PVE_URL=https://$proxmox_ip:8006
+TZ=$timezone
+PUID=1000
+PGID=1000
+EOF"
+    
+    print_info "✓ Monitoring environment configured"
+}
+
 # Function to deploy complete stack
 deploy_complete_stack() {
     local stack_type=$1
@@ -242,11 +422,11 @@ deploy_complete_stack() {
         pct push "$lxc_id" "$TEMP_DIR/$stack_type/.env.example" "$target_dir/.env.example"
     fi
     
-    # Setup environment inside LXC
+    # Setup environment inside LXC with interactive configuration
     print_info "Setting up environment in LXC..."
     
-    # Create .env file if it doesn't exist
-    pct exec "$lxc_id" -- sh -c "cd $target_dir && if [ -f .env.example ] && [ ! -f .env ]; then cp .env.example .env; fi"
+    # Interactive configuration for the stack
+    setup_stack_env "$stack_type" "$lxc_id" "$target_dir"
     
     # Deploy stack inside LXC
     print_info "Deploying stack inside LXC..."
@@ -263,10 +443,9 @@ deploy_complete_stack() {
         
         # Show important notes
         print_warning "⚠️  IMPORTANT NOTES:"
-        print_info "1. Configure passwords in: $target_dir/.env"
-        print_info "2. Access LXC: pct enter $lxc_id"
-        print_info "3. Stack location: $target_dir"
-        print_info "4. Restart services: cd $target_dir && docker compose restart"
+        print_info "1. Access LXC: pct enter $lxc_id"
+        print_info "2. Stack location: $target_dir"
+        print_info "3. Restart services: cd $target_dir && docker compose restart"
         
         return 0
     else

@@ -2,7 +2,6 @@
 # Services: Firefox (remote browser)
 # Purpose: Administrative and utility access
 
-version: '3.8'
 
 networks:
   utility-net:

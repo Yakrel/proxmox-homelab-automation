@@ -2,7 +2,6 @@
 # Services: Prometheus, Grafana, Node Exporter, cAdvisor
 # Purpose: System and container monitoring with alerting
 
-version: '3.8'
 
 networks:
   monitoring-net:
