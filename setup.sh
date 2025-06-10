@@ -136,10 +136,11 @@ other_utilities_menu() {
     echo "1) Security Setup (Fail2Ban)"
     echo "2) Storage Setup (Samba, Sanoid)"
     echo "3) Network Bonding Setup"
-    echo "4) Back to Main Menu"
+    echo "4) ZFS Performance Optimization"
+    echo "5) Back to Main Menu"
     echo ""
     
-    read -p "Your choice (1-4): " util_choice
+    read -p "Your choice (1-5): " util_choice
     
     case $util_choice in
         1)
@@ -164,6 +165,13 @@ other_utilities_menu() {
             fi
             ;;
         4)
+            # ZFS optimization
+            if download_script "scripts/core/optimize_zfs.sh"; then
+                echo "Starting ZFS performance optimization..."
+                bash "$TEMP_DIR/optimize_zfs.sh"
+            fi
+            ;;
+        5)
             return 0
             ;;
         *)
