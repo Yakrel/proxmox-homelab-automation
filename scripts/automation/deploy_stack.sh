@@ -134,6 +134,38 @@ deploy_with_compose() {
     fi
 }
 
+# Function to check if datapool mount exists
+validate_datapool_mount() {
+    local lxc_id=$1
+    
+    if ! pct exec "$lxc_id" -- test -d /datapool; then
+        print_error "/datapool mount not found in LXC $lxc_id"
+        print_info "Adding datapool mount..."
+        
+        # Try to add datapool mount
+        if pct status "$lxc_id" | grep -q "running"; then
+            pct shutdown "$lxc_id"
+            sleep 5
+        fi
+        
+        # Add mount point
+        local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}')
+        next_mp_index=${next_mp_index:-0}
+        
+        if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool,acl=1; then
+            pct start "$lxc_id"
+            sleep 5
+            print_info "✓ Datapool mount added successfully"
+            return 0
+        else
+            print_error "Failed to add datapool mount"
+            return 1
+        fi
+    fi
+    
+    return 0
+}
+
 # Function to verify deployment
 verify_deployment() {
     local stack_type=$1
@@ -169,8 +201,6 @@ verify_deployment() {
     
     if [ "$running_containers" -gt 0 ]; then
         print_info "✓ Found $running_containers running containers"
-        
-        
         return 0
     else
         print_warning "No containers appear to be running"
@@ -209,6 +239,30 @@ setup_stack_env() {
     esac
 }
 
+# Function to validate Cloudflare token format
+validate_cloudflare_token() {
+    local token=$1
+    # Basic validation: should be long enough and contain expected characters
+    if [ ${#token} -lt 80 ]; then
+        return 1
+    fi
+    # Check if it looks like a Cloudflare token (contains letters, numbers, and some special chars)
+    if [[ ! "$token" =~ ^[A-Za-z0-9_-]{80,}$ ]]; then
+        return 1
+    fi
+    return 0
+}
+
+# Function to validate timezone format
+validate_timezone() {
+    local tz=$1
+    # Check if timezone file exists
+    if [ ! -f "/usr/share/zoneinfo/$tz" ]; then
+        return 1
+    fi
+    return 0
+}
+
 # Function to setup proxy stack environment
 setup_proxy_env() {
     local lxc_id=$1
@@ -224,13 +278,23 @@ setup_proxy_env() {
     echo
     
     read -p "Enter your Cloudflare tunnel token: " tunnel_token
-    while [ -z "$tunnel_token" ]; do
-        print_error "Tunnel token is required!"
+    while [ -z "$tunnel_token" ] || ! validate_cloudflare_token "$tunnel_token"; do
+        if [ -z "$tunnel_token" ]; then
+            print_error "Tunnel token is required!"
+        else
+            print_error "Invalid token format! Token should be 80+ characters long."
+        fi
         read -p "Enter your Cloudflare tunnel token: " tunnel_token
     done
     
     read -p "Enter timezone [Europe/Istanbul]: " timezone
     timezone=${timezone:-Europe/Istanbul}
+    
+    # Validate timezone
+    if ! validate_timezone "$timezone"; then
+        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
+        timezone="Europe/Istanbul"
+    fi
     
     # Create .env file in LXC
     pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
@@ -254,6 +318,12 @@ setup_media_env() {
     
     read -p "Enter timezone [Europe/Istanbul]: " timezone
     timezone=${timezone:-Europe/Istanbul}
+    
+    # Validate timezone
+    if ! validate_timezone "$timezone"; then
+        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
+        timezone="Europe/Istanbul"
+    fi
     
     # Create .env file in LXC
     pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
@@ -283,6 +353,12 @@ setup_downloads_env() {
     read -p "Enter timezone [Europe/Istanbul]: " timezone
     timezone=${timezone:-Europe/Istanbul}
     
+    # Validate timezone
+    if ! validate_timezone "$timezone"; then
+        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
+        timezone="Europe/Istanbul"
+    fi
+    
     # Create .env file in LXC
     pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
 # Downloads Stack Environment Variables
@@ -311,6 +387,12 @@ setup_utility_env() {
     
     read -p "Enter timezone [Europe/Istanbul]: " timezone
     timezone=${timezone:-Europe/Istanbul}
+    
+    # Validate timezone
+    if ! validate_timezone "$timezone"; then
+        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
+        timezone="Europe/Istanbul"
+    fi
     
     # Create .env file in LXC
     pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
@@ -357,6 +439,12 @@ setup_monitoring_env() {
     read -p "Enter timezone [Europe/Istanbul]: " timezone
     timezone=${timezone:-Europe/Istanbul}
     
+    # Validate timezone
+    if ! validate_timezone "$timezone"; then
+        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
+        timezone="Europe/Istanbul"
+    fi
+    
     # Create .env file in LXC
     pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
 # Monitoring Stack Environment Variables
@@ -392,6 +480,9 @@ update_existing_stack() {
         pct start "$lxc_id"
         sleep 10
     fi
+    
+    # Validate datapool mount
+    validate_datapool_mount "$lxc_id"
     
     # Check if stack directory exists
     if ! pct exec "$lxc_id" -- test -d "$target_dir"; then
