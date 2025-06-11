@@ -170,8 +170,16 @@ show_time_status() {
     timedatectl status
     
     echo ""
-    print_info "Time Sync Status:"
-    timedatectl show-timesync --all
+    print_info "NTP Synchronization Status:"
+    if systemctl is-active --quiet chronyd; then
+        if chronyc tracking >/dev/null 2>&1; then
+            chronyc tracking | head -5
+        else
+            print_info "Chrony tracking information not available yet"
+        fi
+    else
+        print_info "Using system time synchronization"
+    fi
     
     # Check if NTP is active (check both chronyd and timesyncd)
     if systemctl is-active --quiet chronyd; then
@@ -183,19 +191,38 @@ show_time_status() {
     fi
 }
 
-# Function to test NTP connectivity
+# Function to test NTP connectivity (using chrony sources)
 test_ntp_connectivity() {
-    print_step "Testing connectivity to Turkish NTP servers..."
+    print_step "Checking NTP server connectivity..."
     
-    local ntp_servers=("tr.pool.ntp.org" "0.tr.pool.ntp.org" "1.tr.pool.ntp.org")
+    # Wait a moment for chrony to start connecting
+    sleep 5
     
-    for server in "${ntp_servers[@]}"; do
-        if timeout 5 ping -c 1 "$server" >/dev/null 2>&1; then
-            print_success "✓ $server is reachable"
+    if systemctl is-active --quiet chronyd; then
+        print_info "Checking chrony sources status..."
+        
+        # Check if chrony has sources
+        if chronyc sources >/dev/null 2>&1; then
+            local source_count=$(chronyc sources | wc -l)
+            if [ "$source_count" -gt 3 ]; then
+                print_success "✓ NTP sources are available and working"
+                
+                # Show active sources
+                local active_sources=$(chronyc sources | grep -E '^\^[\*\+]' | wc -l)
+                if [ "$active_sources" -gt 0 ]; then
+                    print_success "✓ $active_sources NTP sources are actively synchronizing"
+                else
+                    print_info "NTP sources are connecting (this may take a few minutes)"
+                fi
+            else
+                print_warning "NTP sources are still connecting..."
+            fi
         else
-            print_warning "✗ $server is not reachable"
+            print_warning "Chrony is starting up, sources not ready yet"
         fi
-    done
+    else
+        print_warning "Chrony service is not running"
+    fi
 }
 
 # Function to force time sync
