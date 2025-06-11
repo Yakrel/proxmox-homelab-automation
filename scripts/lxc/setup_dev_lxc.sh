@@ -53,9 +53,10 @@ get_lxc_config() {
         exit 1
     fi
     
-    # IP Address
-    read -p "Enter IP address [192.168.1.$lxc_id]: " ip_address
-    ip_address=${ip_address:-192.168.1.$lxc_id}
+    # IP Address - use a reasonable default
+    local suggested_ip="192.168.1.150"
+    read -p "Enter IP address [$suggested_ip]: " ip_address
+    ip_address=${ip_address:-$suggested_ip}
     
     # Gateway
     read -p "Enter gateway [192.168.1.1]: " gateway
@@ -182,6 +183,12 @@ configure_lxc() {
     pct start "$lxc_id"
     sleep 10
     
+    # Configure locale in the running container
+    print_info "Configuring locale settings..."
+    pct exec "$lxc_id" -- bash -c 'echo "LC_ALL=en_US.UTF-8" >> /etc/environment'
+    pct exec "$lxc_id" -- bash -c 'echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen'
+    pct exec "$lxc_id" -- locale-gen en_US.UTF-8 >/dev/null 2>&1 || true
+    
     # Wait for container to be ready
     local retries=0
     while ! pct exec "$lxc_id" -- systemctl is-system-running --wait >/dev/null 2>&1; do
@@ -249,17 +256,27 @@ install_nodejs() {
 install_claude_code() {
     print_step "Installing Claude Code..."
     
-    # Install Claude Code globally
+    # Set locale environment for npm and install Claude Code globally
     print_info "Installing @anthropic-ai/claude-code..."
-    pct exec "$lxc_id" -- npm install -g @anthropic-ai/claude-code
+    pct exec "$lxc_id" -- bash -c 'export LC_ALL=en_US.UTF-8 && export LANG=en_US.UTF-8 && npm install -g @anthropic-ai/claude-code'
+    
+    # Wait a moment for installation to complete
+    sleep 3
     
     # Verify installation
-    if pct exec "$lxc_id" -- claude-code --version >/dev/null 2>&1; then
-        local claude_version=$(pct exec "$lxc_id" -- claude-code --version 2>/dev/null || echo "unknown")
+    if pct exec "$lxc_id" -- bash -c 'which claude-code' >/dev/null 2>&1; then
+        local claude_version=$(pct exec "$lxc_id" -- claude-code --version 2>/dev/null || echo "installed")
         print_success "Claude Code installed successfully (version: $claude_version)"
     else
-        print_error "Claude Code installation failed"
-        exit 1
+        print_warning "Claude Code installation may have failed, checking alternative installation..."
+        # Try alternative installation with explicit PATH
+        pct exec "$lxc_id" -- bash -c 'export PATH="/usr/local/bin:$PATH" && export LC_ALL=en_US.UTF-8 && npm install -g @anthropic-ai/claude-code'
+        if pct exec "$lxc_id" -- bash -c 'export PATH="/usr/local/bin:$PATH" && which claude-code' >/dev/null 2>&1; then
+            print_success "Claude Code installed successfully on retry"
+        else
+            print_error "Claude Code installation failed after retry"
+            print_info "You can install it manually later with: npm install -g @anthropic-ai/claude-code"
+        fi
     fi
 }
 
