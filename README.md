@@ -40,9 +40,9 @@ This project deploys a complete homelab automation solution with 5 specialized s
 | Container Name | ID  | Purpose | CPU Cores | RAM | Storage | IP Address | Container Type |
 |---------------|-----|---------|-----------|-----|---------|------------|----------------|
 | lxc-proxy-01     | 100 | Proxy Services | 1 core | 2GB | 8GB + datapool | 192.168.1.100/24 | Unprivileged LXC |
-| lxc-media-01     | 101 | Media Automation | 4 cores | 8GB | 16GB + datapool | 192.168.1.101/24 | Unprivileged LXC |
-| lxc-downloads-01 | 102 | Download Management | 2 cores | 4GB | 8GB + datapool | 192.168.1.102/24 | Unprivileged LXC |
-| lxc-utility-01   | 103 | Utility Services | 2 cores | 4GB | 8GB + datapool | 192.168.1.103/24 | Unprivileged LXC |
+| lxc-media-01     | 101 | Media Automation | 4 cores | 10GB | 16GB + datapool | 192.168.1.101/24 | Unprivileged LXC |
+| lxc-downloads-01 | 102 | Download Management | 2 cores | 3GB | 8GB + datapool | 192.168.1.102/24 | Unprivileged LXC |
+| lxc-utility-01   | 103 | Utility Services | 2 cores | 6GB | 8GB + datapool | 192.168.1.103/24 | Unprivileged LXC |
 | lxc-monitoring-01| 104 | Monitoring & Metrics | 2 cores | 4GB | 10GB + datapool | 192.168.1.104/24 | Unprivileged LXC |
 
 ## Stack Contents & Access URLs
@@ -211,10 +211,10 @@ export PVE_URL="https://your_proxmox_ip:8006"
 
 #### 3. Update Prometheus Configuration
 Edit `/datapool/config/monitoring/prometheus/prometheus.yml` and update the IP addresses to match your LXC containers:
-- Replace `10.0.0.100` with your Proxy LXC IP
-- Replace `10.0.0.101` with your Media LXC IP  
-- Replace `10.0.0.102` with your Downloads LXC IP
-- Replace `10.0.0.103` with your Utility LXC IP
+- Replace `192.168.1.100` with your Proxy LXC IP
+- Replace `192.168.1.101` with your Media LXC IP  
+- Replace `192.168.1.102` with your Downloads LXC IP
+- Replace `192.168.1.103` with your Utility LXC IP
 
 #### 4. Grafana Dashboard Import
 After services start, access Grafana at `http://your_monitoring_lxc_ip:3000`:
@@ -236,9 +236,17 @@ Edit `/datapool/config/monitoring/alertmanager/alertmanager.yml` to configure no
 - **Grafana**: 3000
 - **Prometheus**: 9090  
 - **Alertmanager**: 9093
-- **cAdvisor**: 8080
+- **cAdvisor**: 8081
 - **PVE Exporter**: 9221
-- **Node Exporters**: 9100-9103 (one per LXC)
+- **Node Exporters**: 9100-9104 (one per LXC)
+
+### Automatic Updates
+Each stack includes Watchtower for automatic container updates at different times to prevent system load:
+- **Proxy**: 02:00 AM daily
+- **Media**: 03:00 AM daily  
+- **Downloads**: 04:00 AM daily
+- **Utility**: 05:00 AM daily
+- **Monitoring**: 06:00 AM daily
 
 ### Planned Features
 
