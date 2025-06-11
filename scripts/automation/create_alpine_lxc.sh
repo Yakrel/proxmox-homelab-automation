@@ -1,33 +1,13 @@
 #!/bin/bash
 
-# Direct Alpine Docker LXC Creation using native Proxmox commands
+# Direct Alpine Docker LXC Creation - Optimized Version
 # Creates Alpine LXC with Docker installed - no external dependencies
-# Adapted from: https://raw.githubusercontent.com/community-scripts/ProxmoxVE/9140fd52acd532b263f100f7ef0a6139000d8376/ct/alpine-docker.sh
 
 set -e
 
-# Color definitions
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-print_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-print_step() {
-    echo -e "${BLUE}[STEP]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
+# Source common functions
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+source "$SCRIPT_DIR/../common/functions.sh"
 
 # Function to create Alpine LXC using direct Proxmox commands
 create_alpine_lxc_direct() {
@@ -41,377 +21,154 @@ create_alpine_lxc_direct() {
     print_info "Specs: ${cpu_cores} cores, ${ram_mb}MB RAM, ${disk_gb}GB disk"
     
     # Check if LXC already exists
-    if pct status "$lxc_id" >/dev/null 2>&1; then
+    if lxc_exists "$lxc_id"; then
         print_error "LXC $lxc_id already exists!"
         return 1
     fi
 
-    print_step "Creating Alpine Docker LXC using direct Proxmox commands..."
+    print_step "Creating Alpine Docker LXC..."
     
-    # Detect available storages
-    print_step "Detecting available storage options..."
+    # Get storage using simplified functions
+    local template_storage=$(get_template_storage)
+    local disk_storage=$(get_container_storage)
     
-    # Get all storages with proper parsing
-    print_step "Checking storage configuration..."
+    if [ -z "$template_storage" ]; then
+        print_error "No template storage found!"
+        return 1
+    fi
     
-    # Get active storages only (exclude disabled)
-    local active_storages=$(pvesm status 2>/dev/null | awk 'NR>1 && $3=="active" {print $1}' | grep -v "^$")
-    print_info "Active storages found: $active_storages"
+    if [ -z "$disk_storage" ]; then
+        print_error "No container storage found!"
+        return 1
+    fi
     
-    # Filter template storages (support vztmpl content)
-    local template_storages=""
-    for storage in $active_storages; do
-        if pvesm status -content vztmpl 2>/dev/null | grep -q "^$storage"; then
-            template_storages="$template_storages $storage"
+    print_info "Using template storage: $template_storage"
+    print_info "Using disk storage: $disk_storage"
+    
+    # Download Alpine template if not exists
+    local template_name="alpine-3.18-default_20230607_amd64.tar.xz"
+    local template_path="$template_storage:vztmpl/$template_name"
+    
+    if ! pvesm list "$template_storage" --content vztmpl 2>/dev/null | grep -q "$template_name"; then
+        print_step "Downloading Alpine template..."
+        pveam update 2>/dev/null || true
+        if ! pveam download "$template_storage" "$template_name" 2>/dev/null; then
+            print_warning "Template download failed, will use any available Alpine template"
+            template_name=$(pvesm list "$template_storage" --content vztmpl 2>/dev/null | grep -i alpine | head -1 | awk '{print $2}' | cut -d'/' -f2)
+            if [ -z "$template_name" ]; then
+                print_error "No Alpine template found!"
+                return 1
+            fi
         fi
-    done
-    template_storages=$(echo "$template_storages" | xargs)
-    
-    # Filter disk storages (support images content)  
-    local disk_storages=""
-    for storage in $active_storages; do
-        if pvesm status -content images 2>/dev/null | grep -q "^$storage"; then
-            disk_storages="$disk_storages $storage"
-        fi
-    done
-    disk_storages=$(echo "$disk_storages" | xargs)
-    
-    print_info "Found template storages: $template_storages"
-    print_info "Found disk storages: $disk_storages"
-    
-    # Select template storage
-    local template_storage=""
-    local template_count=$(echo "$template_storages" | wc -w)
-    
-    if [ "$template_count" -eq 0 ]; then
-        print_error "No active template storage found!"
-        print_info "Available storages:"
-        pvesm status
-        return 1
-    elif [ "$template_count" -eq 1 ]; then
-        template_storage="$template_storages"
-        print_info "Using template storage: $template_storage"
-    else
-        print_step "Multiple template storages available:"
-        echo "$template_storages" | tr ' ' '\n' | nl
-        read -p "Select template storage (1-$template_count): " choice
-        template_storage=$(echo "$template_storages" | tr ' ' '\n' | sed -n "${choice}p")
-        print_info "Selected template storage: $template_storage"
     fi
     
-    # Select disk storage
-    local disk_storage=""
-    local disk_count=$(echo "$disk_storages" | wc -w)
-    
-    if [ "$disk_count" -eq 0 ]; then
-        print_error "No active disk storage found!"
-        print_info "Available storages:"
-        pvesm status
-        return 1
-    elif [ "$disk_count" -eq 1 ]; then
-        disk_storage="$disk_storages"
-        print_info "Using disk storage: $disk_storage"
-    else
-        print_step "Multiple disk storages available:"
-        echo "$disk_storages" | tr ' ' '\n' | nl
-        read -p "Select disk storage (1-$disk_count): " choice
-        disk_storage=$(echo "$disk_storages" | tr ' ' '\n' | sed -n "${choice}p")
-        print_info "Selected disk storage: $disk_storage"
-    fi
-    
-    # Validate selections
-    if [ -z "$template_storage" ] || [ -z "$disk_storage" ]; then
-        print_error "Storage selection failed!"
-        print_info "Template storage: '$template_storage'"
-        print_info "Disk storage: '$disk_storage'"
-        return 1
-    fi
-    
-    # Get latest Alpine template
-    print_step "Finding latest Alpine template..."
-    local template_name=$(pveam available | grep alpine | grep default | sort -V | tail -1 | awk '{print $2}')
-    if [ -z "$template_name" ]; then
-        template_name="alpine-3.21-default_20241217_amd64.tar.xz"
-    fi
-    
-    # Download template if not exists
-    print_step "Downloading Alpine template: $template_name"
-    if ! pveam list "$template_storage" | grep -q "$template_name"; then
-        print_info "Downloading template to $template_storage..."
-        pveam download "$template_storage" "$template_name"
-    else
-        print_info "Template already exists in $template_storage"
-    fi
-    
-    # Create LXC container directly with Alpine
+    # Create LXC container
     print_step "Creating LXC container $lxc_id..."
-    if pct create "$lxc_id" "$template_storage:vztmpl/$template_name" \
+    local storage_spec="${disk_storage}:${disk_gb}"
+    
+    if ! pct create "$lxc_id" \
+        "$template_storage:vztmpl/$template_name" \
         --hostname "$lxc_name" \
-        --cores "$cpu_cores" \
         --memory "$ram_mb" \
-        --rootfs "$disk_storage:$disk_gb" \
+        --cores "$cpu_cores" \
+        --storage "$disk_storage" \
+        --rootfs "$storage_spec" \
         --net0 "name=eth0,bridge=vmbr0,ip=192.168.1.${lxc_id}/24,gw=192.168.1.1" \
-        --nameserver "192.168.1.1" \
-        --onboot 1 \
+        --features "nesting=1" \
         --unprivileged 1 \
-        --features "nesting=1"; then
-        
-        print_info "✓ LXC container created successfully!"
-        
-        # Start the container
-        print_step "Starting LXC container..."
-        pct start "$lxc_id"
-        sleep 10
-        
-        # Configure Alpine container using tteck approach
-        print_step "Configuring Alpine container..."
-        
-        # Create and run setup script inside container
-        pct exec "$lxc_id" -- ash -c '
-            # Complete silent Alpine setup
-            echo "Setting up Container OS..." >/dev/null
-            
-            # IPv6 disable
-            sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null 2>&1
-            echo "net.ipv6.conf.all.disable_ipv6 = 1" >> /etc/sysctl.conf
-            rc-update add sysctl default >/dev/null 2>&1
-            
-            # Set non-interactive environment
-            export DEBIAN_FRONTEND=noninteractive
-            export APK_PROGRESS_FD=1
-            
-            # Update Alpine completely silent
-            echo "Updating packages..." >/dev/null
-            apk update >/dev/null 2>&1
-            apk upgrade >/dev/null 2>&1
-            
-            # Install packages completely silent
-            echo "Installing Docker and tools..." >/dev/null
-            apk add --quiet --no-progress docker docker-compose docker-cli-compose curl bash nano mc >/dev/null 2>&1
-            
-            # Configure Docker service
-            rc-update add docker boot >/dev/null 2>&1
-            service docker start >/dev/null 2>&1
-            
-            # Passwordless root configuration
-            passwd -d root >/dev/null 2>&1
-            
-            # Configure bash
-            chsh -s /bin/bash root >/dev/null 2>&1
-            echo "export TERM=\"xterm-256color\"" >> /root/.bashrc
-            
-            # Disable SSH completely
-            rc-update del sshd >/dev/null 2>&1 || true
-            service sshd stop >/dev/null 2>&1 || true
-            
-            # Configure autologin properly
-            sed -i "s/^root:[^:]*:/root::/" /etc/shadow
-            
-            # Setup console autologin using inittab method
-            sed -i "/^tty1:/d" /etc/inittab
-            echo "tty1::respawn:/sbin/getty -a root 38400 tty1" >> /etc/inittab
-            
-            echo "Configuration completed!" >/dev/null
-        '
-        
-        # Wait for services to stabilize
-        sleep 5
-        
-        print_info "✓ Direct Alpine Docker LXC creation completed!"
-    else
-        print_error "Direct LXC creation failed!"
-        print_error "Please check Proxmox logs and try again"
+        --onboot 1 \
+        --start 1; then
+        print_error "Failed to create LXC $lxc_id"
         return 1
     fi
-    
-    # If we reach here, one of the methods succeeded
-    print_step "Verifying LXC creation..."
-    
-    # Check if we're in a Proxmox environment
-    if ! command -v pct >/dev/null 2>&1; then
-        print_warning "Not in Proxmox environment - skipping LXC verification"
-        print_info "✓ Automation methods executed successfully"
-        return 0
-    fi
-    
-    if pct status "$lxc_id" >/dev/null 2>&1; then
-        print_info "✓ LXC $lxc_name created successfully!"
-        
-        # Wait for container to be fully ready
-        sleep 10
-        
-        # Verify container exists and is running
-        if pct status "$lxc_id" | grep -q "running"; then
-            print_info "✓ Container is running"
-        else
-            print_warning "Container not running, starting..."
-            pct start "$lxc_id"
-            sleep 5
-        fi
-        
-        # Add datapool mount
-        print_step "Adding /datapool mount point..."
-        if add_datapool_mount "$lxc_id"; then
-            print_info "✓ Mount point added successfully"
-        else
-            print_warning "Failed to add mount point automatically"
-        fi
-        
-        # Verify Docker installation
-        print_step "Verifying Docker installation..."
-        if verify_docker "$lxc_id"; then
-            print_info "✓ Docker and Docker Compose verified"
-        else
-            print_warning "Docker verification failed, may need manual check"
-        fi
-        
-        return 0
-    else
-        print_error "Script execution failed or timed out"
-        rm -f /tmp/alpine_auto.sh
-        return 1
-    fi
-}
 
-# Function to add datapool mount
-add_datapool_mount() {
-    local lxc_id=$1
+    # Wait for container to be ready
+    wait_for_lxc "$lxc_id"
     
-    # Shutdown container if running
-    if pct status "$lxc_id" | grep -q "running"; then
-        pct shutdown "$lxc_id"
-        sleep 10
-        # If shutdown doesn't work, force stop
-        if pct status "$lxc_id" | grep -q "running"; then
-            pct stop "$lxc_id"
-            sleep 3
-        fi
-    fi
+    # Install Docker
+    print_step "Installing Docker in LXC $lxc_id..."
     
-    # Determine the next available mount index
-    local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}')
-    next_mp_index=${next_mp_index:-0} # Default to 0 if no mount points exist
-    
-    # Add mount point with ACL support for proper permissions
-    if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool,acl=1; then
-        # Start container
-        pct start "$lxc_id"
-        sleep 5
-        
-        # Verify mount
-        if pct exec "$lxc_id" -- test -d /datapool; then
-            return 0
-        else
-            return 1
-        fi
-    else
+    # Update and install Docker
+    pct exec "$lxc_id" -- sh -c "
+        apk update && 
+        apk add docker docker-cli-compose &&
+        rc-update add docker default &&
+        service docker start &&
+        addgroup root docker
+    " || {
+        print_error "Docker installation failed"
         return 1
-    fi
-}
-
-# Function to verify Docker installation
-verify_docker() {
-    local lxc_id=$1
+    }
     
-    # Wait for Docker service to be ready
-    sleep 10
-    
-    # Ensure Docker service is running
-    pct exec "$lxc_id" -- rc-service docker start >/dev/null 2>&1 || true
-    sleep 5
-    
-    # Test Docker
+    # Verify Docker installation
     if pct exec "$lxc_id" -- docker --version >/dev/null 2>&1; then
-        print_info "✓ Docker installation verified"
+        print_info "✓ Docker successfully installed in LXC $lxc_id"
     else
-        print_warning "Docker not accessible, attempting restart..."
-        pct exec "$lxc_id" -- rc-service docker restart >/dev/null 2>&1
-        sleep 5
-        if pct exec "$lxc_id" -- docker --version >/dev/null 2>&1; then
-            print_info "✓ Docker installation verified after restart"
-        else
-            return 1
-        fi
+        print_error "Docker installation verification failed"
+        return 1
     fi
+
+    # Create datapool directory structure
+    print_step "Setting up directory structure..."
+    pct exec "$lxc_id" -- sh -c "
+        mkdir -p /datapool/config
+        mkdir -p /datapool/media/{movies,tv,youtube/{playlists,channels}}
+        mkdir -p /datapool/torrents/{movies,tv,other}
+        chown -R 1000:1000 /datapool
+        chmod -R 755 /datapool
+    "
+    
+    print_info "✅ Alpine Docker LXC $lxc_name (ID: $lxc_id) created successfully!"
+    print_info "   Access: pct enter $lxc_id"
+    print_info "   IP: 192.168.1.$lxc_id"
     
     return 0
 }
 
-# Main function
-create_stack_lxc() {
-    local stack_type=$1
+# LXC configurations for different stack types
+configure_stack_lxc() {
+    local stack_type="$1"
     
-    case $stack_type in
-        "media")
-            create_alpine_lxc_direct 101 "lxc-media-01" 4 10240 20
-            ;;
+    case "$stack_type" in
         "proxy")
-            create_alpine_lxc_direct 100 "lxc-proxy-01" 2 2048 8
+            create_alpine_lxc_direct 100 "lxc-proxy-01" 1 2048 8
+            ;;
+        "media")
+            create_alpine_lxc_direct 101 "lxc-media-01" 4 10240 16
             ;;
         "downloads")
             create_alpine_lxc_direct 102 "lxc-downloads-01" 2 3072 8
             ;;
         "utility")
-            create_alpine_lxc_direct 103 "lxc-utility-01" 3 6144 8
+            create_alpine_lxc_direct 103 "lxc-utility-01" 2 6144 8
             ;;
         "monitoring")
-            create_alpine_lxc_direct 104 "lxc-monitoring-01" 2 4096 12
+            create_alpine_lxc_direct 104 "lxc-monitoring-01" 2 4096 10
             ;;
         *)
             print_error "Unknown stack type: $stack_type"
-            return 1
+            print_info "Available types: proxy, media, downloads, utility, monitoring"
+            exit 1
             ;;
     esac
 }
 
-# Input validation
-if [ $# -ne 1 ]; then
-    print_error "Usage: $0 <stack_type>"
-    echo "Available: media, proxy, downloads, utility, monitoring"
-    exit 1
-fi
-
-case "$1" in
-    media|proxy|downloads|utility|monitoring)
-        ;;
-    *)
-        print_error "Invalid stack type: $1"
+# Main execution
+main() {
+    check_root
+    
+    local stack_type="$1"
+    
+    if [ -z "$stack_type" ]; then
+        print_error "Stack type required!"
+        print_info "Usage: $0 <stack_type>"
+        print_info "Available types: proxy, media, downloads, utility, monitoring"
         exit 1
-        ;;
-esac
+    fi
+    
+    print_info "Starting Alpine Docker LXC creation for $stack_type stack..."
+    configure_stack_lxc "$stack_type"
+}
 
-if [ "$(id -u)" -ne 0 ]; then
-    print_error "This script must be run as root"
-    exit 1
-fi
-
-# Execute
-STACK_TYPE=$1
-print_info "Creating $STACK_TYPE stack using direct Alpine Docker LXC creation..."
-
-if create_stack_lxc "$STACK_TYPE"; then
-    print_info "🎉 $STACK_TYPE LXC created successfully!"
-    print_info ""
-    print_info "Features installed:"
-    print_info "✓ Latest Alpine Linux with core configurations"
-    print_info "✓ Docker + Docker Compose + Essential packages"
-    print_info "✓ SSH disabled, passwordless console access"
-    print_info "✓ IPv6 disabled, 256-color terminal"
-    print_info "✓ Autologin console, unprivileged container"
-    print_info "✓ /datapool mount point added"
-    print_info ""
-    print_info "Next steps:"
-    case $STACK_TYPE in
-        media) LXC_ID=101;;
-        proxy) LXC_ID=100;;
-        downloads) LXC_ID=102;;
-        utility) LXC_ID=103;;
-        monitoring) LXC_ID=104;;
-    esac
-    print_info "1. Create directories: bash scripts/lxc/setup_${STACK_TYPE}_lxc.sh"
-    print_info "2. Deploy services: bash scripts/automation/deploy_stack.sh $STACK_TYPE $LXC_ID"
-    print_info "3. Access LXC: pct enter $LXC_ID"
-else
-    print_error "Failed to create $STACK_TYPE LXC"
-    exit 1
-fi
+# Run main function with all arguments
+main "$@"
