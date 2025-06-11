@@ -235,20 +235,43 @@ system_maintenance_menu() {
         echo "======================================================"
         echo "System Maintenance Menu"
         echo "======================================================"
-        echo "1) Security Status Check (Fail2ban)"
-        echo "2) Back to Main Menu"
+        echo "1) Update System Packages"
+        echo "2) Security Status Check (Fail2ban)"
+        echo "3) Clean Package Cache"
+        echo "4) Check Disk Space"
+        echo "5) System Logs Review"
+        echo "6) Back to Main Menu"
         echo ""
         
-        read -p "Your choice (1-2): " maint_choice
+        read -p "Your choice (1-6): " maint_choice
         
         case $maint_choice in
             1)
+                echo "Updating system packages..."
+                apt update && apt upgrade -y
+                ;;
+            2)
                 if download_script "scripts/maintenance/security_monitor.sh"; then
                     echo "Checking security status..."
                     bash "$TEMP_DIR/security_monitor.sh"
                 fi
                 ;;
-            2)
+            3)
+                echo "Cleaning package cache..."
+                apt autoremove -y && apt autoclean
+                ;;
+            4)
+                echo "Checking disk space..."
+                df -h
+                echo ""
+                echo "LXC Storage Usage:"
+                pvesm status
+                ;;
+            5)
+                echo "Recent system logs:"
+                journalctl --since "1 hour ago" --no-pager | tail -20
+                ;;
+            6)
                 return 0
                 ;;
             *)
