@@ -232,8 +232,10 @@ force_time_sync() {
     # Check which service is running and force sync accordingly
     if systemctl is-active --quiet chronyd; then
         print_info "Using chrony for immediate sync"
-        chrony sources -v 2>/dev/null || print_warning "Chrony sources not available yet"
-        chronyd -q 'pool tr.pool.ntp.org iburst' 2>/dev/null || print_info "Using chrony makestep"
+        # Wait a bit more for chrony to initialize properly
+        sleep 3
+        # Try to force sync quietly without showing warnings
+        chronyd -q 'pool tr.pool.ntp.org iburst' >/dev/null 2>&1 || chronyc makestep >/dev/null 2>&1
     elif systemctl is-active --quiet systemd-timesyncd; then
         # Stop timesyncd
         systemctl stop systemd-timesyncd
