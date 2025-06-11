@@ -48,13 +48,12 @@ main_deployment_menu() {
         echo "3) Deploy Downloads Stack (LXC 102 - JDownloader, MeTube)"
         echo "4) Deploy Utility Stack (LXC 103 - Firefox Browser)"
         echo "5) Deploy Monitoring Stack (LXC 104 - Grafana, Prometheus)"
-        echo "6) Other Utilities (Security Status)"
-        echo "7) Post-Install Setup (Recommended after fresh Proxmox install)"
-        echo "8) System Maintenance (Security, Updates)"
-        echo "9) Exit"
+        echo "6) Post-Install Setup (Recommended after fresh Proxmox install)"
+        echo "7) System Maintenance (Security Status)"
+        echo "8) Exit"
         echo ""
         
-        read -p "Your choice (1-9): " auto_choice
+        read -p "Your choice (1-8): " auto_choice
         
         case $auto_choice in
             1)
@@ -93,51 +92,17 @@ main_deployment_menu() {
                 fi
                 ;;
             6)
-                # Other utilities submenu
-                other_utilities_menu
-                ;;
-            7)
                 # Post-Install Setup submenu
                 post_install_menu
                 ;;
-            8)
+            7)
                 # System Maintenance submenu
                 system_maintenance_menu
                 ;;
-            9)
+            8)
                 # Exit
                 echo "Exiting..."
                 exit 0
-                ;;
-            *)
-                echo "Invalid choice!"
-                ;;
-        esac
-    done
-}
-
-# Function for Other Utilities submenu
-other_utilities_menu() {
-    while true; do
-        echo ""
-        echo "======================================================"
-        echo "Other Utilities Menu"
-        echo "======================================================"
-        echo "1) Security Status Check (Fail2ban)"
-        echo "2) Back to Main Menu"
-        echo ""
-        
-        read -p "Your choice (1-2): " util_choice
-        
-        case $util_choice in
-            1)
-                if download_script "scripts/maintenance/security_monitor.sh"; then
-                    echo "Checking security status..."
-                    bash "$TEMP_DIR/security_monitor.sh"
-                fi
-                ;;
-            2)
-                return 0
                 ;;
             *)
                 echo "Invalid choice!"
@@ -235,50 +200,20 @@ system_maintenance_menu() {
         echo "======================================================"
         echo "System Maintenance Menu"
         echo "======================================================"
-        echo "1) Timezone Configuration (Europe/Istanbul)"
-        echo "2) Update System Packages"
-        echo "3) Security Status Check (Fail2ban)"
-        echo "4) Clean Package Cache"
-        echo "5) Check Disk Space"
-        echo "6) System Logs Review"
-        echo "7) Back to Main Menu"
+        echo "1) Security Status Check (Fail2ban)"
+        echo "2) Back to Main Menu"
         echo ""
         
-        read -p "Your choice (1-7): " maint_choice
+        read -p "Your choice (1-2): " maint_choice
         
         case $maint_choice in
             1)
-                if download_script "scripts/core/configure_timezone.sh"; then
-                    echo "Starting timezone configuration..."
-                    bash "$TEMP_DIR/configure_timezone.sh"
-                fi
-                ;;
-            2)
-                echo "Updating system packages..."
-                apt update && apt upgrade -y
-                ;;
-            3)
                 if download_script "scripts/maintenance/security_monitor.sh"; then
                     echo "Checking security status..."
                     bash "$TEMP_DIR/security_monitor.sh"
                 fi
                 ;;
-            4)
-                echo "Cleaning package cache..."
-                apt autoremove -y && apt autoclean
-                ;;
-            5)
-                echo "Checking disk space..."
-                df -h
-                echo ""
-                echo "LXC Storage Usage:"
-                pvesm status
-                ;;
-            6)
-                echo "Recent system logs:"
-                journalctl --since "1 hour ago" --no-pager | tail -20
-                ;;
-            7)
+            2)
                 return 0
                 ;;
             *)
