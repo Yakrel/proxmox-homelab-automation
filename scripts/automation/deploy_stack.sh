@@ -46,22 +46,22 @@ ensure_datapool_permissions() {
     # Create necessary directories based on stack type
     case $stack_type in
         "proxy")
-            mkdir -p /datapool/config/{cloudflared,watchtower-proxy}
+            mkdir -p /datapool/config/cloudflared
             ;;
         "media")
-            mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,watchtower-media,recyclarr,cleanuperr,huntarr}
+            mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,recyclarr,cleanuperr,huntarr}
             mkdir -p /datapool/config/jellyseerr/logs
             mkdir -p /datapool/{torrents,media}/{tv,movies}
             mkdir -p /datapool/torrents/other
             ;;
         "downloads")
-            mkdir -p /datapool/config/{jdownloader2,metube,watchtower-downloads}
+            mkdir -p /datapool/config/{jdownloader2,metube}
             ;;
         "utility")
-            mkdir -p /datapool/config/{firefox,watchtower-utility}
+            mkdir -p /datapool/config/firefox
             ;;
         "monitoring")
-            mkdir -p /datapool/config/{prometheus,grafana,alertmanager,watchtower-monitoring}
+            mkdir -p /datapool/config/{prometheus,grafana,alertmanager}
             mkdir -p /datapool/config/prometheus/rules
             mkdir -p /datapool/config/grafana/provisioning/{datasources,dashboards}
             ;;
