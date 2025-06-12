@@ -2,7 +2,6 @@
 # Services: Firefox (remote browser)
 # Purpose: Administrative and utility access
 
-version: '3.8'
 
 networks:
   utility-net:
@@ -26,13 +25,6 @@ services:
       - KEEP_APP_RUNNING=1
       - DISPLAY_WIDTH=1920
       - DISPLAY_HEIGHT=1080
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 4G
-        reservations:
-          memory: 1G
     networks:
       - utility-net
     logging:
@@ -71,7 +63,6 @@ services:
     container_name: watchtower-utility
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /datapool/config/watchtower-utility:/config:ro
     environment:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true

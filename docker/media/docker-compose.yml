@@ -1,11 +1,8 @@
 # IMPORTANT NOTE ON PUID/PGID:
-# While the setup_media_lxc.sh script sets host directory ownership to 101000:101000 (mapped from LXC ID 101),
-# the containers below MUST run with PUID=1000 and PGID=1000.
-# Using the host-mapped IDs (e.g., 101000) causes permission errors, preventing containers
-# from starting correctly or writing to the mounted /datapool volumes.
-# The current PUID/PGID=1000 configuration is confirmed to work correctly in this setup.
+# All containers use PUID=1000 and PGID=1000 for consistency.
+# Host directories are owned by 1000:1000 (set by setup_media_lxc.sh).
+# This unified approach eliminates permission issues and simplifies maintenance.
 
-version: '3.8'
 
 networks:
   media-net:
@@ -28,6 +25,12 @@ services:
     networks:
       - media-net
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8989/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -142,6 +145,12 @@ services:
     networks:
       - media-net
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v2/app/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -241,7 +250,6 @@ services:
     container_name: watchtower-media
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /datapool/config/watchtower-media:/config:ro # Config mount unchanged
     environment:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
@@ -281,7 +289,7 @@ services:
         max-file: "3"
 
   huntarr:
-    image: plexguide/huntarr:latest
+    image: huntarr/huntarr:latest
     container_name: huntarr
     environment:
       - PUID=1000
