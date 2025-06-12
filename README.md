@@ -4,28 +4,14 @@ This repository contains a collection of automation tools designed to customize 
 
 ## Quick Setup
 
-### One-Command Complete Deployment
-
-**Deploy Everything (All 5 Stacks):**
 ```bash
-bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)" && echo "8" | bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
-```
-
-**Individual Stack Deployment:**
-```bash
-# Download and run setup script
 bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
-
-# Choose option 8 (Automated Deployment) from menu
-# Then select individual stack or complete deployment
 ```
 
-### Manual Setup Options
-The setup script provides these options:
-1. Security Installation (Fail2Ban)
-2. Storage Installation (Samba, Sanoid) 
-3. Individual LXC preparation
-8. **Automated Deployment (Recommended)**
+From the menu you can choose:
+- **Option 8**: Automated Deployment (deploy individual stacks or all 5 stacks at once)
+- **Other options**: Security setup, storage setup, individual LXC preparation
+
 
 ## Deployment Approach
 
@@ -41,8 +27,8 @@ This project uses a **fully automated deployment** approach with 5 specialized L
 This project deploys a complete homelab automation solution with 5 specialized stacks:
 
 - **Security & Storage Setup**: Enhance Proxmox security with Fail2Ban and configure Samba/Sanoid
-- **Media Stack (LXC 101)**: Complete media automation with Sonarr, Radarr, Jellyfin, qBittorrent
 - **Proxy Stack (LXC 100)**: Secure external access via Cloudflare tunnels
+- **Media Stack (LXC 101)**: Complete media automation with Sonarr, Radarr, Jellyfin, qBittorrent
 - **Downloads Stack (LXC 102)**: General downloading with JDownloader2 and MeTube
 - **Utility Stack (LXC 103)**: Administrative tools including remote Firefox browser
 - **Monitoring Stack (LXC 104)**: System monitoring with Prometheus, Grafana, and Alertmanager
@@ -75,10 +61,12 @@ This project deploys a complete homelab automation solution with 5 specialized s
 - **Prowlarr** – Indexer proxy | http://192.168.1.101:9696
 - **Flaresolverr** – Cloudflare bypass | http://192.168.1.101:8191
 - **Recyclarr** – *arr configuration tool (no web UI)
+- **Cleanuperr** – Media library cleanup | http://192.168.1.101:9555
+- **Huntarr** – Torrent hunting tool | http://192.168.1.101:9705
 
 ### Downloads Stack (lxc-downloads-01, ID: 102)  
 - **JDownloader2** – Download manager | http://192.168.1.102:5801
-- **MeTube** – YouTube downloader | http://192.168.1.102:8081
+  - **MeTube** – YouTube downloader | http://192.168.1.102:8082
 
 ### Utility Stack (lxc-utility-01, ID: 103)
 - **Firefox** – Remote browser | http://192.168.1.103:5800 | VNC: 192.168.1.103:5900
@@ -87,7 +75,7 @@ This project deploys a complete homelab automation solution with 5 specialized s
 - **Grafana** – Metrics dashboard | http://192.168.1.104:3000
 - **Prometheus** – Metrics collection | http://192.168.1.104:9090
 - **Alertmanager** – Alert management | http://192.168.1.104:9093
-- **cAdvisor** – Container metrics | http://192.168.1.104:8080
+  - **cAdvisor** – Container metrics | http://192.168.1.104:8081
 - **Proxmox Exporter** – Proxmox metrics | http://192.168.1.104:9221
 
 ## Media Server: Folder Structure & Configuration
@@ -108,19 +96,14 @@ To ensure proper hardlinks and atomic moves, the following folder structure is u
 │   ├── prowlarr/         # Media Stack (LXC 101)
 │   ├── flaresolverr/     # Media Stack (LXC 101)
 │   ├── recyclarr/        # Media Stack (LXC 101)
-│   ├── watchtower-media/ # Media Stack (LXC 101)
 │   ├── cloudflared/      # Proxy Stack (LXC 100)
-│   ├── watchtower-proxy/ # Proxy Stack (LXC 100)
 │   ├── jdownloader2/     # Downloads Stack (LXC 102)
 │   ├── metube/           # Downloads Stack (LXC 102)
-│   ├── watchtower-downloads/ # Downloads Stack (LXC 102)
 │   ├── firefox/          # Utility Stack (LXC 103)
-│   ├── watchtower-utility/   # Utility Stack (LXC 103)
-│   ├── monitoring/       # Monitoring Stack (LXC 104)
-│   │   ├── prometheus/   # Prometheus configuration
-│   │   ├── grafana/      # Grafana configuration
-│   │   └── alertmanager/ # Alertmanager configuration
-│   └── watchtower-monitoring/ # Monitoring Stack (LXC 104)
+│   └── monitoring/       # Monitoring Stack (LXC 104)
+│       ├── prometheus/   # Prometheus configuration
+│       ├── grafana/      # Grafana configuration
+│       └── alertmanager/ # Alertmanager configuration
 ├── torrents/
 │   ├── movies/        # Complete movie torrents
 │   ├── tv/            # Complete TV show torrents

@@ -1,45 +1,40 @@
 #!/bin/bash
 set -e
 
+# Configuration
+PUID=1000
+PGID=1000
+
 echo "Media LXC (lxc-media-01, ID: 101) preparation will be done."
 read -p "Do you want to create folders for Media LXC? (y/N): " response
 
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-    # Create directory structure for config
-    mkdir -p /datapool/config/sonarr
-    mkdir -p /datapool/config/radarr
-    mkdir -p /datapool/config/bazarr
-    mkdir -p /datapool/config/jellyfin
-    mkdir -p /datapool/config/jellyseerr
-    mkdir -p /datapool/config/qbittorrent
-    mkdir -p /datapool/config/prowlarr
-    mkdir -p /datapool/config/flaresolverr
-    mkdir -p /datapool/config/watchtower-media
-    mkdir -p /datapool/config/recyclarr 
+    # Define directory arrays
+    CONFIG_DIRS=("sonarr" "radarr" "bazarr" "jellyfin" "jellyseerr" "qbittorrent" "prowlarr" "flaresolverr" "watchtower-media" "recyclarr" "cleanuperr" "huntarr")
+    MEDIA_DIRS=("tv" "movies" "youtube/playlists" "youtube/channels")
+    TORRENT_DIRS=("tv" "movies" "other")
+    
+    # Create config directories
+    for dir in "${CONFIG_DIRS[@]}"; do
+        mkdir -p "/datapool/config/$dir"
+    done
     
     # Create media directories
-    mkdir -p /datapool/media/tv
-    mkdir -p /datapool/media/movies
-    mkdir -p /datapool/media/youtube/playlists
-    mkdir -p /datapool/media/youtube/channels
+    for dir in "${MEDIA_DIRS[@]}"; do
+        mkdir -p "/datapool/media/$dir"
+    done
     
     # Create torrents directories
-    mkdir -p /datapool/torrents/tv
-    mkdir -p /datapool/torrents/movies
-    mkdir -p /datapool/torrents/other
+    for dir in "${TORRENT_DIRS[@]}"; do
+        mkdir -p "/datapool/torrents/$dir"
+    done
     
-    # Set ownership for specific config subdirectories and other main directories
-    chown -R 101000:101000 /datapool/config/sonarr
-    chown -R 101000:101000 /datapool/config/radarr
-    chown -R 101000:101000 /datapool/config/bazarr
-    chown -R 101000:101000 /datapool/config/jellyfin
-    chown -R 101000:101000 /datapool/config/jellyseerr
-    chown -R 101000:101000 /datapool/config/qbittorrent
-    chown -R 101000:101000 /datapool/config/prowlarr
-    chown -R 101000:101000 /datapool/config/flaresolverr
-    chown -R 101000:101000 /datapool/config/watchtower-media
-    chown -R 101000:101000 /datapool/config/recyclarr 
-    # Keep chown for media and torrents directories
+    # Set ownership for config directories (host-side unprivileged LXC mapping)
+    for dir in "${CONFIG_DIRS[@]}"; do
+        chown -R 101000:101000 "/datapool/config/$dir"
+    done
+    
+    # Set ownership for media and torrents directories (host-side unprivileged LXC mapping)
     chown -R 101000:101000 /datapool/media 
     chown -R 101000:101000 /datapool/torrents
     
@@ -51,9 +46,4 @@ else
     echo "Operation cancelled."
 fi
 
-echo "-------------------------------------"
-echo "Now enter the LXC and install Docker and Docker Compose:"
-echo "pct enter 101"
-echo ""
-echo "Then copy and run the docker-compose.yml file."
-echo "-------------------------------------"
+echo "Media LXC directory structure created successfully!"

@@ -2,7 +2,6 @@
 # Services: Prometheus, Grafana, Node Exporter, cAdvisor
 # Purpose: System and container monitoring with alerting
 
-version: '3.8'
 
 networks:
   monitoring-net:
@@ -22,7 +21,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - /datapool/config/monitoring/prometheus:/etc/prometheus:ro
+      - /datapool/config/prometheus:/etc/prometheus:ro
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -34,6 +33,9 @@ services:
       - '--web.enable-admin-api'
     environment:
       - TZ=Europe/Istanbul
+      - PUID=1000
+      - PGID=1000
+    user: "1000:1000"
     networks:
       - monitoring-net
     logging:
@@ -50,13 +52,17 @@ services:
       - "3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
-      - /datapool/config/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - /datapool/config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - /datapool/config/grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
       - TZ=Europe/Istanbul
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?Grafana admin password must be defined}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
       - GF_SECURITY_ALLOW_EMBEDDING=true
+      - PUID=1000
+      - PGID=1000
+    user: "1000:1000"
     networks:
       - monitoring-net
     depends_on:
@@ -97,7 +103,7 @@ services:
     container_name: cadvisor
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8081:8080"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -111,6 +117,12 @@ services:
       - TZ=Europe/Istanbul
     networks:
       - monitoring-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -124,7 +136,7 @@ services:
     ports:
       - "9093:9093"
     volumes:
-      - /datapool/config/monitoring/alertmanager:/etc/alertmanager:ro
+      - /datapool/config/alertmanager:/etc/alertmanager:ro
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
@@ -164,11 +176,13 @@ services:
     container_name: watchtower-monitoring
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /datapool/config/watchtower-monitoring:/config:ro
     environment:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 6 * * *
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
     restart: unless-stopped
     networks:
       - monitoring-net
