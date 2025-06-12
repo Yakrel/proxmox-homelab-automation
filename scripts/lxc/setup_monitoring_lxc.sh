@@ -17,7 +17,7 @@ NC='\033[0m'
 echo -e "${YELLOW}Setting up directory structure for Monitoring LXC (ID: $LXC_ID)...${NC}"
 
 # Define directory arrays for monitoring stack
-CONFIG_DIRS=("prometheus" "grafana" "alertmanager" "watchtower-monitoring")
+CONFIG_DIRS=("prometheus" "grafana" "alertmanager")
 PROMETHEUS_SUBDIRS=("rules")
 GRAFANA_SUBDIRS=("provisioning/datasources" "provisioning/dashboards")
 
@@ -46,7 +46,6 @@ echo -e "${YELLOW}Setting ownership (101000:101000) for monitoring directories..
 chown -R 101000:101000 "/datapool/config/prometheus"
 chown -R 101000:101000 "/datapool/config/grafana"
 chown -R 101000:101000 "/datapool/config/alertmanager"
-chown -R 101000:101000 "/datapool/config/watchtower-monitoring"
 
 echo -e "${GREEN}✓ Monitoring LXC directory structure created successfully!${NC}"
 echo -e "${YELLOW}Directory structure:${NC}"
@@ -57,6 +56,5 @@ echo -e "  ├── provisioning/"
 echo -e "  │   ├── datasources/"
 echo -e "  │   └── dashboards/"
 echo -e "  /datapool/config/alertmanager/"
-echo -e "  /datapool/config/watchtower-monitoring/"
 echo ""
 echo -e "${GREEN}Monitoring setup completed!${NC}"
