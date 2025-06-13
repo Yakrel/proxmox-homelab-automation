@@ -383,7 +383,6 @@ QB_PASSWORD=
 EOF"
     
     print_info "✓ Media environment configured"
-    print_warning "Configure Cleanuperr API keys after deployment via service web interfaces"
 }
 
 # Function to setup downloads stack environment
