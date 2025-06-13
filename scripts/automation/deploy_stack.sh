@@ -368,15 +368,22 @@ setup_media_env() {
         timezone="Europe/Istanbul"
     fi
     
-    # Create .env file in LXC
-    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
+    # Create .env file in LXC with all required variables
+    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << 'EOF'
 # Media Stack Environment Variables
 TZ=$timezone
 PUID=1000
 PGID=1000
+
+# Cleanuperr Configuration
+SONARR_API_KEY=
+RADARR_API_KEY=
+QB_USERNAME=admin
+QB_PASSWORD=
 EOF"
     
     print_info "✓ Media environment configured"
+    print_warning "Configure Cleanuperr API keys after deployment via service web interfaces"
 }
 
 # Function to setup downloads stack environment
@@ -753,17 +760,7 @@ deploy_complete_stack() {
         
         # Add stack-specific configuration notes
         if [ "$stack_type" = "media" ]; then
-            echo
-            print_info "📝 Cleanuperr Configuration Required:"
-            print_info "   1. Access web interfaces to get API keys:"
-            print_info "      • Sonarr: http://[LXC-IP]:8989 → Settings > General > API Key"
-            print_info "      • Radarr: http://[LXC-IP]:7878 → Settings > General > API Key"
-            print_info "   2. Copy environment template: cp /opt/media/.env.example /opt/media/.env"
-            print_info "   3. Edit /opt/media/.env with your API keys and qBittorrent password"
-            print_info "   4. Restart cleanuperr: docker compose up -d --force-recreate cleanuperr"
-            print_info "   5. Access cleanuperr at: http://[LXC-IP]:9555"
-            echo
-            print_warning "⚠️  Cleanuperr won't function properly until configured with API keys!"
+            print_warning "⚠️  Configure Cleanuperr API keys via service web interfaces after deployment"
         fi
         
         return 0
