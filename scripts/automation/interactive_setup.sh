@@ -202,7 +202,6 @@ QB_PASSWORD="
     chmod 600 "$stack_dir/.env"
     
     print_info "✓ Media stack .env file created successfully with secure permissions"
-    print_warning "REMINDER: Update API keys in .env file after configuring Sonarr/Radarr web UIs"
     return 0
 }
 
@@ -294,10 +293,6 @@ setup_monitoring_env() {
         print_warning "Please enter a valid Proxmox URL (e.g., $default_pve_url)"
     done
     
-    print_info "✓ Using Proxmox URL: $pve_url"
-    if [ "$detected_ip" != "YOUR_PROXMOX_IP" ]; then
-        print_info "  (Auto-detected IP: $detected_ip)"
-    fi
     
     # Create .env file with common settings and monitoring-specific content
     local monitoring_content="# Grafana admin password for dashboard access
@@ -313,7 +308,6 @@ PVE_VERIFY_SSL=false"
     chmod 600 "$stack_dir/.env"
     
     print_info "✓ Monitoring stack .env file created successfully with secure permissions"
-    print_warning "Remember to create 'monitoring@pve' user in Proxmox with PVEAuditor role"
     return 0
 }
 
@@ -388,9 +382,7 @@ main() {
     print_info "✅ Configuration setup completed!"
     
     if [ "$stack_type" = "all" ]; then
-        print_warning "Remember to:"
-        print_info "1. Keep your passwords secure"
-        print_info "2. Configure individual services through their web UIs"
+        print_warning "REMINDER: Configure services through their web UIs and update credentials as needed"
     fi
 }
 
