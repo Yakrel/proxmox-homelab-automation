@@ -195,6 +195,8 @@ setup_media_env() {
     
     print_info "✓ Media stack .env file created successfully with secure permissions"
     print_info "Configure services through their web UIs after deployment"
+    print_warning "REMINDER: Configure cleanuperr for automated cleanup after deployment"
+    print_info "  Get API keys from Sonarr/Radarr, update .env file, then access cleanuperr at http://container-ip:9555"
     return 0
 }
 
