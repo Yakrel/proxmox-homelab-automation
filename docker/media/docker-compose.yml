@@ -291,6 +291,8 @@ services:
       - RADARR__INSTANCES__0__APIKEY=${RADARR_API_KEY}
       - RADARR__IMPORT_FAILED_MAX_STRIKES=3
       - RADARR__SEARCHTYPE=Movie
+      # Download Client Configuration
+      - DOWNLOAD_CLIENT=qBittorrent
       # qBittorrent Configuration
       - QBITTORRENT__ENABLED=true
       - QBITTORRENT__URL=http://qbittorrent:8080
