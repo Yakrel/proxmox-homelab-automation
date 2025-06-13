@@ -751,6 +751,21 @@ deploy_complete_stack() {
         # Show important notes
         print_info "Stack deployed successfully to $target_dir"
         
+        # Add stack-specific configuration notes
+        if [ "$stack_type" = "media" ]; then
+            echo
+            print_info "📝 Cleanuperr Configuration Required:"
+            print_info "   1. Access web interfaces to get API keys:"
+            print_info "      • Sonarr: http://[LXC-IP]:8989 → Settings > General > API Key"
+            print_info "      • Radarr: http://[LXC-IP]:7878 → Settings > General > API Key"
+            print_info "   2. Copy environment template: cp /opt/media/.env.example /opt/media/.env"
+            print_info "   3. Edit /opt/media/.env with your API keys and qBittorrent password"
+            print_info "   4. Restart cleanuperr: docker compose up -d --force-recreate cleanuperr"
+            print_info "   5. Access cleanuperr at: http://[LXC-IP]:9555"
+            echo
+            print_warning "⚠️  Cleanuperr won't function properly until configured with API keys!"
+        fi
+        
         return 0
     else
         print_error "Failed to deploy $stack_type stack"
