@@ -274,6 +274,35 @@ services:
       - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
+      # Queue Cleaner Settings
+      - QUEUECLEANER__ENABLED=true
+      - QUEUECLEANER__RUNSEQUENTIALLY=true
+      - QUEUECLEANER__IMPORT_FAILED_MAX_STRIKES=5
+      - QUEUECLEANER__STALLED_MAX_STRIKES=3
+      # Sonarr Configuration
+      - SONARR__ENABLED=true
+      - SONARR__INSTANCES__0__URL=http://sonarr:8989
+      - SONARR__INSTANCES__0__APIKEY=${SONARR_API_KEY}
+      - SONARR__IMPORT_FAILED_MAX_STRIKES=3
+      - SONARR__SEARCHTYPE=Episode
+      # Radarr Configuration
+      - RADARR__ENABLED=true
+      - RADARR__INSTANCES__0__URL=http://radarr:7878
+      - RADARR__INSTANCES__0__APIKEY=${RADARR_API_KEY}
+      - RADARR__IMPORT_FAILED_MAX_STRIKES=3
+      - RADARR__SEARCHTYPE=Movie
+      # qBittorrent Configuration
+      - QBITTORRENT__ENABLED=true
+      - QBITTORRENT__URL=http://qbittorrent:8080
+      - QBITTORRENT__USERNAME=${QB_USERNAME}
+      - QBITTORRENT__PASSWORD=${QB_PASSWORD}
+      # Content Blocker
+      - CONTENTBLOCKER__ENABLED=true
+      - CONTENTBLOCKER__BLACKLIST__ENABLED=true
+      - CONTENTBLOCKER__BLACKLIST__PATH=https://raw.githubusercontent.com/flmorg/cleanuperr/refs/heads/main/blacklist
+      # Scheduling (30 min intervals for queue cleaner)
+      - SCHEDULES__QUEUECLEANER=0 */30 * * * *
+      - SCHEDULES__CONTENTBLOCKER=0 0 */6 * * *
     volumes:
       - /datapool/config/cleanuperr:/config
       - /datapool:/datapool
@@ -282,6 +311,10 @@ services:
     networks:
       - media-net
     restart: unless-stopped
+    depends_on:
+      - sonarr
+      - radarr
+      - qbittorrent
     logging:
       driver: "json-file"
       options:
