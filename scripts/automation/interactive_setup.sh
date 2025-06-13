@@ -186,17 +186,23 @@ setup_media_env() {
     
     print_step "Setting up Media stack environment..."
     
-    # Media stack doesn't require passwords, just create basic .env
-    local media_content="# No additional passwords required for media stack
-# All services use web-based configuration interfaces"
+    # Media stack includes API key placeholders for services
+    local media_content="# API Keys for service integration (get from web UIs after deployment)
+# Sonarr API Key (get from: Settings > General > API Key)
+SONARR_API_KEY=
+
+# Radarr API Key (get from: Settings > General > API Key)  
+RADARR_API_KEY=
+
+# qBittorrent Credentials (default username is usually 'admin')
+QB_USERNAME=admin
+QB_PASSWORD="
     
     create_common_env_content "Media" "$media_content" > "$stack_dir/.env"
     chmod 600 "$stack_dir/.env"
     
     print_info "✓ Media stack .env file created successfully with secure permissions"
-    print_info "Configure services through their web UIs after deployment"
-    print_warning "REMINDER: Configure cleanuperr for automated cleanup after deployment"
-    print_info "  Get API keys from Sonarr/Radarr, update .env file, then access cleanuperr at http://container-ip:9555"
+    print_warning "REMINDER: Update API keys in .env file after configuring Sonarr/Radarr web UIs"
     return 0
 }
 
