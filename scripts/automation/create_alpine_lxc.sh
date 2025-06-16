@@ -164,12 +164,12 @@ create_alpine_lxc_direct() {
         sleep 10
         
         # Configure Alpine container using tteck approach
-        print_step "Configuring Alpine container..."
+        print_step "Configuring Alpine container (this may take 5-10 minutes)..."
         
         # Create and run setup script inside container
         pct exec "$lxc_id" -- ash -c '
             # Complete silent Alpine setup
-            echo "Setting up Container OS..." >/dev/null
+            echo "Setting up Container OS..."
             
             # IPv6 disable
             sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null 2>&1
