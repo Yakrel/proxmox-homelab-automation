@@ -733,10 +733,31 @@ deploy_complete_stack() {
     # For monitoring stack, create PVE monitoring user on host first
     if [ "$stack_type" = "monitoring" ]; then
         print_info "Setting up Proxmox monitoring user on host..."
-        echo -n "Enter Proxmox monitoring password: "
-        read -s pve_password
-        echo
-        setup_pve_monitoring_user "monitoring@pve" "$pve_password"
+        
+        # Check if monitoring user already exists
+        if pveum user list | grep -q "^monitoring@pve:"; then
+            print_info "✓ Monitoring user 'monitoring@pve' already exists, skipping creation"
+        else
+            print_info "Creating new monitoring user 'monitoring@pve'"
+            
+            # Password input with confirmation
+            while true; do
+                echo -n "Enter Proxmox monitoring password: "
+                read -s pve_password
+                echo
+                echo -n "Confirm Proxmox monitoring password: "
+                read -s pve_password_confirm
+                echo
+                
+                if [ "$pve_password" = "$pve_password_confirm" ]; then
+                    break
+                else
+                    print_warning "Passwords do not match. Please try again."
+                fi
+            done
+            
+            setup_pve_monitoring_user "monitoring@pve" "$pve_password"
+        fi
     fi
     
     # Set target directory inside LXC
