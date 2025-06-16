@@ -473,20 +473,44 @@ setup_pve_monitoring_user() {
         fi
     else
         print_info "Creating Proxmox monitoring user: $pve_user"
-        if pveum user add "$pve_user" --password "$pve_password" --comment "Monitoring user for Prometheus PVE exporter" 2>/dev/null; then
+        local pveum_add_output
+        local pveum_add_exit_code
+        # Attempt to add user and capture all output (stdout and stderr)
+        pveum_add_output=$(pveum user add "$pve_user" --password "$pve_password" --comment "Monitoring user for Prometheus PVE exporter" 2>&1)
+        pveum_add_exit_code=$?
+
+        if [ $pveum_add_exit_code -eq 0 ]; then
             print_info "✓ User $pve_user created successfully"
-        else
-            # Check if creation failed because user already exists
+            if [ -n "$pveum_add_output" ]; then # Print output even on success if any
+                print_info "pveum user add command output: $pveum_add_output"
+            fi
+        else # Add failed
+            # Check if creation failed because user *now* exists (e.g. race condition or Check 1 was stale)
             if pveum user list | grep -q "^$pve_user:"; then
-                print_info "User $pve_user exists (created by another process), updating password..."
-                if pveum passwd "$pve_user" --password "$pve_password" 2>/dev/null; then
+                print_info "User $pve_user exists (creation attempt failed with exit code $pveum_add_exit_code, but user was found post-attempt). Updating password..."
+                print_info "Original pveum user add command output: $pveum_add_output" # Show why add failed
+
+                local pveum_passwd_output
+                local pveum_passwd_exit_code
+                pveum_passwd_output=$(pveum passwd "$pve_user" --password "$pve_password" 2>&1)
+                pveum_passwd_exit_code=$?
+
+                if [ $pveum_passwd_exit_code -eq 0 ]; then
                     print_info "✓ User $pve_user password updated successfully"
+                    if [ -n "$pveum_passwd_output" ]; then
+                        print_info "pveum passwd command output: $pveum_passwd_output"
+                    fi
                 else
-                    print_warning "Failed to update password for existing user $pve_user"
+                    print_warning "Failed to update password for existing user $pve_user (after add attempt failed)."
+                    print_warning "pveum passwd command exited with code: $pveum_passwd_exit_code"
+                    print_warning "pveum passwd command output: $pveum_passwd_output"
                     return 1
                 fi
             else
-                print_error "Failed to create user $pve_user"
+                # Add failed AND user still does not exist
+                print_error "Failed to create user $pve_user."
+                print_error "pveum user add command exited with code: $pveum_add_exit_code"
+                print_error "pveum user add command output: $pveum_add_output"
                 return 1
             fi
         fi
