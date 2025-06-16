@@ -62,7 +62,7 @@ ensure_datapool_permissions() {
             ;;
         "monitoring")
             mkdir -p /datapool/config/{prometheus,grafana,alertmanager}
-            mkdir -p /datapool/config/prometheus/rules
+            mkdir -p /datapool/config/prometheus/{rules,data}
             mkdir -p /datapool/config/grafana/provisioning/{datasources,dashboards}
             ;;
     esac
@@ -595,7 +595,10 @@ EOF"
     print_info "✓ Monitoring environment configured"
     
     # Create PVE monitoring user if it doesn't exist
-    setup_pve_monitoring_user "$pve_user" "$pve_password"
+    if ! setup_pve_monitoring_user "$pve_user" "$pve_password"; then
+        print_error "Failed to setup Proxmox monitoring user. Please check Proxmox permissions."
+        print_error "Deployment will continue but PVE exporter may not work properly."
+    fi
     
     # Auto-detect and update LXC IPs in prometheus config
     auto_detect_lxc_ips
@@ -632,10 +635,31 @@ update_existing_stack() {
         return $?
     fi
     
-    # Check if .env exists (skip configuration if it does)
+    # Check if .env exists and validate it
     if pct exec "$lxc_id" -- test -f "$target_dir/.env"; then
-        print_info "✓ Environment file exists, skipping configuration prompts"
-        skip_env_setup=true
+        print_info "Environment file found, validating..."
+        
+        # For monitoring stack, validate required variables
+        if [ "$stack_type" = "monitoring" ]; then
+            local missing_vars=()
+            for var in "GRAFANA_ADMIN_PASSWORD" "PVE_PASSWORD" "PVE_URL"; do
+                if ! pct exec "$lxc_id" -- grep -q "^${var}=" "$target_dir/.env"; then
+                    missing_vars+=("$var")
+                fi
+            done
+            
+            if [ ${#missing_vars[@]} -gt 0 ]; then
+                print_warning "Missing required variables in .env: ${missing_vars[*]}"
+                print_warning "Will recreate environment configuration"
+                skip_env_setup=false
+            else
+                print_info "✓ Environment file is valid, skipping configuration prompts"
+                skip_env_setup=true
+            fi
+        else
+            print_info "✓ Environment file exists, skipping configuration prompts"
+            skip_env_setup=true
+        fi
     else
         print_warning "No .env file found, will need configuration setup"
         skip_env_setup=false
@@ -667,11 +691,20 @@ update_existing_stack() {
     # Ensure proper datapool permissions (always run for existing stacks)
     ensure_datapool_permissions "$stack_type"
     
-    # Copy additional monitoring configuration files if needed
+    # Download additional monitoring configuration files if needed
     if [ "$stack_type" = "monitoring" ]; then
-        # Copy monitoring configuration files (permissions already set by ensure_datapool_permissions)
-        cp "$GITHUB_REPO/docker/monitoring/grafana-datasource.yml" "/datapool/config/grafana/provisioning/datasources/prometheus.yml" 2>/dev/null || true
-        cp "$GITHUB_REPO/docker/monitoring/alerts.yml" "/datapool/config/prometheus/rules/alerts.yml" 2>/dev/null || true
+        # Download monitoring configuration files from GitHub
+        if wget -q -O "/datapool/config/grafana/provisioning/datasources/prometheus.yml" "$GITHUB_REPO/docker/monitoring/grafana-datasource.yml"; then
+            print_info "✓ Grafana datasource configuration downloaded"
+        else
+            print_warning "Could not download Grafana datasource configuration"
+        fi
+        
+        if wget -q -O "/datapool/config/prometheus/rules/alerts.yml" "$GITHUB_REPO/docker/monitoring/alerts.yml"; then
+            print_info "✓ Prometheus alerts configuration downloaded"
+        else
+            print_warning "Could not download Prometheus alerts configuration"
+        fi
     fi
     
     # Update stack with latest compose file

@@ -8,8 +8,6 @@ networks:
     driver: bridge
 
 volumes:
-  prometheus-data:
-    driver: local
   grafana-data:
     driver: local
 
@@ -22,7 +20,7 @@ services:
       - "9090:9090"
     volumes:
       - /datapool/config/prometheus:/etc/prometheus:ro
-      - prometheus-data:/prometheus
+      - /datapool/config/prometheus/data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -56,6 +54,7 @@ services:
       - /datapool/config/grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
       - TZ=Europe/Istanbul
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?Grafana admin password must be defined}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource

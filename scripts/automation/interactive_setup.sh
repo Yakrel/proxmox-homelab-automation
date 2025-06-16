@@ -295,7 +295,8 @@ setup_monitoring_env() {
     
     
     # Create .env file with common settings and monitoring-specific content
-    local monitoring_content="# Grafana admin password for dashboard access
+    local monitoring_content="# Grafana admin credentials for dashboard access
+GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=$grafana_password
 
 # Proxmox monitoring credentials
