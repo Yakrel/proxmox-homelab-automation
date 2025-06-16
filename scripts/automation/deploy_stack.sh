@@ -557,11 +557,13 @@ setup_monitoring_env() {
         read -p "Enter Grafana admin password: " grafana_password
     done
     
-    read -p "Enter Proxmox server IP [$(ip route get 1 | sed -n 's/.*src \([0-9.]*\).*/\1/p')]: " proxmox_ip
-    proxmox_ip=${proxmox_ip:-$(ip route get 1 | sed -n 's/.*src \([0-9.]*\).*/\1/p')}
+    # Auto-detect Proxmox server IP
+    proxmox_ip=$(ip route get 1 | sed -n 's/.*src \([0-9.]*\).*/\1/p')
+    print_info "Using auto-detected Proxmox server IP: $proxmox_ip"
     
-    read -p "Enter Proxmox monitoring user [monitoring@pve]: " pve_user
-    pve_user=${pve_user:-monitoring@pve}
+    # Use fixed monitoring user name
+    pve_user="monitoring@pve"
+    print_info "Using monitoring user: $pve_user"
     
     read -s -p "Enter Proxmox monitoring password: " pve_password
     echo
@@ -594,11 +596,7 @@ EOF"
     
     print_info "✓ Monitoring environment configured"
     
-    # Create PVE monitoring user if it doesn't exist
-    if ! setup_pve_monitoring_user "$pve_user" "$pve_password"; then
-        print_error "Failed to setup Proxmox monitoring user. Please check Proxmox permissions."
-        print_error "Deployment will continue but PVE exporter may not work properly."
-    fi
+    # Note: PVE monitoring user creation handled by host before LXC deployment
     
     # Auto-detect and update LXC IPs in prometheus config
     auto_detect_lxc_ips
@@ -732,6 +730,14 @@ deploy_complete_stack() {
     
     print_info "🚀 Starting complete deployment for $stack_type stack (LXC $lxc_id)"
     
+    # For monitoring stack, create PVE monitoring user on host first
+    if [ "$stack_type" = "monitoring" ]; then
+        print_info "Setting up Proxmox monitoring user on host..."
+        echo -n "Enter Proxmox monitoring password: "
+        read -s pve_password
+        echo
+        setup_pve_monitoring_user "monitoring@pve" "$pve_password"
+    fi
     
     # Set target directory inside LXC
     local target_dir="/opt/$stack_type-stack"

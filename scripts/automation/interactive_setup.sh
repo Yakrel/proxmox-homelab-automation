@@ -281,17 +281,9 @@ setup_monitoring_env() {
     
     local default_pve_url="https://${detected_ip}:8006"
     
-    # Get Proxmox URL with validation
-    while true; do
-        echo -n "Enter Proxmox URL [$default_pve_url]: "
-        read pve_url
-        pve_url=${pve_url:-"$default_pve_url"}
-        
-        if validate_url "$pve_url"; then
-            break
-        fi
-        print_warning "Please enter a valid Proxmox URL (e.g., $default_pve_url)"
-    done
+    # Use auto-detected Proxmox URL
+    local pve_url="$default_pve_url"
+    print_info "Using auto-detected Proxmox URL: $pve_url"
     
     
     # Create .env file with common settings and monitoring-specific content
