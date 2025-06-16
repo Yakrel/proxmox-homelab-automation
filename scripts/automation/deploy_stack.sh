@@ -464,7 +464,13 @@ setup_pve_monitoring_user() {
     
     # Check if user already exists
     if pveum user list | grep -q "^$pve_user:"; then
-        print_info "✓ User $pve_user already exists"
+        print_info "User $pve_user already exists, updating password..."
+        if pveum passwd "$pve_user" --password "$pve_password"; then
+            print_info "✓ User $pve_user password updated successfully"
+        else
+            print_warning "Failed to update password for user $pve_user"
+            return 1
+        fi
     else
         print_info "Creating Proxmox monitoring user: $pve_user"
         if pveum user add "$pve_user" --password "$pve_password" --comment "Monitoring user for Prometheus PVE exporter"; then
@@ -736,28 +742,29 @@ deploy_complete_stack() {
         
         # Check if monitoring user already exists
         if pveum user list | grep -q "^monitoring@pve:"; then
-            print_info "✓ Monitoring user 'monitoring@pve' already exists, skipping creation"
+            print_info "Monitoring user 'monitoring@pve' already exists"
+            print_info "Please set the password for existing user:"
         else
             print_info "Creating new monitoring user 'monitoring@pve'"
-            
-            # Password input with confirmation
-            while true; do
-                echo -n "Enter Proxmox monitoring password: "
-                read -s pve_password
-                echo
-                echo -n "Confirm Proxmox monitoring password: "
-                read -s pve_password_confirm
-                echo
-                
-                if [ "$pve_password" = "$pve_password_confirm" ]; then
-                    break
-                else
-                    print_warning "Passwords do not match. Please try again."
-                fi
-            done
-            
-            setup_pve_monitoring_user "monitoring@pve" "$pve_password"
         fi
+        
+        # Always ask for password (create new or update existing)
+        while true; do
+            echo -n "Enter Proxmox monitoring password: "
+            read -s pve_password
+            echo
+            echo -n "Confirm Proxmox monitoring password: "
+            read -s pve_password_confirm
+            echo
+            
+            if [ "$pve_password" = "$pve_password_confirm" ]; then
+                break
+            else
+                print_warning "Passwords do not match. Please try again."
+            fi
+        done
+        
+        setup_pve_monitoring_user "monitoring@pve" "$pve_password"
     fi
     
     # Set target directory inside LXC
