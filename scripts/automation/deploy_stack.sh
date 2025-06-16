@@ -614,6 +614,50 @@ setup_monitoring_env() {
         echo
     done
     
+    # Gmail configuration for alerts
+    echo
+    print_info "📧 Email Alert Configuration"
+    echo "⚠️  Important: Gmail is recommended for easier SMTP setup"
+    echo "📋 To get Gmail App Password:"
+    echo "   1. Go to Google Account → Security → 2-Step Verification (must be enabled)"
+    echo "   2. Click 'App passwords' → Select 'Mail' → Select 'Other (Custom name)'"
+    echo "   3. Enter 'Homelab Alerts' as name → Copy the 16-character password"
+    echo
+    
+    read -p "Do you want to enable email alerts? (y/n) [y]: " enable_alerts
+    enable_alerts=${enable_alerts:-y}
+    
+    if [[ "$enable_alerts" =~ ^[Yy]$ ]]; then
+        echo
+        print_info "📧 Gmail Setup Required"
+        echo "Please enter your Gmail address (must be Gmail for SMTP compatibility):"
+        
+        read -p "Gmail address: " gmail_address
+        while [[ ! "$gmail_address" =~ @gmail\.com$ ]]; do
+            print_error "Please enter a valid Gmail address (must end with @gmail.com)"
+            read -p "Gmail address: " gmail_address
+        done
+        
+        echo
+        print_info "🔑 Gmail App Password Required"
+        echo "Enter the 16-character app password you generated:"
+        read -s -p "Gmail App Password: " gmail_app_password
+        echo
+        
+        while [ -z "$gmail_app_password" ] || [ ${#gmail_app_password} -ne 16 ]; do
+            print_error "App password must be exactly 16 characters!"
+            print_info "If you haven't created one yet, follow the 3-step guide above"
+            read -s -p "Gmail App Password: " gmail_app_password
+            echo
+        done
+        
+        print_info "✓ Gmail configuration completed"
+    else
+        gmail_address=""
+        gmail_app_password=""
+        print_info "Email alerts disabled"
+    fi
+    
     read -p "Enter timezone [Europe/Istanbul]: " timezone
     timezone=${timezone:-Europe/Istanbul}
     
@@ -633,6 +677,9 @@ PVE_URL=https://$proxmox_ip:8006
 TZ=$timezone
 PUID=1000
 PGID=1000
+# Email Alert Configuration
+GMAIL_ADDRESS=$gmail_address
+GMAIL_APP_PASSWORD=$gmail_app_password
 EOF"
     
     print_info "✓ Monitoring environment configured"

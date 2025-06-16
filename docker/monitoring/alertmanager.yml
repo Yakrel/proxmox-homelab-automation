@@ -1,22 +1,103 @@
 global:
-  smtp_smarthost: 'localhost:587'
-  smtp_from: 'alertmanager@homelab.local'
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: '${GMAIL_ADDRESS}'
+  smtp_auth_username: '${GMAIL_ADDRESS}'
+  smtp_auth_password: '${GMAIL_APP_PASSWORD}'
 
 route:
-  group_by: ['alertname']
-  group_wait: 10s
-  group_interval: 10s
-  repeat_interval: 1h
-  receiver: 'web.hook'
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'default'
+  routes:
+    # Route critical alerts to immediate notification
+    - match:
+        severity: 'critical'
+      receiver: 'critical-alerts'
+      repeat_interval: 1h
+    # Route all other alerts to standard notification
+    - match_re:
+        severity: '.*'
+      receiver: 'email-notifications'
 
 receivers:
-  - name: 'web.hook'
-    webhook_configs:
-      - url: 'http://127.0.0.1:5001/'
+  - name: 'default'
+    email_configs:
+      - to: '${GMAIL_ADDRESS}'
+        subject: '[HOMELAB] System Alert'
+        body: |
+          🚨 HOMELAB ALERT 🚨
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance | default "N/A" }}
+          Severity: {{ .Labels.severity | default "unknown" }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+          
+          Dashboard: http://192.168.1.104:3000
+
+  - name: 'email-notifications'
+    email_configs:
+      - to: '${GMAIL_ADDRESS}'
+        subject: '[HOMELAB] {{ .GroupLabels.alertname }} Alert'
+        body: |
+          🚨 HOMELAB ALERT 🚨
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance | default "N/A" }}
+          Severity: {{ .Labels.severity | default "unknown" }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+          
+          Dashboard: http://192.168.1.104:3000
+        html: |
+          <h2>🚨 HOMELAB ALERT</h2>
+          {{ range .Alerts }}
+          <p><strong>Alert:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Instance:</strong> {{ .Labels.instance | default "N/A" }}</p>
+          <p><strong>Severity:</strong> <span style="color: orange;">{{ .Labels.severity | default "unknown" }}</span></p>
+          <p><strong>Time:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+          <hr>
+          {{ end }}
+          <p><a href="http://192.168.1.104:3000">Go to Grafana Dashboard</a></p>
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: '${GMAIL_ADDRESS}'
+        subject: '🔥 [CRITICAL] {{ .GroupLabels.alertname }} - Immediate Action Required'
+        body: |
+          🔥 CRITICAL ALERT 🔥
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance | default "N/A" }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+          
+          ⚠️  This requires IMMEDIATE attention!
+          Dashboard: http://192.168.1.104:3000
+        html: |
+          <h2 style="color: red;">🔥 CRITICAL ALERT</h2>
+          {{ range .Alerts }}
+          <p><strong>Alert:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Instance:</strong> {{ .Labels.instance | default "N/A" }}</p>
+          <p><strong>Time:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+          <hr>
+          {{ end }}
+          <p style="color: red;"><strong>⚠️ This requires IMMEDIATE attention!</strong></p>
+          <p><a href="http://192.168.1.104:3000">Go to Grafana Dashboard</a></p>
 
 inhibit_rules:
   - source_match:
       severity: 'critical'
     target_match:
       severity: 'warning'
-    equal: ['alertname', 'dev', 'instance']
+    equal: ['alertname', 'instance']
