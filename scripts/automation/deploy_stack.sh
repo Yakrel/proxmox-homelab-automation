@@ -465,7 +465,7 @@ setup_pve_monitoring_user() {
     # Check if user already exists
     if pveum user list | grep -q "^$pve_user:"; then
         print_info "User $pve_user already exists, updating password..."
-        if pveum passwd "$pve_user" --password "$pve_password"; then
+        if pveum passwd "$pve_user" --password "$pve_password" 2>/dev/null; then
             print_info "✓ User $pve_user password updated successfully"
         else
             print_warning "Failed to update password for user $pve_user"
@@ -473,11 +473,22 @@ setup_pve_monitoring_user() {
         fi
     else
         print_info "Creating Proxmox monitoring user: $pve_user"
-        if pveum user add "$pve_user" --password "$pve_password" --comment "Monitoring user for Prometheus PVE exporter"; then
+        if pveum user add "$pve_user" --password "$pve_password" --comment "Monitoring user for Prometheus PVE exporter" 2>/dev/null; then
             print_info "✓ User $pve_user created successfully"
         else
-            print_warning "Failed to create user $pve_user"
-            return 1
+            # Check if creation failed because user already exists
+            if pveum user list | grep -q "^$pve_user:"; then
+                print_info "User $pve_user exists (created by another process), updating password..."
+                if pveum passwd "$pve_user" --password "$pve_password" 2>/dev/null; then
+                    print_info "✓ User $pve_user password updated successfully"
+                else
+                    print_warning "Failed to update password for existing user $pve_user"
+                    return 1
+                fi
+            else
+                print_error "Failed to create user $pve_user"
+                return 1
+            fi
         fi
     fi
     
@@ -750,12 +761,17 @@ deploy_complete_stack() {
         
         # Always ask for password (create new or update existing)
         while true; do
-            echo -n "Enter Proxmox monitoring password: "
-            read -s pve_password
-            echo
-            echo -n "Confirm Proxmox monitoring password: "
-            read -s pve_password_confirm
-            echo
+            read -p "Enter Proxmox monitoring password: " pve_password
+            if [ -z "$pve_password" ]; then
+                print_error "Password cannot be empty!"
+                continue
+            fi
+            
+            read -p "Confirm Proxmox monitoring password: " pve_password_confirm
+            if [ -z "$pve_password_confirm" ]; then
+                print_error "Password confirmation cannot be empty!"
+                continue
+            fi
             
             if [ "$pve_password" = "$pve_password_confirm" ]; then
                 break
