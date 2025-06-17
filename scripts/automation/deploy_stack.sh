@@ -37,6 +37,121 @@ print_step() {
     echo -e "${BLUE}[STEP]${NC} $1"
 }
 
+# Function to validate environment file (idempotent helper)
+validate_env_file() {
+    local lxc_id=$1
+    local env_file=$2
+    local stack_type=$3
+    
+    # Check if file exists
+    if ! pct exec "$lxc_id" -- test -f "$env_file" 2>/dev/null; then
+        return 1
+    fi
+    
+    # Define required variables per stack type
+    local required_vars=""
+    case "$stack_type" in
+        "monitoring")
+            required_vars="GRAFANA_ADMIN_PASSWORD PVE_PASSWORD PVE_URL"
+            ;;
+        "proxy")
+            required_vars="CLOUDFLARED_TOKEN"
+            ;;
+        "downloads")
+            required_vars="JDOWNLOADER_VNC_PASSWORD"
+            ;;
+        "utility")
+            required_vars="FIREFOX_VNC_PASSWORD"
+            ;;
+        "media")
+            # Media stack has optional vars, just check basic ones
+            required_vars="TZ PUID PGID"
+            ;;
+        *)
+            return 0  # Unknown stack, assume valid
+            ;;
+    esac
+    
+    # Check each required variable
+    for var in $required_vars; do
+        if ! pct exec "$lxc_id" -- grep -q "^${var}=" "$env_file" 2>/dev/null; then
+            print_warning "Missing required variable: $var"
+            return 1
+        fi
+        
+        # Check if value is not empty
+        local value=$(pct exec "$lxc_id" -- grep "^${var}=" "$env_file" 2>/dev/null | cut -d'=' -f2- | tr -d '"')
+        if [ -z "$value" ]; then
+            print_warning "Empty value for required variable: $var"
+            return 1
+        fi
+    done
+    
+    return 0
+}
+
+# Function to backup existing env file
+backup_env_file() {
+    local lxc_id=$1
+    local env_file=$2
+    
+    if pct exec "$lxc_id" -- test -f "$env_file" 2>/dev/null; then
+        local backup_file="${env_file}.backup.$(date +%Y%m%d_%H%M%S)"
+        pct exec "$lxc_id" -- cp "$env_file" "$backup_file" 2>/dev/null
+        print_info "✓ Backed up existing .env to $(basename "$backup_file")"
+    fi
+}
+
+# Function to ensure container and Docker are ready (idempotent)
+ensure_container_ready() {
+    local lxc_id=$1
+    
+    # Check if container exists
+    if ! pct status "$lxc_id" >/dev/null 2>&1; then
+        print_error "LXC $lxc_id does not exist!"
+        return 1
+    fi
+    
+    # Start container if not running
+    if ! pct status "$lxc_id" | grep -q "running"; then
+        print_info "Starting container $lxc_id..."
+        pct start "$lxc_id"
+    fi
+    
+    # Wait for container readiness
+    local max_attempts=15
+    local attempt=1
+    
+    print_info "Waiting for container to be ready..."
+    while [ $attempt -le $max_attempts ]; do
+        if pct exec "$lxc_id" -- echo "ready" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 3
+        attempt=$((attempt + 1))
+    done
+    
+    # Check Docker service
+    attempt=1
+    while [ $attempt -le $max_attempts ]; do
+        if pct exec "$lxc_id" -- docker info >/dev/null 2>&1; then
+            print_info "✓ Container and Docker ready"
+            return 0
+        fi
+        
+        if [ $attempt -eq 5 ]; then
+            print_info "Docker not ready, restarting service..."
+            pct exec "$lxc_id" -- rc-service docker restart >/dev/null 2>&1 || true
+        fi
+        
+        sleep 3
+        attempt=$((attempt + 1))
+    done
+    
+    print_warning "Container readiness check timeout, continuing anyway..."
+    return 0
+}
+
 # Function to ensure proper datapool permissions
 ensure_datapool_permissions() {
     local stack_type=$1
@@ -115,34 +230,45 @@ download_stack_files() {
     return 0
 }
 
-# Function to setup environment file with interactive setup
+# Function to setup environment file with validation (idempotent)
 setup_env_file() {
     local stack_dir=$1
     local stack_type=$2
+    local lxc_id=$3
     
     print_step "Setting up environment file..."
     
-    if [ ! -f "$stack_dir/.env" ]; then
-        print_info "Running interactive configuration setup..."
-        
-        # Download and run interactive setup script
-        local interactive_script="$TEMP_DIR/interactive_setup.sh"
-        if [ ! -f "$interactive_script" ]; then
-            wget -q -O "$interactive_script" "$GITHUB_REPO/scripts/automation/interactive_setup.sh"
-            chmod +x "$interactive_script"
-        fi
-        
-        # Run interactive setup for this stack type
-        bash "$interactive_script" "$stack_type" "$(dirname $stack_dir)"
-        
-        if [ -f "$stack_dir/.env" ]; then
-            print_info "✓ Environment configuration completed"
-        else
-            print_error "Failed to create .env file"
-            return 1
-        fi
+    # Check if .env exists and is valid
+    if validate_env_file "$lxc_id" "$stack_dir/.env" "$stack_type"; then
+        print_info "✓ Existing .env file is valid, preserving configuration"
+        return 0
+    fi
+    
+    # If .env exists but invalid, back it up
+    if pct exec "$lxc_id" -- test -f "$stack_dir/.env" 2>/dev/null; then
+        print_warning "Existing .env file is incomplete, backing up and recreating..."
+        backup_env_file "$lxc_id" "$stack_dir/.env"
     else
-        print_info "✓ .env file already exists"
+        print_info "No .env file found, creating new configuration..."
+    fi
+    
+    # Download and run interactive setup script
+    local interactive_script="$TEMP_DIR/interactive_setup.sh"
+    if [ ! -f "$interactive_script" ]; then
+        wget -q -O "$interactive_script" "$GITHUB_REPO/scripts/automation/interactive_setup.sh"
+        chmod +x "$interactive_script"
+    fi
+    
+    # Run interactive setup for this stack type
+    bash "$interactive_script" "$stack_type" "$(dirname $stack_dir)"
+    
+    # Validate the newly created .env file
+    if validate_env_file "$lxc_id" "$stack_dir/.env" "$stack_type"; then
+        print_info "✓ Environment configuration completed successfully"
+        return 0
+    else
+        print_error "Failed to create valid .env file"
+        return 1
     fi
 }
 
@@ -181,29 +307,51 @@ deploy_with_compose() {
     fi
 }
 
-# Function to check if datapool mount exists
-validate_datapool_mount() {
+# Function to ensure datapool mount exists (idempotent)
+ensure_datapool_mount() {
     local lxc_id=$1
     
-    if ! pct exec "$lxc_id" -- test -d /datapool; then
-        print_error "/datapool mount not found in LXC $lxc_id"
-        print_info "Adding datapool mount..."
+    # Check if mount point is already configured
+    if pct config "$lxc_id" | grep -q "/datapool"; then
+        print_info "✓ /datapool mount point already configured"
         
-        # Try to add datapool mount
+        # Verify accessibility if container is running
         if pct status "$lxc_id" | grep -q "running"; then
-            pct shutdown "$lxc_id"
+            if pct exec "$lxc_id" -- test -d /datapool 2>/dev/null; then
+                print_info "✓ /datapool is accessible"
+            else
+                print_warning "/datapool mount configured but not accessible, container may need restart"
+            fi
+        fi
+        return 0
+    fi
+    
+    print_info "Adding /datapool mount point..."
+    
+    # Use the create_alpine_lxc.sh mount function
+    local script_dir="$(dirname "$0")"
+    if [ -f "$script_dir/create_alpine_lxc.sh" ]; then
+        # Source the function from create_alpine_lxc.sh
+        source "$script_dir/create_alpine_lxc.sh"
+        add_datapool_mount "$lxc_id"
+    else
+        # Fallback to simple mount add
+        local was_running=false
+        if pct status "$lxc_id" | grep -q "running"; then
+            was_running=true
+            pct shutdown "$lxc_id" 2>/dev/null || pct stop "$lxc_id"
             sleep 5
         fi
         
-        # Add mount point
-        local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}')
+        local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}' 2>/dev/null)
         next_mp_index=${next_mp_index:-0}
         
         if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool,acl=1; then
-            pct start "$lxc_id"
-            sleep 5
+            if [ "$was_running" = true ]; then
+                pct start "$lxc_id"
+                sleep 5
+            fi
             print_info "✓ Datapool mount added successfully"
-            return 0
         else
             print_error "Failed to add datapool mount"
             return 1
@@ -455,81 +603,50 @@ EOF"
     print_info "✓ Utility environment configured"
 }
 
-# Function to setup PVE monitoring user
-setup_pve_monitoring_user() {
+# Function to ensure PVE monitoring user exists (idempotent)
+ensure_pve_monitoring_user() {
     local pve_user=$1
     local pve_password=$2
     
-    print_info "Setting up Proxmox monitoring user..."
+    print_info "Ensuring Proxmox monitoring user exists..."
     
-    # Check if user already exists
+    # Always try to set password (works for both existing and new users)
     if pveum user list | grep -q "^$pve_user:"; then
-        print_info "User $pve_user already exists, updating password..."
-        if pveum passwd "$pve_user" --password "$pve_password" 2>/dev/null; then
-            print_info "✓ User $pve_user password updated successfully"
+        print_info "User $pve_user exists, updating password..."
+        if pveum passwd "$pve_user" --password "$pve_password" >/dev/null 2>&1; then
+            print_info "✓ Password updated successfully"
         else
-            print_warning "Failed to update password for user $pve_user"
-            return 1
+            print_warning "Password update failed, continuing..."
         fi
     else
-        print_info "Creating Proxmox monitoring user: $pve_user"
-        local pveum_add_output
-        local pveum_add_exit_code
-        # Attempt to add user and capture all output (stdout and stderr)
-        pveum_add_output=$(pveum user add "$pve_user" --password "$pve_password" --comment "Monitoring user for Prometheus PVE exporter" 2>&1)
-        pveum_add_exit_code=$?
-
-        if [ $pveum_add_exit_code -eq 0 ]; then
-            print_info "✓ User $pve_user created successfully"
-            if [ -n "$pveum_add_output" ]; then # Print output even on success if any
-                print_info "pveum user add command output: $pveum_add_output"
-            fi
-        else # Add failed
-            # Check if creation failed because user *now* exists (e.g. race condition or Check 1 was stale)
-            if pveum user list | grep -q "^$pve_user:"; then
-                print_info "User $pve_user exists (creation attempt failed with exit code $pveum_add_exit_code, but user was found post-attempt). Updating password..."
-                print_info "Original pveum user add command output: $pveum_add_output" # Show why add failed
-
-                local pveum_passwd_output
-                local pveum_passwd_exit_code
-                pveum_passwd_output=$(pveum passwd "$pve_user" --password "$pve_password" 2>&1)
-                pveum_passwd_exit_code=$?
-
-                if [ $pveum_passwd_exit_code -eq 0 ]; then
-                    print_info "✓ User $pve_user password updated successfully"
-                    if [ -n "$pveum_passwd_output" ]; then
-                        print_info "pveum passwd command output: $pveum_passwd_output"
-                    fi
-                else
-                    print_warning "Failed to update password for existing user $pve_user (after add attempt failed)."
-                    print_warning "pveum passwd command exited with code: $pveum_passwd_exit_code"
-                    print_warning "pveum passwd command output: $pveum_passwd_output"
-                    return 1
-                fi
+        print_info "Creating user $pve_user..."
+        if pveum user add "$pve_user" --password "$pve_password" --comment "Monitoring user for Prometheus PVE exporter" >/dev/null 2>&1; then
+            print_info "✓ User created successfully"
+        else
+            # Try to update password in case user was created by another process
+            if pveum passwd "$pve_user" --password "$pve_password" >/dev/null 2>&1; then
+                print_info "✓ User existed, password updated"
             else
-                # Add failed AND user still does not exist
-                print_error "Failed to create user $pve_user."
-                print_error "pveum user add command exited with code: $pveum_add_exit_code"
-                print_error "pveum user add command output: $pveum_add_output"
+                print_error "Failed to create or update user $pve_user"
                 return 1
             fi
         fi
     fi
     
-    # Assign PVEAuditor role if not already assigned
+    # Ensure PVEAuditor role is assigned (idempotent)
     if pveum acl list | grep -q "$pve_user.*PVEAuditor"; then
-        print_info "✓ User $pve_user already has PVEAuditor role"
+        print_info "✓ PVEAuditor role already assigned"
     else
-        print_info "Assigning PVEAuditor role to $pve_user"
-        if pveum acl modify / --users "$pve_user" --roles PVEAuditor; then
-            print_info "✓ PVEAuditor role assigned successfully"
+        print_info "Assigning PVEAuditor role..."
+        if pveum acl modify / --users "$pve_user" --roles PVEAuditor >/dev/null 2>&1; then
+            print_info "✓ Role assigned successfully"
         else
-            print_warning "Failed to assign PVEAuditor role"
-            return 1
+            print_warning "Failed to assign role, but continuing..."
         fi
     fi
     
-    print_info "✓ PVE monitoring user setup completed"
+    print_info "✓ PVE monitoring user ready"
+    return 0
 }
 
 # Function to auto-detect LXC IP addresses for Prometheus targets
@@ -704,15 +821,11 @@ update_existing_stack() {
         return 1
     fi
     
-    # Start LXC if not running
-    if pct status "$lxc_id" | grep -q "stopped"; then
-        print_info "Starting LXC $lxc_id..."
-        pct start "$lxc_id"
-        sleep 10
-    fi
+    # Ensure container and Docker are ready
+    ensure_container_ready "$lxc_id"
     
-    # Validate datapool mount
-    validate_datapool_mount "$lxc_id"
+    # Ensure datapool mount exists
+    ensure_datapool_mount "$lxc_id"
     
     # Check if stack directory exists
     if ! pct exec "$lxc_id" -- test -d "$target_dir"; then
@@ -771,7 +884,7 @@ update_existing_stack() {
     # Setup environment if .env doesn't exist
     if [ "$skip_env_setup" = false ]; then
         print_info "Setting up environment configuration..."
-        setup_stack_env "$stack_type" "$lxc_id" "$target_dir"
+        setup_env_file "$target_dir" "$stack_type" "$lxc_id"
     fi
     
     # Ensure proper datapool permissions (always run for existing stacks)
@@ -851,7 +964,7 @@ deploy_complete_stack() {
             fi
         done
         
-        setup_pve_monitoring_user "monitoring@pve" "$pve_password"
+        ensure_pve_monitoring_user "monitoring@pve" "$pve_password"
     fi
     
     # Set target directory inside LXC
@@ -889,7 +1002,7 @@ deploy_complete_stack() {
     print_info "Setting up environment in LXC..."
     
     # Interactive configuration for the stack
-    setup_stack_env "$stack_type" "$lxc_id" "$target_dir"
+    setup_env_file "$target_dir" "$stack_type" "$lxc_id"
     
     # Deploy stack inside LXC
     print_info "Deploying stack inside LXC..."

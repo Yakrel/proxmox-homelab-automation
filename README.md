@@ -20,6 +20,7 @@ This project uses a **fully automated deployment** approach with 5 specialized L
 - **Stack-based Architecture**: 5 separate stacks for better resource management and isolation
 - **One-Click Deployment**: Complete homelab deployment with a single command
 - **Interactive Configuration**: Automated password and configuration setup
+- **Idempotent Scripts**: All scripts can be safely run multiple times for updates and maintenance
 - Each stack includes its own watchtower for automatic updates
 
 ## Overview
