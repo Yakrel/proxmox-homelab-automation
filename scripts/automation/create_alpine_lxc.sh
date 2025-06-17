@@ -261,6 +261,14 @@ create_alpine_lxc_direct() {
         print_info "Template already exists in $template_storage"
     fi
     
+    # Check if IP might be in use (basic check)
+    local target_ip="192.168.1.${lxc_id}"
+    print_info "Checking network availability for IP: $target_ip"
+    if ping -c 1 -W 2 "$target_ip" >/dev/null 2>&1; then
+        print_warning "IP $target_ip responds to ping - may be in use"
+        print_warning "Continuing anyway as this could be normal in some network setups"
+    fi
+    
     # Create LXC container directly with Alpine
     print_step "Creating LXC container $lxc_id..."
     if pct create "$lxc_id" "$template_storage:vztmpl/$template_name" \

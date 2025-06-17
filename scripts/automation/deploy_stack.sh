@@ -330,32 +330,40 @@ ensure_datapool_mount() {
     
     # Use the create_alpine_lxc.sh mount function
     local script_dir="$(dirname "$0")"
-    if [ -f "$script_dir/create_alpine_lxc.sh" ]; then
-        # Source the function from create_alpine_lxc.sh
-        source "$script_dir/create_alpine_lxc.sh"
-        add_datapool_mount "$lxc_id"
-    else
-        # Fallback to simple mount add
-        local was_running=false
-        if pct status "$lxc_id" | grep -q "running"; then
-            was_running=true
-            pct shutdown "$lxc_id" 2>/dev/null || pct stop "$lxc_id"
+    local create_script="$script_dir/create_alpine_lxc.sh"
+    
+    if [ -f "$create_script" ]; then
+        # Verify script integrity before sourcing
+        if ! bash -n "$create_script" 2>/dev/null; then
+            print_error "Syntax error in create_alpine_lxc.sh, using fallback method"
+        else
+            # Safely source the function from create_alpine_lxc.sh
+            source "$create_script"
+            add_datapool_mount "$lxc_id"
+            return $?
+        fi
+    fi
+    
+    # Fallback to simple mount add if source fails or file doesn't exist
+    local was_running=false
+    if pct status "$lxc_id" | grep -q "running"; then
+        was_running=true
+        pct shutdown "$lxc_id" 2>/dev/null || pct stop "$lxc_id"
+        sleep 5
+    fi
+    
+    local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}' 2>/dev/null)
+    next_mp_index=${next_mp_index:-0}
+    
+    if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool,acl=1; then
+        if [ "$was_running" = true ]; then
+            pct start "$lxc_id"
             sleep 5
         fi
-        
-        local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}' 2>/dev/null)
-        next_mp_index=${next_mp_index:-0}
-        
-        if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool,acl=1; then
-            if [ "$was_running" = true ]; then
-                pct start "$lxc_id"
-                sleep 5
-            fi
-            print_info "✓ Datapool mount added successfully"
-        else
-            print_error "Failed to add datapool mount"
-            return 1
-        fi
+        print_info "✓ Datapool mount added successfully"
+    else
+        print_error "Failed to add datapool mount"
+        return 1
     fi
     
     return 0
@@ -649,55 +657,216 @@ ensure_pve_monitoring_user() {
     return 0
 }
 
-# Function to auto-detect LXC IP addresses for Prometheus targets
-auto_detect_lxc_ips() {
-    local prometheus_config="/datapool/config/prometheus/prometheus.yml"
+# Function to generate monitoring configuration files with environment variables
+generate_monitoring_configs() {
+    local lxc_id=$1
+    local stack_dir=$2
     
-    print_info "Auto-detecting LXC IP addresses for Prometheus targets..."
+    print_info "Generating monitoring configuration files..."
     
-    # Array of LXC IDs and their corresponding service names
-    local lxc_services=("100:proxy" "101:media" "102:downloads" "103:utility")
+    # Read network configuration from .env file
+    local network_base=$(pct exec "$lxc_id" -- grep "^NETWORK_BASE=" "$stack_dir/.env" 2>/dev/null | cut -d'=' -f2 || echo "192.168.1")
+    local grafana_url=$(pct exec "$lxc_id" -- grep "^GRAFANA_URL=" "$stack_dir/.env" 2>/dev/null | cut -d'=' -f2 || echo "http://192.168.1.104:3000")
     
-    for entry in "${lxc_services[@]}"; do
-        local lxc_id="${entry%:*}"
-        local service_name="${entry#*:}"
-        
-        # Check if LXC exists and is running
-        if pct status "$lxc_id" &>/dev/null; then
-            if pct status "$lxc_id" | grep -q "running"; then
-                # Get the IP address of the LXC
-                local lxc_ip=$(pct exec "$lxc_id" -- ip -4 addr show eth0 2>/dev/null | grep inet | awk '{print $2}' | cut -d/ -f1 | head -n1)
-                
-                if [ -n "$lxc_ip" ]; then
-                    print_info "Found $service_name LXC ($lxc_id) at IP: $lxc_ip"
-                    
-                    # Update prometheus.yml with the detected IP
-                    case $service_name in
-                        "proxy")
-                            sed -i "s/192\.168\.1\.100:9104/$lxc_ip:9104/g" "$prometheus_config"
-                            ;;
-                        "media")
-                            sed -i "s/192\.168\.1\.101:9101/$lxc_ip:9101/g" "$prometheus_config"
-                            ;;
-                        "downloads")
-                            sed -i "s/192\.168\.1\.102:9102/$lxc_ip:9102/g" "$prometheus_config"
-                            ;;
-                        "utility")
-                            sed -i "s/192\.168\.1\.103:9103/$lxc_ip:9103/g" "$prometheus_config"
-                            ;;
-                    esac
-                else
-                    print_warning "Could not detect IP for $service_name LXC ($lxc_id)"
-                fi
-            else
-                print_warning "$service_name LXC ($lxc_id) is not running, skipping IP detection"
-            fi
-        else
-            print_warning "$service_name LXC ($lxc_id) does not exist, skipping IP detection"
-        fi
-    done
+    print_info "Using network base: $network_base"
+    print_info "Using Grafana URL: $grafana_url"
     
-    print_info "✓ IP detection completed"
+    # Generate prometheus.yml with dynamic IPs
+    cat > "/tmp/prometheus.yml" <<EOF
+# Prometheus Configuration - Generated automatically
+# Network Base: $network_base
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter - Monitoring LXC (104)
+  - job_name: 'node-exporter-monitoring'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          instance: 'monitoring-lxc-104'
+
+  # Node Exporter - Proxy LXC (100)
+  - job_name: 'node-exporter-proxy'
+    static_configs:
+      - targets: ['${network_base}.100:9104']
+        labels:
+          instance: 'proxy-lxc-100'
+
+  # Node Exporter - Media LXC (101)
+  - job_name: 'node-exporter-media'
+    static_configs:
+      - targets: ['${network_base}.101:9101']
+        labels:
+          instance: 'media-lxc-101'
+
+  # Node Exporter - Downloads LXC (102)
+  - job_name: 'node-exporter-downloads'
+    static_configs:
+      - targets: ['${network_base}.102:9102']
+        labels:
+          instance: 'downloads-lxc-102'
+
+  # Node Exporter - Utility LXC (103)
+  - job_name: 'node-exporter-utility'
+    static_configs:
+      - targets: ['${network_base}.103:9103']
+        labels:
+          instance: 'utility-lxc-103'
+
+  # cAdvisor - Container metrics from Monitoring LXC
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8081']
+
+  # Proxmox VE Exporter
+  - job_name: 'proxmox'
+    static_configs:
+      - targets: ['prometheus-pve-exporter:9221']
+    metrics_path: /pve
+    params:
+      cluster: ['1']
+      node: ['1']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: prometheus-pve-exporter:9221
+EOF
+
+    # Generate alertmanager.yml with dynamic Grafana URL
+    cat > "/tmp/alertmanager.yml" <<EOF
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: '\${GMAIL_ADDRESS}'
+  smtp_auth_username: '\${GMAIL_ADDRESS}'
+  smtp_auth_password: '\${GMAIL_APP_PASSWORD}'
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'default'
+  routes:
+    # Route critical alerts to immediate notification
+    - match:
+        severity: 'critical'
+      receiver: 'critical-alerts'
+      repeat_interval: 1h
+    # Route all other alerts to standard notification
+    - match_re:
+        severity: '.*'
+      receiver: 'email-notifications'
+
+receivers:
+  - name: 'default'
+    email_configs:
+      - to: '\${GMAIL_ADDRESS}'
+        subject: '[HOMELAB] System Alert'
+        body: |
+          🚨 HOMELAB ALERT 🚨
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance | default "N/A" }}
+          Severity: {{ .Labels.severity | default "unknown" }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+          
+          Dashboard: $grafana_url
+
+  - name: 'email-notifications'
+    email_configs:
+      - to: '\${GMAIL_ADDRESS}'
+        subject: '[HOMELAB] {{ .GroupLabels.alertname }} Alert'
+        body: |
+          🚨 HOMELAB ALERT 🚨
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance | default "N/A" }}
+          Severity: {{ .Labels.severity | default "unknown" }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+          
+          Dashboard: $grafana_url
+        html: |
+          <h2>🚨 HOMELAB ALERT</h2>
+          {{ range .Alerts }}
+          <p><strong>Alert:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Instance:</strong> {{ .Labels.instance | default "N/A" }}</p>
+          <p><strong>Severity:</strong> <span style="color: orange;">{{ .Labels.severity | default "unknown" }}</span></p>
+          <p><strong>Time:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+          <hr>
+          {{ end }}
+          <p><a href="$grafana_url">Go to Grafana Dashboard</a></p>
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: '\${GMAIL_ADDRESS}'
+        subject: '🔥 [CRITICAL] {{ .GroupLabels.alertname }} - Immediate Action Required'
+        body: |
+          🔥 CRITICAL ALERT 🔥
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance | default "N/A" }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+          
+          ⚠️  This requires IMMEDIATE attention!
+          Dashboard: $grafana_url
+        html: |
+          <h2 style="color: red;">🔥 CRITICAL ALERT</h2>
+          {{ range .Alerts }}
+          <p><strong>Alert:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Instance:</strong> {{ .Labels.instance | default "N/A" }}</p>
+          <p><strong>Time:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+          <hr>
+          {{ end }}
+          <p style="color: red;"><strong>⚠️ This requires IMMEDIATE attention!</strong></p>
+          <p><a href="$grafana_url">Go to Grafana Dashboard</a></p>
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+EOF
+
+    # Copy generated configs to datapool
+    cp "/tmp/prometheus.yml" "/datapool/config/monitoring/prometheus/prometheus.yml"
+    cp "/tmp/alertmanager.yml" "/datapool/config/monitoring/alertmanager/alertmanager.yml"
+    
+    # Cleanup temporary files
+    rm -f "/tmp/prometheus.yml" "/tmp/alertmanager.yml"
+    
+    print_info "✓ Monitoring configuration files generated successfully"
 }
 
 # Function to setup monitoring stack environment
@@ -803,8 +972,8 @@ EOF"
     
     # Note: PVE monitoring user creation handled by host before LXC deployment
     
-    # Auto-detect and update LXC IPs in prometheus config
-    auto_detect_lxc_ips
+    # Generate monitoring configuration with dynamic network settings
+    generate_monitoring_configs "$lxc_id" "$target_dir"
 }
 
 # Function to update existing stack
@@ -988,14 +1157,10 @@ deploy_complete_stack() {
     # Ensure proper datapool permissions for new deployment
     ensure_datapool_permissions "$stack_type"
     
-    # Copy monitoring config files to host directory (permissions already set by ensure_datapool_permissions)
+    # Generate monitoring config files with dynamic network configuration
     if [ "$stack_type" = "monitoring" ]; then
-        if [ -f "$TEMP_DIR/$stack_type/prometheus.yml" ]; then
-            cp "$TEMP_DIR/$stack_type/prometheus.yml" "/datapool/config/prometheus/prometheus.yml"
-        fi
-        if [ -f "$TEMP_DIR/$stack_type/alertmanager.yml" ]; then
-            cp "$TEMP_DIR/$stack_type/alertmanager.yml" "/datapool/config/alertmanager/alertmanager.yml"
-        fi
+        # Generate configuration files after .env is set up
+        generate_monitoring_configs "$lxc_id" "$target_dir"
     fi
     
     # Setup environment inside LXC with interactive configuration
