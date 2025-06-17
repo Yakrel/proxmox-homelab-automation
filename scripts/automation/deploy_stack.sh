@@ -869,6 +869,75 @@ EOF
     print_info "✓ Monitoring configuration files generated successfully"
 }
 
+# Function to download and setup Grafana dashboards
+setup_grafana_dashboards() {
+    local lxc_id=$1
+    
+    print_info "📊 Downloading Grafana dashboards from GitHub..."
+    
+    # Ensure dashboard directory exists
+    mkdir -p "/datapool/config/grafana/dashboards"
+    
+    # Dashboard URLs from GitHub repo
+    local dashboard_urls=(
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/docker/monitoring/dashboards/proxmox-dashboard-10347.json"
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/docker/monitoring/dashboards/node-exporter-full-1860.json"
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/docker/monitoring/dashboards/docker-containers-193.json"
+    )
+    
+    # Dashboard filenames
+    local dashboard_files=(
+        "proxmox-dashboard-10347.json"
+        "node-exporter-full-1860.json"
+        "docker-containers-193.json"
+    )
+    
+    # Download each dashboard
+    for i in "${!dashboard_urls[@]}"; do
+        local url="${dashboard_urls[$i]}"
+        local filename="${dashboard_files[$i]}"
+        local output_path="/datapool/config/grafana/dashboards/$filename"
+        
+        print_info "Downloading $filename..."
+        
+        if wget -q --timeout=10 --tries=3 -O "$output_path" "$url"; then
+            print_info "✓ Downloaded $filename successfully"
+            # Set proper ownership
+            chown 101000:101000 "$output_path" 2>/dev/null || true
+        else
+            print_warning "Failed to download $filename from GitHub"
+            print_info "Dashboard will need to be imported manually with ID: ${filename##*-}"
+        fi
+    done
+    
+    # Also create dashboard provider config if it doesn't exist
+    local provider_dir="/datapool/config/grafana/provisioning/dashboards"
+    mkdir -p "$provider_dir"
+    
+    if [ ! -f "$provider_dir/dashboard-provider.yml" ]; then
+        print_info "Creating dashboard provider configuration..."
+        cat > "$provider_dir/dashboard-provider.yml" <<EOF
+apiVersion: 1
+
+providers:
+  - name: 'homelab-dashboards'
+    orgId: 1
+    folder: 'Homelab'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+EOF
+        chown 101000:101000 "$provider_dir/dashboard-provider.yml" 2>/dev/null || true
+        print_info "✓ Dashboard provider configured"
+    fi
+    
+    print_info "✓ Grafana dashboard setup completed"
+    print_info "📋 Dashboards will be available in Grafana under 'Homelab' folder after container startup"
+}
+
 # Function to setup monitoring stack environment
 setup_monitoring_env() {
     local lxc_id=$1
@@ -974,6 +1043,9 @@ EOF"
     
     # Generate monitoring configuration with dynamic network settings
     generate_monitoring_configs "$lxc_id" "$target_dir"
+    
+    # Download and setup Grafana dashboards
+    setup_grafana_dashboards "$lxc_id"
 }
 
 # Function to update existing stack
