@@ -11,9 +11,8 @@ if [ "$(id -u)" -ne 0 ]; then
    exit 1
 fi
 
-# Repository URL - configurable branch
-BRANCH="${HOMELAB_BRANCH:-main}"
-REPO_URL="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH"
+# Repository URL
+REPO_URL="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main"
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 

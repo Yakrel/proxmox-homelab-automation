@@ -13,9 +13,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-# Repository URL - configurable branch
-BRANCH="${HOMELAB_BRANCH:-main}"
-GITHUB_REPO="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH"
+# Repository URL
+GITHUB_REPO="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main"
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
@@ -999,9 +998,9 @@ setup_grafana_dashboards() {
     
     # Dashboard URLs from GitHub repo
     local dashboard_urls=(
-        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/proxmox-dashboard-10347.json"
-        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/node-exporter-full-1860.json"
-        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/docker-containers-193.json"
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/docker/monitoring/dashboards/proxmox-dashboard-10347.json"
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/docker/monitoring/dashboards/node-exporter-full-1860.json"
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/docker/monitoring/dashboards/docker-containers-193.json"
     )
     
     # Dashboard filenames
