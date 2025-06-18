@@ -40,3 +40,4 @@ personal/
 .claude/
 *.local.json
 setting.local.json
+.mcp.json
