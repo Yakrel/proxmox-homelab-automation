@@ -29,7 +29,83 @@ print_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
-# Function to create Alpine LXC using direct Proxmox commands
+# Function to check LXC status
+check_lxc_status() {
+    local lxc_id=$1
+    
+    if pct status "$lxc_id" >/dev/null 2>&1; then
+        local status=$(pct status "$lxc_id" | awk '{print $2}')
+        echo "$status"
+    else
+        echo "not_exists"
+    fi
+}
+
+# Function to wait for container readiness
+wait_for_container_ready() {
+    local lxc_id=$1
+    local max_attempts=30
+    local attempt=1
+    
+    print_info "Waiting for container to be ready..."
+    while [ $attempt -le $max_attempts ]; do
+        if pct exec "$lxc_id" -- echo "ready" >/dev/null 2>&1; then
+            print_info "✓ Container is ready after ${attempt} attempts"
+            return 0
+        fi
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    
+    print_warning "Container readiness check timeout after $((max_attempts * 2)) seconds, continuing..."
+    return 0  # Don't fail entire script
+}
+
+# Function to ensure Docker service is ready
+ensure_docker_ready() {
+    local lxc_id=$1
+    local max_attempts=15
+    local attempt=1
+    
+    print_info "Ensuring Docker service is ready..."
+    while [ $attempt -le $max_attempts ]; do
+        if pct exec "$lxc_id" -- docker info >/dev/null 2>&1; then
+            print_info "✓ Docker service is ready"
+            return 0
+        fi
+        
+        if [ $attempt -eq 5 ]; then
+            print_info "Docker not ready, restarting service..."
+            pct exec "$lxc_id" -- rc-service docker restart >/dev/null 2>&1 || true
+        fi
+        
+        sleep 3
+        attempt=$((attempt + 1))
+    done
+    
+    print_warning "Docker readiness check timeout, continuing anyway..."
+    return 0
+}
+
+# Function to validate user input with retry
+get_validated_input() {
+    local prompt=$1
+    local min_val=$2
+    local max_val=$3
+    local input
+    
+    while true; do
+        read -p "$prompt" input
+        if [[ "$input" =~ ^[0-9]+$ ]] && [ "$input" -ge "$min_val" ] && [ "$input" -le "$max_val" ]; then
+            echo "$input"
+            return 0
+        else
+            print_error "Please enter a valid number between $min_val and $max_val"
+        fi
+    done
+}
+
+# Function to create Alpine LXC using direct Proxmox commands (idempotent)
 create_alpine_lxc_direct() {
     local lxc_id=$1
     local lxc_name=$2
@@ -37,14 +113,42 @@ create_alpine_lxc_direct() {
     local ram_mb=$4
     local disk_gb=$5
 
-    print_info "Creating Alpine Docker LXC: $lxc_name (ID: $lxc_id)"
+    print_info "Managing Alpine Docker LXC: $lxc_name (ID: $lxc_id)"
     print_info "Specs: ${cpu_cores} cores, ${ram_mb}MB RAM, ${disk_gb}GB disk"
     
-    # Check if LXC already exists
-    if pct status "$lxc_id" >/dev/null 2>&1; then
-        print_error "LXC $lxc_id already exists!"
-        return 1
-    fi
+    # Check current LXC status
+    local lxc_status=$(check_lxc_status "$lxc_id")
+    
+    case "$lxc_status" in
+        "not_exists")
+            print_info "LXC $lxc_id does not exist, creating new container..."
+            ;;
+        "running")
+            print_info "LXC $lxc_id already running, verifying configuration..."
+            ensure_docker_ready "$lxc_id"
+            add_datapool_mount "$lxc_id"
+            print_info "✓ LXC $lxc_id updated successfully!"
+            return 0
+            ;;
+        "stopped")
+            print_info "LXC $lxc_id exists but stopped, starting and updating..."
+            pct start "$lxc_id"
+            wait_for_container_ready "$lxc_id"
+            ensure_docker_ready "$lxc_id"
+            add_datapool_mount "$lxc_id"
+            print_info "✓ LXC $lxc_id updated successfully!"
+            return 0
+            ;;
+        *)
+            print_warning "LXC $lxc_id in unknown state: $lxc_status, attempting to start..."
+            pct start "$lxc_id" >/dev/null 2>&1 || true
+            wait_for_container_ready "$lxc_id"
+            ensure_docker_ready "$lxc_id"
+            add_datapool_mount "$lxc_id"
+            print_info "✓ LXC $lxc_id updated successfully!"
+            return 0
+            ;;
+    esac
 
     print_step "Creating Alpine Docker LXC using direct Proxmox commands..."
     
@@ -79,7 +183,7 @@ create_alpine_lxc_direct() {
     print_info "Found template storages: $template_storages"
     print_info "Found disk storages: $disk_storages"
     
-    # Select template storage
+    # Select template storage with smart defaults
     local template_storage=""
     local template_count=$(echo "$template_storages" | wc -w)
     
@@ -92,14 +196,21 @@ create_alpine_lxc_direct() {
         template_storage="$template_storages"
         print_info "Using template storage: $template_storage"
     else
-        print_step "Multiple template storages available:"
-        echo "$template_storages" | tr ' ' '\n' | nl
-        read -p "Select template storage (1-$template_count): " choice
-        template_storage=$(echo "$template_storages" | tr ' ' '\n' | sed -n "${choice}p")
-        print_info "Selected template storage: $template_storage"
+        # Prefer local storage if available
+        local preferred=$(echo "$template_storages" | tr ' ' '\n' | grep -E '^(local|local-lvm)$' | head -1)
+        if [ -n "$preferred" ]; then
+            template_storage="$preferred"
+            print_info "Auto-selecting preferred template storage: $template_storage"
+        else
+            print_step "Multiple template storages available:"
+            echo "$template_storages" | tr ' ' '\n' | nl
+            choice=$(get_validated_input "Select template storage (1-$template_count): " 1 "$template_count")
+            template_storage=$(echo "$template_storages" | tr ' ' '\n' | sed -n "${choice}p")
+            print_info "Selected template storage: $template_storage"
+        fi
     fi
     
-    # Select disk storage
+    # Select disk storage with smart defaults
     local disk_storage=""
     local disk_count=$(echo "$disk_storages" | wc -w)
     
@@ -112,11 +223,18 @@ create_alpine_lxc_direct() {
         disk_storage="$disk_storages"
         print_info "Using disk storage: $disk_storage"
     else
-        print_step "Multiple disk storages available:"
-        echo "$disk_storages" | tr ' ' '\n' | nl
-        read -p "Select disk storage (1-$disk_count): " choice
-        disk_storage=$(echo "$disk_storages" | tr ' ' '\n' | sed -n "${choice}p")
-        print_info "Selected disk storage: $disk_storage"
+        # Prefer local-lvm for disks, then local
+        local preferred=$(echo "$disk_storages" | tr ' ' '\n' | grep -E '^(local-lvm|local)$' | head -1)
+        if [ -n "$preferred" ]; then
+            disk_storage="$preferred"
+            print_info "Auto-selecting preferred disk storage: $disk_storage"
+        else
+            print_step "Multiple disk storages available:"
+            echo "$disk_storages" | tr ' ' '\n' | nl
+            choice=$(get_validated_input "Select disk storage (1-$disk_count): " 1 "$disk_count")
+            disk_storage=$(echo "$disk_storages" | tr ' ' '\n' | sed -n "${choice}p")
+            print_info "Selected disk storage: $disk_storage"
+        fi
     fi
     
     # Validate selections
@@ -143,6 +261,14 @@ create_alpine_lxc_direct() {
         print_info "Template already exists in $template_storage"
     fi
     
+    # Check if IP might be in use (basic check)
+    local target_ip="192.168.1.${lxc_id}"
+    print_info "Checking network availability for IP: $target_ip"
+    if ping -c 1 -W 2 "$target_ip" >/dev/null 2>&1; then
+        print_warning "IP $target_ip responds to ping - may be in use"
+        print_warning "Continuing anyway as this could be normal in some network setups"
+    fi
+    
     # Create LXC container directly with Alpine
     print_step "Creating LXC container $lxc_id..."
     if pct create "$lxc_id" "$template_storage:vztmpl/$template_name" \
@@ -161,7 +287,7 @@ create_alpine_lxc_direct() {
         # Start the container
         print_step "Starting LXC container..."
         pct start "$lxc_id"
-        sleep 10
+        wait_for_container_ready "$lxc_id"
         
         # Configure Alpine container using tteck approach
         print_step "Configuring Alpine container (this may take 5-10 minutes)..."
@@ -273,68 +399,92 @@ create_alpine_lxc_direct() {
     fi
 }
 
-# Function to add datapool mount
+# Function to ensure datapool mount exists (idempotent)
 add_datapool_mount() {
     local lxc_id=$1
     
-    # Shutdown container if running
-    if pct status "$lxc_id" | grep -q "running"; then
-        pct shutdown "$lxc_id"
-        sleep 10
-        # If shutdown doesn't work, force stop
+    # Check if mount already exists with more precise regex
+    if pct config "$lxc_id" | grep -E "^mp[0-9]+=.*,mp=/datapool" >/dev/null 2>&1; then
+        print_info "✓ /datapool mount already exists"
+        
+        # Verify mount is accessible if container is running
         if pct status "$lxc_id" | grep -q "running"; then
-            pct stop "$lxc_id"
-            sleep 3
+            if pct exec "$lxc_id" -- test -d /datapool 2>/dev/null; then
+                print_info "✓ /datapool mount is accessible"
+                return 0
+            else
+                print_warning "Mount exists but not accessible - container may need manual restart"
+                print_info "You can restart the container with: pct restart $lxc_id"
+                return 0
+            fi
         fi
+        return 0
+    fi
+    
+    print_info "Adding /datapool mount point..."
+    
+    # Stop container if running (needed for mount changes)
+    local was_running=false
+    if pct status "$lxc_id" | grep -q "running"; then
+        was_running=true
+        pct shutdown "$lxc_id" 2>/dev/null || pct stop "$lxc_id"
+        
+        # Wait for shutdown
+        local attempts=10
+        while [ $attempts -gt 0 ] && pct status "$lxc_id" | grep -q "running"; do
+            sleep 2
+            attempts=$((attempts - 1))
+        done
     fi
     
     # Determine the next available mount index
-    local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}')
-    next_mp_index=${next_mp_index:-0} # Default to 0 if no mount points exist
+    local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}' 2>/dev/null)
+    next_mp_index=${next_mp_index:-0}
     
-    # Add mount point with ACL support for proper permissions
+    # Add mount point with ACL support
     if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool,acl=1; then
-        # Start container
-        pct start "$lxc_id"
-        sleep 5
+        print_info "✓ Mount point added successfully"
         
-        # Verify mount
-        if pct exec "$lxc_id" -- test -d /datapool; then
-            return 0
-        else
-            return 1
+        # Restart container if it was running
+        if [ "$was_running" = true ]; then
+            pct start "$lxc_id"
+            wait_for_container_ready "$lxc_id"
         fi
+        
+        return 0
     else
+        print_error "Failed to add mount point"
+        # Restart container if it was running
+        if [ "$was_running" = true ]; then
+            pct start "$lxc_id"
+        fi
         return 1
     fi
 }
 
-# Function to verify Docker installation
+# Function to verify and ensure Docker installation (idempotent)
 verify_docker() {
     local lxc_id=$1
     
-    # Wait for Docker service to be ready
-    sleep 10
+    print_info "Verifying Docker installation..."
     
-    # Ensure Docker service is running
-    pct exec "$lxc_id" -- rc-service docker start >/dev/null 2>&1 || true
-    sleep 5
-    
-    # Test Docker
+    # Check if Docker is already working
     if pct exec "$lxc_id" -- docker --version >/dev/null 2>&1; then
-        print_info "✓ Docker installation verified"
-    else
-        print_warning "Docker not accessible, attempting restart..."
-        pct exec "$lxc_id" -- rc-service docker restart >/dev/null 2>&1
-        sleep 5
-        if pct exec "$lxc_id" -- docker --version >/dev/null 2>&1; then
-            print_info "✓ Docker installation verified after restart"
-        else
-            return 1
-        fi
+        print_info "✓ Docker is already working"
+        return 0
     fi
     
-    return 0
+    # Try to start Docker service
+    print_info "Starting Docker service..."
+    pct exec "$lxc_id" -- rc-service docker start >/dev/null 2>&1 || true
+    
+    # Use our improved Docker readiness check
+    if ensure_docker_ready "$lxc_id"; then
+        return 0
+    else
+        print_warning "Docker verification completed with warnings"
+        return 0  # Don't fail entire script
+    fi
 }
 
 # Main function

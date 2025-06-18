@@ -152,6 +152,33 @@ ${custom_content}
 EOF
 }
 
+# Function to atomically create environment files with secure permissions
+create_env_file_atomic() {
+    local target_file=$1
+    local stack_name=$2
+    local custom_content=$3
+    
+    # Create temporary file with secure permissions from start
+    local temp_file
+    temp_file=$(mktemp)
+    chmod 600 "$temp_file"
+    
+    # Generate content to temporary file
+    create_common_env_content "$stack_name" "$custom_content" > "$temp_file"
+    
+    # Atomic move to final location
+    if mv "$temp_file" "$target_file"; then
+        # Ensure proper ownership for the final file
+        chmod 600 "$target_file"
+        print_info "✓ ${stack_name} stack .env file created successfully with secure permissions"
+        return 0
+    else
+        print_error "Failed to create .env file"
+        rm -f "$temp_file" 2>/dev/null
+        return 1
+    fi
+}
+
 # Function to setup proxy stack environment
 setup_proxy_env() {
     local stack_dir=$1
@@ -173,11 +200,8 @@ setup_proxy_env() {
     local proxy_content="# Cloudflare tunnel token for secure connections
 CLOUDFLARED_TOKEN=$cloudflare_token"
     
-    create_common_env_content "Proxy" "$proxy_content" > "$stack_dir/.env"
-    chmod 600 "$stack_dir/.env"
-    
-    print_info "✓ Proxy stack .env file created successfully with secure permissions"
-    return 0
+    create_env_file_atomic "$stack_dir/.env" "Proxy" "$proxy_content"
+    return $?
 }
 
 # Function to setup media stack environment
@@ -198,11 +222,8 @@ RADARR_API_KEY=
 QB_USERNAME=admin
 QB_PASSWORD="
     
-    create_common_env_content "Media" "$media_content" > "$stack_dir/.env"
-    chmod 600 "$stack_dir/.env"
-    
-    print_info "✓ Media stack .env file created successfully with secure permissions"
-    return 0
+    create_env_file_atomic "$stack_dir/.env" "Media" "$media_content"
+    return $?
 }
 
 # Function to setup downloads stack environment
@@ -218,11 +239,8 @@ setup_downloads_env() {
     local downloads_content="# JDownloader2 VNC password for web interface access
 JDOWNLOADER_VNC_PASSWORD=$jdownloader_password"
     
-    create_common_env_content "Downloads" "$downloads_content" > "$stack_dir/.env"
-    chmod 600 "$stack_dir/.env"
-    
-    print_info "✓ Downloads stack .env file created successfully with secure permissions"
-    return 0
+    create_env_file_atomic "$stack_dir/.env" "Downloads" "$downloads_content"
+    return $?
 }
 
 # Function to setup utility stack environment
@@ -238,11 +256,8 @@ setup_utility_env() {
     local utility_content="# Firefox VNC password for web interface access
 FIREFOX_VNC_PASSWORD=$firefox_password"
     
-    create_common_env_content "Utility" "$utility_content" > "$stack_dir/.env"
-    chmod 600 "$stack_dir/.env"
-    
-    print_info "✓ Utility stack .env file created successfully with secure permissions"
-    return 0
+    create_env_file_atomic "$stack_dir/.env" "Utility" "$utility_content"
+    return $?
 }
 
 # Function to setup monitoring stack environment
@@ -256,6 +271,48 @@ setup_monitoring_env() {
     
     # Get Proxmox monitoring user password
     local pve_password=$(get_password "Enter Proxmox monitoring user password (min 8 chars)")
+    
+    # Get email configuration for alerts
+    print_step "Configuring email notifications..."
+    echo
+    print_info "Email configuration is required for system alerts from Alertmanager"
+    print_info "For Gmail, you need to generate an App Password (not your regular password)"
+    print_info "Gmail App Password instructions: https://myaccount.google.com/apppasswords"
+    print_info "For other providers, use your regular email credentials or app-specific passwords"
+    echo
+    
+    local email_address
+    while true; do
+        read -p "Enter your email address: " email_address
+        if [[ "$email_address" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+            break
+        else
+            print_error "Please enter a valid email address (e.g., user@example.com)"
+        fi
+    done
+    
+    local email_password
+    while true; do
+        read -s -p "Enter email password (for Gmail use 16-char App Password): " email_password
+        echo
+        if [ ${#email_password} -ge 8 ]; then
+            # Special validation for Gmail App Passwords
+            if [[ "$email_address" =~ gmail\.com$ ]] && { [ ${#email_password} -ne 16 ] || ! [[ "$email_password" =~ ^[a-zA-Z0-9]+$ ]]; }; then
+                print_error "Gmail App Password should be exactly 16 alphanumeric characters"
+                continue
+            fi
+            break
+        else
+            print_error "Email password should be at least 8 characters"
+        fi
+    done
+    
+    # Network Configuration
+    print_step "Configuring network settings..."
+    echo
+    print_info "Network configuration for monitoring targets:"
+    print_info "This determines which IPs Prometheus will monitor"
+    echo
     
     # Auto-detect Proxmox local IP and construct URL
     # Try multiple methods to get the primary local network IP
@@ -279,6 +336,50 @@ setup_monitoring_env() {
         detected_ip="YOUR_PROXMOX_IP"
     fi
     
+    # Determine default network base from detected IP
+    local default_base="192.168.1"
+    if [[ "$detected_ip" =~ ^([0-9]+\.[0-9]+\.[0-9]+)\.[0-9]+$ ]]; then
+        default_base="${BASH_REMATCH[1]}"
+    fi
+    
+    print_info "Detected network base: $default_base"
+    print_info "LXC monitoring targets will be:"
+    print_info "  • Proxy LXC (100): ${default_base}.100:9104"
+    print_info "  • Media LXC (101): ${default_base}.101:9101" 
+    print_info "  • Downloads LXC (102): ${default_base}.102:9102"
+    print_info "  • Utility LXC (103): ${default_base}.103:9103"
+    echo
+    
+    local network_base
+    while true; do
+        read -p "Network base [${default_base}]: " network_base
+        network_base=${network_base:-$default_base}
+        
+        # Validate network base format (should be X.X.X format)
+        if [[ "$network_base" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]]; then
+            # Check if each octet is valid (0-255)
+            local octet1=${BASH_REMATCH[1]}
+            local octet2=${BASH_REMATCH[2]}
+            local octet3=${BASH_REMATCH[3]}
+            
+            if [ "$octet1" -ge 0 ] && [ "$octet1" -le 255 ] && \
+               [ "$octet2" -ge 0 ] && [ "$octet2" -le 255 ] && \
+               [ "$octet3" -ge 0 ] && [ "$octet3" -le 255 ]; then
+                break
+            else
+                print_error "Invalid network base: octets must be between 0-255"
+            fi
+        else
+            print_error "Invalid network base format. Expected format: X.X.X (e.g., 192.168.1)"
+        fi
+    done
+    
+    # Grafana dashboard URL for email notifications
+    local default_grafana_url="http://${network_base}.104:3000"
+    local grafana_url
+    read -p "Grafana dashboard URL [${default_grafana_url}]: " grafana_url
+    grafana_url=${grafana_url:-$default_grafana_url}
+    
     local default_pve_url="https://${detected_ip}:8006"
     
     # Use auto-detected Proxmox URL
@@ -287,7 +388,15 @@ setup_monitoring_env() {
     
     
     # Create .env file with common settings and monitoring-specific content
-    local monitoring_content="# Grafana admin credentials for dashboard access
+    local monitoring_content="# Email notification settings for Alertmanager
+GMAIL_ADDRESS=$email_address
+GMAIL_APP_PASSWORD=$email_password
+
+# Network Configuration
+NETWORK_BASE=$network_base
+GRAFANA_URL=$grafana_url
+
+# Grafana admin credentials for dashboard access
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=$grafana_password
 
@@ -297,11 +406,8 @@ PVE_PASSWORD=$pve_password
 PVE_URL=$pve_url
 PVE_VERIFY_SSL=false"
     
-    create_common_env_content "Monitoring" "$monitoring_content" > "$stack_dir/.env"
-    chmod 600 "$stack_dir/.env"
-    
-    print_info "✓ Monitoring stack .env file created successfully with secure permissions"
-    return 0
+    create_env_file_atomic "$stack_dir/.env" "Monitoring" "$monitoring_content"
+    return $?
 }
 
 # Function to setup environment for specific stack

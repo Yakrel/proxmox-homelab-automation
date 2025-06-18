@@ -1,0 +1,5 @@
+# Homepage Docker Configuration
+# Automatic service discovery via Docker labels
+
+my-docker:
+  socket: /var/run/docker.sock

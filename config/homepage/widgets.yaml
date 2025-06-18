@@ -1,0 +1,35 @@
+# Homepage Widgets Configuration
+# This file defines system information and utility widgets
+
+- search:
+    provider: google
+    target: _blank
+
+- greeting:
+    text_size: xl
+    text: "Homelab Kontrol Merkezi"
+
+- datetime:
+    text_size: xl
+    format:
+      timeStyle: short
+      dateStyle: short
+      locale: tr-TR
+
+- openmeteo:
+    label: İstanbul
+    latitude: 41.0082
+    longitude: 28.9784
+    timezone: Europe/Istanbul
+    units: metric
+    cache: 5
+
+- resources:
+    label: Sistem Durumu
+    cpu: true
+    memory: true
+    disk: /
+    cputemp: true
+    uptime: true
+    units: metric
+    refresh: 3000

@@ -20,6 +20,7 @@ This project uses a **fully automated deployment** approach with 5 specialized L
 - **Stack-based Architecture**: 5 separate stacks for better resource management and isolation
 - **One-Click Deployment**: Complete homelab deployment with a single command
 - **Interactive Configuration**: Automated password and configuration setup
+- **Idempotent Scripts**: All scripts can be safely run multiple times for updates and maintenance
 - Each stack includes its own watchtower for automatic updates
 
 ## Overview
@@ -216,21 +217,23 @@ Edit `/datapool/config/monitoring/prometheus/prometheus.yml` and update the IP a
 - Replace `10.0.0.102` with your Downloads LXC IP
 - Replace `10.0.0.103` with your Utility LXC IP
 
-#### 4. Grafana Dashboard Import
-After services start, access Grafana at `http://your_monitoring_lxc_ip:3000`:
+#### 4. Grafana Dashboard Auto-Import
+Dashboards are automatically downloaded and imported during deployment:
 
-1. Login with admin/your_password
-2. Go to Dashboards > Import
-3. Import these dashboard IDs:
-   - **10347** - Proxmox via Prometheus
-   - **1860** - Node Exporter Full
-   - **193** - Docker Container & Host Metrics
+- **Proxmox via Prometheus** - Proxmox host and VM metrics
+- **Node Exporter Full** - System resource monitoring for all LXCs
+- **Docker Containers** - Container resource monitoring
+
+Access Grafana at `http://your_monitoring_lxc_ip:3000`:
+1. Login with admin/your_configured_password
+2. Dashboards are available in the "Homelab" folder
+3. If auto-import fails, manually import dashboard IDs: 10347, 1860, 193
 
 #### 5. Configure Alertmanager (Optional)
 Edit `/datapool/config/monitoring/alertmanager/alertmanager.yml` to configure notifications:
-- Email alerts
-- Slack/Discord webhooks
-- Custom notification channels
+  - Email alerts
+  - Slack/Discord webhooks
+  - Custom notification channels
 
 ### Port Overview
 - **Grafana**: 3000

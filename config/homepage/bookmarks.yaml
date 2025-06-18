@@ -1,0 +1,35 @@
+# Homepage Bookmarks Configuration
+# Quick access to frequently used links
+
+- Geliştirme:
+    - Github:
+        - abbr: GH
+          href: https://github.com/
+    - TRaSH Guides:
+        - abbr: TG
+          href: https://trash-guides.info/
+    - Docker Hub:
+        - abbr: DH
+          href: https://hub.docker.com/
+
+- Medya:
+    - IMDB:
+        - abbr: IM
+          href: https://www.imdb.com/
+    - TheMovieDB:
+        - abbr: TM
+          href: https://www.themoviedb.org/
+    - Trakt:
+        - abbr: TR
+          href: https://trakt.tv/
+
+- Sistem:
+    - Proxmox:
+        - abbr: PX
+          href: https://192.168.1.10:8006
+    - Router:
+        - abbr: RT
+          href: http://192.168.1.1
+    - Cloudflare:
+        - abbr: CF
+          href: https://dash.cloudflare.com/
