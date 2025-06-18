@@ -1,0 +1,118 @@
+# Homepage Services Configuration
+# This file defines all your homelab services and their widgets
+
+- Media:
+    - Sonarr:
+        icon: sonarr.png
+        href: http://192.168.1.101:8989
+        description: TV Series Management
+        widget:
+          type: sonarr
+          url: http://192.168.1.101:8989
+          key: "{{HOMEPAGE_VAR_SONARR_API_KEY}}"
+
+    - Radarr:
+        icon: radarr.png
+        href: http://192.168.1.101:7878
+        description: Movie Management
+        widget:
+          type: radarr
+          url: http://192.168.1.101:7878
+          key: "{{HOMEPAGE_VAR_RADARR_API_KEY}}"
+
+    - Jellyfin:
+        icon: jellyfin.png
+        href: http://192.168.1.101:8096
+        description: Media Server
+        widget:
+          type: jellyfin
+          url: http://192.168.1.101:8096
+          key: "{{HOMEPAGE_VAR_JELLYFIN_API_KEY}}"
+
+    - qBittorrent:
+        icon: qbittorrent.png
+        href: http://192.168.1.101:8080
+        description: Torrent Client
+        widget:
+          type: qbittorrent
+          url: http://192.168.1.101:8080
+          username: "{{HOMEPAGE_VAR_QB_USERNAME}}"
+          password: "{{HOMEPAGE_VAR_QB_PASSWORD}}"
+
+    - Prowlarr:
+        icon: prowlarr.png
+        href: http://192.168.1.101:9696
+        description: Indexer Manager
+        widget:
+          type: prowlarr
+          url: http://192.168.1.101:9696
+          key: "{{HOMEPAGE_VAR_PROWLARR_API_KEY}}"
+
+    - Jellyseerr:
+        icon: jellyseerr.png
+        href: http://192.168.1.101:5055
+        description: Request Management
+        widget:
+          type: jellyseerr
+          url: http://192.168.1.101:5055
+          key: "{{HOMEPAGE_VAR_JELLYSEERR_API_KEY}}"
+
+    - Bazarr:
+        icon: bazarr.png
+        href: http://192.168.1.101:6767
+        description: Subtitle Management
+        widget:
+          type: bazarr
+          url: http://192.168.1.101:6767
+          key: "{{HOMEPAGE_VAR_BAZARR_API_KEY}}"
+
+    - Huntarr:
+        icon: huntarr.png
+        href: http://192.168.1.101:9705
+        description: TV Episode Renaming
+
+- Downloads:
+    - JDownloader2:
+        icon: jdownloader.png
+        href: http://192.168.1.102:5801
+        description: Download Manager
+
+    - MeTube:
+        icon: metube.png
+        href: http://192.168.1.102:8082
+        description: YouTube Downloader
+
+- Utilities:
+    - Firefox:
+        icon: firefox.png
+        href: http://192.168.1.103:5800
+        description: Remote Browser
+
+- Monitoring:
+    - Grafana:
+        icon: grafana.png
+        href: http://192.168.1.104:3000
+        description: Metrics Dashboard
+        widget:
+          type: grafana
+          url: http://192.168.1.104:3000
+          username: "{{HOMEPAGE_VAR_GRAFANA_USERNAME}}"
+          password: "{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}"
+
+    - Prometheus:
+        icon: prometheus.png
+        href: http://192.168.1.104:9090
+        description: Metrics Collection
+        widget:
+          type: prometheus
+          url: http://192.168.1.104:9090
+
+    - Alertmanager:
+        icon: alertmanager.png
+        href: http://192.168.1.104:9093
+        description: Alert Management
+
+    - Proxmox:
+        icon: proxmox.png
+        href: https://192.168.1.10:8006
+        description: Virtualization Platform
