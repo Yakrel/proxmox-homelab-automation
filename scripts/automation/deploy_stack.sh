@@ -448,9 +448,14 @@ deploy_homepage_configs() {
         fi
     done
     
-    # Set proper permissions
-    pct exec "$lxc_id" -- chown -R 1000:1000 /datapool/config/homepage 2>/dev/null || true
-    pct exec "$lxc_id" -- chmod -R 644 /datapool/config/homepage/*.yaml 2>/dev/null || true
+    # Set proper permissions (consistent with other stack setup scripts)
+    # All LXC setup scripts use host-side 101000:101000 for unprivileged containers
+    # Docker containers use PUID=1000, LXC mapping: 1000 → 101000
+    chown -R 101000:101000 /datapool/config/homepage 2>/dev/null || {
+        print_warning "Failed to set ownership to 101000:101000"
+        print_info "Ensure /datapool is accessible and you have proper permissions"
+    }
+    chmod -R 644 /datapool/config/homepage/*.yaml 2>/dev/null || true
     
     if [ $success_count -eq ${#config_files[@]} ]; then
         print_info "✓ All Homepage configuration files deployed successfully"

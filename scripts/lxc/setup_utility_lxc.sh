@@ -10,7 +10,7 @@ read -p "Do you want to create folders for Utility LXC? (y/N): " response
 
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     # Define config directories
-    CONFIG_DIRS=("firefox" "watchtower-utility")
+    CONFIG_DIRS=("firefox" "watchtower-utility" "homepage")
     
     # Create directory structure for utility stack
     for dir in "${CONFIG_DIRS[@]}"; do
