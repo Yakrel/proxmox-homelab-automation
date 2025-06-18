@@ -403,8 +403,8 @@ create_alpine_lxc_direct() {
 add_datapool_mount() {
     local lxc_id=$1
     
-    # Check if mount already exists
-    if pct config "$lxc_id" | grep -q "/datapool"; then
+    # Check if mount already exists with more precise regex
+    if pct config "$lxc_id" | grep -E "^mp[0-9]+=.*,mp=/datapool" >/dev/null 2>&1; then
         print_info "✓ /datapool mount already exists"
         
         # Verify mount is accessible if container is running
@@ -413,7 +413,9 @@ add_datapool_mount() {
                 print_info "✓ /datapool mount is accessible"
                 return 0
             else
-                print_warning "Mount exists but not accessible, container may need restart"
+                print_warning "Mount exists but not accessible - container may need manual restart"
+                print_info "You can restart the container with: pct restart $lxc_id"
+                return 0
             fi
         fi
         return 0

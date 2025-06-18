@@ -231,9 +231,9 @@ Access Grafana at `http://your_monitoring_lxc_ip:3000`:
 
 #### 5. Configure Alertmanager (Optional)
 Edit `/datapool/config/monitoring/alertmanager/alertmanager.yml` to configure notifications:
-- Email alerts
-- Slack/Discord webhooks
-- Custom notification channels
+  - Email alerts
+  - Slack/Discord webhooks
+  - Custom notification channels
 
 ### Port Overview
 - **Grafana**: 3000

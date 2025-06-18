@@ -168,6 +168,8 @@ create_env_file_atomic() {
     
     # Atomic move to final location
     if mv "$temp_file" "$target_file"; then
+        # Ensure proper ownership for the final file
+        chmod 600 "$target_file"
         print_info "✓ ${stack_name} stack .env file created successfully with secure permissions"
         return 0
     else
@@ -270,32 +272,38 @@ setup_monitoring_env() {
     # Get Proxmox monitoring user password
     local pve_password=$(get_password "Enter Proxmox monitoring user password (min 8 chars)")
     
-    # Get Gmail configuration for alerts
+    # Get email configuration for alerts
     print_step "Configuring email notifications..."
     echo
-    print_info "Gmail configuration is required for system alerts from Alertmanager"
-    print_info "You need to generate a Gmail App Password (not your regular password)"
-    print_info "Instructions: https://myaccount.google.com/apppasswords"
+    print_info "Email configuration is required for system alerts from Alertmanager"
+    print_info "For Gmail, you need to generate an App Password (not your regular password)"
+    print_info "Gmail App Password instructions: https://myaccount.google.com/apppasswords"
+    print_info "For other providers, use your regular email credentials or app-specific passwords"
     echo
     
-    local gmail_address
+    local email_address
     while true; do
-        read -p "Enter your Gmail address: " gmail_address
-        if [[ "$gmail_address" =~ ^[a-zA-Z0-9._%+-]+@gmail\.com$ ]]; then
+        read -p "Enter your email address: " email_address
+        if [[ "$email_address" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
             break
         else
-            print_error "Please enter a valid Gmail address (e.g., user@gmail.com)"
+            print_error "Please enter a valid email address (e.g., user@example.com)"
         fi
     done
     
-    local gmail_app_password
+    local email_password
     while true; do
-        read -s -p "Enter Gmail App Password (16 characters): " gmail_app_password
+        read -s -p "Enter email password (for Gmail use 16-char App Password): " email_password
         echo
-        if [ ${#gmail_app_password} -eq 16 ] && [[ "$gmail_app_password" =~ ^[a-zA-Z0-9]+$ ]]; then
+        if [ ${#email_password} -ge 8 ]; then
+            # Special validation for Gmail App Passwords
+            if [[ "$email_address" =~ gmail\.com$ ]] && { [ ${#email_password} -ne 16 ] || ! [[ "$email_password" =~ ^[a-zA-Z0-9]+$ ]]; }; then
+                print_error "Gmail App Password should be exactly 16 alphanumeric characters"
+                continue
+            fi
             break
         else
-            print_error "Gmail App Password should be exactly 16 alphanumeric characters"
+            print_error "Email password should be at least 8 characters"
         fi
     done
     
@@ -343,8 +351,28 @@ setup_monitoring_env() {
     echo
     
     local network_base
-    read -p "Network base [${default_base}]: " network_base
-    network_base=${network_base:-$default_base}
+    while true; do
+        read -p "Network base [${default_base}]: " network_base
+        network_base=${network_base:-$default_base}
+        
+        # Validate network base format (should be X.X.X format)
+        if [[ "$network_base" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]]; then
+            # Check if each octet is valid (0-255)
+            local octet1=${BASH_REMATCH[1]}
+            local octet2=${BASH_REMATCH[2]}
+            local octet3=${BASH_REMATCH[3]}
+            
+            if [ "$octet1" -ge 0 ] && [ "$octet1" -le 255 ] && \
+               [ "$octet2" -ge 0 ] && [ "$octet2" -le 255 ] && \
+               [ "$octet3" -ge 0 ] && [ "$octet3" -le 255 ]; then
+                break
+            else
+                print_error "Invalid network base: octets must be between 0-255"
+            fi
+        else
+            print_error "Invalid network base format. Expected format: X.X.X (e.g., 192.168.1)"
+        fi
+    done
     
     # Grafana dashboard URL for email notifications
     local default_grafana_url="http://${network_base}.104:3000"
@@ -361,8 +389,8 @@ setup_monitoring_env() {
     
     # Create .env file with common settings and monitoring-specific content
     local monitoring_content="# Email notification settings for Alertmanager
-GMAIL_ADDRESS=$gmail_address
-GMAIL_APP_PASSWORD=$gmail_app_password
+GMAIL_ADDRESS=$email_address
+GMAIL_APP_PASSWORD=$email_password
 
 # Network Configuration
 NETWORK_BASE=$network_base
