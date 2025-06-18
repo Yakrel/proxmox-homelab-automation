@@ -369,6 +369,118 @@ ensure_datapool_mount() {
     return 0
 }
 
+# Function to deploy stack configuration files (idempotent)
+deploy_stack_configs() {
+    local lxc_id=$1
+    local stack_type=$2
+    
+    print_step "Deploying configuration files for $stack_type stack..."
+    
+    # Ensure datapool is accessible
+    if ! pct exec "$lxc_id" -- test -d /datapool 2>/dev/null; then
+        print_warning "/datapool not accessible, skipping config deployment"
+        return 1
+    fi
+    
+    # Create config base directory if not exists
+    pct exec "$lxc_id" -- mkdir -p /datapool/config 2>/dev/null || true
+    
+    # Deploy stack-specific config files
+    case $stack_type in
+        "utility")
+            deploy_homepage_configs "$lxc_id"
+            ;;
+        "monitoring")
+            deploy_monitoring_configs "$lxc_id"
+            ;;
+        *)
+            print_info "No additional config files needed for $stack_type stack"
+            ;;
+    esac
+    
+    return 0
+}
+
+# Function to deploy Homepage dashboard configuration
+deploy_homepage_configs() {
+    local lxc_id=$1
+    
+    print_info "Deploying Homepage dashboard configuration..."
+    
+    # Create homepage config directory
+    pct exec "$lxc_id" -- mkdir -p /datapool/config/homepage 2>/dev/null
+    
+    # Download and deploy each config file
+    local config_files=("bookmarks.yaml" "docker.yaml" "services.yaml" "settings.yaml" "widgets.yaml")
+    local success_count=0
+    
+    for config_file in "${config_files[@]}"; do
+        local temp_file="$TEMP_DIR/$config_file"
+        local target_path="/datapool/config/homepage/$config_file"
+        
+        # Download config file
+        if wget -q -O "$temp_file" "$GITHUB_REPO/config/homepage/$config_file" 2>/dev/null; then
+            # Check if file already exists and is identical
+            if pct exec "$lxc_id" -- test -f "$target_path" 2>/dev/null; then
+                # Compare files to avoid unnecessary overwrites
+                if pct exec "$lxc_id" -- md5sum "$target_path" 2>/dev/null | cut -d' ' -f1 | \
+                   { read existing_md5; [ "$(md5sum "$temp_file" | cut -d' ' -f1)" = "$existing_md5" ]; }; then
+                    print_info "✓ $config_file already up-to-date"
+                    success_count=$((success_count + 1))
+                    continue
+                fi
+                
+                # Backup existing file
+                local backup_name="${config_file}.backup.$(date +%Y%m%d_%H%M%S)"
+                pct exec "$lxc_id" -- cp "$target_path" "/datapool/config/homepage/$backup_name" 2>/dev/null
+                print_info "Backed up existing $config_file to $backup_name"
+            fi
+            
+            # Copy new file to container
+            if pct push "$lxc_id" "$temp_file" "$target_path" 2>/dev/null; then
+                print_info "✓ Deployed $config_file"
+                success_count=$((success_count + 1))
+            else
+                print_warning "Failed to deploy $config_file"
+            fi
+        else
+            print_warning "Failed to download $config_file"
+        fi
+    done
+    
+    # Set proper permissions
+    pct exec "$lxc_id" -- chown -R 1000:1000 /datapool/config/homepage 2>/dev/null || true
+    pct exec "$lxc_id" -- chmod -R 644 /datapool/config/homepage/*.yaml 2>/dev/null || true
+    
+    if [ $success_count -eq ${#config_files[@]} ]; then
+        print_info "✓ All Homepage configuration files deployed successfully"
+        return 0
+    elif [ $success_count -gt 0 ]; then
+        print_warning "Partially deployed Homepage configs ($success_count/${#config_files[@]} files)"
+        return 0
+    else
+        print_error "Failed to deploy Homepage configuration files"
+        return 1
+    fi
+}
+
+# Function to deploy monitoring stack specific configs
+deploy_monitoring_configs() {
+    local lxc_id=$1
+    
+    print_info "Deploying monitoring configuration files..."
+    
+    # Create monitoring config directories
+    pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/alertmanager 2>/dev/null
+    pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/grafana 2>/dev/null
+    pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/prometheus 2>/dev/null
+    
+    # These files are already handled by download_stack_files function
+    print_info "✓ Monitoring config directories prepared"
+    
+    return 0
+}
+
 # Function to verify deployment
 verify_deployment() {
     local stack_type=$1
@@ -1285,6 +1397,100 @@ if [ $# -eq 0 ] || [ $# -gt 2 ]; then
     echo "  $0 monitoring # Deploy to LXC 104"
     exit 1
 fi
+
+# Function to deploy a complete new stack
+deploy_complete_stack() {
+    local stack_type=$1
+    local lxc_id=$2
+    
+    print_step "Deploying complete $stack_type stack to LXC $lxc_id..."
+    
+    # Ensure container is ready
+    if ! ensure_container_ready "$lxc_id"; then
+        print_error "Container $lxc_id is not ready"
+        return 1
+    fi
+    
+    # Ensure datapool mount
+    if ! ensure_datapool_mount "$lxc_id"; then
+        print_error "Failed to ensure datapool mount"
+        return 1
+    fi
+    
+    # Deploy configuration files
+    deploy_stack_configs "$lxc_id" "$stack_type"
+    
+    # Create stack directory
+    local stack_dir="/opt/$stack_type-stack"
+    pct exec "$lxc_id" -- mkdir -p "$stack_dir"
+    
+    # Download stack files
+    if ! download_stack_files "$stack_type" "$stack_dir" "$lxc_id"; then
+        print_error "Failed to download stack files"
+        return 1
+    fi
+    
+    # Setup environment file
+    if ! setup_env_file "$stack_dir" "$stack_type" "$lxc_id"; then
+        print_error "Failed to setup environment file"
+        return 1
+    fi
+    
+    # Deploy with Docker Compose
+    if ! pct exec "$lxc_id" -- bash -c "cd $stack_dir && $DOCKER_COMPOSE_CMD up -d"; then
+        print_error "Failed to deploy stack with Docker Compose"
+        return 1
+    fi
+    
+    # Verify deployment
+    verify_deployment "$stack_type"
+    
+    print_info "✅ Complete $stack_type stack deployment finished"
+    return 0
+}
+
+# Function to update an existing stack
+update_existing_stack() {
+    local stack_type=$1
+    local lxc_id=$2
+    
+    print_step "Updating existing $stack_type stack in LXC $lxc_id..."
+    
+    # Ensure container is ready
+    if ! ensure_container_ready "$lxc_id"; then
+        print_error "Container $lxc_id is not ready"
+        return 1
+    fi
+    
+    # Deploy/update configuration files
+    deploy_stack_configs "$lxc_id" "$stack_type"
+    
+    local stack_dir="/opt/$stack_type-stack"
+    
+    # Backup existing .env if it exists
+    if pct exec "$lxc_id" -- test -f "$stack_dir/.env"; then
+        backup_env_file "$lxc_id" "$stack_dir/.env"
+    fi
+    
+    # Download latest stack files
+    if ! download_stack_files "$stack_type" "$stack_dir" "$lxc_id"; then
+        print_error "Failed to download updated stack files"
+        return 1
+    fi
+    
+    # Update stack with Docker Compose
+    if pct exec "$lxc_id" -- bash -c "cd $stack_dir && $DOCKER_COMPOSE_CMD pull && $DOCKER_COMPOSE_CMD up -d"; then
+        print_info "✅ Stack updated successfully"
+        
+        # Show running containers
+        print_info "Running containers:"
+        pct exec "$lxc_id" -- bash -c "cd $stack_dir && $DOCKER_COMPOSE_CMD ps"
+        return 0
+    else
+        print_error "Failed to update stack"
+        return 1
+    fi
+}
 
 # Validate stack type
 case "$1" in
