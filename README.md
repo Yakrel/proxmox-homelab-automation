@@ -9,16 +9,16 @@ bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-a
 ```
 
 From the menu you can choose:
-- **Option 8**: Automated Deployment (deploy individual stacks or all 5 stacks at once)
-- **Other options**: Security setup, storage setup, individual LXC preparation
+- **Options 1-5**: Deploy individual stacks (proxy, media, downloads, utility, monitoring)
+- **Options 6-7**: Security setup, storage setup, system maintenance
 
 
 ## Deployment Approach
 
-This project uses a **fully automated deployment** approach with 5 specialized LXC containers:
+This project uses 5 specialized LXC containers:
 - **Automated LXC Creation**: Uses community Alpine Docker templates for consistent setup
 - **Stack-based Architecture**: 5 separate stacks for better resource management and isolation
-- **One-Click Deployment**: Complete homelab deployment with a single command
+- **Individual Stack Deployment**: Deploy each stack separately for better control
 - **Interactive Configuration**: Automated password and configuration setup
 - **Idempotent Scripts**: All scripts can be safely run multiple times for updates and maintenance
 - Each stack includes its own watchtower for automatic updates
@@ -178,17 +178,16 @@ If both files show the same inode number, hardlinks are working correctly.
 
 The monitoring stack provides comprehensive system and application monitoring using Prometheus, Grafana, and Alertmanager.
 
-### Automated Setup
-The monitoring stack can be deployed automatically using the setup script:
+### Setup
+The monitoring stack can be deployed using the setup script:
 ```bash
-# Run setup script and choose option 8 (Automated Deployment)
+# Run setup script and choose option 5 (Deploy Monitoring Stack)
 bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
-# Then select option 5 (Deploy Monitoring Stack)
 ```
 
 ### Manual Configuration Steps
 
-After the automated deployment, complete these manual steps:
+After deploying the stacks, complete these manual steps:
 
 #### 1. Proxmox API User Setup
 Create a monitoring user in Proxmox for the PVE exporter:

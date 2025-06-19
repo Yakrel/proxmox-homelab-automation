@@ -29,81 +29,25 @@ print_step() {
     echo -e "${BLUE}[STEP]${NC} $1"
 }
 
-# Enhanced password validation function
+# Minimal password validation function
 validate_password_strength() {
     local password=$1
-    local errors=()
     
-    # Check minimum length
-    if [ ${#password} -lt 8 ]; then
-        errors+=("Password must be at least 8 characters long")
-    fi
-    
-    # Check for at least one number
-    if ! [[ "$password" =~ [0-9] ]]; then
-        errors+=("Password must contain at least one number")
-    fi
-    
-    # Check for at least one letter
-    if ! [[ "$password" =~ [a-zA-Z] ]]; then
-        errors+=("Password must contain at least one letter")
-    fi
-    
-    # Check for weak patterns
-    if [[ "$password" =~ ^[0-9]+$ ]] || [[ "$password" =~ ^[a-zA-Z]+$ ]]; then
-        errors+=("Password should contain a mix of letters and numbers")
-    fi
-    
-    if [ ${#errors[@]} -gt 0 ]; then
-        for error in "${errors[@]}"; do
-            print_error "$error"
-        done
+    # Only check for completely empty passwords
+    if [ -z "$password" ]; then
+        print_error "Password cannot be empty"
         return 1
     fi
     
     return 0
 }
 
-# Function to validate input (not empty)
-validate_not_empty() {
-    local input=$1
-    local field_name=$2
-    
-    if [ -z "$input" ]; then
-        print_error "$field_name cannot be empty"
-        return 1
-    fi
+# Simple validation helper
+check_empty() {
+    [ -z "$1" ] && { print_error "$2 required"; return 1; }
     return 0
 }
 
-# Function to validate URL format
-validate_url() {
-    local url=$1
-    
-    if [[ ! "$url" =~ ^https?://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$ ]]; then
-        print_error "Invalid URL format. Expected format: http(s)://hostname[:port][/path][?query][#fragment]"
-        return 1
-    fi
-    return 0
-}
-
-# Function to validate Cloudflare token format
-validate_cloudflare_token() {
-    local token=$1
-    
-    # Cloudflare tunnel tokens are typically 40+ character alphanumeric strings
-    if [ ${#token} -lt 40 ]; then
-        print_error "Cloudflare token appears too short (expected 40+ characters)"
-        return 1
-    fi
-    
-    if ! [[ "$token" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-        print_error "Cloudflare token contains invalid characters"
-        return 1
-    fi
-    
-    return 0
-}
 
 # Function to get secure password input with enhanced validation
 get_password() {
@@ -116,7 +60,7 @@ get_password() {
         echo ""
         
         if ! validate_password_strength "$password"; then
-            print_warning "Please choose a stronger password"
+            print_warning "Please enter a non-empty password"
             continue
         fi
         
@@ -152,31 +96,15 @@ ${custom_content}
 EOF
 }
 
-# Function to atomically create environment files with secure permissions
-create_env_file_atomic() {
+# Simple .env file creation
+create_env_file() {
     local target_file=$1
     local stack_name=$2
     local custom_content=$3
     
-    # Create temporary file with secure permissions from start
-    local temp_file
-    temp_file=$(mktemp)
-    chmod 600 "$temp_file"
-    
-    # Generate content to temporary file
-    create_common_env_content "$stack_name" "$custom_content" > "$temp_file"
-    
-    # Atomic move to final location
-    if mv "$temp_file" "$target_file"; then
-        # Ensure proper ownership for the final file
-        chmod 600 "$target_file"
-        print_info "✓ ${stack_name} stack .env file created successfully with secure permissions"
-        return 0
-    else
-        print_error "Failed to create .env file"
-        rm -f "$temp_file" 2>/dev/null
-        return 1
-    fi
+    create_common_env_content "$stack_name" "$custom_content" > "$target_file"
+    chmod 600 "$target_file"
+    print_info "✓ ${stack_name} .env file created"
 }
 
 # Function to setup proxy stack environment
@@ -190,7 +118,7 @@ setup_proxy_env() {
         echo -n "Enter your Cloudflare tunnel token: "
         read cloudflare_token
         
-        if validate_not_empty "$cloudflare_token" "Cloudflare tunnel token" && validate_cloudflare_token "$cloudflare_token"; then
+        if check_empty "$cloudflare_token" "Cloudflare token"; then
             break
         fi
         print_warning "Please enter a valid Cloudflare tunnel token"
@@ -200,7 +128,7 @@ setup_proxy_env() {
     local proxy_content="# Cloudflare tunnel token for secure connections
 CLOUDFLARED_TOKEN=$cloudflare_token"
     
-    create_env_file_atomic "$stack_dir/.env" "Proxy" "$proxy_content"
+    create_env_file "$stack_dir/.env" "Proxy" "$proxy_content"
     return $?
 }
 
@@ -222,7 +150,7 @@ RADARR_API_KEY=
 QB_USERNAME=admin
 QB_PASSWORD="
     
-    create_env_file_atomic "$stack_dir/.env" "Media" "$media_content"
+    create_env_file "$stack_dir/.env" "Media" "$media_content"
     return $?
 }
 
@@ -239,7 +167,7 @@ setup_downloads_env() {
     local downloads_content="# JDownloader2 VNC password for web interface access
 JDOWNLOADER_VNC_PASSWORD=$jdownloader_password"
     
-    create_env_file_atomic "$stack_dir/.env" "Downloads" "$downloads_content"
+    create_env_file "$stack_dir/.env" "Downloads" "$downloads_content"
     return $?
 }
 
@@ -256,7 +184,7 @@ setup_utility_env() {
     local utility_content="# Firefox VNC password for web interface access
 FIREFOX_VNC_PASSWORD=$firefox_password"
     
-    create_env_file_atomic "$stack_dir/.env" "Utility" "$utility_content"
+    create_env_file "$stack_dir/.env" "Utility" "$utility_content"
     return $?
 }
 
@@ -293,17 +221,12 @@ setup_monitoring_env() {
     
     local email_password
     while true; do
-        read -s -p "Enter email password (for Gmail use 16-char App Password): " email_password
+        read -s -p "Enter email password: " email_password
         echo
-        if [ ${#email_password} -ge 8 ]; then
-            # Special validation for Gmail App Passwords
-            if [[ "$email_address" =~ gmail\.com$ ]] && { [ ${#email_password} -ne 16 ] || ! [[ "$email_password" =~ ^[a-zA-Z0-9]+$ ]]; }; then
-                print_error "Gmail App Password should be exactly 16 alphanumeric characters"
-                continue
-            fi
+        if [ -n "$email_password" ]; then
             break
         else
-            print_error "Email password should be at least 8 characters"
+            print_error "Email password cannot be empty"
         fi
     done
     
@@ -315,31 +238,13 @@ setup_monitoring_env() {
     echo
     
     # Auto-detect Proxmox local IP and construct URL
-    # Try multiple methods to get the primary local network IP
-    local detected_ip
-    
-    # Method 1: Get IP from default route interface
-    detected_ip=$(ip route show default | head -1 | awk '{print $5}' | xargs -I {} ip addr show {} | grep 'inet ' | grep -v '127.0.0.1' | head -1 | awk '{print $2}' | cut -d'/' -f1 2>/dev/null)
-    
-    # Method 2: Fallback to first non-loopback IP
-    if [ -z "$detected_ip" ]; then
-        detected_ip=$(ip addr show | grep 'inet ' | grep -v '127.0.0.1' | head -1 | awk '{print $2}' | cut -d'/' -f1 2>/dev/null)
-    fi
-    
-    # Method 3: Final fallback
-    if [ -z "$detected_ip" ]; then
-        detected_ip=$(hostname -I | awk '{print $1}' 2>/dev/null)
-    fi
-    
-    # If still no IP found, use placeholder
-    if [ -z "$detected_ip" ]; then
-        detected_ip="YOUR_PROXMOX_IP"
-    fi
-    
-    # Determine default network base from detected IP
+    # Simple network detection
+    local detected_ip=$(hostname -I | cut -d' ' -f1)
     local default_base="192.168.1"
-    if [[ "$detected_ip" =~ ^([0-9]+\.[0-9]+\.[0-9]+)\.[0-9]+$ ]]; then
-        default_base="${BASH_REMATCH[1]}"
+    
+    # Extract network base if IP detected
+    if [ -n "$detected_ip" ]; then
+        default_base=$(echo "$detected_ip" | cut -d'.' -f1-3)
     fi
     
     print_info "Detected network base: $default_base"
@@ -406,7 +311,7 @@ PVE_PASSWORD=$pve_password
 PVE_URL=$pve_url
 PVE_VERIFY_SSL=false"
     
-    create_env_file_atomic "$stack_dir/.env" "Monitoring" "$monitoring_content"
+    create_env_file "$stack_dir/.env" "Monitoring" "$monitoring_content"
     return $?
 }
 
