@@ -36,6 +36,9 @@ notes.txt
 config.local
 personal/
 
+# Workflow and analysis files
+WORKFLOW-DIAGRAM.md
+
 # Claude Code local settings
 .claude/
 *.local.json

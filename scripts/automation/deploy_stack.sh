@@ -5,12 +5,9 @@
 
 set -e
 
-# Color definitions for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../utils/common.sh"
 
 # Configuration
 # Repository URL - configurable branch
@@ -21,23 +18,6 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 
 # Docker Compose command (Alpine Docker template uses V2 syntax)
 DOCKER_COMPOSE_CMD="docker compose"
-
-# Function to print colored output
-print_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-print_step() {
-    echo -e "${BLUE}[STEP]${NC} $1"
-}
 
 # Function to validate environment file (idempotent helper)
 validate_env_file() {
@@ -158,36 +138,37 @@ ensure_container_ready() {
 ensure_datapool_permissions() {
     local stack_type=$1
     
-    print_step "Setting up datapool permissions for $stack_type stack..."
+    # Ensure base datapool config directory exists and has proper permissions
+    mkdir -p /datapool/config 2>/dev/null || true
+    chown -R 101000:101000 /datapool/config 2>/dev/null || {
+        print_warning "Could not set ownership on /datapool/config"
+        print_info "This may be normal if not running on Proxmox host"
+    }
     
-    # Create necessary directories based on stack type
+    # Create stack-specific config directories as needed
     case $stack_type in
-        "proxy")
-            mkdir -p /datapool/config/cloudflared
-            ;;
         "media")
-            mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,recyclarr,cleanuperr,huntarr}
-            mkdir -p /datapool/config/jellyseerr/logs
-            mkdir -p /datapool/{torrents,media}/{tv,movies}
-            mkdir -p /datapool/torrents/other
-            ;;
-        "downloads")
-            mkdir -p /datapool/config/{jdownloader2,metube}
-            ;;
-        "utility")
-            mkdir -p /datapool/config/firefox
+            mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr} 2>/dev/null || true
+            mkdir -p /datapool/{torrents,media}/{movies,tv,other} 2>/dev/null || true
             ;;
         "monitoring")
-            mkdir -p /datapool/config/{prometheus,grafana,alertmanager}
-            mkdir -p /datapool/config/prometheus/{rules,data}
-            mkdir -p /datapool/config/grafana/provisioning/{datasources,dashboards}
+            mkdir -p /datapool/config/monitoring/{grafana,prometheus,alertmanager} 2>/dev/null || true
+            ;;
+        "utility")
+            mkdir -p /datapool/config/{homepage,firefox} 2>/dev/null || true
+            ;;
+        "downloads")
+            mkdir -p /datapool/config/{jdownloader2,metube} 2>/dev/null || true
+            ;;
+        "proxy")
+            mkdir -p /datapool/config/cloudflared 2>/dev/null || true
             ;;
     esac
     
-    # Set ownership for all application directories in one command
-    chown -R 101000:101000 /datapool/{config,torrents,media} 2>/dev/null || true
+    # Set consistent ownership
+    chown -R 101000:101000 /datapool/config 2>/dev/null || true
     
-    print_info "✓ Datapool permissions configured for $stack_type"
+    return 0
 }
 
 # Function to download files from GitHub
@@ -341,7 +322,7 @@ ensure_datapool_mount() {
         else
             # Safely source the function from create_alpine_lxc.sh
             source "$create_script"
-            add_datapool_mount "$lxc_id"
+            ensure_datapool_mount "$lxc_id"
             return $?
         fi
     fi
@@ -370,6 +351,7 @@ ensure_datapool_mount() {
     
     return 0
 }
+
 
 # Function to deploy stack configuration files (idempotent)
 deploy_stack_configs() {
@@ -530,205 +512,8 @@ verify_deployment() {
     fi
 }
 
-# Function to setup stack environment interactively
-setup_stack_env() {
-    local stack_type=$1
-    local lxc_id=$2
-    local target_dir=$3
-    
-    print_step "Interactive configuration for $stack_type stack..."
-    
-    case $stack_type in
-        "proxy")
-            setup_proxy_env "$lxc_id" "$target_dir"
-            ;;
-        "media")
-            setup_media_env "$lxc_id" "$target_dir"
-            ;;
-        "downloads")
-            setup_downloads_env "$lxc_id" "$target_dir"
-            ;;
-        "utility")
-            setup_utility_env "$lxc_id" "$target_dir"
-            ;;
-        "monitoring")
-            setup_monitoring_env "$lxc_id" "$target_dir"
-            ;;
-        *)
-            # Default: just copy .env.example to .env
-            pct exec "$lxc_id" -- sh -c "cd $target_dir && if [ -f .env.example ]; then cp .env.example .env; fi"
-            ;;
-    esac
-}
 
-# Function to validate Cloudflare token format
-validate_cloudflare_token() {
-    local token=$1
-    # Basic validation: should be long enough and contain expected characters
-    if [ ${#token} -lt 80 ]; then
-        return 1
-    fi
-    # Check if it looks like a Cloudflare token (contains letters, numbers, and some special chars)
-    if [[ ! "$token" =~ ^[A-Za-z0-9_-]{80,}$ ]]; then
-        return 1
-    fi
-    return 0
-}
 
-# Function to validate timezone format
-validate_timezone() {
-    local tz=$1
-    # Check if timezone file exists
-    if [ ! -f "/usr/share/zoneinfo/$tz" ]; then
-        return 1
-    fi
-    return 0
-}
-
-# Function to setup proxy stack environment
-setup_proxy_env() {
-    local lxc_id=$1
-    local target_dir=$2
-    
-    echo
-    print_info "🔧 Cloudflare Tunnel Configuration"
-    echo "Please provide your Cloudflare tunnel token:"
-    echo
-    
-    read -p "Enter your Cloudflare tunnel token: " tunnel_token
-    while [ -z "$tunnel_token" ] || ! validate_cloudflare_token "$tunnel_token"; do
-        if [ -z "$tunnel_token" ]; then
-            print_error "Tunnel token is required!"
-        else
-            print_error "Invalid token format! Token should be 80+ characters long."
-        fi
-        read -p "Enter your Cloudflare tunnel token: " tunnel_token
-    done
-    
-    read -p "Enter timezone [Europe/Istanbul]: " timezone
-    timezone=${timezone:-Europe/Istanbul}
-    
-    # Validate timezone
-    if ! validate_timezone "$timezone"; then
-        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
-        timezone="Europe/Istanbul"
-    fi
-    
-    # Create .env file in LXC
-    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
-# Proxy Stack Environment Variables
-CLOUDFLARED_TOKEN=$tunnel_token
-TZ=$timezone
-PUID=1000
-PGID=1000
-EOF"
-    
-    print_info "✓ Proxy environment configured"
-}
-
-# Function to setup media stack environment  
-setup_media_env() {
-    local lxc_id=$1
-    local target_dir=$2
-    
-    echo
-    print_info "🎬 Media Stack Configuration"
-    
-    read -p "Enter timezone [Europe/Istanbul]: " timezone
-    timezone=${timezone:-Europe/Istanbul}
-    
-    # Validate timezone
-    if ! validate_timezone "$timezone"; then
-        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
-        timezone="Europe/Istanbul"
-    fi
-    
-    # Create .env file in LXC with all required variables
-    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << 'EOF'
-# Media Stack Environment Variables
-TZ=$timezone
-PUID=1000
-PGID=1000
-
-# Cleanuperr Configuration
-SONARR_API_KEY=
-RADARR_API_KEY=
-QB_USERNAME=admin
-QB_PASSWORD=
-EOF"
-    
-    print_info "✓ Media environment configured"
-}
-
-# Function to setup downloads stack environment
-setup_downloads_env() {
-    local lxc_id=$1
-    local target_dir=$2
-    
-    echo
-    print_info "⬇️ Downloads Stack Configuration"
-    
-    read -p "Enter JDownloader VNC password: " jdownloader_password
-    while [ -z "$jdownloader_password" ]; do
-        print_error "JDownloader VNC password is required!"
-        read -p "Enter JDownloader VNC password: " jdownloader_password
-    done
-    
-    read -p "Enter timezone [Europe/Istanbul]: " timezone
-    timezone=${timezone:-Europe/Istanbul}
-    
-    # Validate timezone
-    if ! validate_timezone "$timezone"; then
-        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
-        timezone="Europe/Istanbul"
-    fi
-    
-    # Create .env file in LXC
-    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
-# Downloads Stack Environment Variables
-JDOWNLOADER_VNC_PASSWORD=$jdownloader_password
-TZ=$timezone
-PUID=1000
-PGID=1000
-EOF"
-    
-    print_info "✓ Downloads environment configured"
-}
-
-# Function to setup utility stack environment
-setup_utility_env() {
-    local lxc_id=$1
-    local target_dir=$2
-    
-    echo
-    print_info "🛠️ Utility Stack Configuration"
-    
-    read -p "Enter Firefox VNC password: " vnc_password
-    while [ -z "$vnc_password" ]; do
-        print_error "VNC password is required!"
-        read -p "Enter Firefox VNC password: " vnc_password
-    done
-    
-    read -p "Enter timezone [Europe/Istanbul]: " timezone
-    timezone=${timezone:-Europe/Istanbul}
-    
-    # Validate timezone
-    if ! validate_timezone "$timezone"; then
-        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
-        timezone="Europe/Istanbul"
-    fi
-    
-    # Create .env file in LXC
-    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
-# Utility Stack Environment Variables
-FIREFOX_VNC_PASSWORD=$vnc_password
-TZ=$timezone
-PUID=1000
-PGID=1000
-EOF"
-    
-    print_info "✓ Utility environment configured"
-}
 
 # Function to ensure PVE monitoring user exists (idempotent)
 ensure_pve_monitoring_user() {
@@ -775,6 +560,7 @@ ensure_pve_monitoring_user() {
     print_info "✓ PVE monitoring user ready"
     return 0
 }
+
 
 # Function to generate monitoring configuration files with environment variables
 generate_monitoring_configs() {
@@ -1060,112 +846,284 @@ EOF
 # Function to setup monitoring stack environment
 setup_monitoring_env() {
     local lxc_id=$1
-    local target_dir=$2
+    local stack_dir=$2
     
-    echo
-    print_info "📊 Monitoring Stack Configuration"
-    echo
+    print_info "Generating monitoring configuration files..."
     
-    read -p "Enter Grafana admin password: " grafana_password
-    while [ -z "$grafana_password" ]; do
-        print_error "Grafana password is required!"
-        read -p "Enter Grafana admin password: " grafana_password
-    done
+    # Read network configuration from .env file
+    local network_base=$(pct exec "$lxc_id" -- grep "^NETWORK_BASE=" "$stack_dir/.env" 2>/dev/null | cut -d'=' -f2 || echo "192.168.1")
+    local grafana_url=$(pct exec "$lxc_id" -- grep "^GRAFANA_URL=" "$stack_dir/.env" 2>/dev/null | cut -d'=' -f2 || echo "http://192.168.1.104:3000")
     
-    # Auto-detect Proxmox server IP
-    proxmox_ip=$(ip route get 1 | sed -n 's/.*src \([0-9.]*\).*/\1/p')
-    print_info "Using auto-detected Proxmox server IP: $proxmox_ip"
+    print_info "Using network base: $network_base"
+    print_info "Using Grafana URL: $grafana_url"
     
-    # Use fixed monitoring user name
-    pve_user="monitoring@pve"
-    print_info "Using monitoring user: $pve_user"
+    # Generate prometheus.yml with dynamic IPs
+    cat > "/tmp/prometheus.yml" <<EOF
+# Prometheus Configuration - Generated automatically
+# Network Base: $network_base
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter - Monitoring LXC (104)
+  - job_name: 'node-exporter-monitoring'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          instance: 'monitoring-lxc-104'
+
+  # Node Exporter - Proxy LXC (100)
+  - job_name: 'node-exporter-proxy'
+    static_configs:
+      - targets: ['${network_base}.100:9104']
+        labels:
+          instance: 'proxy-lxc-100'
+
+  # Node Exporter - Media LXC (101)
+  - job_name: 'node-exporter-media'
+    static_configs:
+      - targets: ['${network_base}.101:9101']
+        labels:
+          instance: 'media-lxc-101'
+
+  # Node Exporter - Downloads LXC (102)
+  - job_name: 'node-exporter-downloads'
+    static_configs:
+      - targets: ['${network_base}.102:9102']
+        labels:
+          instance: 'downloads-lxc-102'
+
+  # Node Exporter - Utility LXC (103)
+  - job_name: 'node-exporter-utility'
+    static_configs:
+      - targets: ['${network_base}.103:9103']
+        labels:
+          instance: 'utility-lxc-103'
+
+  # cAdvisor - Container metrics from Monitoring LXC
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8081']
+
+  # Proxmox VE Exporter
+  - job_name: 'proxmox'
+    static_configs:
+      - targets: ['prometheus-pve-exporter:9221']
+    metrics_path: /pve
+    params:
+      cluster: ['1']
+      node: ['1']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: prometheus-pve-exporter:9221
+EOF
+
+    # Generate alertmanager.yml with dynamic Grafana URL
+    cat > "/tmp/alertmanager.yml" <<EOF
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: '\${GMAIL_ADDRESS}'
+  smtp_auth_username: '\${GMAIL_ADDRESS}'
+  smtp_auth_password: '\${GMAIL_APP_PASSWORD}'
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'default'
+  routes:
+    # Route critical alerts to immediate notification
+    - match:
+        severity: 'critical'
+      receiver: 'critical-alerts'
+      repeat_interval: 1h
+    # Route all other alerts to standard notification
+    - match_re:
+        severity: '.*'
+      receiver: 'email-notifications'
+
+receivers:
+  - name: 'default'
+    email_configs:
+      - to: '\${GMAIL_ADDRESS}'
+        subject: '[HOMELAB] System Alert'
+        body: |
+          🚨 HOMELAB ALERT 🚨
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance | default "N/A" }}
+          Severity: {{ .Labels.severity | default "unknown" }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+          
+          Dashboard: $grafana_url
+
+  - name: 'email-notifications'
+    email_configs:
+      - to: '\${GMAIL_ADDRESS}'
+        subject: '[HOMELAB] {{ .GroupLabels.alertname }} Alert'
+        body: |
+          🚨 HOMELAB ALERT 🚨
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance | default "N/A" }}
+          Severity: {{ .Labels.severity | default "unknown" }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+          
+          Dashboard: $grafana_url
+        html: |
+          <h2>🚨 HOMELAB ALERT</h2>
+          {{ range .Alerts }}
+          <p><strong>Alert:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Instance:</strong> {{ .Labels.instance | default "N/A" }}</p>
+          <p><strong>Severity:</strong> <span style="color: orange;">{{ .Labels.severity | default "unknown" }}</span></p>
+          <p><strong>Time:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+          <hr>
+          {{ end }}
+          <p><a href="$grafana_url">Go to Grafana Dashboard</a></p>
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: '\${GMAIL_ADDRESS}'
+        subject: '🔥 [CRITICAL] {{ .GroupLabels.alertname }} - Immediate Action Required'
+        body: |
+          🔥 CRITICAL ALERT 🔥
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance | default "N/A" }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+          
+          ⚠️  This requires IMMEDIATE attention!
+          Dashboard: $grafana_url
+        html: |
+          <h2 style="color: red;">🔥 CRITICAL ALERT</h2>
+          {{ range .Alerts }}
+          <p><strong>Alert:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Instance:</strong> {{ .Labels.instance | default "N/A" }}</p>
+          <p><strong>Time:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+          <hr>
+          {{ end }}
+          <p style="color: red;"><strong>⚠️ This requires IMMEDIATE attention!</strong></p>
+          <p><a href="$grafana_url">Go to Grafana Dashboard</a></p>
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+EOF
+
+    # Copy generated configs to datapool
+    cp "/tmp/prometheus.yml" "/datapool/config/monitoring/prometheus/prometheus.yml"
+    cp "/tmp/alertmanager.yml" "/datapool/config/monitoring/alertmanager/alertmanager.yml"
     
-    read -s -p "Enter Proxmox monitoring password: " pve_password
-    echo
-    while [ -z "$pve_password" ]; do
-        print_error "Proxmox password is required!"
-        read -s -p "Enter Proxmox monitoring password: " pve_password
-        echo
-    done
+    # Cleanup temporary files
+    rm -f "/tmp/prometheus.yml" "/tmp/alertmanager.yml"
     
-    # Gmail configuration for alerts
-    echo
-    print_info "📧 Email Alert Configuration"
-    echo "⚠️  Important: Gmail is recommended for easier SMTP setup"
-    echo "📋 To get Gmail App Password:"
-    echo "   1. Go to Google Account → Security → 2-Step Verification (must be enabled)"
-    echo "   2. Click 'App passwords' → Select 'Mail' → Select 'Other (Custom name)'"
-    echo "   3. Enter 'Homelab Alerts' as name → Copy the 16-character password"
-    echo
-    
-    read -p "Do you want to enable email alerts? (y/n) [y]: " enable_alerts
-    enable_alerts=${enable_alerts:-y}
-    
-    if [[ "$enable_alerts" =~ ^[Yy]$ ]]; then
-        echo
-        print_info "📧 Gmail Setup Required"
-        echo "Please enter your Gmail address (must be Gmail for SMTP compatibility):"
-        
-        read -p "Gmail address: " gmail_address
-        while [[ ! "$gmail_address" =~ @gmail\.com$ ]]; do
-            print_error "Please enter a valid Gmail address (must end with @gmail.com)"
-            read -p "Gmail address: " gmail_address
-        done
-        
-        echo
-        print_info "🔑 Gmail App Password Required"
-        echo "Enter the 16-character app password you generated:"
-        read -s -p "Gmail App Password: " gmail_app_password
-        echo
-        
-        while [ -z "$gmail_app_password" ] || [ ${#gmail_app_password} -ne 16 ]; do
-            print_error "App password must be exactly 16 characters!"
-            print_info "If you haven't created one yet, follow the 3-step guide above"
-            read -s -p "Gmail App Password: " gmail_app_password
-            echo
-        done
-        
-        print_info "✓ Gmail configuration completed"
-    else
-        gmail_address=""
-        gmail_app_password=""
-        print_info "Email alerts disabled"
-    fi
-    
-    read -p "Enter timezone [Europe/Istanbul]: " timezone
-    timezone=${timezone:-Europe/Istanbul}
-    
-    # Validate timezone
-    if ! validate_timezone "$timezone"; then
-        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
-        timezone="Europe/Istanbul"
-    fi
-    
-    # Create .env file in LXC
-    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
-# Monitoring Stack Environment Variables
-GRAFANA_ADMIN_PASSWORD=$grafana_password
-PVE_USER=$pve_user
-PVE_PASSWORD=$pve_password
-PVE_URL=https://$proxmox_ip:8006
-TZ=$timezone
-PUID=1000
-PGID=1000
-# Email Alert Configuration
-GMAIL_ADDRESS=$gmail_address
-GMAIL_APP_PASSWORD=$gmail_app_password
-EOF"
-    
-    print_info "✓ Monitoring environment configured"
-    
-    # Note: PVE monitoring user creation handled by host before LXC deployment
-    
-    # Generate monitoring configuration with dynamic network settings
-    generate_monitoring_configs "$lxc_id" "$target_dir"
-    
-    # Download and setup Grafana dashboards
-    setup_grafana_dashboards "$lxc_id"
+    print_info "✓ Monitoring configuration files generated successfully"
 }
+
+# Function to download and setup Grafana dashboards
+setup_grafana_dashboards() {
+    local lxc_id=$1
+    
+    print_info "📊 Downloading Grafana dashboards from GitHub..."
+    
+    # Ensure dashboard directory exists
+    mkdir -p "/datapool/config/grafana/dashboards"
+    
+    # Dashboard URLs from GitHub repo
+    local dashboard_urls=(
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/proxmox-dashboard-10347.json"
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/node-exporter-full-1860.json"
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/docker-containers-193.json"
+    )
+    
+    # Dashboard filenames
+    local dashboard_files=(
+        "proxmox-dashboard-10347.json"
+        "node-exporter-full-1860.json"
+        "docker-containers-193.json"
+    )
+    
+    # Download each dashboard
+    for i in "${!dashboard_urls[@]}"; do
+        local url="${dashboard_urls[$i]}"
+        local filename="${dashboard_files[$i]}"
+        local output_path="/datapool/config/grafana/dashboards/$filename"
+        
+        print_info "Downloading $filename..."
+        
+        if wget -q --timeout=10 --tries=3 -O "$output_path" "$url"; then
+            print_info "✓ Downloaded $filename successfully"
+            # Set proper ownership
+            chown 101000:101000 "$output_path" 2>/dev/null || true
+        else
+            print_warning "Failed to download $filename from GitHub"
+            print_info "Dashboard will need to be imported manually with ID: ${filename##*-}"
+        fi
+    done
+    
+    # Also create dashboard provider config if it doesn't exist
+    local provider_dir="/datapool/config/grafana/provisioning/dashboards"
+    mkdir -p "$provider_dir"
+    
+    if [ ! -f "$provider_dir/dashboard-provider.yml" ]; then
+        print_info "Creating dashboard provider configuration..."
+        cat > "$provider_dir/dashboard-provider.yml" <<EOF
+apiVersion: 1
+
+providers:
+  - name: 'homelab-dashboards'
+    orgId: 1
+    folder: 'Homelab'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+EOF
+        chown 101000:101000 "$provider_dir/dashboard-provider.yml" 2>/dev/null || true
+        print_info "✓ Dashboard provider configured"
+    fi
+    
+    print_info "✓ Grafana dashboard setup completed"
+    print_info "📋 Dashboards will be available in Grafana under 'Homelab' folder after container startup"
+}
+
 
 # Function to update existing stack
 update_existing_stack() {
@@ -1291,42 +1249,6 @@ deploy_complete_stack() {
     
     print_info "🚀 Starting complete deployment for $stack_type stack (LXC $lxc_id)"
     
-    # For monitoring stack, create PVE monitoring user on host first
-    if [ "$stack_type" = "monitoring" ]; then
-        print_info "Setting up Proxmox monitoring user on host..."
-        
-        # Check if monitoring user already exists
-        if pveum user list | grep -q "^monitoring@pve:"; then
-            print_info "Monitoring user 'monitoring@pve' already exists"
-            print_info "Please set the password for existing user:"
-        else
-            print_info "Creating new monitoring user 'monitoring@pve'"
-        fi
-        
-        # Always ask for password (create new or update existing)
-        while true; do
-            read -p "Enter Proxmox monitoring password: " pve_password
-            if [ -z "$pve_password" ]; then
-                print_error "Password cannot be empty!"
-                continue
-            fi
-            
-            read -p "Confirm Proxmox monitoring password: " pve_password_confirm
-            if [ -z "$pve_password_confirm" ]; then
-                print_error "Password confirmation cannot be empty!"
-                continue
-            fi
-            
-            if [ "$pve_password" = "$pve_password_confirm" ]; then
-                break
-            else
-                print_warning "Passwords do not match. Please try again."
-            fi
-        done
-        
-        ensure_pve_monitoring_user "monitoring@pve" "$pve_password"
-    fi
-    
     # Set target directory inside LXC
     local target_dir="/opt/$stack_type-stack"
     
@@ -1360,6 +1282,26 @@ deploy_complete_stack() {
     # Interactive configuration for the stack
     setup_env_file "$target_dir" "$stack_type" "$lxc_id"
     
+    # For monitoring stack, create PVE monitoring user on host using credentials from .env
+    if [ "$stack_type" = "monitoring" ]; then
+        print_info "Setting up Proxmox monitoring user on host..."
+        
+        # Read PVE password from .env file (set by interactive_setup.sh)
+        local pve_password
+        if pct exec "$lxc_id" -- test -f "$target_dir/.env" 2>/dev/null; then
+            pve_password=$(pct exec "$lxc_id" -- grep "^PVE_PASSWORD=" "$target_dir/.env" 2>/dev/null | cut -d'=' -f2)
+        fi
+        
+        if [ -z "$pve_password" ]; then
+            print_warning "PVE password not found in .env file, monitoring user setup will be skipped"
+            print_info "You can manually create the user later: pveum user add monitoring@pve --password <password>"
+            print_info "Then assign PVEAuditor role: pveum acl modify / --users monitoring@pve --roles PVEAuditor"
+        else
+            print_info "Using PVE password from environment configuration"
+            ensure_pve_monitoring_user "monitoring@pve" "$pve_password"
+        fi
+    fi
+    
     # Deploy stack inside LXC
     print_info "Deploying stack inside LXC..."
     
@@ -1392,112 +1334,6 @@ deploy_complete_stack() {
     fi
 }
 
-# Enhanced input validation
-if [ $# -eq 0 ] || [ $# -gt 2 ]; then
-    print_info "Usage: $0 <stack_type> [lxc_id]"
-    echo "Available stack types: media, proxy, downloads, utility, monitoring"
-    echo "Examples:"
-    echo "  $0 media      # Deploy to LXC 101"
-    echo "  $0 proxy      # Deploy to LXC 100"
-    echo "  $0 downloads  # Deploy to LXC 102"
-    echo "  $0 utility    # Deploy to LXC 103"
-    echo "  $0 monitoring # Deploy to LXC 104"
-    exit 1
-fi
-
-# Function to deploy a complete new stack
-deploy_complete_stack() {
-    local stack_type=$1
-    local lxc_id=$2
-    
-    print_step "Deploying complete $stack_type stack to LXC $lxc_id..."
-    
-    # Ensure container is ready
-    if ! ensure_container_ready "$lxc_id"; then
-        print_error "Container $lxc_id is not ready"
-        return 1
-    fi
-    
-    # Ensure datapool mount
-    if ! ensure_datapool_mount "$lxc_id"; then
-        print_error "Failed to ensure datapool mount"
-        return 1
-    fi
-    
-    # Deploy configuration files
-    deploy_stack_configs "$lxc_id" "$stack_type"
-    
-    # Create stack directory
-    local stack_dir="/opt/$stack_type-stack"
-    pct exec "$lxc_id" -- mkdir -p "$stack_dir"
-    
-    # Download stack files
-    if ! download_stack_files "$stack_type" "$stack_dir" "$lxc_id"; then
-        print_error "Failed to download stack files"
-        return 1
-    fi
-    
-    # Setup environment file
-    if ! setup_env_file "$stack_dir" "$stack_type" "$lxc_id"; then
-        print_error "Failed to setup environment file"
-        return 1
-    fi
-    
-    # Deploy with Docker Compose
-    if ! pct exec "$lxc_id" -- bash -c "cd $stack_dir && $DOCKER_COMPOSE_CMD up -d"; then
-        print_error "Failed to deploy stack with Docker Compose"
-        return 1
-    fi
-    
-    # Verify deployment
-    verify_deployment "$stack_type"
-    
-    print_info "✅ Complete $stack_type stack deployment finished"
-    return 0
-}
-
-# Function to update an existing stack
-update_existing_stack() {
-    local stack_type=$1
-    local lxc_id=$2
-    
-    print_step "Updating existing $stack_type stack in LXC $lxc_id..."
-    
-    # Ensure container is ready
-    if ! ensure_container_ready "$lxc_id"; then
-        print_error "Container $lxc_id is not ready"
-        return 1
-    fi
-    
-    # Deploy/update configuration files
-    deploy_stack_configs "$lxc_id" "$stack_type"
-    
-    local stack_dir="/opt/$stack_type-stack"
-    
-    # Backup existing .env if it exists
-    if pct exec "$lxc_id" -- test -f "$stack_dir/.env"; then
-        backup_env_file "$lxc_id" "$stack_dir/.env"
-    fi
-    
-    # Download latest stack files
-    if ! download_stack_files "$stack_type" "$stack_dir" "$lxc_id"; then
-        print_error "Failed to download updated stack files"
-        return 1
-    fi
-    
-    # Update stack with Docker Compose
-    if pct exec "$lxc_id" -- bash -c "cd $stack_dir && $DOCKER_COMPOSE_CMD pull && $DOCKER_COMPOSE_CMD up -d"; then
-        print_info "✅ Stack updated successfully"
-        
-        # Show running containers
-        print_info "Running containers:"
-        pct exec "$lxc_id" -- bash -c "cd $stack_dir && $DOCKER_COMPOSE_CMD ps"
-        return 0
-    else
-        print_error "Failed to update stack"
-        return 1
-    fi
-}
 
 # Validate stack type
 case "$1" in
@@ -1520,10 +1356,7 @@ if [ $# -eq 2 ]; then
 fi
 
 # Check if running as root
-if [ "$(id -u)" -ne 0 ]; then
-    print_error "This script must be run as root"
-    exit 1
-fi
+check_root
 
 STACK_TYPE=$1
 LXC_ID=$2
