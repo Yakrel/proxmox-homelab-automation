@@ -6,28 +6,13 @@
 
 set -e
 
-# Color definitions
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../utils/common.sh"
 
-print_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
 
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
 
-print_step() {
-    echo -e "${BLUE}[STEP]${NC} $1"
-}
 
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
 
 # Function to check LXC status
 check_lxc_status() {
@@ -104,7 +89,6 @@ get_validated_input() {
         fi
     done
 }
-
 # Function to create Alpine LXC using direct Proxmox commands (idempotent)
 create_alpine_lxc_direct() {
     local lxc_id=$1
@@ -126,7 +110,7 @@ create_alpine_lxc_direct() {
         "running")
             print_info "LXC $lxc_id already running, verifying configuration..."
             ensure_docker_ready "$lxc_id"
-            add_datapool_mount "$lxc_id"
+            ensure_datapool_mount "$lxc_id"
             print_info "✓ LXC $lxc_id updated successfully!"
             return 0
             ;;
@@ -135,7 +119,7 @@ create_alpine_lxc_direct() {
             pct start "$lxc_id"
             wait_for_container_ready "$lxc_id"
             ensure_docker_ready "$lxc_id"
-            add_datapool_mount "$lxc_id"
+            ensure_datapool_mount "$lxc_id"
             print_info "✓ LXC $lxc_id updated successfully!"
             return 0
             ;;
@@ -144,7 +128,7 @@ create_alpine_lxc_direct() {
             pct start "$lxc_id" >/dev/null 2>&1 || true
             wait_for_container_ready "$lxc_id"
             ensure_docker_ready "$lxc_id"
-            add_datapool_mount "$lxc_id"
+            ensure_datapool_mount "$lxc_id"
             print_info "✓ LXC $lxc_id updated successfully!"
             return 0
             ;;
@@ -377,7 +361,7 @@ create_alpine_lxc_direct() {
         
         # Add datapool mount
         print_step "Adding /datapool mount point..."
-        if add_datapool_mount "$lxc_id"; then
+        if ensure_datapool_mount "$lxc_id"; then
             print_info "✓ Mount point added successfully"
         else
             print_warning "Failed to add mount point automatically"
@@ -400,7 +384,7 @@ create_alpine_lxc_direct() {
 }
 
 # Function to ensure datapool mount exists (idempotent)
-add_datapool_mount() {
+ensure_datapool_mount() {
     local lxc_id=$1
     
     # Check if mount already exists with more precise regex
@@ -530,10 +514,7 @@ case "$1" in
         ;;
 esac
 
-if [ "$(id -u)" -ne 0 ]; then
-    print_error "This script must be run as root"
-    exit 1
-fi
+check_root
 
 # Execute
 STACK_TYPE=$1
