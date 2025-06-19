@@ -137,97 +137,13 @@ create_alpine_lxc_direct() {
     print_step "Creating Alpine Docker LXC using direct Proxmox commands..."
     
     # Detect available storages
-    print_step "Detecting available storage options..."
+    print_step "Using datapool storage for LXC deployment..."
     
-    # Get all storages with proper parsing
-    print_step "Checking storage configuration..."
+    # Use datapool for both templates and disk storage
+    local template_storage="datapool"
+    local disk_storage="datapool"
     
-    # Get active storages only (exclude disabled)
-    local active_storages=$(pvesm status 2>/dev/null | awk 'NR>1 && $3=="active" {print $1}' | grep -v "^$")
-    print_info "Active storages found: $active_storages"
-    
-    # Filter template storages (support vztmpl content)
-    local template_storages=""
-    for storage in $active_storages; do
-        if pvesm status -content vztmpl 2>/dev/null | grep -q "^$storage"; then
-            template_storages="$template_storages $storage"
-        fi
-    done
-    template_storages=$(echo "$template_storages" | xargs)
-    
-    # Filter disk storages (support images content)  
-    local disk_storages=""
-    for storage in $active_storages; do
-        if pvesm status -content images 2>/dev/null | grep -q "^$storage"; then
-            disk_storages="$disk_storages $storage"
-        fi
-    done
-    disk_storages=$(echo "$disk_storages" | xargs)
-    
-    print_info "Found template storages: $template_storages"
-    print_info "Found disk storages: $disk_storages"
-    
-    # Select template storage with smart defaults
-    local template_storage=""
-    local template_count=$(echo "$template_storages" | wc -w)
-    
-    if [ "$template_count" -eq 0 ]; then
-        print_error "No active template storage found!"
-        print_info "Available storages:"
-        pvesm status
-        return 1
-    elif [ "$template_count" -eq 1 ]; then
-        template_storage="$template_storages"
-        print_info "Using template storage: $template_storage"
-    else
-        # Prefer local storage if available
-        local preferred=$(echo "$template_storages" | tr ' ' '\n' | grep -E '^(local|local-lvm)$' | head -1)
-        if [ -n "$preferred" ]; then
-            template_storage="$preferred"
-            print_info "Auto-selecting preferred template storage: $template_storage"
-        else
-            print_step "Multiple template storages available:"
-            echo "$template_storages" | tr ' ' '\n' | nl
-            choice=$(get_validated_input "Select template storage (1-$template_count): " 1 "$template_count")
-            template_storage=$(echo "$template_storages" | tr ' ' '\n' | sed -n "${choice}p")
-            print_info "Selected template storage: $template_storage"
-        fi
-    fi
-    
-    # Select disk storage with smart defaults
-    local disk_storage=""
-    local disk_count=$(echo "$disk_storages" | wc -w)
-    
-    if [ "$disk_count" -eq 0 ]; then
-        print_error "No active disk storage found!"
-        print_info "Available storages:"
-        pvesm status
-        return 1
-    elif [ "$disk_count" -eq 1 ]; then
-        disk_storage="$disk_storages"
-        print_info "Using disk storage: $disk_storage"
-    else
-        # Prefer local-lvm for disks, then local
-        local preferred=$(echo "$disk_storages" | tr ' ' '\n' | grep -E '^(local-lvm|local)$' | head -1)
-        if [ -n "$preferred" ]; then
-            disk_storage="$preferred"
-            print_info "Auto-selecting preferred disk storage: $disk_storage"
-        else
-            print_step "Multiple disk storages available:"
-            echo "$disk_storages" | tr ' ' '\n' | nl
-            choice=$(get_validated_input "Select disk storage (1-$disk_count): " 1 "$disk_count")
-            disk_storage=$(echo "$disk_storages" | tr ' ' '\n' | sed -n "${choice}p")
-            print_info "Selected disk storage: $disk_storage"
-        fi
-    fi
-    
-    # Validate selections
-    if [ -z "$template_storage" ] || [ -z "$disk_storage" ]; then
-        print_error "Storage selection failed!"
-        print_info "Template storage: '$template_storage'"
-        print_info "Disk storage: '$disk_storage'"
-        return 1
-    fi
+    print_info "Using storage: datapool (for both templates and containers)"
     
     # Get latest Alpine template
     print_step "Finding latest Alpine template..."
