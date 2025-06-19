@@ -283,7 +283,8 @@ setup_monitoring_env() {
     print_info "This determines which IPs Prometheus will monitor"
     echo
     
-    # Simple auto-detection of Proxmox IP
+    # Auto-detect Proxmox local IP and construct URL
+    # Try multiple methods to get the primary local network IP
     local detected_ip
     
     # Use simple method: get IP from default route

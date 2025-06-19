@@ -14,6 +14,81 @@ source "$SCRIPT_DIR/../utils/common.sh"
 
 
 
+# Function to check LXC status
+check_lxc_status() {
+    local lxc_id=$1
+    
+    if pct status "$lxc_id" >/dev/null 2>&1; then
+        local status=$(pct status "$lxc_id" | awk '{print $2}')
+        echo "$status"
+    else
+        echo "not_exists"
+    fi
+}
+
+# Function to wait for container readiness
+wait_for_container_ready() {
+    local lxc_id=$1
+    local max_attempts=30
+    local attempt=1
+    
+    print_info "Waiting for container to be ready..."
+    while [ $attempt -le $max_attempts ]; do
+        if pct exec "$lxc_id" -- echo "ready" >/dev/null 2>&1; then
+            print_info "✓ Container is ready after ${attempt} attempts"
+            return 0
+        fi
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    
+    print_warning "Container readiness check timeout after $((max_attempts * 2)) seconds, continuing..."
+    return 0  # Don't fail entire script
+}
+
+# Function to ensure Docker service is ready
+ensure_docker_ready() {
+    local lxc_id=$1
+    local max_attempts=15
+    local attempt=1
+    
+    print_info "Ensuring Docker service is ready..."
+    while [ $attempt -le $max_attempts ]; do
+        if pct exec "$lxc_id" -- docker info >/dev/null 2>&1; then
+            print_info "✓ Docker service is ready"
+            return 0
+        fi
+        
+        if [ $attempt -eq 5 ]; then
+            print_info "Docker not ready, restarting service..."
+            pct exec "$lxc_id" -- rc-service docker restart >/dev/null 2>&1 || true
+        fi
+        
+        sleep 3
+        attempt=$((attempt + 1))
+    done
+    
+    print_warning "Docker readiness check timeout, continuing anyway..."
+    return 0
+}
+
+# Function to validate user input with retry
+get_validated_input() {
+    local prompt=$1
+    local min_val=$2
+    local max_val=$3
+    local input
+    
+    while true; do
+        read -p "$prompt" input
+        if [[ "$input" =~ ^[0-9]+$ ]] && [ "$input" -ge "$min_val" ] && [ "$input" -le "$max_val" ]; then
+            echo "$input"
+            return 0
+        else
+            print_error "Please enter a valid number between $min_val and $max_val"
+        fi
+    done
+}
 # Function to create Alpine LXC using direct Proxmox commands (idempotent)
 create_alpine_lxc_direct() {
     local lxc_id=$1
@@ -308,6 +383,68 @@ create_alpine_lxc_direct() {
     fi
 }
 
+# Function to ensure datapool mount exists (idempotent)
+ensure_datapool_mount() {
+    local lxc_id=$1
+    
+    # Check if mount already exists with more precise regex
+    if pct config "$lxc_id" | grep -E "^mp[0-9]+=.*,mp=/datapool" >/dev/null 2>&1; then
+        print_info "✓ /datapool mount already exists"
+        
+        # Verify mount is accessible if container is running
+        if pct status "$lxc_id" | grep -q "running"; then
+            if pct exec "$lxc_id" -- test -d /datapool 2>/dev/null; then
+                print_info "✓ /datapool mount is accessible"
+                return 0
+            else
+                print_warning "Mount exists but not accessible - container may need manual restart"
+                print_info "You can restart the container with: pct restart $lxc_id"
+                return 0
+            fi
+        fi
+        return 0
+    fi
+    
+    print_info "Adding /datapool mount point..."
+    
+    # Stop container if running (needed for mount changes)
+    local was_running=false
+    if pct status "$lxc_id" | grep -q "running"; then
+        was_running=true
+        pct shutdown "$lxc_id" 2>/dev/null || pct stop "$lxc_id"
+        
+        # Wait for shutdown
+        local attempts=10
+        while [ $attempts -gt 0 ] && pct status "$lxc_id" | grep -q "running"; do
+            sleep 2
+            attempts=$((attempts - 1))
+        done
+    fi
+    
+    # Determine the next available mount index
+    local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}' 2>/dev/null)
+    next_mp_index=${next_mp_index:-0}
+    
+    # Add mount point with ACL support
+    if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool,acl=1; then
+        print_info "✓ Mount point added successfully"
+        
+        # Restart container if it was running
+        if [ "$was_running" = true ]; then
+            pct start "$lxc_id"
+            wait_for_container_ready "$lxc_id"
+        fi
+        
+        return 0
+    else
+        print_error "Failed to add mount point"
+        # Restart container if it was running
+        if [ "$was_running" = true ]; then
+            pct start "$lxc_id"
+        fi
+        return 1
+    fi
+}
 
 # Function to verify and ensure Docker installation (idempotent)
 verify_docker() {

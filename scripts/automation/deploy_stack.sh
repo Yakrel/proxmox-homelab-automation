@@ -10,8 +10,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../utils/common.sh"
 
 # Configuration
-# Repository URL
-GITHUB_REPO="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main"
+# Repository URL - configurable branch
+BRANCH="${HOMELAB_BRANCH:-main}"
+GITHUB_REPO="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH"
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
@@ -83,7 +84,92 @@ backup_env_file() {
     fi
 }
 
+# Function to ensure container and Docker are ready (idempotent)
+ensure_container_ready() {
+    local lxc_id=$1
+    
+    # Check if container exists
+    if ! pct status "$lxc_id" >/dev/null 2>&1; then
+        print_error "LXC $lxc_id does not exist!"
+        return 1
+    fi
+    
+    # Start container if not running
+    if ! pct status "$lxc_id" | grep -q "running"; then
+        print_info "Starting container $lxc_id..."
+        pct start "$lxc_id"
+    fi
+    
+    # Wait for container readiness
+    local max_attempts=15
+    local attempt=1
+    
+    print_info "Waiting for container to be ready..."
+    while [ $attempt -le $max_attempts ]; do
+        if pct exec "$lxc_id" -- echo "ready" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 3
+        attempt=$((attempt + 1))
+    done
+    
+    # Check Docker service
+    attempt=1
+    while [ $attempt -le $max_attempts ]; do
+        if pct exec "$lxc_id" -- docker info >/dev/null 2>&1; then
+            print_info "✓ Container and Docker ready"
+            return 0
+        fi
+        
+        if [ $attempt -eq 5 ]; then
+            print_info "Docker not ready, restarting service..."
+            pct exec "$lxc_id" -- rc-service docker restart >/dev/null 2>&1 || true
+        fi
+        
+        sleep 3
+        attempt=$((attempt + 1))
+    done
+    
+    print_warning "Container readiness check timeout, continuing anyway..."
+    return 0
+}
 
+# Function to ensure proper datapool permissions
+ensure_datapool_permissions() {
+    local stack_type=$1
+    
+    # Ensure base datapool config directory exists and has proper permissions
+    mkdir -p /datapool/config 2>/dev/null || true
+    chown -R 101000:101000 /datapool/config 2>/dev/null || {
+        print_warning "Could not set ownership on /datapool/config"
+        print_info "This may be normal if not running on Proxmox host"
+    }
+    
+    # Create stack-specific config directories as needed
+    case $stack_type in
+        "media")
+            mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr} 2>/dev/null || true
+            mkdir -p /datapool/{torrents,media}/{movies,tv,other} 2>/dev/null || true
+            ;;
+        "monitoring")
+            mkdir -p /datapool/config/monitoring/{grafana,prometheus,alertmanager} 2>/dev/null || true
+            ;;
+        "utility")
+            mkdir -p /datapool/config/{homepage,firefox} 2>/dev/null || true
+            ;;
+        "downloads")
+            mkdir -p /datapool/config/{jdownloader2,metube} 2>/dev/null || true
+            ;;
+        "proxy")
+            mkdir -p /datapool/config/cloudflared 2>/dev/null || true
+            ;;
+    esac
+    
+    # Set consistent ownership
+    chown -R 101000:101000 /datapool/config 2>/dev/null || true
+    
+    return 0
+}
 
 # Function to download files from GitHub
 download_stack_files() {
@@ -202,6 +288,68 @@ deploy_with_compose() {
         print_error "Failed to deploy $stack_type stack"
         return 1
     fi
+}
+
+# Function to ensure datapool mount exists (idempotent)
+ensure_datapool_mount() {
+    local lxc_id=$1
+    
+    # Check if mount point is already configured
+    if pct config "$lxc_id" | grep -q "/datapool"; then
+        print_info "✓ /datapool mount point already configured"
+        
+        # Verify accessibility if container is running
+        if pct status "$lxc_id" | grep -q "running"; then
+            if pct exec "$lxc_id" -- test -d /datapool 2>/dev/null; then
+                print_info "✓ /datapool is accessible"
+            else
+                print_warning "/datapool mount configured but not accessible, container may need restart"
+            fi
+        fi
+        return 0
+    fi
+    
+    print_info "Adding /datapool mount point..."
+    
+    # Use the create_alpine_lxc.sh mount function
+    local script_dir="$(dirname "$0")"
+    local create_script="$script_dir/create_alpine_lxc.sh"
+    
+    if [ -f "$create_script" ]; then
+        # Verify script integrity before sourcing
+        if ! bash -n "$create_script" 2>/dev/null; then
+            print_error "Syntax error in create_alpine_lxc.sh, using fallback method"
+        else
+            # Safely source the function from create_alpine_lxc.sh
+            source "$create_script"
+            ensure_datapool_mount "$lxc_id"
+            return $?
+        fi
+    fi
+    
+    # Fallback to simple mount add if source fails or file doesn't exist
+    local was_running=false
+    if pct status "$lxc_id" | grep -q "running"; then
+        was_running=true
+        pct shutdown "$lxc_id" 2>/dev/null || pct stop "$lxc_id"
+        sleep 5
+    fi
+    
+    local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}' 2>/dev/null)
+    next_mp_index=${next_mp_index:-0}
+    
+    if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool,acl=1; then
+        if [ "$was_running" = true ]; then
+            pct start "$lxc_id"
+            sleep 5
+        fi
+        print_info "✓ Datapool mount added successfully"
+    else
+        print_error "Failed to add datapool mount"
+        return 1
+    fi
+    
+    return 0
 }
 
 
@@ -412,6 +560,7 @@ ensure_pve_monitoring_user() {
     print_info "✓ PVE monitoring user ready"
     return 0
 }
+
 
 # Function to generate monitoring configuration files with environment variables
 generate_monitoring_configs() {
@@ -636,9 +785,290 @@ setup_grafana_dashboards() {
     
     # Dashboard URLs from GitHub repo
     local dashboard_urls=(
-        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/docker/monitoring/dashboards/proxmox-dashboard-10347.json"
-        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/docker/monitoring/dashboards/node-exporter-full-1860.json"
-        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/docker/monitoring/dashboards/docker-containers-193.json"
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/proxmox-dashboard-10347.json"
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/node-exporter-full-1860.json"
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/docker-containers-193.json"
+    )
+    
+    # Dashboard filenames
+    local dashboard_files=(
+        "proxmox-dashboard-10347.json"
+        "node-exporter-full-1860.json"
+        "docker-containers-193.json"
+    )
+    
+    # Download each dashboard
+    for i in "${!dashboard_urls[@]}"; do
+        local url="${dashboard_urls[$i]}"
+        local filename="${dashboard_files[$i]}"
+        local output_path="/datapool/config/grafana/dashboards/$filename"
+        
+        print_info "Downloading $filename..."
+        
+        if wget -q --timeout=10 --tries=3 -O "$output_path" "$url"; then
+            print_info "✓ Downloaded $filename successfully"
+            # Set proper ownership
+            chown 101000:101000 "$output_path" 2>/dev/null || true
+        else
+            print_warning "Failed to download $filename from GitHub"
+            print_info "Dashboard will need to be imported manually with ID: ${filename##*-}"
+        fi
+    done
+    
+    # Also create dashboard provider config if it doesn't exist
+    local provider_dir="/datapool/config/grafana/provisioning/dashboards"
+    mkdir -p "$provider_dir"
+    
+    if [ ! -f "$provider_dir/dashboard-provider.yml" ]; then
+        print_info "Creating dashboard provider configuration..."
+        cat > "$provider_dir/dashboard-provider.yml" <<EOF
+apiVersion: 1
+
+providers:
+  - name: 'homelab-dashboards'
+    orgId: 1
+    folder: 'Homelab'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+EOF
+        chown 101000:101000 "$provider_dir/dashboard-provider.yml" 2>/dev/null || true
+        print_info "✓ Dashboard provider configured"
+    fi
+    
+    print_info "✓ Grafana dashboard setup completed"
+    print_info "📋 Dashboards will be available in Grafana under 'Homelab' folder after container startup"
+}
+
+# Function to setup monitoring stack environment
+setup_monitoring_env() {
+    local lxc_id=$1
+    local stack_dir=$2
+    
+    print_info "Generating monitoring configuration files..."
+    
+    # Read network configuration from .env file
+    local network_base=$(pct exec "$lxc_id" -- grep "^NETWORK_BASE=" "$stack_dir/.env" 2>/dev/null | cut -d'=' -f2 || echo "192.168.1")
+    local grafana_url=$(pct exec "$lxc_id" -- grep "^GRAFANA_URL=" "$stack_dir/.env" 2>/dev/null | cut -d'=' -f2 || echo "http://192.168.1.104:3000")
+    
+    print_info "Using network base: $network_base"
+    print_info "Using Grafana URL: $grafana_url"
+    
+    # Generate prometheus.yml with dynamic IPs
+    cat > "/tmp/prometheus.yml" <<EOF
+# Prometheus Configuration - Generated automatically
+# Network Base: $network_base
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "/etc/prometheus/rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter - Monitoring LXC (104)
+  - job_name: 'node-exporter-monitoring'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          instance: 'monitoring-lxc-104'
+
+  # Node Exporter - Proxy LXC (100)
+  - job_name: 'node-exporter-proxy'
+    static_configs:
+      - targets: ['${network_base}.100:9104']
+        labels:
+          instance: 'proxy-lxc-100'
+
+  # Node Exporter - Media LXC (101)
+  - job_name: 'node-exporter-media'
+    static_configs:
+      - targets: ['${network_base}.101:9101']
+        labels:
+          instance: 'media-lxc-101'
+
+  # Node Exporter - Downloads LXC (102)
+  - job_name: 'node-exporter-downloads'
+    static_configs:
+      - targets: ['${network_base}.102:9102']
+        labels:
+          instance: 'downloads-lxc-102'
+
+  # Node Exporter - Utility LXC (103)
+  - job_name: 'node-exporter-utility'
+    static_configs:
+      - targets: ['${network_base}.103:9103']
+        labels:
+          instance: 'utility-lxc-103'
+
+  # cAdvisor - Container metrics from Monitoring LXC
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8081']
+
+  # Proxmox VE Exporter
+  - job_name: 'proxmox'
+    static_configs:
+      - targets: ['prometheus-pve-exporter:9221']
+    metrics_path: /pve
+    params:
+      cluster: ['1']
+      node: ['1']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: prometheus-pve-exporter:9221
+EOF
+
+    # Generate alertmanager.yml with dynamic Grafana URL
+    cat > "/tmp/alertmanager.yml" <<EOF
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: '\${GMAIL_ADDRESS}'
+  smtp_auth_username: '\${GMAIL_ADDRESS}'
+  smtp_auth_password: '\${GMAIL_APP_PASSWORD}'
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'default'
+  routes:
+    # Route critical alerts to immediate notification
+    - match:
+        severity: 'critical'
+      receiver: 'critical-alerts'
+      repeat_interval: 1h
+    # Route all other alerts to standard notification
+    - match_re:
+        severity: '.*'
+      receiver: 'email-notifications'
+
+receivers:
+  - name: 'default'
+    email_configs:
+      - to: '\${GMAIL_ADDRESS}'
+        subject: '[HOMELAB] System Alert'
+        body: |
+          🚨 HOMELAB ALERT 🚨
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance | default "N/A" }}
+          Severity: {{ .Labels.severity | default "unknown" }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+          
+          Dashboard: $grafana_url
+
+  - name: 'email-notifications'
+    email_configs:
+      - to: '\${GMAIL_ADDRESS}'
+        subject: '[HOMELAB] {{ .GroupLabels.alertname }} Alert'
+        body: |
+          🚨 HOMELAB ALERT 🚨
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance | default "N/A" }}
+          Severity: {{ .Labels.severity | default "unknown" }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+          
+          Dashboard: $grafana_url
+        html: |
+          <h2>🚨 HOMELAB ALERT</h2>
+          {{ range .Alerts }}
+          <p><strong>Alert:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Instance:</strong> {{ .Labels.instance | default "N/A" }}</p>
+          <p><strong>Severity:</strong> <span style="color: orange;">{{ .Labels.severity | default "unknown" }}</span></p>
+          <p><strong>Time:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+          <hr>
+          {{ end }}
+          <p><a href="$grafana_url">Go to Grafana Dashboard</a></p>
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: '\${GMAIL_ADDRESS}'
+        subject: '🔥 [CRITICAL] {{ .GroupLabels.alertname }} - Immediate Action Required'
+        body: |
+          🔥 CRITICAL ALERT 🔥
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance | default "N/A" }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+          {{ end }}
+          
+          ⚠️  This requires IMMEDIATE attention!
+          Dashboard: $grafana_url
+        html: |
+          <h2 style="color: red;">🔥 CRITICAL ALERT</h2>
+          {{ range .Alerts }}
+          <p><strong>Alert:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Instance:</strong> {{ .Labels.instance | default "N/A" }}</p>
+          <p><strong>Time:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+          <hr>
+          {{ end }}
+          <p style="color: red;"><strong>⚠️ This requires IMMEDIATE attention!</strong></p>
+          <p><a href="$grafana_url">Go to Grafana Dashboard</a></p>
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+EOF
+
+    # Copy generated configs to datapool
+    cp "/tmp/prometheus.yml" "/datapool/config/monitoring/prometheus/prometheus.yml"
+    cp "/tmp/alertmanager.yml" "/datapool/config/monitoring/alertmanager/alertmanager.yml"
+    
+    # Cleanup temporary files
+    rm -f "/tmp/prometheus.yml" "/tmp/alertmanager.yml"
+    
+    print_info "✓ Monitoring configuration files generated successfully"
+}
+
+# Function to download and setup Grafana dashboards
+setup_grafana_dashboards() {
+    local lxc_id=$1
+    
+    print_info "📊 Downloading Grafana dashboards from GitHub..."
+    
+    # Ensure dashboard directory exists
+    mkdir -p "/datapool/config/grafana/dashboards"
+    
+    # Dashboard URLs from GitHub repo
+    local dashboard_urls=(
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/proxmox-dashboard-10347.json"
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/node-exporter-full-1860.json"
+        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/docker-containers-193.json"
     )
     
     # Dashboard filenames
@@ -819,7 +1249,6 @@ deploy_complete_stack() {
     
     print_info "🚀 Starting complete deployment for $stack_type stack (LXC $lxc_id)"
     
-    
     # Set target directory inside LXC
     local target_dir="/opt/$stack_type-stack"
     
@@ -905,18 +1334,6 @@ deploy_complete_stack() {
     fi
 }
 
-# Enhanced input validation
-if [ $# -eq 0 ] || [ $# -gt 2 ]; then
-    print_info "Usage: $0 <stack_type> [lxc_id]"
-    echo "Available stack types: media, proxy, downloads, utility, monitoring"
-    echo "Examples:"
-    echo "  $0 media      # Deploy to LXC 101"
-    echo "  $0 proxy      # Deploy to LXC 100"
-    echo "  $0 downloads  # Deploy to LXC 102"
-    echo "  $0 utility    # Deploy to LXC 103"
-    echo "  $0 monitoring # Deploy to LXC 104"
-    exit 1
-fi
 
 # Validate stack type
 case "$1" in
