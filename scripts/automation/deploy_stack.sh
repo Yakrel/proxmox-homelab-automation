@@ -529,60 +529,7 @@ verify_deployment() {
     fi
 }
 
-# Function to setup stack environment interactively
-setup_stack_env() {
-    local stack_type=$1
-    local lxc_id=$2
-    local target_dir=$3
-    
-    print_step "Interactive configuration for $stack_type stack..."
-    
-    case $stack_type in
-        "proxy")
-            setup_proxy_env "$lxc_id" "$target_dir"
-            ;;
-        "media")
-            setup_media_env "$lxc_id" "$target_dir"
-            ;;
-        "downloads")
-            setup_downloads_env "$lxc_id" "$target_dir"
-            ;;
-        "utility")
-            setup_utility_env "$lxc_id" "$target_dir"
-            ;;
-        "monitoring")
-            setup_monitoring_env "$lxc_id" "$target_dir"
-            ;;
-        *)
-            # Default: just copy .env.example to .env
-            pct exec "$lxc_id" -- sh -c "cd $target_dir && if [ -f .env.example ]; then cp .env.example .env; fi"
-            ;;
-    esac
-}
 
-# Function to validate Cloudflare token format
-validate_cloudflare_token() {
-    local token=$1
-    # Basic validation: should be long enough and contain expected characters
-    if [ ${#token} -lt 80 ]; then
-        return 1
-    fi
-    # Check if it looks like a Cloudflare token (contains letters, numbers, and some special chars)
-    if [[ ! "$token" =~ ^[A-Za-z0-9_-]{80,}$ ]]; then
-        return 1
-    fi
-    return 0
-}
-
-# Function to validate timezone format
-validate_timezone() {
-    local tz=$1
-    # Check if timezone file exists
-    if [ ! -f "/usr/share/zoneinfo/$tz" ]; then
-        return 1
-    fi
-    return 0
-}
 
 # Function to setup proxy stack environment
 setup_proxy_env() {
@@ -607,9 +554,9 @@ setup_proxy_env() {
     read -p "Enter timezone [Europe/Istanbul]: " timezone
     timezone=${timezone:-Europe/Istanbul}
     
-    # Validate timezone
-    if ! validate_timezone "$timezone"; then
-        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
+    # Use default timezone if empty or validate by checking zoneinfo directory
+    if [ -z "$timezone" ] || [ ! -f "/usr/share/zoneinfo/$timezone" ]; then
+        print_warning "Invalid or empty timezone '$timezone', using default Europe/Istanbul"
         timezone="Europe/Istanbul"
     fi
     
@@ -636,9 +583,9 @@ setup_media_env() {
     read -p "Enter timezone [Europe/Istanbul]: " timezone
     timezone=${timezone:-Europe/Istanbul}
     
-    # Validate timezone
-    if ! validate_timezone "$timezone"; then
-        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
+    # Use default timezone if empty or validate by checking zoneinfo directory
+    if [ -z "$timezone" ] || [ ! -f "/usr/share/zoneinfo/$timezone" ]; then
+        print_warning "Invalid or empty timezone '$timezone', using default Europe/Istanbul"
         timezone="Europe/Istanbul"
     fi
     
@@ -676,9 +623,9 @@ setup_downloads_env() {
     read -p "Enter timezone [Europe/Istanbul]: " timezone
     timezone=${timezone:-Europe/Istanbul}
     
-    # Validate timezone
-    if ! validate_timezone "$timezone"; then
-        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
+    # Use default timezone if empty or validate by checking zoneinfo directory
+    if [ -z "$timezone" ] || [ ! -f "/usr/share/zoneinfo/$timezone" ]; then
+        print_warning "Invalid or empty timezone '$timezone', using default Europe/Istanbul"
         timezone="Europe/Istanbul"
     fi
     
@@ -711,9 +658,9 @@ setup_utility_env() {
     read -p "Enter timezone [Europe/Istanbul]: " timezone
     timezone=${timezone:-Europe/Istanbul}
     
-    # Validate timezone
-    if ! validate_timezone "$timezone"; then
-        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
+    # Use default timezone if empty or validate by checking zoneinfo directory
+    if [ -z "$timezone" ] || [ ! -f "/usr/share/zoneinfo/$timezone" ]; then
+        print_warning "Invalid or empty timezone '$timezone', using default Europe/Istanbul"
         timezone="Europe/Istanbul"
     fi
     
@@ -1134,9 +1081,9 @@ setup_monitoring_env() {
     read -p "Enter timezone [Europe/Istanbul]: " timezone
     timezone=${timezone:-Europe/Istanbul}
     
-    # Validate timezone
-    if ! validate_timezone "$timezone"; then
-        print_warning "Invalid timezone '$timezone', using default Europe/Istanbul"
+    # Use default timezone if empty or validate by checking zoneinfo directory
+    if [ -z "$timezone" ] || [ ! -f "/usr/share/zoneinfo/$timezone" ]; then
+        print_warning "Invalid or empty timezone '$timezone', using default Europe/Istanbul"
         timezone="Europe/Istanbul"
     fi
     
@@ -1290,41 +1237,6 @@ deploy_complete_stack() {
     
     print_info "🚀 Starting complete deployment for $stack_type stack (LXC $lxc_id)"
     
-    # For monitoring stack, create PVE monitoring user on host first
-    if [ "$stack_type" = "monitoring" ]; then
-        print_info "Setting up Proxmox monitoring user on host..."
-        
-        # Check if monitoring user already exists
-        if pveum user list | grep -q "^monitoring@pve:"; then
-            print_info "Monitoring user 'monitoring@pve' already exists"
-            print_info "Please set the password for existing user:"
-        else
-            print_info "Creating new monitoring user 'monitoring@pve'"
-        fi
-        
-        # Always ask for password (create new or update existing)
-        while true; do
-            read -p "Enter Proxmox monitoring password: " pve_password
-            if [ -z "$pve_password" ]; then
-                print_error "Password cannot be empty!"
-                continue
-            fi
-            
-            read -p "Confirm Proxmox monitoring password: " pve_password_confirm
-            if [ -z "$pve_password_confirm" ]; then
-                print_error "Password confirmation cannot be empty!"
-                continue
-            fi
-            
-            if [ "$pve_password" = "$pve_password_confirm" ]; then
-                break
-            else
-                print_warning "Passwords do not match. Please try again."
-            fi
-        done
-        
-        ensure_pve_monitoring_user "monitoring@pve" "$pve_password"
-    fi
     
     # Set target directory inside LXC
     local target_dir="/opt/$stack_type-stack"
@@ -1358,6 +1270,26 @@ deploy_complete_stack() {
     
     # Interactive configuration for the stack
     setup_env_file "$target_dir" "$stack_type" "$lxc_id"
+    
+    # For monitoring stack, create PVE monitoring user on host using credentials from .env
+    if [ "$stack_type" = "monitoring" ]; then
+        print_info "Setting up Proxmox monitoring user on host..."
+        
+        # Read PVE password from .env file (set by interactive_setup.sh)
+        local pve_password
+        if pct exec "$lxc_id" -- test -f "$target_dir/.env" 2>/dev/null; then
+            pve_password=$(pct exec "$lxc_id" -- grep "^PVE_PASSWORD=" "$target_dir/.env" 2>/dev/null | cut -d'=' -f2)
+        fi
+        
+        if [ -z "$pve_password" ]; then
+            print_warning "PVE password not found in .env file, monitoring user setup will be skipped"
+            print_info "You can manually create the user later: pveum user add monitoring@pve --password <password>"
+            print_info "Then assign PVEAuditor role: pveum acl modify / --users monitoring@pve --roles PVEAuditor"
+        else
+            print_info "Using PVE password from environment configuration"
+            ensure_pve_monitoring_user "monitoring@pve" "$pve_password"
+        fi
+    fi
     
     # Deploy stack inside LXC
     print_info "Deploying stack inside LXC..."
@@ -1403,100 +1335,6 @@ if [ $# -eq 0 ] || [ $# -gt 2 ]; then
     echo "  $0 monitoring # Deploy to LXC 104"
     exit 1
 fi
-
-# Function to deploy a complete new stack
-deploy_complete_stack() {
-    local stack_type=$1
-    local lxc_id=$2
-    
-    print_step "Deploying complete $stack_type stack to LXC $lxc_id..."
-    
-    # Ensure container is ready
-    if ! ensure_container_ready "$lxc_id"; then
-        print_error "Container $lxc_id is not ready"
-        return 1
-    fi
-    
-    # Ensure datapool mount
-    if ! ensure_datapool_mount "$lxc_id"; then
-        print_error "Failed to ensure datapool mount"
-        return 1
-    fi
-    
-    # Deploy configuration files
-    deploy_stack_configs "$lxc_id" "$stack_type"
-    
-    # Create stack directory
-    local stack_dir="/opt/$stack_type-stack"
-    pct exec "$lxc_id" -- mkdir -p "$stack_dir"
-    
-    # Download stack files
-    if ! download_stack_files "$stack_type" "$stack_dir" "$lxc_id"; then
-        print_error "Failed to download stack files"
-        return 1
-    fi
-    
-    # Setup environment file
-    if ! setup_env_file "$stack_dir" "$stack_type" "$lxc_id"; then
-        print_error "Failed to setup environment file"
-        return 1
-    fi
-    
-    # Deploy with Docker Compose
-    if ! pct exec "$lxc_id" -- bash -c "cd $stack_dir && $DOCKER_COMPOSE_CMD up -d"; then
-        print_error "Failed to deploy stack with Docker Compose"
-        return 1
-    fi
-    
-    # Verify deployment
-    verify_deployment "$stack_type"
-    
-    print_info "✅ Complete $stack_type stack deployment finished"
-    return 0
-}
-
-# Function to update an existing stack
-update_existing_stack() {
-    local stack_type=$1
-    local lxc_id=$2
-    
-    print_step "Updating existing $stack_type stack in LXC $lxc_id..."
-    
-    # Ensure container is ready
-    if ! ensure_container_ready "$lxc_id"; then
-        print_error "Container $lxc_id is not ready"
-        return 1
-    fi
-    
-    # Deploy/update configuration files
-    deploy_stack_configs "$lxc_id" "$stack_type"
-    
-    local stack_dir="/opt/$stack_type-stack"
-    
-    # Backup existing .env if it exists
-    if pct exec "$lxc_id" -- test -f "$stack_dir/.env"; then
-        backup_env_file "$lxc_id" "$stack_dir/.env"
-    fi
-    
-    # Download latest stack files
-    if ! download_stack_files "$stack_type" "$stack_dir" "$lxc_id"; then
-        print_error "Failed to download updated stack files"
-        return 1
-    fi
-    
-    # Update stack with Docker Compose
-    if pct exec "$lxc_id" -- bash -c "cd $stack_dir && $DOCKER_COMPOSE_CMD pull && $DOCKER_COMPOSE_CMD up -d"; then
-        print_info "✅ Stack updated successfully"
-        
-        # Show running containers
-        print_info "Running containers:"
-        pct exec "$lxc_id" -- bash -c "cd $stack_dir && $DOCKER_COMPOSE_CMD ps"
-        return 0
-    else
-        print_error "Failed to update stack"
-        return 1
-    fi
-}
 
 # Validate stack type
 case "$1" in

@@ -5,6 +5,15 @@
 
 set -e
 
+# Cleanup temporary files on exit
+TEMP_FILES=()
+cleanup_temp_files() {
+    for temp_file in "${TEMP_FILES[@]}"; do
+        [ -f "$temp_file" ] && rm -f "$temp_file"
+    done
+}
+trap cleanup_temp_files EXIT
+
 # Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -161,6 +170,7 @@ create_env_file_atomic() {
     # Create temporary file with secure permissions from start
     local temp_file
     temp_file=$(mktemp)
+    TEMP_FILES+=("$temp_file")  # Add to cleanup list
     chmod 600 "$temp_file"
     
     # Generate content to temporary file
@@ -314,26 +324,15 @@ setup_monitoring_env() {
     print_info "This determines which IPs Prometheus will monitor"
     echo
     
-    # Auto-detect Proxmox local IP and construct URL
-    # Try multiple methods to get the primary local network IP
+    # Simple auto-detection of Proxmox IP
     local detected_ip
     
-    # Method 1: Get IP from default route interface
-    detected_ip=$(ip route show default | head -1 | awk '{print $5}' | xargs -I {} ip addr show {} | grep 'inet ' | grep -v '127.0.0.1' | head -1 | awk '{print $2}' | cut -d'/' -f1 2>/dev/null)
+    # Use simple method: get IP from default route
+    detected_ip=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K[0-9.]+' || echo "192.168.1.1")
     
-    # Method 2: Fallback to first non-loopback IP
-    if [ -z "$detected_ip" ]; then
-        detected_ip=$(ip addr show | grep 'inet ' | grep -v '127.0.0.1' | head -1 | awk '{print $2}' | cut -d'/' -f1 2>/dev/null)
-    fi
-    
-    # Method 3: Final fallback
-    if [ -z "$detected_ip" ]; then
-        detected_ip=$(hostname -I | awk '{print $1}' 2>/dev/null)
-    fi
-    
-    # If still no IP found, use placeholder
-    if [ -z "$detected_ip" ]; then
-        detected_ip="YOUR_PROXMOX_IP"
+    # Fallback to common Proxmox IP if detection fails
+    if [ -z "$detected_ip" ] || [[ ! "$detected_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        detected_ip="192.168.1.1"
     fi
     
     # Determine default network base from detected IP
