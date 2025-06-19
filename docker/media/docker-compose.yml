@@ -225,7 +225,7 @@ services:
     container_name: node-exporter-media
     restart: unless-stopped
     ports:
-      - "9101:9100"
+      - "9100:9100"
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro

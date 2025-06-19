@@ -218,65 +218,26 @@ setup_monitoring_env() {
         fi
     done
     
-    # Network Configuration
+    # Network Configuration - Hardcoded values
     print_step "Configuring network settings..."
     echo
-    print_info "Network configuration for monitoring targets:"
-    print_info "This determines which IPs Prometheus will monitor"
+    print_info "Using hardcoded network configuration:"
+    print_info "LXC monitoring targets:"
+    print_info "  • Proxy LXC (100): 192.168.1.100:9104"
+    print_info "  • Media LXC (101): 192.168.1.101:9101" 
+    print_info "  • Downloads LXC (102): 192.168.1.102:9102"
+    print_info "  • Utility LXC (103): 192.168.1.103:9103"
     echo
     
-    # Auto-detect Proxmox local IP and construct URL
-    # Simple network detection
-    local detected_ip=$(hostname -I | cut -d' ' -f1)
-    local default_base="192.168.1"
-    
-    # Extract network base if IP detected
-    if [ -n "$detected_ip" ]; then
-        default_base=$(echo "$detected_ip" | cut -d'.' -f1-3)
-    fi
-    
-    print_info "Detected network base: $default_base"
-    print_info "LXC monitoring targets will be:"
-    print_info "  • Proxy LXC (100): ${default_base}.100:9104"
-    print_info "  • Media LXC (101): ${default_base}.101:9101" 
-    print_info "  • Downloads LXC (102): ${default_base}.102:9102"
-    print_info "  • Utility LXC (103): ${default_base}.103:9103"
-    echo
-    
-    local network_base
-    while true; do
-        read -p "Network base [${default_base}]: " network_base
-        network_base=${network_base:-$default_base}
-        
-        # Validate network base format (should be X.X.X format)
-        if [[ "$network_base" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]]; then
-            # Check if each octet is valid (0-255)
-            local octet1=${BASH_REMATCH[1]}
-            local octet2=${BASH_REMATCH[2]}
-            local octet3=${BASH_REMATCH[3]}
-            
-            if [ "$octet1" -ge 0 ] && [ "$octet1" -le 255 ] && \
-               [ "$octet2" -ge 0 ] && [ "$octet2" -le 255 ] && \
-               [ "$octet3" -ge 0 ] && [ "$octet3" -le 255 ]; then
-                break
-            else
-                print_error "Invalid network base: octets must be between 0-255"
-            fi
-        else
-            print_error "Invalid network base format. Expected format: X.X.X (e.g., 192.168.1)"
-        fi
-    done
+    # Hardcoded network configuration
+    local network_base="192.168.1"
     
     # Grafana dashboard URL for email notifications
-    local default_grafana_url="http://${network_base}.104:3000"
-    local grafana_url
-    read -p "Grafana dashboard URL [${default_grafana_url}]: " grafana_url
-    grafana_url=${grafana_url:-$default_grafana_url}
+    local grafana_url="http://192.168.1.104:3000"
     
-    local default_pve_url="https://${detected_ip}:8006"
-    
-    # Use auto-detected Proxmox URL
-    local pve_url="$default_pve_url"
+    # Auto-detect Proxmox host IP for PVE URL
+    local detected_ip=$(hostname -I | cut -d' ' -f1)
+    local pve_url="https://${detected_ip}:8006"
     print_info "Using auto-detected Proxmox URL: $pve_url"
     
     

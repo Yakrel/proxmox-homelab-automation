@@ -353,37 +353,6 @@ ensure_datapool_mount() {
 }
 
 
-# Function to deploy stack configuration files (idempotent)
-deploy_stack_configs() {
-    local lxc_id=$1
-    local stack_type=$2
-    
-    print_step "Deploying configuration files for $stack_type stack..."
-    
-    # Ensure datapool is accessible
-    if ! pct exec "$lxc_id" -- test -d /datapool 2>/dev/null; then
-        print_warning "/datapool not accessible, skipping config deployment"
-        return 1
-    fi
-    
-    # Create config base directory if not exists
-    pct exec "$lxc_id" -- mkdir -p /datapool/config 2>/dev/null || true
-    
-    # Deploy stack-specific config files
-    case $stack_type in
-        "utility")
-            deploy_homepage_configs "$lxc_id"
-            ;;
-        "monitoring")
-            deploy_monitoring_configs "$lxc_id"
-            ;;
-        *)
-            print_info "No additional config files needed for $stack_type stack"
-            ;;
-    esac
-    
-    return 0
-}
 
 # Function to deploy Homepage dashboard configuration
 deploy_homepage_configs() {
@@ -468,48 +437,6 @@ deploy_monitoring_configs() {
     print_info "✓ Monitoring config directories prepared"
     
     return 0
-}
-
-# Function to verify deployment
-verify_deployment() {
-    local stack_type=$1
-    
-    print_step "Verifying $stack_type stack deployment..."
-    
-    # Define container name patterns for each stack type
-    local container_patterns=""
-    case $stack_type in
-        "media")
-            container_patterns="sonarr|radarr|jellyfin|qbittorrent|prowlarr"
-            ;;
-        "proxy")
-            container_patterns="cloudflared"
-            ;;
-        "downloads")
-            container_patterns="jdownloader|metube"
-            ;;
-        "utility")
-            container_patterns="firefox"
-            ;;
-        "monitoring")
-            container_patterns="prometheus|grafana|alertmanager"
-            ;;
-        *)
-            print_error "Unknown stack type: $stack_type"
-            return 1
-            ;;
-    esac
-    
-    # Check if containers are running
-    local running_containers=$(docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "(${container_patterns})" | wc -l)
-    
-    if [ "$running_containers" -gt 0 ]; then
-        print_info "✓ Found $running_containers running containers"
-        return 0
-    else
-        print_warning "No containers appear to be running"
-        return 1
-    fi
 }
 
 
@@ -610,28 +537,28 @@ scrape_configs:
   # Node Exporter - Proxy LXC (100)
   - job_name: 'node-exporter-proxy'
     static_configs:
-      - targets: ['${network_base}.100:9104']
+      - targets: ['192.168.1.100:9100']
         labels:
           instance: 'proxy-lxc-100'
 
   # Node Exporter - Media LXC (101)
   - job_name: 'node-exporter-media'
     static_configs:
-      - targets: ['${network_base}.101:9101']
+      - targets: ['192.168.1.101:9100']
         labels:
           instance: 'media-lxc-101'
 
   # Node Exporter - Downloads LXC (102)
   - job_name: 'node-exporter-downloads'
     static_configs:
-      - targets: ['${network_base}.102:9102']
+      - targets: ['192.168.1.102:9100']
         labels:
           instance: 'downloads-lxc-102'
 
   # Node Exporter - Utility LXC (103)
   - job_name: 'node-exporter-utility'
     static_configs:
-      - targets: ['${network_base}.103:9103']
+      - targets: ['192.168.1.103:9100']
         labels:
           instance: 'utility-lxc-103'
 
@@ -843,8 +770,8 @@ EOF
     print_info "📋 Dashboards will be available in Grafana under 'Homelab' folder after container startup"
 }
 
-# Function to setup monitoring stack environment
-setup_monitoring_env() {
+# Function to update existing stack
+update_existing_stack() {
     local lxc_id=$1
     local stack_dir=$2
     
@@ -891,28 +818,28 @@ scrape_configs:
   # Node Exporter - Proxy LXC (100)
   - job_name: 'node-exporter-proxy'
     static_configs:
-      - targets: ['${network_base}.100:9104']
+      - targets: ['192.168.1.100:9100']
         labels:
           instance: 'proxy-lxc-100'
 
   # Node Exporter - Media LXC (101)
   - job_name: 'node-exporter-media'
     static_configs:
-      - targets: ['${network_base}.101:9101']
+      - targets: ['192.168.1.101:9100']
         labels:
           instance: 'media-lxc-101'
 
   # Node Exporter - Downloads LXC (102)
   - job_name: 'node-exporter-downloads'
     static_configs:
-      - targets: ['${network_base}.102:9102']
+      - targets: ['192.168.1.102:9100']
         labels:
           instance: 'downloads-lxc-102'
 
   # Node Exporter - Utility LXC (103)
   - job_name: 'node-exporter-utility'
     static_configs:
-      - targets: ['${network_base}.103:9103']
+      - targets: ['192.168.1.103:9100']
         labels:
           instance: 'utility-lxc-103'
 
@@ -1054,76 +981,6 @@ EOF
     
     print_info "✓ Monitoring configuration files generated successfully"
 }
-
-# Function to download and setup Grafana dashboards
-setup_grafana_dashboards() {
-    local lxc_id=$1
-    
-    print_info "📊 Downloading Grafana dashboards from GitHub..."
-    
-    # Ensure dashboard directory exists
-    mkdir -p "/datapool/config/grafana/dashboards"
-    
-    # Dashboard URLs from GitHub repo
-    local dashboard_urls=(
-        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/proxmox-dashboard-10347.json"
-        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/node-exporter-full-1860.json"
-        "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$BRANCH/docker/monitoring/dashboards/docker-containers-193.json"
-    )
-    
-    # Dashboard filenames
-    local dashboard_files=(
-        "proxmox-dashboard-10347.json"
-        "node-exporter-full-1860.json"
-        "docker-containers-193.json"
-    )
-    
-    # Download each dashboard
-    for i in "${!dashboard_urls[@]}"; do
-        local url="${dashboard_urls[$i]}"
-        local filename="${dashboard_files[$i]}"
-        local output_path="/datapool/config/grafana/dashboards/$filename"
-        
-        print_info "Downloading $filename..."
-        
-        if wget -q --timeout=10 --tries=3 -O "$output_path" "$url"; then
-            print_info "✓ Downloaded $filename successfully"
-            # Set proper ownership
-            chown 101000:101000 "$output_path" 2>/dev/null || true
-        else
-            print_warning "Failed to download $filename from GitHub"
-            print_info "Dashboard will need to be imported manually with ID: ${filename##*-}"
-        fi
-    done
-    
-    # Also create dashboard provider config if it doesn't exist
-    local provider_dir="/datapool/config/grafana/provisioning/dashboards"
-    mkdir -p "$provider_dir"
-    
-    if [ ! -f "$provider_dir/dashboard-provider.yml" ]; then
-        print_info "Creating dashboard provider configuration..."
-        cat > "$provider_dir/dashboard-provider.yml" <<EOF
-apiVersion: 1
-
-providers:
-  - name: 'homelab-dashboards'
-    orgId: 1
-    folder: 'Homelab'
-    type: file
-    disableDeletion: false
-    updateIntervalSeconds: 30
-    allowUiUpdates: true
-    options:
-      path: /var/lib/grafana/dashboards
-EOF
-        chown 101000:101000 "$provider_dir/dashboard-provider.yml" 2>/dev/null || true
-        print_info "✓ Dashboard provider configured"
-    fi
-    
-    print_info "✓ Grafana dashboard setup completed"
-    print_info "📋 Dashboards will be available in Grafana under 'Homelab' folder after container startup"
-}
-
 
 # Function to update existing stack
 update_existing_stack() {
