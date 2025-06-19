@@ -5,12 +5,9 @@
 
 set -e
 
-# Color definitions for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../utils/common.sh"
 
 # Configuration
 # Repository URL
@@ -20,23 +17,6 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 
 # Docker Compose command (Alpine Docker template uses V2 syntax)
 DOCKER_COMPOSE_CMD="docker compose"
-
-# Function to print colored output
-print_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-print_step() {
-    echo -e "${BLUE}[STEP]${NC} $1"
-}
 
 # Function to validate environment file (idempotent helper)
 validate_env_file() {
@@ -103,91 +83,7 @@ backup_env_file() {
     fi
 }
 
-# Function to ensure container and Docker are ready (idempotent)
-ensure_container_ready() {
-    local lxc_id=$1
-    
-    # Check if container exists
-    if ! pct status "$lxc_id" >/dev/null 2>&1; then
-        print_error "LXC $lxc_id does not exist!"
-        return 1
-    fi
-    
-    # Start container if not running
-    if ! pct status "$lxc_id" | grep -q "running"; then
-        print_info "Starting container $lxc_id..."
-        pct start "$lxc_id"
-    fi
-    
-    # Wait for container readiness
-    local max_attempts=15
-    local attempt=1
-    
-    print_info "Waiting for container to be ready..."
-    while [ $attempt -le $max_attempts ]; do
-        if pct exec "$lxc_id" -- echo "ready" >/dev/null 2>&1; then
-            break
-        fi
-        sleep 3
-        attempt=$((attempt + 1))
-    done
-    
-    # Check Docker service
-    attempt=1
-    while [ $attempt -le $max_attempts ]; do
-        if pct exec "$lxc_id" -- docker info >/dev/null 2>&1; then
-            print_info "✓ Container and Docker ready"
-            return 0
-        fi
-        
-        if [ $attempt -eq 5 ]; then
-            print_info "Docker not ready, restarting service..."
-            pct exec "$lxc_id" -- rc-service docker restart >/dev/null 2>&1 || true
-        fi
-        
-        sleep 3
-        attempt=$((attempt + 1))
-    done
-    
-    print_warning "Container readiness check timeout, continuing anyway..."
-    return 0
-}
 
-# Function to ensure proper datapool permissions
-ensure_datapool_permissions() {
-    local stack_type=$1
-    
-    print_step "Setting up datapool permissions for $stack_type stack..."
-    
-    # Create necessary directories based on stack type
-    case $stack_type in
-        "proxy")
-            mkdir -p /datapool/config/cloudflared
-            ;;
-        "media")
-            mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,recyclarr,cleanuperr,huntarr}
-            mkdir -p /datapool/config/jellyseerr/logs
-            mkdir -p /datapool/{torrents,media}/{tv,movies}
-            mkdir -p /datapool/torrents/other
-            ;;
-        "downloads")
-            mkdir -p /datapool/config/{jdownloader2,metube}
-            ;;
-        "utility")
-            mkdir -p /datapool/config/firefox
-            ;;
-        "monitoring")
-            mkdir -p /datapool/config/{prometheus,grafana,alertmanager}
-            mkdir -p /datapool/config/prometheus/{rules,data}
-            mkdir -p /datapool/config/grafana/provisioning/{datasources,dashboards}
-            ;;
-    esac
-    
-    # Set ownership for all application directories in one command
-    chown -R 101000:101000 /datapool/{config,torrents,media} 2>/dev/null || true
-    
-    print_info "✓ Datapool permissions configured for $stack_type"
-}
 
 # Function to download files from GitHub
 download_stack_files() {
@@ -308,67 +204,6 @@ deploy_with_compose() {
     fi
 }
 
-# Function to ensure datapool mount exists (idempotent)
-ensure_datapool_mount() {
-    local lxc_id=$1
-    
-    # Check if mount point is already configured
-    if pct config "$lxc_id" | grep -q "/datapool"; then
-        print_info "✓ /datapool mount point already configured"
-        
-        # Verify accessibility if container is running
-        if pct status "$lxc_id" | grep -q "running"; then
-            if pct exec "$lxc_id" -- test -d /datapool 2>/dev/null; then
-                print_info "✓ /datapool is accessible"
-            else
-                print_warning "/datapool mount configured but not accessible, container may need restart"
-            fi
-        fi
-        return 0
-    fi
-    
-    print_info "Adding /datapool mount point..."
-    
-    # Use the create_alpine_lxc.sh mount function
-    local script_dir="$(dirname "$0")"
-    local create_script="$script_dir/create_alpine_lxc.sh"
-    
-    if [ -f "$create_script" ]; then
-        # Verify script integrity before sourcing
-        if ! bash -n "$create_script" 2>/dev/null; then
-            print_error "Syntax error in create_alpine_lxc.sh, using fallback method"
-        else
-            # Safely source the function from create_alpine_lxc.sh
-            source "$create_script"
-            add_datapool_mount "$lxc_id"
-            return $?
-        fi
-    fi
-    
-    # Fallback to simple mount add if source fails or file doesn't exist
-    local was_running=false
-    if pct status "$lxc_id" | grep -q "running"; then
-        was_running=true
-        pct shutdown "$lxc_id" 2>/dev/null || pct stop "$lxc_id"
-        sleep 5
-    fi
-    
-    local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}' 2>/dev/null)
-    next_mp_index=${next_mp_index:-0}
-    
-    if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool,acl=1; then
-        if [ "$was_running" = true ]; then
-            pct start "$lxc_id"
-            sleep 5
-        fi
-        print_info "✓ Datapool mount added successfully"
-    else
-        print_error "Failed to add datapool mount"
-        return 1
-    fi
-    
-    return 0
-}
 
 # Function to deploy stack configuration files (idempotent)
 deploy_stack_configs() {
@@ -531,150 +366,6 @@ verify_deployment() {
 
 
 
-# Function to setup proxy stack environment
-setup_proxy_env() {
-    local lxc_id=$1
-    local target_dir=$2
-    
-    echo
-    print_info "🔧 Cloudflare Tunnel Configuration"
-    echo "Please provide your Cloudflare tunnel token:"
-    echo
-    
-    read -p "Enter your Cloudflare tunnel token: " tunnel_token
-    while [ -z "$tunnel_token" ] || ! validate_cloudflare_token "$tunnel_token"; do
-        if [ -z "$tunnel_token" ]; then
-            print_error "Tunnel token is required!"
-        else
-            print_error "Invalid token format! Token should be 80+ characters long."
-        fi
-        read -p "Enter your Cloudflare tunnel token: " tunnel_token
-    done
-    
-    read -p "Enter timezone [Europe/Istanbul]: " timezone
-    timezone=${timezone:-Europe/Istanbul}
-    
-    # Use default timezone if empty or validate by checking zoneinfo directory
-    if [ -z "$timezone" ] || [ ! -f "/usr/share/zoneinfo/$timezone" ]; then
-        print_warning "Invalid or empty timezone '$timezone', using default Europe/Istanbul"
-        timezone="Europe/Istanbul"
-    fi
-    
-    # Create .env file in LXC
-    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
-# Proxy Stack Environment Variables
-CLOUDFLARED_TOKEN=$tunnel_token
-TZ=$timezone
-PUID=1000
-PGID=1000
-EOF"
-    
-    print_info "✓ Proxy environment configured"
-}
-
-# Function to setup media stack environment  
-setup_media_env() {
-    local lxc_id=$1
-    local target_dir=$2
-    
-    echo
-    print_info "🎬 Media Stack Configuration"
-    
-    read -p "Enter timezone [Europe/Istanbul]: " timezone
-    timezone=${timezone:-Europe/Istanbul}
-    
-    # Use default timezone if empty or validate by checking zoneinfo directory
-    if [ -z "$timezone" ] || [ ! -f "/usr/share/zoneinfo/$timezone" ]; then
-        print_warning "Invalid or empty timezone '$timezone', using default Europe/Istanbul"
-        timezone="Europe/Istanbul"
-    fi
-    
-    # Create .env file in LXC with all required variables
-    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << 'EOF'
-# Media Stack Environment Variables
-TZ=$timezone
-PUID=1000
-PGID=1000
-
-# Cleanuperr Configuration
-SONARR_API_KEY=
-RADARR_API_KEY=
-QB_USERNAME=admin
-QB_PASSWORD=
-EOF"
-    
-    print_info "✓ Media environment configured"
-}
-
-# Function to setup downloads stack environment
-setup_downloads_env() {
-    local lxc_id=$1
-    local target_dir=$2
-    
-    echo
-    print_info "⬇️ Downloads Stack Configuration"
-    
-    read -p "Enter JDownloader VNC password: " jdownloader_password
-    while [ -z "$jdownloader_password" ]; do
-        print_error "JDownloader VNC password is required!"
-        read -p "Enter JDownloader VNC password: " jdownloader_password
-    done
-    
-    read -p "Enter timezone [Europe/Istanbul]: " timezone
-    timezone=${timezone:-Europe/Istanbul}
-    
-    # Use default timezone if empty or validate by checking zoneinfo directory
-    if [ -z "$timezone" ] || [ ! -f "/usr/share/zoneinfo/$timezone" ]; then
-        print_warning "Invalid or empty timezone '$timezone', using default Europe/Istanbul"
-        timezone="Europe/Istanbul"
-    fi
-    
-    # Create .env file in LXC
-    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
-# Downloads Stack Environment Variables
-JDOWNLOADER_VNC_PASSWORD=$jdownloader_password
-TZ=$timezone
-PUID=1000
-PGID=1000
-EOF"
-    
-    print_info "✓ Downloads environment configured"
-}
-
-# Function to setup utility stack environment
-setup_utility_env() {
-    local lxc_id=$1
-    local target_dir=$2
-    
-    echo
-    print_info "🛠️ Utility Stack Configuration"
-    
-    read -p "Enter Firefox VNC password: " vnc_password
-    while [ -z "$vnc_password" ]; do
-        print_error "VNC password is required!"
-        read -p "Enter Firefox VNC password: " vnc_password
-    done
-    
-    read -p "Enter timezone [Europe/Istanbul]: " timezone
-    timezone=${timezone:-Europe/Istanbul}
-    
-    # Use default timezone if empty or validate by checking zoneinfo directory
-    if [ -z "$timezone" ] || [ ! -f "/usr/share/zoneinfo/$timezone" ]; then
-        print_warning "Invalid or empty timezone '$timezone', using default Europe/Istanbul"
-        timezone="Europe/Istanbul"
-    fi
-    
-    # Create .env file in LXC
-    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
-# Utility Stack Environment Variables
-FIREFOX_VNC_PASSWORD=$vnc_password
-TZ=$timezone
-PUID=1000
-PGID=1000
-EOF"
-    
-    print_info "✓ Utility environment configured"
-}
 
 # Function to ensure PVE monitoring user exists (idempotent)
 ensure_pve_monitoring_user() {
@@ -1003,115 +694,6 @@ EOF
     print_info "📋 Dashboards will be available in Grafana under 'Homelab' folder after container startup"
 }
 
-# Function to setup monitoring stack environment
-setup_monitoring_env() {
-    local lxc_id=$1
-    local target_dir=$2
-    
-    echo
-    print_info "📊 Monitoring Stack Configuration"
-    echo
-    
-    read -p "Enter Grafana admin password: " grafana_password
-    while [ -z "$grafana_password" ]; do
-        print_error "Grafana password is required!"
-        read -p "Enter Grafana admin password: " grafana_password
-    done
-    
-    # Auto-detect Proxmox server IP
-    proxmox_ip=$(ip route get 1 | sed -n 's/.*src \([0-9.]*\).*/\1/p')
-    print_info "Using auto-detected Proxmox server IP: $proxmox_ip"
-    
-    # Use fixed monitoring user name
-    pve_user="monitoring@pve"
-    print_info "Using monitoring user: $pve_user"
-    
-    read -s -p "Enter Proxmox monitoring password: " pve_password
-    echo
-    while [ -z "$pve_password" ]; do
-        print_error "Proxmox password is required!"
-        read -s -p "Enter Proxmox monitoring password: " pve_password
-        echo
-    done
-    
-    # Gmail configuration for alerts
-    echo
-    print_info "📧 Email Alert Configuration"
-    echo "⚠️  Important: Gmail is recommended for easier SMTP setup"
-    echo "📋 To get Gmail App Password:"
-    echo "   1. Go to Google Account → Security → 2-Step Verification (must be enabled)"
-    echo "   2. Click 'App passwords' → Select 'Mail' → Select 'Other (Custom name)'"
-    echo "   3. Enter 'Homelab Alerts' as name → Copy the 16-character password"
-    echo
-    
-    read -p "Do you want to enable email alerts? (y/n) [y]: " enable_alerts
-    enable_alerts=${enable_alerts:-y}
-    
-    if [[ "$enable_alerts" =~ ^[Yy]$ ]]; then
-        echo
-        print_info "📧 Gmail Setup Required"
-        echo "Please enter your Gmail address (must be Gmail for SMTP compatibility):"
-        
-        read -p "Gmail address: " gmail_address
-        while [[ ! "$gmail_address" =~ @gmail\.com$ ]]; do
-            print_error "Please enter a valid Gmail address (must end with @gmail.com)"
-            read -p "Gmail address: " gmail_address
-        done
-        
-        echo
-        print_info "🔑 Gmail App Password Required"
-        echo "Enter the 16-character app password you generated:"
-        read -s -p "Gmail App Password: " gmail_app_password
-        echo
-        
-        while [ -z "$gmail_app_password" ] || [ ${#gmail_app_password} -ne 16 ]; do
-            print_error "App password must be exactly 16 characters!"
-            print_info "If you haven't created one yet, follow the 3-step guide above"
-            read -s -p "Gmail App Password: " gmail_app_password
-            echo
-        done
-        
-        print_info "✓ Gmail configuration completed"
-    else
-        gmail_address=""
-        gmail_app_password=""
-        print_info "Email alerts disabled"
-    fi
-    
-    read -p "Enter timezone [Europe/Istanbul]: " timezone
-    timezone=${timezone:-Europe/Istanbul}
-    
-    # Use default timezone if empty or validate by checking zoneinfo directory
-    if [ -z "$timezone" ] || [ ! -f "/usr/share/zoneinfo/$timezone" ]; then
-        print_warning "Invalid or empty timezone '$timezone', using default Europe/Istanbul"
-        timezone="Europe/Istanbul"
-    fi
-    
-    # Create .env file in LXC
-    pct exec "$lxc_id" -- sh -c "cat > $target_dir/.env << EOF
-# Monitoring Stack Environment Variables
-GRAFANA_ADMIN_PASSWORD=$grafana_password
-PVE_USER=$pve_user
-PVE_PASSWORD=$pve_password
-PVE_URL=https://$proxmox_ip:8006
-TZ=$timezone
-PUID=1000
-PGID=1000
-# Email Alert Configuration
-GMAIL_ADDRESS=$gmail_address
-GMAIL_APP_PASSWORD=$gmail_app_password
-EOF"
-    
-    print_info "✓ Monitoring environment configured"
-    
-    # Note: PVE monitoring user creation handled by host before LXC deployment
-    
-    # Generate monitoring configuration with dynamic network settings
-    generate_monitoring_configs "$lxc_id" "$target_dir"
-    
-    # Download and setup Grafana dashboards
-    setup_grafana_dashboards "$lxc_id"
-}
 
 # Function to update existing stack
 update_existing_stack() {
@@ -1357,10 +939,7 @@ if [ $# -eq 2 ]; then
 fi
 
 # Check if running as root
-if [ "$(id -u)" -ne 0 ]; then
-    print_error "This script must be run as root"
-    exit 1
-fi
+check_root
 
 STACK_TYPE=$1
 LXC_ID=$2

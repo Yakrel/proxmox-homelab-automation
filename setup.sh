@@ -128,11 +128,10 @@ post_install_menu() {
         echo "6) Network Bonding Setup"
         echo "7) Timezone Configuration (Turkey)"
         echo "8) Auto-Update Setup (Cron for LXCs)"
-        echo "9) Development Environment (LXC + Claude Code)"
-        echo "10) Back to Main Menu"
+        echo "9) Back to Main Menu"
         echo ""
         
-        read -p "Your choice (1-10): " post_choice
+        read -p "Your choice (1-9): " post_choice
         
         case $post_choice in
             1)
@@ -178,12 +177,6 @@ post_install_menu() {
                 bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/cron-update-lxcs.sh)"
                 ;;
             9)
-                if download_script "scripts/lxc/setup_dev_lxc.sh"; then
-                    echo "Setting up Development Environment..."
-                    bash "$TEMP_DIR/setup_dev_lxc.sh"
-                fi
-                ;;
-            10)
                 return 0
                 ;;
             *)
