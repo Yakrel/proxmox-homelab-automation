@@ -177,6 +177,72 @@ ensure_datapool_mount() {
     fi
 }
 
+# Function to extract API keys from running services
+extract_service_api_key() {
+    local lxc_id=$1
+    local service_name=$2
+    local api_endpoint=$3
+    local config_path=$4
+    
+    print_info "Extracting $service_name API key..."
+    
+    local max_attempts=30
+    local attempt=1
+    
+    while [ $attempt -le $max_attempts ]; do
+        # Check if service is responding
+        if pct exec "$lxc_id" -- wget -q --spider "$api_endpoint" 2>/dev/null; then
+            # Try to extract API key from config file
+            local api_key=$(pct exec "$lxc_id" -- cat "$config_path" 2>/dev/null | grep -i apikey | sed 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/' | head -n1)
+            
+            if [ -n "$api_key" ] && [ "$api_key" != "" ]; then
+                echo "$api_key"
+                return 0
+            fi
+        fi
+        
+        print_info "Waiting for $service_name to initialize... ($attempt/$max_attempts)"
+        sleep 10
+        attempt=$((attempt + 1))
+    done
+    
+    print_warning "Could not extract $service_name API key automatically"
+    return 1
+}
+
+# Function to update env file with extracted API keys
+update_env_with_api_keys() {
+    local lxc_id=$1
+    local stack_dir=$2
+    
+    print_info "Attempting to extract API keys for Media stack..."
+    
+    # Wait for services to be ready
+    sleep 30
+    
+    # Extract Sonarr API key
+    local sonarr_key=$(extract_service_api_key "$lxc_id" "Sonarr" "http://localhost:8989" "/datapool/config/sonarr/config.xml")
+    if [ $? -eq 0 ] && [ -n "$sonarr_key" ]; then
+        pct exec "$lxc_id" -- sed -i "s/^SONARR_API_KEY=.*/SONARR_API_KEY=$sonarr_key/" "$stack_dir/.env"
+        print_info "✓ Updated Sonarr API key"
+    fi
+    
+    # Extract Radarr API key
+    local radarr_key=$(extract_service_api_key "$lxc_id" "Radarr" "http://localhost:7878" "/datapool/config/radarr/config.xml")
+    if [ $? -eq 0 ] && [ -n "$radarr_key" ]; then
+        pct exec "$lxc_id" -- sed -i "s/^RADARR_API_KEY=.*/RADARR_API_KEY=$radarr_key/" "$stack_dir/.env"
+        print_info "✓ Updated Radarr API key"
+    fi
+    
+    return 0
+}
+
+# Function to generate secure password
+generate_secure_password() {
+    local length=${1:-16}
+    openssl rand -base64 $((length * 3 / 4)) | tr -d "=+/" | cut -c1-$length
+}
+
 # Function to validate input (not empty)
 validate_not_empty() {
     local input=$1
