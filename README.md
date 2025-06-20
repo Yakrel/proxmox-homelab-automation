@@ -9,23 +9,23 @@ bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-a
 ```
 
 From the menu you can choose:
-- **Options 1-5**: Deploy individual stacks (proxy, media, downloads, utility, monitoring)
-- **Options 6-7**: Security setup, storage setup, system maintenance
+- **Options 1-6**: Deploy individual stacks (proxy, media, downloads, utility, monitoring, development)
+- **Options 7-8**: Security setup, storage setup, system maintenance
 
 
 ## Deployment Approach
 
-This project uses 5 specialized LXC containers:
-- **Automated LXC Creation**: Uses community Alpine Docker templates for consistent setup
-- **Stack-based Architecture**: 5 separate stacks for better resource management and isolation
+This project uses 6 specialized LXC containers:
+- **Automated LXC Creation**: Uses Alpine Docker templates for Docker stacks, Ubuntu for development
+- **Stack-based Architecture**: 6 separate stacks for better resource management and isolation
 - **Individual Stack Deployment**: Deploy each stack separately for better control
 - **Interactive Configuration**: Automated password and configuration setup
 - **Idempotent Scripts**: All scripts can be safely run multiple times for updates and maintenance
-- Each stack includes its own watchtower for automatic updates
+- Docker stacks include their own watchtower for automatic updates
 
 ## Overview
 
-This project deploys a complete homelab automation solution with 5 specialized stacks:
+This project deploys a complete homelab automation solution with 6 specialized stacks:
 
 - **Security & Storage Setup**: Enhance Proxmox security with Fail2Ban and configure Samba/Sanoid
 - **Proxy Stack (LXC 100)**: Secure external access via Cloudflare tunnels
@@ -33,6 +33,7 @@ This project deploys a complete homelab automation solution with 5 specialized s
 - **Downloads Stack (LXC 102)**: General downloading with JDownloader2 and MeTube
 - **Utility Stack (LXC 103)**: Administrative tools including remote Firefox browser
 - **Monitoring Stack (LXC 104)**: System monitoring with Prometheus, Grafana, and Alertmanager
+- **Development Stack (LXC 150)**: Ubuntu development environment with Claude Code and Node.js
 
 ## LXC Container Specifications
 
@@ -45,6 +46,7 @@ This project deploys a complete homelab automation solution with 5 specialized s
 | lxc-downloads-01 | 102 | Download Management | 2 cores | 4GB | 8GB + datapool | 192.168.1.102/24 | Unprivileged LXC |
 | lxc-utility-01   | 103 | Utility Services | 2 cores | 4GB | 8GB + datapool | 192.168.1.103/24 | Unprivileged LXC |
 | lxc-monitoring-01| 104 | Monitoring & Metrics | 2 cores | 4GB | 10GB + datapool | 192.168.1.104/24 | Unprivileged LXC |
+| lxc-development-01| 150 | Development Environment | 2 cores | 4GB | 12GB | 192.168.1.150/24 | Unprivileged LXC |
 
 ## Stack Contents & Access URLs
 
@@ -78,6 +80,16 @@ This project deploys a complete homelab automation solution with 5 specialized s
 - **Alertmanager** – Alert management | http://192.168.1.104:9093
   - **cAdvisor** – Container metrics | http://192.168.1.104:8081
 - **Proxmox Exporter** – Proxmox metrics | http://192.168.1.104:9221
+
+### Development Stack (lxc-development-01, ID: 150)
+- **Ubuntu LTS** – Latest Ubuntu LTS base system
+- **Node.js & npm** – JavaScript runtime and package manager (latest LTS)
+- **Git** – Version control with helpful aliases and configuration
+- **Claude Code** – AI-powered coding assistant by Anthropic
+- **Python3** – Python development environment
+- **Development Tools** – build-essential, tree, jq, tmux, screen, and more
+- **Access**: SSH to 192.168.1.150 or console via `pct enter 150`
+- **Project Directories**: `/root/projects` and `/root/development`
 
 ## Media Server: Folder Structure & Configuration
 
@@ -241,6 +253,47 @@ Edit `/datapool/config/monitoring/alertmanager/alertmanager.yml` to configure no
 - **cAdvisor**: 8080
 - **PVE Exporter**: 9221
 - **Node Exporters**: 9100-9103 (one per LXC)
+
+## Development Environment Setup
+
+### Getting Started with Development Stack
+
+The Development Stack (LXC 150) provides a complete Ubuntu-based development environment with AI-powered coding assistance:
+
+#### Initial Setup
+1. Deploy the development stack from the main menu (Option 6)
+2. Access the container: `pct enter 150`
+3. Configure Git with your credentials:
+   ```bash
+   git config --global user.name "Your Name"
+   git config --global user.email "your@email.com"
+   ```
+
+#### Using Claude Code
+Claude Code is an AI-powered coding assistant that helps with:
+- Code generation and completion
+- Code review and optimization
+- Debugging assistance
+- Architecture suggestions
+
+Start Claude Code in your project directory:
+```bash
+cd /root/projects
+claude-code
+```
+
+#### Development Features
+- **Pre-configured directories**: `/root/projects` and `/root/development`
+- **Git aliases**: `gs` (status), `ga` (add), `gc` (commit), `gp` (push), etc.
+- **Development tools**: Python3, build tools, jq, tree, tmux, screen
+- **Clean environment**: No Docker containers, focused on development only
+
+#### Remote Access
+- **SSH**: `ssh root@192.168.1.150` (key-based authentication)
+- **Console**: `pct enter 150` from Proxmox host
+- **File transfer**: Use `scp` or `rsync` for project files
+
+For more information about Claude Code, visit: https://www.anthropic.com/claude-code
 
 ### Planned Features
 

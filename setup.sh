@@ -49,12 +49,13 @@ main_deployment_menu() {
         echo "3) Deploy Downloads Stack (LXC 102 - JDownloader, MeTube)"
         echo "4) Deploy Utility Stack (LXC 103 - Firefox Browser)"
         echo "5) Deploy Monitoring Stack (LXC 104 - Grafana, Prometheus)"
-        echo "6) Post-Install Setup (Recommended after fresh Proxmox install)"
-        echo "7) System Maintenance (Security Status)"
-        echo "8) Exit"
+        echo "6) Deploy Development Stack (LXC 150 - Ubuntu + Claude Code)"
+        echo "7) Post-Install Setup (Recommended after fresh Proxmox install)"
+        echo "8) System Maintenance (Security Status)"
+        echo "9) Exit"
         echo ""
         
-        read -p "Your choice (1-8): " auto_choice
+        read -p "Your choice (1-9): " auto_choice
         
         case $auto_choice in
             1)
@@ -93,14 +94,20 @@ main_deployment_menu() {
                 fi
                 ;;
             6)
+                echo "Starting automated Development stack deployment..."
+                if download_script "scripts/automation/create_development_lxc.sh"; then
+                    bash "$TEMP_DIR/create_development_lxc.sh" development
+                fi
+                ;;
+            7)
                 # Post-Install Setup submenu
                 post_install_menu
                 ;;
-            7)
+            8)
                 # System Maintenance submenu
                 system_maintenance_menu
                 ;;
-            8)
+            9)
                 # Exit
                 echo "Exiting..."
                 exit 0
