@@ -205,8 +205,8 @@ export PATH="\\$HOME/.local/bin:\\$PATH"
 echo "🚀 Development Environment Ready!"
 echo "📂 Project directories: /root/projects, /root/development"
 echo "🤖 Claude Code CLI available: run 'claude-cli' in your project directory"
-echo "📝 Git configured with helpful aliases (gs, ga, gc, gp, gl)"
-echo "🛠️  Development tools: Node.js \\$(node --version), Python3 \\$(python3 --version)"
+echo "📝 Git configured with helpful aliases: gs, ga, gc, gp, gl"
+echo "🛠️  Development tools: Node.js and Python3 available"
 EOF
     "
     
