@@ -71,10 +71,10 @@ create_ubuntu_lxc() {
     local template_storage="datapool"
     local disk_storage="datapool"
     
-    # Get Ubuntu 22.04 LTS template
-    local template_name=$(pveam available 2>/dev/null | grep ubuntu | grep 22.04 | head -1 | awk '{print $2}')
+    # Get Ubuntu 24.04 LTS template
+    local template_name=$(pveam available 2>/dev/null | grep ubuntu | grep 24.04 | head -1 | awk '{print $2}')
     if [ -z "$template_name" ]; then
-        template_name="ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
+        template_name="ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
     fi
     
     # Download template if needed
