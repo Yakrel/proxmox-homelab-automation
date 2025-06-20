@@ -23,6 +23,26 @@ readonly CPU_CORES=2
 readonly RAM_MB=4096
 readonly DISK_GB=12
 
+# Function to wait for container readiness
+wait_for_container_ready() {
+    local lxc_id=$1
+    local max_attempts=30
+    local attempt=1
+    
+    print_info "Waiting for container to be ready..."
+    while [ $attempt -le $max_attempts ]; do
+        if pct exec "$lxc_id" -- echo "ready" >/dev/null 2>&1; then
+            print_info "✓ Container is ready after ${attempt} attempts"
+            return 0
+        fi
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    
+    print_warning "Container readiness check timeout after $((max_attempts * 2)) seconds, continuing..."
+    return 0  # Don't fail entire script
+}
+
 # Function to create Ubuntu LXC
 create_ubuntu_lxc() {
     print_info "Creating Ubuntu Development LXC: $LXC_NAME (ID: $LXC_ID)"
@@ -170,6 +190,26 @@ echo \"💡 Start with: claude-code\"
 EOF
     "
     
+    # Configure passwordless root and disable SSH (matching other stacks)
+    print_info "Configuring passwordless access and SSH security..."
+    pct exec "$LXC_ID" -- bash -c "
+        # Passwordless root configuration
+        passwd -d root >/dev/null 2>&1
+        
+        # Disable SSH service completely (like Alpine stacks)
+        systemctl disable ssh >/dev/null 2>&1 || true
+        systemctl stop ssh >/dev/null 2>&1 || true
+        
+        # Configure console autologin
+        mkdir -p /etc/systemd/system/getty@tty1.service.d
+        cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'EOF'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin root --noclear %I \$TERM
+EOF
+        systemctl daemon-reload >/dev/null 2>&1
+    "
+    
     # Create README
     print_info "Creating documentation..."
     pct exec "$LXC_ID" -- bash -c "
@@ -203,8 +243,7 @@ EOF
    \`\`\`
 
 ## Access
-- Console: \`pct enter 150\`
-- SSH: \`ssh root@192.168.1.150\`
+- Console: \`pct enter 150\` (passwordless)
 EOF
     "
 }
@@ -217,10 +256,11 @@ show_completion_message() {
     print_info "  ✓ ID: $LXC_ID, Name: $LXC_NAME, IP: 192.168.1.$LXC_ID"
     print_info "  ✓ Resources: ${CPU_CORES} cores, ${RAM_MB}MB RAM, ${DISK_GB}GB storage"
     print_info "  ✓ Tools: Node.js, Git, Python3, Claude Code"
+    print_info "  ✓ SSH disabled, passwordless console access"
     echo
     print_info "Access:"
-    print_info "  ✓ Console: pct enter $LXC_ID"
-    print_info "  ✓ SSH: ssh root@192.168.1.$LXC_ID"
+    print_info "  ✓ Console: pct enter $LXC_ID (passwordless)"
+    print_info "  ✓ Direct console access without password prompt"
     echo
     print_info "Getting Started: Enter container and run 'claude-code'"
 }
