@@ -76,14 +76,7 @@ install_nodejs() {
         
         # Install Node.js and npm
         apt-get install -y -qq nodejs >/dev/null 2>&1
-        
-        # Verify installation
-        node_version=$(node --version 2>/dev/null)
-        npm_version=$(npm --version 2>/dev/null)
-        
-        echo "Node.js version: $node_version"
-        echo "npm version: $npm_version"
-    '
+    ' >/dev/null 2>&1
     
     if [ $? -eq 0 ]; then
         print_info "✓ Node.js and npm installed successfully"
@@ -138,19 +131,14 @@ install_claude_code() {
     print_step "Installing Claude Code..."
     
     pct exec "$lxc_id" -- bash -c '
-        # Install Claude Code via npm globally
-        echo "Installing Claude Code via npm..."
-        
-        # Install Claude Code
-        npm install -g @anthropics/claude-code >/dev/null 2>&1
+        # Install Claude Code CLI via npm globally
+        npm install -g @anthropic-ai/claude-code >/dev/null 2>&1
         
         # Verify installation
         if command -v claude-code >/dev/null 2>&1; then
-            claude_version=$(claude-code --version 2>/dev/null || echo "installed")
-            echo "Claude Code version: $claude_version"
             return 0
         else
-            echo "Claude Code installation verification failed"
+            echo "Claude Code installation verification failed" >&2
             return 1
         fi
     '
@@ -160,7 +148,7 @@ install_claude_code() {
         return 0
     else
         print_error "Failed to install Claude Code"
-        print_info "You can install it manually later with: npm install -g @anthropics/claude-code"
+        print_info "You can install it manually later with: npm install -g @anthropic-ai/claude-code"
         return 1
     fi
 }
@@ -220,21 +208,21 @@ EOF
 ║  🚀 Development Tools Ready:                                ║
 ║     • Node.js & npm                                         ║
 ║     • Git with useful aliases                               ║
-║     • Claude Code (AI-powered coding assistant)            ║
-║     • Python3 & build tools                                ║
+║     • Claude Code CLI (AI-powered coding assistant)         ║
+║     • Python3 & build tools                                 ║
 ║                                                              ║
 ║  📁 Directories:                                            ║
-║     /root/projects  - Your project workspace               ║
+║     /root/projects  - Your project workspace                ║
 ║     /root/development - Development utilities               ║
 ║                                                              ║
 ║  🔧 Quick Commands:                                         ║
 ║     projects - cd to projects directory                     ║
 ║     dev      - cd to development directory                  ║
-║     claude-code - Start Claude Code                        ║
+║     claude-cli - Start Claude Code CLI                      ║
 ║                                                              ║
-║  💡 Git is ready - configure with:                         ║
-║     git config --global user.name "Your Name"              ║
-║     git config --global user.email "your@email.com"        ║
+║  💡 Git is ready - configure with:                          ║
+║     git config --global user.name "Your Name"               ║
+║     git config --global user.email "your@email.com"         ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 
@@ -258,35 +246,18 @@ show_post_install_info() {
     
     print_info "🎉 Development environment setup completed!"
     print_info ""
-    print_info "📋 Installation Summary:"
-    print_info "✓ Ubuntu LTS base system"
-    print_info "✓ Node.js and npm (latest LTS)"
-    print_info "✓ Git with helpful aliases"
-    print_info "✓ Claude Code (AI coding assistant)"
-    print_info "✓ Python3 and build tools"
-    print_info "✓ Development utilities (tree, jq, tmux, screen)"
+    print_info "✓ Tools: Node.js, npm, Git, Claude Code CLI, Python3"
+    print_info "✓ Access: pct enter $lxc_id or ssh root@192.168.1.$lxc_id"
+    print_info "✓ Getting Started: cd /root/projects && claude-cli"
     print_info ""
-    print_info "🔗 Access Information:"
-    print_info "• LXC ID: $lxc_id"
-    print_info "• Hostname: lxc-development-01"
-    print_info "• IP Address: 192.168.1.$lxc_id"
-    print_info "• SSH: ssh root@192.168.1.$lxc_id (key-based auth only)"
-    print_info "• Console: pct enter $lxc_id"
-    print_info ""
-    print_info "🚀 Getting Started:"
-    print_info "1. Enter the container: pct enter $lxc_id"
-    print_info "2. Configure Git: git config --global user.name \"Your Name\""
-    print_info "3. Configure Git: git config --global user.email \"your@email.com\""
-    print_info "4. Start coding: cd /root/projects && claude-code"
-    print_info ""
-    print_info "📖 Claude Code Documentation: https://www.anthropic.com/claude-code"
+    print_info "📖 See /etc/motd for more details."
 }
 
 # Main deployment function
 deploy_development_stack() {
     local lxc_id=$1
     
-    print_info "🚀 Starting development tools deployment for LXC $lxc_id"
+    print_info "🚀 Deploying development stack to LXC $lxc_id..."
     
     # Check if LXC exists and is ready
     if ! check_development_lxc "$lxc_id"; then
@@ -318,8 +289,7 @@ deploy_development_stack() {
 check_root
 
 # Main execution
-print_info "Development Tools Deployment for Proxmox Homelab"
-print_info "Target: LXC $DEVELOPMENT_LXC_ID (lxc-development-01)"
+print_header "Development Tools Deployment"
 
 if deploy_development_stack "$DEVELOPMENT_LXC_ID"; then
     print_success "✅ Development environment deployed successfully!"

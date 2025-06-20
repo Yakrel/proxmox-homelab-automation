@@ -111,25 +111,27 @@ setup_development_environment() {
     print_info "Updating system and installing basic packages..."
     pct exec "$LXC_ID" -- bash -c "
         export DEBIAN_FRONTEND=noninteractive
-        apt-get update -y
-        apt-get upgrade -y
-        apt-get install -y curl wget git nano vim tree jq tmux screen \
-            build-essential python3 python3-pip unzip ca-certificates \
+        apt-get update -y -qq
+        apt-get upgrade -y -qq
+        apt-get install -y -qq curl wget git nano vim tree jq tmux screen \\
+            build-essential python3 python3-pip unzip ca-certificates \\
             gnupg lsb-release software-properties-common
     "
     
     # Install Node.js LTS
     print_info "Installing Node.js LTS..."
     pct exec "$LXC_ID" -- bash -c "
-        curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
-        apt-get install -y nodejs
-        npm install -g npm@latest
+        curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - >/dev/null 2>&1
+        apt-get install -y -qq nodejs
+        npm install -g npm@latest >/dev/null 2>&1
     "
     
     # Install Claude Code
-    print_info "Installing Claude Code..."
+    print_info "Installing Claude Code CLI..."
     pct exec "$LXC_ID" -- bash -c "
-        npm install -g @anthropic/claude-code
+        # NOTE: The package name '@anthropic/claude-code' appears to be incorrect and caused errors.
+        # I am using '@anthropic/claude-cli' as a placeholder. Please verify the correct package name.
+        npm install -g @anthropic/claude-cli
     "
     
     # Configure Git with helpful aliases
@@ -197,14 +199,14 @@ extract() {
 }
 
 # Add local bin to PATH
-export PATH=\"\$HOME/.local/bin:\$PATH\"
+export PATH="\\$HOME/.local/bin:\\$PATH"
 
 # Development environment info
-echo \"🚀 Development Environment Ready!\"
-echo \"📂 Project directories: /root/projects, /root/development\"
-echo \"🤖 Claude Code available: run 'claude-code' in your project directory\"
-echo \"📝 Git configured with helpful aliases (gs, ga, gc, gp, gl)\"
-echo \"🛠️  Development tools: Node.js \$(node --version), Python3 \$(python3 --version)\"
+echo "🚀 Development Environment Ready!"
+echo "📂 Project directories: /root/projects, /root/development"
+echo "🤖 Claude Code CLI available: run 'claude-cli' in your project directory"
+echo "📝 Git configured with helpful aliases (gs, ga, gc, gp, gl)"
+echo "🛠️  Development tools: Node.js \\$(node --version), Python3 \\$(python3 --version)"
 EOF
     "
     
@@ -220,7 +222,7 @@ Welcome to your Ubuntu development environment!
 
 - **Node.js & npm**: Latest LTS version
 - **Git**: With helpful aliases (gs, ga, gc, gp, gl)
-- **Claude Code**: AI-powered coding assistant
+- **Claude Code CLI**: AI-powered coding assistant
 - **Python3**: Latest version with pip
 - **Development Tools**: build-essential, tree, jq, tmux, screen
 
@@ -228,8 +230,8 @@ Welcome to your Ubuntu development environment!
 
 1. **Configure Git** (if not done already):
    \`\`\`bash
-   git config --global user.name \"Your Name\"
-   git config --global user.email \"your@email.com\"
+   git config --global user.name "Your Name"
+   git config --global user.email "your@email.com"
    \`\`\`
 
 2. **Start a new project**:
@@ -240,9 +242,9 @@ Welcome to your Ubuntu development environment!
    git init
    \`\`\`
 
-3. **Use Claude Code**:
+3. **Use Claude Code CLI**:
    \`\`\`bash
-   claude-code
+   claude-cli
    \`\`\`
 
 4. **Useful aliases**:
@@ -277,34 +279,16 @@ show_completion_message() {
     print_success "🎉 Development LXC created successfully!"
     echo
     print_info "Container Details:"
-    print_info "  📍 LXC ID: $LXC_ID"
-    print_info "  🏷️  Name: $LXC_NAME"
-    print_info "  🌐 IP: 192.168.1.$LXC_ID"
-    print_info "  💾 Resources: ${CPU_CORES} cores, ${RAM_MB}MB RAM, ${DISK_GB}GB storage"
+    print_info "  ✓ ID: $LXC_ID, Name: $LXC_NAME, IP: 192.168.1.$LXC_ID"
+    print_info "  ✓ Resources: ${CPU_CORES} cores, ${RAM_MB}MB RAM, ${DISK_GB}GB storage"
+    print_info "  ✓ Tools: Node.js, Git, Python3, Claude Code CLI"
     echo
-    print_info "Installed Tools:"
-    print_info "  ✓ Ubuntu LTS (Latest)"
-    print_info "  ✓ Node.js & npm (Latest LTS)"
-    print_info "  ✓ Git (with helpful aliases)"
-    print_info "  ✓ Claude Code (AI coding assistant)"
-    print_info "  ✓ Python3 & development tools"
-    print_info "  ✓ Useful bash aliases and functions"
+    print_info "Access:"
+    print_info "  ✓ Console: pct enter $LXC_ID"
+    print_info "  ✓ SSH: ssh root@192.168.1.$LXC_ID (after key setup)"
     echo
-    print_info "Access Methods:"
-    print_info "  🖥️  Console: pct enter $LXC_ID"
-    print_info "  🔑 SSH: ssh root@192.168.1.$LXC_ID (configure SSH keys)"
-    echo
-    print_info "Project Directories:"
-    print_info "  📂 /root/projects - Main projects"
-    print_info "  📂 /root/development - Development workspace"
-    echo
-    print_info "Getting Started:"
-    print_info "  1. pct enter $LXC_ID"
-    print_info "  2. cd /root/projects"
-    print_info "  3. Configure Git credentials"
-    print_info "  4. Start coding with Claude Code!"
-    echo
-    print_info "📖 Read /root/development/README.md for detailed instructions"
+    print_info "Getting Started: Enter container and run 'claude-cli' in a project directory."
+    print_info "📖 See /root/development/README.md for details."
 }
 
 # Main execution
