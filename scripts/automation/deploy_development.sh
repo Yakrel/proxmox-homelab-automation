@@ -289,7 +289,7 @@ deploy_development_stack() {
 check_root
 
 # Main execution
-print_header "Development Tools Deployment"
+print_step "Development Tools Deployment"
 
 if deploy_development_stack "$DEVELOPMENT_LXC_ID"; then
     print_success "✅ Development environment deployed successfully!"
