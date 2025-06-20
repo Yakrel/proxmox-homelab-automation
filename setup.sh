@@ -60,43 +60,44 @@ main_deployment_menu() {
         case $auto_choice in
             1)
                 echo "Starting automated Proxy stack deployment..."
-                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh"; then
+                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
                     bash "$TEMP_DIR/create_alpine_lxc.sh" proxy
                     bash "$TEMP_DIR/deploy_stack.sh" proxy
                 fi
                 ;;
             2)
                 echo "Starting automated Media stack deployment..."
-                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh"; then
+                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
                     bash "$TEMP_DIR/create_alpine_lxc.sh" media
                     bash "$TEMP_DIR/deploy_stack.sh" media
                 fi
                 ;;
             3)
                 echo "Starting automated Downloads stack deployment..."
-                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh"; then
+                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
                     bash "$TEMP_DIR/create_alpine_lxc.sh" downloads
                     bash "$TEMP_DIR/deploy_stack.sh" downloads
                 fi
                 ;;
             4)
                 echo "Starting automated Utility stack deployment..."
-                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh"; then
+                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
                     bash "$TEMP_DIR/create_alpine_lxc.sh" utility
                     bash "$TEMP_DIR/deploy_stack.sh" utility
                 fi
                 ;;
             5)
                 echo "Starting automated Monitoring stack deployment..."
-                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh"; then
+                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
                     bash "$TEMP_DIR/create_alpine_lxc.sh" monitoring
                     bash "$TEMP_DIR/deploy_stack.sh" monitoring
                 fi
                 ;;
             6)
                 echo "Starting automated Development stack deployment..."
-                if download_script "scripts/automation/create_development_lxc.sh"; then
+                if download_script "scripts/automation/create_development_lxc.sh" && download_script "scripts/automation/deploy_development.sh" && download_script "scripts/utils/common.sh"; then
                     bash "$TEMP_DIR/create_development_lxc.sh" development
+                    bash "$TEMP_DIR/deploy_development.sh"
                 fi
                 ;;
             7)

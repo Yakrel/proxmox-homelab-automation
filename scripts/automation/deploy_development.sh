@@ -7,7 +7,15 @@ set -e
 
 # Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../utils/common.sh"
+# Check if common.sh exists in the same directory (for setup.sh execution)
+if [ -f "$SCRIPT_DIR/common.sh" ]; then
+    source "$SCRIPT_DIR/common.sh"
+elif [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
+    source "$SCRIPT_DIR/../utils/common.sh"
+else
+    echo "ERROR: common.sh not found!"
+    exit 1
+fi
 
 # Configuration
 DEVELOPMENT_LXC_ID=150
