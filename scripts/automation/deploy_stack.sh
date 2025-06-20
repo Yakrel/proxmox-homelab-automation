@@ -7,14 +7,23 @@ set -e
 
 # Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Check if common.sh exists in the same directory (for setup.sh execution)
+
+# Try different locations for common.sh based on execution context
 if [ -f "$SCRIPT_DIR/common.sh" ]; then
     source "$SCRIPT_DIR/common.sh"
 elif [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
     source "$SCRIPT_DIR/../utils/common.sh"
+elif [ -f "scripts/utils/common.sh" ]; then
+    source "scripts/utils/common.sh"
+elif [ -f "/tmp/common.sh" ]; then
+    source "/tmp/common.sh"
 else
-    echo "ERROR: common.sh not found!"
-    exit 1
+    # Define basic print functions if common.sh is not found
+    print_info() { echo "[INFO] $1"; }
+    print_error() { echo "[ERROR] $1"; }
+    print_warning() { echo "[WARNING] $1"; }
+    print_step() { echo "[STEP] $1"; }
+    check_root() { [ "$(id -u)" -eq 0 ] || { echo "This script must be run as root"; exit 1; }; }
 fi
 
 # Configuration
@@ -148,13 +157,10 @@ download_stack_files() {
     local stack_type=$1
     local target_dir=$2
     
-    print_step "Downloading $stack_type stack files from GitHub..."
-    
     # Create target directory if it doesn't exist
     mkdir -p "$target_dir"
     
     # Download docker-compose.yml
-    print_info "Downloading docker-compose.yml..."
     wget -q -O "$target_dir/docker-compose.yml" "$GITHUB_REPO/docker/$stack_type/docker-compose.yml"
     
     if [ $? -ne 0 ]; then
@@ -163,25 +169,15 @@ download_stack_files() {
     fi
     
     # Download .env.example
-    print_info "Downloading .env.example..."
-    wget -q -O "$target_dir/.env.example" "$GITHUB_REPO/docker/$stack_type/.env.example"
-    
-    if [ $? -ne 0 ]; then
-        print_warning "Failed to download .env.example for $stack_type (may not exist)"
-    fi
+    wget -q -O "$target_dir/.env.example" "$GITHUB_REPO/docker/$stack_type/.env.example" 2>/dev/null || true
     
     # Download additional config files for monitoring stack
     if [ "$stack_type" = "monitoring" ]; then
-        print_info "Downloading monitoring configuration files..."
-        wget -q -O "$target_dir/prometheus.yml" "$GITHUB_REPO/docker/monitoring/prometheus.yml"
-        wget -q -O "$target_dir/alertmanager.yml" "$GITHUB_REPO/docker/monitoring/alertmanager.yml"
-        
-        if [ $? -ne 0 ]; then
-            print_warning "Failed to download some monitoring config files"
-        fi
+        wget -q -O "$target_dir/prometheus.yml" "$GITHUB_REPO/docker/monitoring/prometheus.yml" 2>/dev/null || true
+        wget -q -O "$target_dir/alertmanager.yml" "$GITHUB_REPO/docker/monitoring/alertmanager.yml" 2>/dev/null || true
     fi
     
-    print_info "✓ Stack files downloaded successfully"
+    print_info "✓ Stack files downloaded"
     return 0
 }
 
@@ -191,20 +187,15 @@ setup_env_file() {
     local stack_type=$2
     local lxc_id=$3
     
-    print_step "Setting up environment file..."
-    
     # Check if .env exists and is valid
     if validate_env_file "$lxc_id" "$stack_dir/.env" "$stack_type"; then
-        print_info "✓ Existing .env file is valid, preserving configuration"
+        print_info "✓ Existing .env file is valid"
         return 0
     fi
     
     # If .env exists but invalid, back it up
     if pct exec "$lxc_id" -- test -f "$stack_dir/.env" 2>/dev/null; then
-        print_warning "Existing .env file is incomplete, backing up and recreating..."
         backup_env_file "$lxc_id" "$stack_dir/.env"
-    else
-        print_info "No .env file found, creating new configuration..."
     fi
     
     # Download and run interactive setup script
@@ -214,8 +205,18 @@ setup_env_file() {
         chmod +x "$interactive_script"
     fi
     
-    # Run interactive setup for this stack type
-    bash "$interactive_script" "$stack_type" "$(dirname $stack_dir)"
+    # Run interactive setup for this stack type and create .env file in temp directory
+    local temp_stack_dir="$TEMP_DIR/$(basename "$stack_dir")"
+    mkdir -p "$temp_stack_dir"
+    bash "$interactive_script" "$stack_type" "$(dirname "$temp_stack_dir")"
+    
+    # Copy the generated .env file to LXC
+    if [ -f "$temp_stack_dir/.env" ]; then
+        pct push "$lxc_id" "$temp_stack_dir/.env" "$stack_dir/.env"
+    else
+        print_error "Interactive setup failed to create .env file"
+        return 1
+    fi
     
     # Validate the newly created .env file
     if validate_env_file "$lxc_id" "$stack_dir/.env" "$stack_type"; then
@@ -232,29 +233,14 @@ deploy_with_compose() {
     local stack_dir=$1
     local stack_type=$2
     
-    print_step "Deploying $stack_type stack with Docker Compose..."
-    
     cd "$stack_dir"
     
-    # Pull latest images
-    print_info "Pulling latest Docker images..."
-    $DOCKER_COMPOSE_CMD pull
-    
-    if [ $? -ne 0 ]; then
-        print_warning "Some images failed to pull, continuing anyway..."
-    fi
-    
-    # Start services
-    print_info "Starting services..."
+    $DOCKER_COMPOSE_CMD pull >/dev/null 2>&1
     $DOCKER_COMPOSE_CMD up -d
     
     if [ $? -eq 0 ]; then
         print_info "✓ $stack_type stack deployed successfully!"
-        
-        # Show running containers
-        print_info "Running containers:"
         $DOCKER_COMPOSE_CMD ps
-        
         return 0
     else
         print_error "Failed to deploy $stack_type stack"
@@ -766,20 +752,18 @@ deploy_complete_stack() {
     local stack_type=$1
     local lxc_id=$2
     
-    print_info "🚀 Starting complete deployment for $stack_type stack (LXC $lxc_id)"
+    print_info "🚀 Deploying $stack_type stack (LXC $lxc_id)"
     
     # Set target directory inside LXC
     local target_dir="/opt/$stack_type-stack"
     
     # Create directory structure inside LXC
-    print_info "Creating directory structure in LXC..."
     pct exec "$lxc_id" -- mkdir -p "$target_dir"
     
     # Download stack files to temp directory
     download_stack_files "$stack_type" "$TEMP_DIR/$stack_type"
     
     # Copy files to LXC
-    print_info "Copying files to LXC..."
     pct push "$lxc_id" "$TEMP_DIR/$stack_type/docker-compose.yml" "$target_dir/docker-compose.yml"
     
     if [ -f "$TEMP_DIR/$stack_type/.env.example" ]; then
@@ -791,55 +775,36 @@ deploy_complete_stack() {
     
     # Generate monitoring config files with dynamic network configuration
     if [ "$stack_type" = "monitoring" ]; then
-        # Generate configuration files after .env is set up
         generate_monitoring_configs "$lxc_id" "$target_dir"
     fi
-    
-    # Setup environment inside LXC with interactive configuration
-    print_info "Setting up environment in LXC..."
     
     # Interactive configuration for the stack
     setup_env_file "$target_dir" "$stack_type" "$lxc_id"
     
     # For monitoring stack, create PVE monitoring user on host using credentials from .env
     if [ "$stack_type" = "monitoring" ]; then
-        print_info "Setting up Proxmox monitoring user on host..."
-        
         # Read PVE password from .env file (set by interactive_setup.sh)
         local pve_password
         if pct exec "$lxc_id" -- test -f "$target_dir/.env" 2>/dev/null; then
             pve_password=$(pct exec "$lxc_id" -- grep "^PVE_PASSWORD=" "$target_dir/.env" 2>/dev/null | cut -d'=' -f2)
         fi
         
-        if [ -z "$pve_password" ]; then
-            print_warning "PVE password not found in .env file, monitoring user setup will be skipped"
-            print_info "You can manually create the user later: pveum user add monitoring@pve --password <password>"
-            print_info "Then assign PVEAuditor role: pveum acl modify / --users monitoring@pve --roles PVEAuditor"
-        else
-            print_info "Using PVE password from environment configuration"
+        if [ -n "$pve_password" ]; then
             ensure_pve_monitoring_user "monitoring@pve" "$pve_password"
         fi
     fi
     
-    # Deploy stack inside LXC
-    print_info "Deploying stack inside LXC..."
-    
     # Deploy with docker compose (Alpine Docker template uses V2 syntax)
-    pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose pull && docker compose up -d"
+    pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose pull >/dev/null 2>&1 && docker compose up -d"
     
     if [ $? -eq 0 ]; then
-        print_info "🎉 $stack_type stack deployed successfully in LXC $lxc_id!"
+        print_info "🎉 $stack_type stack deployed successfully!"
         
         # Show status
-        print_info "Container status:"
         pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose ps"
         
         # Clean up .env.example file
-        print_info "Cleaning up temporary files..."
-        pct exec "$lxc_id" -- sh -c "cd $target_dir && rm -f .env.example"
-        
-        # Show important notes
-        print_info "Stack deployed successfully to $target_dir"
+        pct exec "$lxc_id" -- sh -c "cd $target_dir && rm -f .env.example" 2>/dev/null || true
         
         # Add stack-specific configuration notes
         if [ "$stack_type" = "media" ]; then

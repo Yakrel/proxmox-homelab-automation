@@ -16,14 +16,22 @@ trap cleanup_temp_files EXIT
 
 # Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Check if common.sh exists in the same directory (for setup.sh execution)
+
+# Try different locations for common.sh based on execution context
 if [ -f "$SCRIPT_DIR/common.sh" ]; then
     source "$SCRIPT_DIR/common.sh"
 elif [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
     source "$SCRIPT_DIR/../utils/common.sh"
+elif [ -f "scripts/utils/common.sh" ]; then
+    source "scripts/utils/common.sh"
+elif [ -f "/tmp/common.sh" ]; then
+    source "/tmp/common.sh"
 else
-    echo "ERROR: common.sh not found!"
-    exit 1
+    # Define basic print functions if common.sh is not found
+    print_info() { echo "[INFO] $1"; }
+    print_error() { echo "[ERROR] $1"; }
+    print_warning() { echo "[WARNING] $1"; }
+    print_step() { echo "[STEP] $1"; }
 fi
 
 # Minimal password validation function
