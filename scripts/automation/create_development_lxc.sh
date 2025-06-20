@@ -207,7 +207,8 @@ EOF
 - SSH: \`ssh root@192.168.1.150\`
 EOF
     "
-    
+}
+
 # Function to display completion message
 show_completion_message() {
     print_success "🎉 Development LXC created successfully!"

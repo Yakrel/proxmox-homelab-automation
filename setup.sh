@@ -95,9 +95,8 @@ main_deployment_menu() {
                 ;;
             6)
                 echo "Starting automated Development stack deployment..."
-                if download_script "scripts/automation/create_development_lxc.sh" && download_script "scripts/automation/deploy_development.sh" && download_script "scripts/utils/common.sh"; then
+                if download_script "scripts/automation/create_development_lxc.sh" && download_script "scripts/utils/common.sh"; then
                     bash "$TEMP_DIR/create_development_lxc.sh" development
-                    bash "$TEMP_DIR/deploy_development.sh"
                 fi
                 ;;
             7)
