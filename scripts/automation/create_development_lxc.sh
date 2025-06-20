@@ -156,12 +156,7 @@ setup_development_environment() {
         git config --global init.defaultBranch main
     "
     
-    # Create development directories
-    print_info "Creating development directories..."
-    pct exec "$LXC_ID" -- bash -c "
-        mkdir -p /root/projects
-        mkdir -p /root/development
-    "
+
     
     # Setup bash environment
     print_info "Configuring bash environment..."
@@ -179,14 +174,6 @@ alias ga='git add'
 alias gc='git commit'
 alias gp='git push'
 alias gl='git log --oneline --graph --decorate'
-alias projects='cd /root/projects'
-alias dev='cd /root/development'
-
-# Welcome message
-echo \"🚀 Development Environment Ready!\"
-echo \"📂 Projects: /root/projects\"
-echo \"🛠️  Tools: Node.js, Git, Python3, Claude Code\"
-echo \"💡 Start with: claude-code\"
 EOF
     "
     
@@ -210,42 +197,7 @@ EOF
         systemctl daemon-reload >/dev/null 2>&1
     "
     
-    # Create README
-    print_info "Creating documentation..."
-    pct exec "$LXC_ID" -- bash -c "
-        cat > /root/development/README.md << 'EOF'
-# Development Environment
 
-## Available Tools
-- Node.js & npm (Latest LTS)
-- Git with aliases (gs, ga, gc, gp, gl)
-- Claude Code CLI
-- Python3 with pip
-- Development tools (build-essential, tree, jq)
-
-## Getting Started
-1. Configure Git:
-   \`\`\`bash
-   git config --global user.name \"Your Name\"
-   git config --global user.email \"your@email.com\"
-   \`\`\`
-
-2. Start a project:
-   \`\`\`bash
-   cd /root/projects
-   mkdir my-project && cd my-project
-   git init
-   \`\`\`
-
-3. Use Claude Code:
-   \`\`\`bash
-   claude-code
-   \`\`\`
-
-## Access
-- Console: \`pct enter 150\` (passwordless)
-EOF
-    "
 }
 
 # Function to display completion message
@@ -260,9 +212,6 @@ show_completion_message() {
     echo
     print_info "Access:"
     print_info "  ✓ Console: pct enter $LXC_ID (passwordless)"
-    print_info "  ✓ Direct console access without password prompt"
-    echo
-    print_info "Getting Started: Enter container and run 'claude-code'"
 }
 
 # Main execution
