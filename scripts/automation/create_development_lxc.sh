@@ -1,13 +1,12 @@
 #!/bin/bash
 
 # Development LXC Creation and Setup Script
-# Creates Ubuntu LXC with development tools, Git, and Claude Code
+# Creates Ubuntu LXC with development tools and Claude Code
 
-set -e
+set -euo pipefail
 
 # Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Check if common.sh exists in the same directory (for setup.sh execution)
 if [ -f "$SCRIPT_DIR/common.sh" ]; then
     source "$SCRIPT_DIR/common.sh"
 elif [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
@@ -18,19 +17,11 @@ else
 fi
 
 # Development LXC Configuration
-LXC_ID=150
-LXC_NAME="lxc-development-01"
-CPU_CORES=2
-RAM_MB=4096
-DISK_GB=12
-
-# Function to check if running as root
-check_root() {
-    if [ "$EUID" -ne 0 ]; then
-        print_error "This script must be run as root"
-        exit 1
-    fi
-}
+readonly LXC_ID=150
+readonly LXC_NAME="lxc-development-01"
+readonly CPU_CORES=2
+readonly RAM_MB=4096
+readonly DISK_GB=12
 
 # Function to create Ubuntu LXC
 create_ubuntu_lxc() {
@@ -54,30 +45,25 @@ create_ubuntu_lxc() {
         esac
     fi
     
-    print_step "Creating Ubuntu LXC using Proxmox commands..."
+    print_step "Creating Ubuntu LXC..."
     
-    # Use datapool storage
+    # Storage configuration
     local template_storage="datapool"
     local disk_storage="datapool"
     
-    # Get latest Ubuntu template
-    print_step "Finding latest Ubuntu template..."
-    local template_name=$(pveam available | grep ubuntu | grep 22.04 | head -1 | awk '{print $2}')
+    # Get Ubuntu 22.04 LTS template
+    local template_name=$(pveam available 2>/dev/null | grep ubuntu | grep 22.04 | head -1 | awk '{print $2}')
     if [ -z "$template_name" ]; then
         template_name="ubuntu-22.04-standard_22.04-1_amd64.tar.zst"
     fi
     
-    # Download template if not exists
-    print_step "Downloading Ubuntu template: $template_name"
-    if ! pveam list "$template_storage" | grep -q "$template_name"; then
-        print_info "Downloading template to $template_storage..."
-        pveam download "$template_storage" "$template_name"
-    else
-        print_info "Template already exists in $template_storage"
+    # Download template if needed
+    if ! pveam list "$template_storage" 2>/dev/null | grep -q "$template_name"; then
+        print_info "Downloading template..."
+        pveam download "$template_storage" "$template_name" >/dev/null 2>&1
     fi
     
     # Create LXC container
-    print_step "Creating LXC container $LXC_ID..."
     if pct create "$LXC_ID" "$template_storage:vztmpl/$template_name" \
         --hostname "$LXC_NAME" \
         --cores "$CPU_CORES" \
@@ -87,18 +73,14 @@ create_ubuntu_lxc() {
         --nameserver "192.168.1.1" \
         --onboot 1 \
         --unprivileged 1 \
-        --features "nesting=1"; then
+        --features "nesting=1" >/dev/null 2>&1; then
         
-        print_info "✓ LXC container created successfully!"
-        
-        # Start the container
-        print_step "Starting LXC container..."
-        pct start "$LXC_ID"
+        print_info "✓ LXC container created successfully"
+        pct start "$LXC_ID" >/dev/null 2>&1
         wait_for_container_ready "$LXC_ID"
-        
         return 0
     else
-        print_error "Failed to create LXC container!"
+        print_error "Failed to create LXC container"
         return 1
     fi
 }
@@ -107,43 +89,50 @@ create_ubuntu_lxc() {
 setup_development_environment() {
     print_step "Setting up development environment..."
     
-    # Update system and install basic packages
-    print_info "Updating system and installing basic packages..."
+    # Update system and configure locales (silent)
+    print_info "Updating system and configuring locales..."
     pct exec "$LXC_ID" -- bash -c "
         export DEBIAN_FRONTEND=noninteractive
-        apt-get update -y -qq
-        apt-get upgrade -y -qq
-        apt-get install -y -qq curl wget git nano vim tree jq tmux screen \\
-            build-essential python3 python3-pip unzip ca-certificates \\
-            gnupg lsb-release software-properties-common
+        apt-get update -qq >/dev/null 2>&1
+        apt-get upgrade -qq >/dev/null 2>&1
+        apt-get install -qq locales >/dev/null 2>&1
+        locale-gen en_US.UTF-8 >/dev/null 2>&1
+        update-locale LANG=en_US.UTF-8 >/dev/null 2>&1
     "
     
-    # Install Node.js LTS
+    # Install basic packages (silent)
+    print_info "Installing basic development packages..."
+    pct exec "$LXC_ID" -- bash -c "
+        export DEBIAN_FRONTEND=noninteractive
+        export LANG=en_US.UTF-8
+        apt-get install -qq curl wget git nano vim tree jq tmux screen \
+            build-essential python3 python3-pip unzip ca-certificates \
+            gnupg lsb-release >/dev/null 2>&1
+    "
+    
+    # Install Node.js LTS (silent)
     print_info "Installing Node.js LTS..."
     pct exec "$LXC_ID" -- bash -c "
+        export DEBIAN_FRONTEND=noninteractive
+        export LANG=en_US.UTF-8
         curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - >/dev/null 2>&1
-        apt-get install -y -qq nodejs
+        apt-get install -qq nodejs >/dev/null 2>&1
         npm install -g npm@latest >/dev/null 2>&1
     "
     
-    # Install Claude Code
+    # Install Claude Code CLI (official package)
     print_info "Installing Claude Code CLI..."
     pct exec "$LXC_ID" -- bash -c "
-        # NOTE: The package name '@anthropic/claude-code' appears to be incorrect and caused errors.
-        # I am using '@anthropic/claude-cli' as a placeholder. Please verify the correct package name.
-        npm install -g @anthropic/claude-cli
-    "
+        export LANG=en_US.UTF-8
+        npm install -g @anthropic-ai/claude-code >/dev/null 2>&1
+    " || print_warning "Claude Code installation failed, continuing..."
     
-    # Configure Git with helpful aliases
-    print_info "Configuring Git with helpful aliases..."
+    # Configure Git aliases
+    print_info "Configuring Git..."
     pct exec "$LXC_ID" -- bash -c "
+        export LANG=en_US.UTF-8
         git config --global alias.st status
-        git config --global alias.co checkout
-        git config --global alias.br branch
-        git config --global alias.ci commit
         git config --global alias.lg 'log --oneline --graph --decorate --all'
-        git config --global alias.last 'log -1 HEAD'
-        git config --global alias.unstage 'reset HEAD --'
         git config --global init.defaultBranch main
     "
     
@@ -152,128 +141,73 @@ setup_development_environment() {
     pct exec "$LXC_ID" -- bash -c "
         mkdir -p /root/projects
         mkdir -p /root/development
-        mkdir -p /root/.local/bin
     "
     
-    # Setup useful bash aliases and environment
+    # Setup bash environment
     print_info "Configuring bash environment..."
     pct exec "$LXC_ID" -- bash -c "
         cat >> /root/.bashrc << 'EOF'
 
-# Development environment aliases
+# Development environment
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
+# Aliases
 alias ll='ls -alF'
-alias la='ls -A'
-alias l='ls -CF'
 alias gs='git status'
 alias ga='git add'
 alias gc='git commit'
 alias gp='git push'
 alias gl='git log --oneline --graph --decorate'
-alias ..='cd ..'
-alias ...='cd ../..'
-alias grep='grep --color=auto'
-alias fgrep='fgrep --color=auto'
-alias egrep='egrep --color=auto'
+alias projects='cd /root/projects'
+alias dev='cd /root/development'
 
-# Useful functions
-mkcd() { mkdir -p \"\$1\" && cd \"\$1\"; }
-extract() {
-    if [ -f \$1 ] ; then
-        case \$1 in
-            *.tar.bz2)   tar xjf \$1     ;;
-            *.tar.gz)    tar xzf \$1     ;;
-            *.bz2)       bunzip2 \$1     ;;
-            *.rar)       unrar e \$1     ;;
-            *.gz)        gunzip \$1      ;;
-            *.tar)       tar xf \$1      ;;
-            *.tbz2)      tar xjf \$1     ;;
-            *.tgz)       tar xzf \$1     ;;
-            *.zip)       unzip \$1       ;;
-            *.Z)         uncompress \$1  ;;
-            *.7z)        7z x \$1        ;;
-            *)     echo \"'\$1' cannot be extracted via extract()\" ;;
-        esac
-    else
-        echo \"'\$1' is not a valid file\"
-    fi
-}
-
-# Add local bin to PATH
-export PATH="\\$HOME/.local/bin:\\$PATH"
-
-# Development environment info
-echo "🚀 Development Environment Ready!"
-echo "📂 Project directories: /root/projects, /root/development"
-echo "🤖 Claude Code CLI available: run 'claude-cli' in your project directory"
-echo "📝 Git configured with helpful aliases: gs, ga, gc, gp, gl"
-echo "🛠️  Development tools: Node.js and Python3 available"
+# Welcome message
+echo \"🚀 Development Environment Ready!\"
+echo \"📂 Projects: /root/projects\"
+echo \"🛠️  Tools: Node.js, Git, Python3, Claude Code\"
+echo \"💡 Start with: claude-code\"
 EOF
     "
     
-    # Create a welcome script
-    print_info "Creating welcome script..."
+    # Create README
+    print_info "Creating documentation..."
     pct exec "$LXC_ID" -- bash -c "
         cat > /root/development/README.md << 'EOF'
 # Development Environment
 
-Welcome to your Ubuntu development environment!
-
 ## Available Tools
-
-- **Node.js & npm**: Latest LTS version
-- **Git**: With helpful aliases (gs, ga, gc, gp, gl)
-- **Claude Code CLI**: AI-powered coding assistant
-- **Python3**: Latest version with pip
-- **Development Tools**: build-essential, tree, jq, tmux, screen
+- Node.js & npm (Latest LTS)
+- Git with aliases (gs, ga, gc, gp, gl)
+- Claude Code CLI
+- Python3 with pip
+- Development tools (build-essential, tree, jq)
 
 ## Getting Started
-
-1. **Configure Git** (if not done already):
+1. Configure Git:
    \`\`\`bash
-   git config --global user.name "Your Name"
-   git config --global user.email "your@email.com"
+   git config --global user.name \"Your Name\"
+   git config --global user.email \"your@email.com\"
    \`\`\`
 
-2. **Start a new project**:
+2. Start a project:
    \`\`\`bash
    cd /root/projects
-   mkdir my-project
-   cd my-project
+   mkdir my-project && cd my-project
    git init
    \`\`\`
 
-3. **Use Claude Code CLI**:
+3. Use Claude Code:
    \`\`\`bash
-   claude-cli
+   claude-code
    \`\`\`
 
-4. **Useful aliases**:
-   - \`gs\` = git status
-   - \`ga\` = git add
-   - \`gc\` = git commit
-   - \`gp\` = git push
-   - \`gl\` = git log (graph view)
-   - \`ll\` = ls -alF
-   - \`mkcd folder\` = mkdir + cd
-
-## Project Directories
-
-- \`/root/projects\` - Your main projects
-- \`/root/development\` - Development workspace
-- \`/root/.local/bin\` - Local binaries (in PATH)
-
 ## Access
-
-- **Console**: \`pct enter 150\` from Proxmox host
-- **SSH**: \`ssh root@192.168.1.150\` (configure SSH keys)
-
-Happy coding! 🎉
+- Console: \`pct enter 150\`
+- SSH: \`ssh root@192.168.1.150\`
 EOF
     "
     
-    print_info "✓ Development environment setup completed!"
-}
-
 # Function to display completion message
 show_completion_message() {
     print_success "🎉 Development LXC created successfully!"
@@ -281,41 +215,27 @@ show_completion_message() {
     print_info "Container Details:"
     print_info "  ✓ ID: $LXC_ID, Name: $LXC_NAME, IP: 192.168.1.$LXC_ID"
     print_info "  ✓ Resources: ${CPU_CORES} cores, ${RAM_MB}MB RAM, ${DISK_GB}GB storage"
-    print_info "  ✓ Tools: Node.js, Git, Python3, Claude Code CLI"
+    print_info "  ✓ Tools: Node.js, Git, Python3, Claude Code"
     echo
     print_info "Access:"
     print_info "  ✓ Console: pct enter $LXC_ID"
-    print_info "  ✓ SSH: ssh root@192.168.1.$LXC_ID (after key setup)"
+    print_info "  ✓ SSH: ssh root@192.168.1.$LXC_ID"
     echo
-    print_info "Getting Started: Enter container and run 'claude-cli' in a project directory."
-    print_info "📖 See /root/development/README.md for details."
+    print_info "Getting Started: Enter container and run 'claude-code'"
 }
 
 # Main execution
 main() {
-    print_info "🚀 Starting Development LXC Creation and Setup..."
+    print_info "🚀 Starting Development LXC Creation..."
     
-    # Check prerequisites
     check_root
     
-    # Create Ubuntu LXC
-    if create_ubuntu_lxc; then
-        print_info "✓ LXC creation completed"
+    if create_ubuntu_lxc && setup_development_environment; then
+        show_completion_message
     else
-        print_error "Failed to create LXC"
+        print_error "Failed to create development environment"
         exit 1
     fi
-    
-    # Setup development environment
-    if setup_development_environment; then
-        print_info "✓ Development environment setup completed"
-    else
-        print_error "Failed to setup development environment"
-        exit 1
-    fi
-    
-    # Show completion message
-    show_completion_message
 }
 
 # Input validation
@@ -324,10 +244,8 @@ if [ $# -gt 1 ]; then
     exit 1
 fi
 
-# Accept 'development' parameter for consistency with other scripts
 if [ $# -eq 1 ] && [ "$1" != "development" ]; then
     print_error "Invalid parameter: $1"
-    print_error "Usage: $0 [development]"
     exit 1
 fi
 
