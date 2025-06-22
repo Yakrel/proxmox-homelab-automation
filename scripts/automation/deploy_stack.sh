@@ -745,18 +745,33 @@ EOF
 update_existing_stack() {
     local lxc_id=$1
     local stack_dir=$2
+    local stack_type=$3
     
     print_info "Updating existing stack in LXC $lxc_id..."
     
-    # For monitoring stack, regenerate configurations
-    if [[ "$stack_dir" == *"monitoring"* ]]; then
+    # Download latest compose files from GitHub
+    print_info "Downloading latest Docker Compose files..."
+    download_stack_files "$stack_type" "$TEMP_DIR/$stack_type"
+    
+    # Update compose files in LXC
+    pct push "$lxc_id" "$TEMP_DIR/$stack_type/docker-compose.yml" "$stack_dir/docker-compose.yml"
+    
+    # Copy additional config files for monitoring stack
+    if [ "$stack_type" = "monitoring" ]; then
+        if [ -f "$TEMP_DIR/$stack_type/prometheus.yml" ]; then
+            pct push "$lxc_id" "$TEMP_DIR/$stack_type/prometheus.yml" "$stack_dir/prometheus.yml"
+        fi
+        if [ -f "$TEMP_DIR/$stack_type/alertmanager.yml" ]; then
+            pct push "$lxc_id" "$TEMP_DIR/$stack_type/alertmanager.yml" "$stack_dir/alertmanager.yml"
+        fi
+        # Regenerate monitoring configurations
         generate_monitoring_configs "$lxc_id" "$stack_dir"
     fi
     
     # Update Docker images and restart services
     pct exec "$lxc_id" -- bash -c "cd '$stack_dir' && docker compose pull && docker compose up -d"
     
-    print_info "✓ Stack updated successfully"
+    print_info "✓ Stack updated successfully with latest compose files"
 }
 
 
@@ -806,6 +821,9 @@ deploy_complete_stack() {
             ensure_pve_monitoring_user "monitoring@pve" "$pve_password"
         fi
     fi
+    
+    # Ensure Docker daemon is ready before deployment
+    ensure_docker_ready "$lxc_id"
     
     # Deploy with docker compose (Alpine Docker template uses V2 syntax)
     pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose pull >/dev/null 2>&1 && docker compose up -d"
@@ -886,7 +904,7 @@ fi
 # Check if LXC exists and has existing stack
 if pct status "$LXC_ID" &>/dev/null && pct exec "$LXC_ID" -- test -d "/opt/$STACK_TYPE-stack"; then
     print_info "🔍 Found existing $STACK_TYPE stack in LXC $LXC_ID - updating compose files..."
-    update_existing_stack "$LXC_ID" "/opt/$STACK_TYPE-stack"
+    update_existing_stack "$LXC_ID" "/opt/$STACK_TYPE-stack" "$STACK_TYPE"
 else
     deploy_complete_stack "$STACK_TYPE" "$LXC_ID"
 fi

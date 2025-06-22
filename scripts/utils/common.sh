@@ -128,9 +128,17 @@ ensure_datapool_mount() {
                 print_info "✓ /datapool mount is accessible"
                 return 0
             else
-                print_warning "Mount exists but not accessible - container may need manual restart"
-                print_info "You can restart the container with: pct restart $lxc_id"
-                return 0
+                print_warning "Mount exists but not accessible - attempting remount"
+                # Try to remount without full restart
+                pct exec "$lxc_id" -- mount -a 2>/dev/null || true
+                if pct exec "$lxc_id" -- test -d /datapool 2>/dev/null; then
+                    print_info "✓ /datapool mount remounted successfully"
+                    return 0
+                else
+                    print_warning "Remount failed - container may need manual restart"
+                    print_info "You can restart the container with: pct restart $lxc_id"
+                    return 0
+                fi
             fi
         fi
         return 0
