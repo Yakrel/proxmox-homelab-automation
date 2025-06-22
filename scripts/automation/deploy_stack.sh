@@ -87,14 +87,21 @@ validate_env_file() {
         fi
     done
     
-    # Check optional variables (warn but don't fail)
+    # Check optional variables (inform but don't fail)
     for var in $optional_vars; do
         if ! pct exec "$lxc_id" -- grep -q "^${var}=" "$env_file" 2>/dev/null; then
             print_info "Optional variable not set: $var"
         else
             local value=$(pct exec "$lxc_id" -- grep "^${var}=" "$env_file" 2>/dev/null | cut -d'=' -f2- | tr -d '"')
             if [ -z "$value" ]; then
-                print_info "Optional variable empty: $var"
+                # For API keys, empty is normal until configured via web UI
+                if [[ "$var" == *"API_KEY"* ]]; then
+                    print_info "API key $var will be configured via web interface"
+                else
+                    print_info "Optional variable empty: $var"
+                fi
+            else
+                print_info "\u2713 Found $var: [configured]"
             fi
         fi
     done
@@ -208,6 +215,12 @@ setup_env_file() {
     # Run interactive setup for this stack type and create .env file in temp directory
     local temp_stack_dir="$TEMP_DIR/$(basename "$stack_dir")"
     mkdir -p "$temp_stack_dir"
+    
+    # Copy existing .env to temp directory for smart merging
+    if pct exec "$lxc_id" -- test -f "$stack_dir/.env" 2>/dev/null; then
+        pct pull "$lxc_id" "$stack_dir/.env" "$temp_stack_dir/.env" 2>/dev/null || true
+    fi
+    
     bash "$interactive_script" "$stack_type" "$(dirname "$temp_stack_dir")"
     
     # Copy the generated .env file to LXC
@@ -873,7 +886,7 @@ fi
 # Check if LXC exists and has existing stack
 if pct status "$LXC_ID" &>/dev/null && pct exec "$LXC_ID" -- test -d "/opt/$STACK_TYPE-stack"; then
     print_info "🔍 Found existing $STACK_TYPE stack in LXC $LXC_ID - updating compose files..."
-    update_existing_stack "$STACK_TYPE" "$LXC_ID"
+    update_existing_stack "$LXC_ID" "/opt/$STACK_TYPE-stack"
 else
     deploy_complete_stack "$STACK_TYPE" "$LXC_ID"
 fi
