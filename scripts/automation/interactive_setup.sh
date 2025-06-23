@@ -1,198 +1,65 @@
 #!/bin/bash
 
 # Interactive Password and Configuration Setup Script
-# Prompts user for passwords and creates .env files automatically
+# Simplified version using unified functions from common.sh
 
 set -e
 
-# Cleanup temporary files on exit
-TEMP_FILES=()
-cleanup_temp_files() {
-    for temp_file in "${TEMP_FILES[@]}"; do
-        [ -f "$temp_file" ] && rm -f "$temp_file"
-    done
-}
-trap cleanup_temp_files EXIT
-
-# Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source common.sh from utils directory
+# Source common utilities
 if [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
     source "$SCRIPT_DIR/../utils/common.sh"
 elif [ -f "/tmp/common.sh" ]; then
     source "/tmp/common.sh"
 else
-    # Define basic print functions if common.sh is not found
-    print_info() { echo "[INFO] $1"; }
-    print_error() { echo "[ERROR] $1"; }
-    print_warning() { echo "[WARNING] $1"; }
-    print_step() { echo "[STEP] $1"; }
+    echo "[ERROR] common.sh not found!" >&2
+    exit 1
 fi
 
-# Minimal password validation function
-validate_password_strength() {
-    local password=$1
-    
-    # Only check for completely empty passwords
-    if [ -z "$password" ]; then
-        print_error "Password cannot be empty"
-        return 1
-    fi
-    
-    return 0
-}
-
-# Generate random string for encryption keys
-generate_random_string() {
-    local length=${1:-32}
-    openssl rand -base64 48 | tr -d "=+/" | cut -c1-${length}
-}
-
-# Simple validation helper
-check_empty() {
-    [ -z "$1" ] && { print_error "$2 required"; return 1; }
-    return 0
-}
-
-# Function to get secure password input with enhanced validation
-get_password() {
-    local prompt=$1
-    local password
-    local password_confirm
-    local attempt=1
-    local max_attempts=3
-    
-    while [ $attempt -le $max_attempts ]; do
-        # Clear any previous input
-        read -t 0.1 -n 10000 discard 2>/dev/null || true
-        
-        # Add attempt counter for user feedback
-        if [ $attempt -gt 1 ]; then
-            print_info "Password attempt $attempt/$max_attempts"
-        fi
-        
-        printf "%s: " "$prompt"
-        read -s password
-        echo ""
-        
-        if ! validate_password_strength "$password"; then
-            print_warning "Please enter a non-empty password"
-            attempt=$((attempt + 1))
-            continue
-        fi
-        
-        # Clear any previous input before confirmation
-        read -t 0.1 -n 10000 discard 2>/dev/null || true
-        
-        printf "Confirm password: "
-        read -s password_confirm
-        echo ""
-        
-        if [ "$password" = "$password_confirm" ]; then
-            # Use printf to avoid newlines that get captured by command substitution
-            printf "%s" "$password"
-            return 0
-        else
-            print_error "Passwords do not match. Please try again."
-            attempt=$((attempt + 1))
-            
-            # Add delay before retry to prevent rapid retries
-            if [ $attempt -le $max_attempts ]; then
-                sleep 1
-            fi
-        fi
-    done
-    
-    print_error "Failed to set password after $max_attempts attempts"
-    return 1
-}
-
-# Helper function to create common environment settings
-create_common_env_content() {
-    local stack_name=$1
-    local custom_content=$2
-    
-    cat << EOF
-# ${stack_name} Stack Environment Variables - Generated $(date)
-
-# Timezone setting
-TZ=Europe/Istanbul
-
-# PUID/PGID for file permissions (currently testing unified 1000)
-# FALLBACK: Use stack-specific values if issues occur
-PUID=1000
-PGID=1000
-
-${custom_content}
-EOF
-}
-
-# Simple .env file creation
-create_env_file() {
-    local target_file=$1
-    local stack_name=$2
-    local custom_content=$3
-    
-    create_common_env_content "$stack_name" "$custom_content" > "$target_file"
-    chmod 600 "$target_file"
-}
-
-# Function to setup proxy stack environment with smart merging
+# Function to setup proxy stack environment
 setup_proxy_env() {
     local stack_dir=$1
     local env_file="$stack_dir/.env"
     
     print_step "Setting up Proxy stack environment..."
     
-    # Read existing values if file exists
+    # Check for existing token
     local existing_token=$(get_existing_env_value "$env_file" "CLOUDFLARED_TOKEN")
     
-    # Show what we're preserving
     if [ -n "$existing_token" ]; then
         print_info "✓ Preserving existing Cloudflare tunnel token: ${existing_token:0:8}..."
     fi
     
     local cloudflare_token="$existing_token"
     if [ -z "$cloudflare_token" ]; then
-        # Get Cloudflare tunnel token with validation
         while true; do
             echo -n "Enter your Cloudflare tunnel token: "
             read cloudflare_token
             
-            if check_empty "$cloudflare_token" "Cloudflare token"; then
+            if [ -n "$cloudflare_token" ]; then
                 break
             fi
             print_warning "Please enter a valid Cloudflare tunnel token"
         done
     fi
     
-    # Create .env file with common settings and proxy-specific content
+    # Create .env file
     local proxy_content="# Cloudflare tunnel token for secure connections
 CLOUDFLARED_TOKEN='$cloudflare_token'"
     
-    create_env_file "$env_file" "Proxy" "$proxy_content"
+    create_stack_env_file "$env_file" "Proxy" "$proxy_content"
     return $?
 }
 
-# Function to read existing env value
-get_existing_env_value() {
-    local env_file=$1
-    local var_name=$2
-    
-    if [ -f "$env_file" ]; then
-        grep "^${var_name}=" "$env_file" 2>/dev/null | cut -d'=' -f2- | tr -d '"'
-    fi
-}
-
-# Function to setup media stack environment with smart merging
+# Function to setup media stack environment
 setup_media_env() {
     local stack_dir=$1
     local env_file="$stack_dir/.env"
     
     print_step "Setting up Media stack environment..."
     
-    # Read existing values if file exists
+    # Check for existing values
     local existing_sonarr_key=$(get_existing_env_value "$env_file" "SONARR_API_KEY")
     local existing_radarr_key=$(get_existing_env_value "$env_file" "RADARR_API_KEY")
     local existing_qb_username=$(get_existing_env_value "$env_file" "QB_USERNAME")
@@ -209,7 +76,7 @@ setup_media_env() {
         print_info "✓ Preserving existing qBittorrent username: $existing_qb_username"
     fi
     if [ -n "$existing_qb_password" ]; then
-        print_info "✓ Preserving existing qBittorrent password: [hidden]"
+        print_info "✓ Preserving existing qBittorrent password"
     fi
     
     # Use existing values or defaults
@@ -218,7 +85,7 @@ setup_media_env() {
     local qb_username=${existing_qb_username:-"admin"}
     local qb_password=${existing_qb_password:-""}
     
-    # Media stack content with preserved/default values
+    # Create .env file
     local media_content="# API Keys for service integration (get from web UIs after deployment)
 # Sonarr API Key (get from: Settings > General > API Key)
 SONARR_API_KEY='$sonarr_key'
@@ -230,7 +97,7 @@ RADARR_API_KEY='$radarr_key'
 QB_USERNAME='$qb_username'
 QB_PASSWORD='$qb_password'"
     
-    create_env_file "$env_file" "Media" "$media_content"
+    create_stack_env_file "$env_file" "Media" "$media_content"
     
     # Show guidance for empty API keys
     if [ -z "$existing_sonarr_key" ] || [ -z "$existing_radarr_key" ]; then
@@ -248,18 +115,17 @@ QB_PASSWORD='$qb_password'"
     return $?
 }
 
-# Function to setup files stack environment with smart merging
+# Function to setup files stack environment
 setup_files_env() {
     local stack_dir=$1
     local env_file="$stack_dir/.env"
     
     print_step "Setting up Files stack environment..."
     
-    # Read existing values if file exists
+    # Check for existing values
     local existing_password=$(get_existing_env_value "$env_file" "JDOWNLOADER_VNC_PASSWORD")
     local existing_encryption_key=$(get_existing_env_value "$env_file" "PALMR_ENCRYPTION_KEY")
     
-    # Show what we're preserving
     if [ -n "$existing_password" ]; then
         print_info "✓ Preserving existing JDownloader VNC password"
     fi
@@ -269,7 +135,7 @@ setup_files_env() {
     
     local jdownloader_password="$existing_password"
     if [ -z "$jdownloader_password" ]; then
-        jdownloader_password=$(get_password "Enter JDownloader VNC password (min 8 chars)")
+        jdownloader_password=$(get_simple_password "Enter JDownloader VNC password")
         if [ $? -ne 0 ] || [ -z "$jdownloader_password" ]; then
             print_error "Failed to get JDownloader VNC password"
             return 1
@@ -278,61 +144,60 @@ setup_files_env() {
     
     local palmr_encryption_key="$existing_encryption_key"
     if [ -z "$palmr_encryption_key" ]; then
-        palmr_encryption_key=$(generate_random_string 32)
+        palmr_encryption_key=$(generate_encryption_key 32)
         print_info "Generated Palmr encryption key (32 chars)"
     fi
     
-    # Create .env file with common settings and files-specific content
+    # Create .env file
     local files_content="# JDownloader2 VNC password for web interface access
 JDOWNLOADER_VNC_PASSWORD='$jdownloader_password'
 
 # Palmr encryption key for secure file sharing (32 chars minimum)
 PALMR_ENCRYPTION_KEY='$palmr_encryption_key'"
     
-    create_env_file "$env_file" "Files" "$files_content"
+    create_stack_env_file "$env_file" "Files" "$files_content"
     return $?
 }
 
-# Function to setup webtools stack environment with smart merging
+# Function to setup webtools stack environment
 setup_webtools_env() {
     local stack_dir=$1
     local env_file="$stack_dir/.env"
     
     print_step "Setting up Webtools stack environment..."
     
-    # Read existing values if file exists
+    # Check for existing password
     local existing_password=$(get_existing_env_value "$env_file" "FIREFOX_VNC_PASSWORD")
     
-    # Show what we're preserving
     if [ -n "$existing_password" ]; then
         print_info "✓ Preserving existing Firefox VNC password"
     fi
     
     local firefox_password="$existing_password"
     if [ -z "$firefox_password" ]; then
-        firefox_password=$(get_password "Enter Firefox VNC password (min 8 chars)")
+        firefox_password=$(get_simple_password "Enter Firefox VNC password")
         if [ $? -ne 0 ] || [ -z "$firefox_password" ]; then
             print_error "Failed to get Firefox VNC password"
             return 1
         fi
     fi
     
-    # Create .env file with common settings and webtools-specific content
+    # Create .env file
     local webtools_content="# Firefox VNC password for web interface access
 FIREFOX_VNC_PASSWORD='$firefox_password'"
     
-    create_env_file "$env_file" "Webtools" "$webtools_content"
+    create_stack_env_file "$env_file" "Webtools" "$webtools_content"
     return $?
 }
 
-# Function to setup monitoring stack environment with smart merging
+# Function to setup monitoring stack environment
 setup_monitoring_env() {
     local stack_dir=$1
     local env_file="$stack_dir/.env"
     
     print_step "Setting up Monitoring stack environment..."
     
-    # Read existing values if file exists
+    # Check for existing values
     local existing_grafana_pwd=$(get_existing_env_value "$env_file" "GRAFANA_ADMIN_PASSWORD")
     local existing_pve_pwd=$(get_existing_env_value "$env_file" "PVE_PASSWORD")
     local existing_email=$(get_existing_env_value "$env_file" "GMAIL_ADDRESS")
@@ -355,7 +220,7 @@ setup_monitoring_env() {
     # Get missing values only
     local grafana_password="$existing_grafana_pwd"
     if [ -z "$grafana_password" ]; then
-        grafana_password=$(get_password "Enter Grafana admin password (min 8 chars)")
+        grafana_password=$(get_simple_password "Enter Grafana admin password")
         if [ $? -ne 0 ] || [ -z "$grafana_password" ]; then
             print_error "Failed to get Grafana admin password"
             return 1
@@ -364,7 +229,7 @@ setup_monitoring_env() {
     
     local pve_password="$existing_pve_pwd"
     if [ -z "$pve_password" ]; then
-        pve_password=$(get_password "Enter Proxmox monitoring user password (min 8 chars)")
+        pve_password=$(get_simple_password "Enter Proxmox monitoring user password")
         if [ $? -ne 0 ] || [ -z "$pve_password" ]; then
             print_error "Failed to get Proxmox monitoring password"
             return 1
@@ -407,7 +272,7 @@ setup_monitoring_env() {
         fi
     fi
     
-    # Network Configuration - Hardcoded values
+    # Network Configuration
     print_step "Configuring network settings..."
     echo
     print_info "Using hardcoded network configuration:"
@@ -420,8 +285,6 @@ setup_monitoring_env() {
     
     # Hardcoded network configuration
     local network_base="192.168.1"
-    
-    # Grafana dashboard URL for email notifications
     local grafana_url="http://192.168.1.104:3000"
     
     # Auto-detect Proxmox host IP for PVE URL
@@ -429,8 +292,7 @@ setup_monitoring_env() {
     local pve_url="https://${detected_ip}:8006"
     print_info "Using auto-detected Proxmox URL: $pve_url"
     
-    
-    # Create .env file with common settings and monitoring-specific content
+    # Create .env file
     local monitoring_content="# Email notification settings for Alertmanager
 GMAIL_ADDRESS='$email_address'
 GMAIL_APP_PASSWORD='$email_password'
@@ -449,7 +311,7 @@ PVE_PASSWORD='$pve_password'
 PVE_URL='$pve_url'
 PVE_VERIFY_SSL='false'"
     
-    create_env_file "$stack_dir/.env" "Monitoring" "$monitoring_content"
+    create_stack_env_file "$env_file" "Monitoring" "$monitoring_content"
     return $?
 }
 
@@ -526,7 +388,6 @@ main() {
         print_warning "REMINDER: Configure services through their web UIs and update credentials as needed"
     fi
     
-    # Exit explicitly to prevent script hanging
     exit 0
 }
 

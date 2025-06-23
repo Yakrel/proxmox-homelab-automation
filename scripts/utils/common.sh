@@ -376,3 +376,68 @@ validate_timezone() {
         echo "$timezone"
     fi
 }
+
+# Unified environment setup functions
+
+# Simple password input function (no complex validation or retry)
+get_simple_password() {
+    local prompt=$1
+    local password
+    
+    printf "%s: " "$prompt"
+    read -s password
+    echo ""
+    
+    if [ -z "$password" ]; then
+        print_error "Password cannot be empty"
+        return 1
+    fi
+    
+    printf "%s" "$password"
+    return 0
+}
+
+# Generate random encryption key
+generate_encryption_key() {
+    local length=${1:-32}
+    openssl rand -base64 48 | tr -d "=+/" | cut -c1-${length}
+}
+
+# Create common environment content for all stacks
+create_common_env_content() {
+    local stack_name=$1
+    local custom_content=$2
+    
+    cat << EOF
+# ${stack_name} Stack Environment Variables - Generated $(date)
+
+# Timezone setting
+TZ=Europe/Istanbul
+
+# PUID/PGID for file permissions
+PUID=1000
+PGID=1000
+
+${custom_content}
+EOF
+}
+
+# Create .env file with proper permissions
+create_stack_env_file() {
+    local target_file=$1
+    local stack_name=$2
+    local custom_content=$3
+    
+    create_common_env_content "$stack_name" "$custom_content" > "$target_file"
+    chmod 600 "$target_file"
+}
+
+# Get existing environment variable value
+get_existing_env_value() {
+    local env_file=$1
+    local var_name=$2
+    
+    if [ -f "$env_file" ]; then
+        grep "^${var_name}=" "$env_file" 2>/dev/null | cut -d'=' -f2- | tr -d '"'
+    fi
+}
