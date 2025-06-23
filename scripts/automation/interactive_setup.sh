@@ -62,6 +62,9 @@ get_password() {
     local password_confirm
     
     while true; do
+        # Clear any previous input
+        read -t 0.1 -n 10000 discard 2>/dev/null || true
+        
         read -sp "$prompt: " password
         echo ""
         
@@ -70,11 +73,15 @@ get_password() {
             continue
         fi
         
+        # Clear any previous input before confirmation
+        read -t 0.1 -n 10000 discard 2>/dev/null || true
+        
         read -sp "Confirm password: " password_confirm
         echo ""
         
         if [ "$password" = "$password_confirm" ]; then
-            printf "%s" "$password"
+            # Use echo instead of printf to avoid potential issues with special characters
+            echo "$password"
             return 0
         else
             print_error "Passwords do not match. Please try again."
@@ -143,7 +150,7 @@ setup_proxy_env() {
     
     # Create .env file with common settings and proxy-specific content
     local proxy_content="# Cloudflare tunnel token for secure connections
-CLOUDFLARED_TOKEN=$cloudflare_token"
+CLOUDFLARED_TOKEN='$cloudflare_token'"
     
     create_env_file "$env_file" "Proxy" "$proxy_content"
     return $?
@@ -195,14 +202,14 @@ setup_media_env() {
     # Media stack content with preserved/default values
     local media_content="# API Keys for service integration (get from web UIs after deployment)
 # Sonarr API Key (get from: Settings > General > API Key)
-SONARR_API_KEY=$sonarr_key
+SONARR_API_KEY='$sonarr_key'
 
 # Radarr API Key (get from: Settings > General > API Key)  
-RADARR_API_KEY=$radarr_key
+RADARR_API_KEY='$radarr_key'
 
 # qBittorrent Credentials
-QB_USERNAME=$qb_username
-QB_PASSWORD=$qb_password"
+QB_USERNAME='$qb_username'
+QB_PASSWORD='$qb_password'"
     
     create_env_file "$env_file" "Media" "$media_content"
     
@@ -246,6 +253,12 @@ setup_files_env() {
         jdownloader_password=$(get_password "Enter JDownloader VNC password (min 8 chars)")
     fi
     
+    # Validate password is not empty after function call
+    if [ -z "$jdownloader_password" ]; then
+        print_error "Password cannot be empty"
+        return 1
+    fi
+    
     local palmr_encryption_key="$existing_encryption_key"
     if [ -z "$palmr_encryption_key" ]; then
         palmr_encryption_key=$(generate_random_string 32)
@@ -254,10 +267,10 @@ setup_files_env() {
     
     # Create .env file with common settings and files-specific content
     local files_content="# JDownloader2 VNC password for web interface access
-JDOWNLOADER_VNC_PASSWORD=$jdownloader_password
+JDOWNLOADER_VNC_PASSWORD='$jdownloader_password'
 
 # Palmr encryption key for secure file sharing (32 chars minimum)
-PALMR_ENCRYPTION_KEY=$palmr_encryption_key"
+PALMR_ENCRYPTION_KEY='$palmr_encryption_key'"
     
     create_env_file "$env_file" "Files" "$files_content"
     return $?
@@ -283,9 +296,15 @@ setup_webtools_env() {
         firefox_password=$(get_password "Enter Firefox VNC password (min 8 chars)")
     fi
     
+    # Validate password is not empty after function call
+    if [ -z "$firefox_password" ]; then
+        print_error "Password cannot be empty"
+        return 1
+    fi
+    
     # Create .env file with common settings and webtools-specific content
     local webtools_content="# Firefox VNC password for web interface access
-FIREFOX_VNC_PASSWORD=$firefox_password"
+FIREFOX_VNC_PASSWORD='$firefox_password'"
     
     create_env_file "$env_file" "Webtools" "$webtools_content"
     return $?
@@ -324,9 +343,21 @@ setup_monitoring_env() {
         grafana_password=$(get_password "Enter Grafana admin password (min 8 chars)")
     fi
     
+    # Validate password is not empty after function call
+    if [ -z "$grafana_password" ]; then
+        print_error "Grafana password cannot be empty"
+        return 1
+    fi
+    
     local pve_password="$existing_pve_pwd"
     if [ -z "$pve_password" ]; then
         pve_password=$(get_password "Enter Proxmox monitoring user password (min 8 chars)")
+    fi
+    
+    # Validate password is not empty after function call
+    if [ -z "$pve_password" ]; then
+        print_error "Proxmox password cannot be empty"
+        return 1
     fi
     
     local email_address="$existing_email"
@@ -390,22 +421,22 @@ setup_monitoring_env() {
     
     # Create .env file with common settings and monitoring-specific content
     local monitoring_content="# Email notification settings for Alertmanager
-GMAIL_ADDRESS=$email_address
-GMAIL_APP_PASSWORD=$email_password
+GMAIL_ADDRESS='$email_address'
+GMAIL_APP_PASSWORD='$email_password'
 
 # Network Configuration
-NETWORK_BASE=$network_base
-GRAFANA_URL=$grafana_url
+NETWORK_BASE='$network_base'
+GRAFANA_URL='$grafana_url'
 
 # Grafana admin credentials for dashboard access
-GRAFANA_ADMIN_USER=admin
-GRAFANA_ADMIN_PASSWORD=$grafana_password
+GRAFANA_ADMIN_USER='admin'
+GRAFANA_ADMIN_PASSWORD='$grafana_password'
 
 # Proxmox monitoring credentials
-PVE_USER=monitoring@pve
-PVE_PASSWORD=$pve_password
-PVE_URL=$pve_url
-PVE_VERIFY_SSL=false"
+PVE_USER='monitoring@pve'
+PVE_PASSWORD='$pve_password'
+PVE_URL='$pve_url'
+PVE_VERIFY_SSL='false'"
     
     create_env_file "$stack_dir/.env" "Monitoring" "$monitoring_content"
     return $?

@@ -196,7 +196,6 @@ create_alpine_lxc_direct() {
         fi
         
         # Add datapool mount
-        print_step "Adding /datapool mount point..."
         ensure_datapool_mount "$lxc_id"
         
         # Verify Docker installation

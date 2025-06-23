@@ -71,8 +71,29 @@ validate_env_file() {
             return 1
         fi
         
-        # Check if value is not empty
-        local value=$(pct exec "$lxc_id" -- grep "^${var}=" "$env_file" 2>/dev/null | cut -d'=' -f2- | tr -d '"')
+        # Check if value is not empty and properly formatted
+        local raw_value=$(pct exec "$lxc_id" -- grep "^${var}=" "$env_file" 2>/dev/null | cut -d'=' -f2-)
+        
+        # Handle both quoted and unquoted values, and detect malformed entries
+        local value=""
+        if [[ "$raw_value" =~ ^\'(.*)\'$ ]]; then
+            # Single quoted value
+            value="${BASH_REMATCH[1]}"
+        elif [[ "$raw_value" =~ ^\"(.*)\"$ ]]; then
+            # Double quoted value  
+            value="${BASH_REMATCH[1]}"
+        elif [[ "$raw_value" =~ ^[^[:space:]]*$ ]] && [[ ! "$raw_value" =~ [[:space:]] ]]; then
+            # Unquoted value without spaces
+            value="$raw_value"
+        else
+            # Check for malformed entries (contains spaces without quotes, newlines, etc.)
+            if [[ "$raw_value" =~ [[:space:]] ]] || [[ "$raw_value" == *$'\n'* ]]; then
+                print_warning "Malformed value for required variable: $var (contains unquoted spaces or newlines)"
+                return 1
+            fi
+            value="$raw_value"
+        fi
+        
         if [ -z "$value" ]; then
             print_warning "Empty value for required variable: $var"
             return 1
@@ -84,7 +105,21 @@ validate_env_file() {
         if ! pct exec "$lxc_id" -- grep -q "^${var}=" "$env_file" 2>/dev/null; then
             print_info "Optional variable not set: $var"
         else
-            local value=$(pct exec "$lxc_id" -- grep "^${var}=" "$env_file" 2>/dev/null | cut -d'=' -f2- | tr -d '"')
+            local raw_value=$(pct exec "$lxc_id" -- grep "^${var}=" "$env_file" 2>/dev/null | cut -d'=' -f2-)
+            
+            # Handle both quoted and unquoted values
+            local value=""
+            if [[ "$raw_value" =~ ^\'(.*)\'$ ]]; then
+                # Single quoted value
+                value="${BASH_REMATCH[1]}"
+            elif [[ "$raw_value" =~ ^\"(.*)\"$ ]]; then
+                # Double quoted value  
+                value="${BASH_REMATCH[1]}"
+            else
+                # Unquoted value
+                value="$raw_value"
+            fi
+            
             if [ -z "$value" ]; then
                 # For API keys, empty is normal until configured via web UI
                 if [[ "$var" == *"API_KEY"* ]]; then
@@ -131,11 +166,13 @@ download_stack_files() {
     return 0
 }
 
-# Function to setup environment file with validation (idempotent)
+# Function to setup environment file with validation and retry logic (idempotent)
 setup_env_file() {
     local stack_dir=$1
     local stack_type=$2
     local lxc_id=$3
+    local max_attempts=3
+    local attempt=1
     
     # Check if .env exists and is valid
     if validate_env_file "$lxc_id" "$stack_dir/.env" "$stack_type"; then
@@ -157,33 +194,51 @@ setup_env_file() {
         chmod +x "$interactive_script"
     fi
     
-    # Run interactive setup for this stack type and create .env file in temp directory
-    local temp_stack_dir="$TEMP_DIR/$(basename "$stack_dir")"
-    mkdir -p "$temp_stack_dir"
+    # Retry loop for environment setup
+    while [ $attempt -le $max_attempts ]; do
+        print_info "Setting up environment configuration (attempt $attempt/$max_attempts)..."
+        
+        # Run interactive setup for this stack type and create .env file in temp directory
+        local temp_stack_dir="$TEMP_DIR/$(basename "$stack_dir")"
+        mkdir -p "$temp_stack_dir"
+        
+        # Copy existing .env to temp directory for smart merging
+        if pct exec "$lxc_id" -- test -f "$stack_dir/.env" 2>/dev/null; then
+            pct pull "$lxc_id" "$stack_dir/.env" "$temp_stack_dir/.env" 2>/dev/null || true
+        fi
+        
+        # Run interactive setup
+        if bash "$interactive_script" "$stack_type" "$(dirname "$temp_stack_dir")"; then
+            # Copy the generated .env file to LXC
+            if [ -f "$temp_stack_dir/.env" ]; then
+                pct push "$lxc_id" "$temp_stack_dir/.env" "$stack_dir/.env"
+                
+                # Validate the newly created .env file
+                if validate_env_file "$lxc_id" "$stack_dir/.env" "$stack_type"; then
+                    print_info "✓ Environment configuration completed successfully"
+                    return 0
+                else
+                    print_warning "Generated .env file failed validation"
+                fi
+            else
+                print_warning "Interactive setup did not create .env file"
+            fi
+        else
+            print_warning "Interactive setup script failed"
+        fi
+        
+        attempt=$((attempt + 1))
+        if [ $attempt -le $max_attempts ]; then
+            print_info "Retrying environment setup..."
+            # Clean up for retry
+            rm -f "$temp_stack_dir/.env" 2>/dev/null || true
+            # Wait a moment before retry
+            sleep 2
+        fi
+    done
     
-    # Copy existing .env to temp directory for smart merging
-    if pct exec "$lxc_id" -- test -f "$stack_dir/.env" 2>/dev/null; then
-        pct pull "$lxc_id" "$stack_dir/.env" "$temp_stack_dir/.env" 2>/dev/null || true
-    fi
-    
-    bash "$interactive_script" "$stack_type" "$(dirname "$temp_stack_dir")"
-    
-    # Copy the generated .env file to LXC
-    if [ -f "$temp_stack_dir/.env" ]; then
-        pct push "$lxc_id" "$temp_stack_dir/.env" "$stack_dir/.env"
-    else
-        print_error "Interactive setup failed to create .env file"
-        return 1
-    fi
-    
-    # Validate the newly created .env file
-    if validate_env_file "$lxc_id" "$stack_dir/.env" "$stack_type"; then
-        print_info "✓ Environment configuration completed successfully"
-        return 0
-    else
-        print_error "Failed to create valid .env file"
-        return 1
-    fi
+    print_error "Failed to create valid .env file after $max_attempts attempts"
+    return 1
 }
 
 # Function to deploy Homepage dashboard configuration
