@@ -46,7 +46,7 @@ setup_proxy_env() {
     
     # Create .env file
     local proxy_content="# Cloudflare tunnel token for secure connections
-CLOUDFLARED_TOKEN='$cloudflare_token'"
+CLOUDFLARED_TOKEN=$cloudflare_token"
     
     create_stack_env_file "$env_file" "Proxy" "$proxy_content"
     return $?
@@ -88,14 +88,14 @@ setup_media_env() {
     # Create .env file
     local media_content="# API Keys for service integration (get from web UIs after deployment)
 # Sonarr API Key (get from: Settings > General > API Key)
-SONARR_API_KEY='$sonarr_key'
+SONARR_API_KEY=$sonarr_key
 
 # Radarr API Key (get from: Settings > General > API Key)  
-RADARR_API_KEY='$radarr_key'
+RADARR_API_KEY=$radarr_key
 
 # qBittorrent Credentials
-QB_USERNAME='$qb_username'
-QB_PASSWORD='$qb_password'"
+QB_USERNAME=$qb_username
+QB_PASSWORD=$qb_password"
     
     create_stack_env_file "$env_file" "Media" "$media_content"
     
@@ -150,10 +150,10 @@ setup_files_env() {
     
     # Create .env file
     local files_content="# JDownloader2 VNC password for web interface access
-JDOWNLOADER_VNC_PASSWORD='$jdownloader_password'
+JDOWNLOADER_VNC_PASSWORD=$jdownloader_password
 
 # Palmr encryption key for secure file sharing (32 chars minimum)
-PALMR_ENCRYPTION_KEY='$palmr_encryption_key'"
+PALMR_ENCRYPTION_KEY=$palmr_encryption_key"
     
     create_stack_env_file "$env_file" "Files" "$files_content"
     return $?
@@ -184,7 +184,7 @@ setup_webtools_env() {
     
     # Create .env file
     local webtools_content="# Firefox VNC password for web interface access
-FIREFOX_VNC_PASSWORD='$firefox_password'"
+FIREFOX_VNC_PASSWORD=$firefox_password"
     
     create_stack_env_file "$env_file" "Webtools" "$webtools_content"
     return $?
@@ -294,22 +294,22 @@ setup_monitoring_env() {
     
     # Create .env file
     local monitoring_content="# Email notification settings for Alertmanager
-GMAIL_ADDRESS='$email_address'
-GMAIL_APP_PASSWORD='$email_password'
+GMAIL_ADDRESS=$email_address
+GMAIL_APP_PASSWORD=$email_password
 
 # Network Configuration
-NETWORK_BASE='$network_base'
-GRAFANA_URL='$grafana_url'
+NETWORK_BASE=$network_base
+GRAFANA_URL=$grafana_url
 
 # Grafana admin credentials for dashboard access
-GRAFANA_ADMIN_USER='admin'
-GRAFANA_ADMIN_PASSWORD='$grafana_password'
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=$grafana_password
 
 # Proxmox monitoring credentials
-PVE_USER='monitoring@pve'
-PVE_PASSWORD='$pve_password'
-PVE_URL='$pve_url'
-PVE_VERIFY_SSL='false'"
+PVE_USER=monitoring@pve
+PVE_PASSWORD=$pve_password
+PVE_URL=$pve_url
+PVE_VERIFY_SSL=false"
     
     create_stack_env_file "$env_file" "Monitoring" "$monitoring_content"
     return $?

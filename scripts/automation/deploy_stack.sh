@@ -726,7 +726,7 @@ deploy_complete_stack() {
     
     
     # Deploy with docker compose (Alpine Docker template uses V2 syntax)
-    pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose pull >/dev/null 2>&1 && docker compose up -d"
+    pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose pull && docker compose up -d"
     
     if [ $? -eq 0 ]; then
         print_info "🎉 $stack_type stack deployed successfully!"

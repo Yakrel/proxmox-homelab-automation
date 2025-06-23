@@ -444,6 +444,6 @@ get_existing_env_value() {
     local var_name=$2
     
     if [ -f "$env_file" ]; then
-        grep "^${var_name}=" "$env_file" 2>/dev/null | cut -d'=' -f2- | tr -d '"'
+        grep "^${var_name}=" "$env_file" 2>/dev/null | cut -d'=' -f2- | sed "s/^['\"]//; s/['\"]$//"
     fi
 }
