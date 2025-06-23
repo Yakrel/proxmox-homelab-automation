@@ -384,9 +384,15 @@ get_simple_password() {
     local prompt=$1
     local password
     
-    printf "%s: " "$prompt"
-    read -s password
-    echo ""
+    # Ensure we have a proper terminal for password input
+    if [ ! -t 0 ]; then
+        print_error "No terminal available for password input"
+        return 1
+    fi
+    
+    printf "%s: " "$prompt" >&2
+    read -s password < /dev/tty
+    echo "" >&2
     
     if [ -z "$password" ]; then
         print_error "Password cannot be empty"

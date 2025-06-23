@@ -166,13 +166,11 @@ download_stack_files() {
     return 0
 }
 
-# Function to setup environment file with validation and retry logic (idempotent)
+# Function to setup environment file (simplified, single attempt)
 setup_env_file() {
     local stack_dir=$1
     local stack_type=$2
     local lxc_id=$3
-    local max_attempts=3
-    local attempt=1
     
     # Check if .env exists and is valid
     if validate_env_file "$lxc_id" "$stack_dir/.env" "$stack_type"; then
@@ -194,51 +192,32 @@ setup_env_file() {
         chmod +x "$interactive_script"
     fi
     
-    # Retry loop for environment setup
-    while [ $attempt -le $max_attempts ]; do
-        print_info "Setting up environment configuration (attempt $attempt/$max_attempts)..."
-        
-        # Run interactive setup for this stack type and create .env file in temp directory
-        local temp_stack_dir="$TEMP_DIR/$(basename "$stack_dir")"
-        mkdir -p "$temp_stack_dir"
-        
-        # Copy existing .env to temp directory for smart merging
-        if pct exec "$lxc_id" -- test -f "$stack_dir/.env" 2>/dev/null; then
-            pct pull "$lxc_id" "$stack_dir/.env" "$temp_stack_dir/.env" 2>/dev/null || true
-        fi
-        
-        # Run interactive setup
-        if bash "$interactive_script" "$stack_type" "$(dirname "$temp_stack_dir")"; then
-            # Copy the generated .env file to LXC
-            if [ -f "$temp_stack_dir/.env" ]; then
-                pct push "$lxc_id" "$temp_stack_dir/.env" "$stack_dir/.env"
-                
-                # Validate the newly created .env file
-                if validate_env_file "$lxc_id" "$stack_dir/.env" "$stack_type"; then
-                    print_info "✓ Environment configuration completed successfully"
-                    return 0
-                else
-                    print_warning "Generated .env file failed validation"
-                fi
-            else
-                print_warning "Interactive setup did not create .env file"
-            fi
-        else
-            print_warning "Interactive setup script failed"
-        fi
-        
-        attempt=$((attempt + 1))
-        if [ $attempt -le $max_attempts ]; then
-            print_info "Retrying environment setup..."
-            # Clean up for retry
-            rm -f "$temp_stack_dir/.env" 2>/dev/null || true
-            # Wait a moment before retry
-            sleep 2
-        fi
-    done
+    print_info "Setting up environment configuration..."
     
-    print_error "Failed to create valid .env file after $max_attempts attempts"
-    return 1
+    # Run interactive setup for this stack type and create .env file in temp directory
+    local temp_stack_dir="$TEMP_DIR/$(basename "$stack_dir")"
+    mkdir -p "$temp_stack_dir"
+    
+    # Copy existing .env to temp directory for smart merging
+    if pct exec "$lxc_id" -- test -f "$stack_dir/.env" 2>/dev/null; then
+        pct pull "$lxc_id" "$stack_dir/.env" "$temp_stack_dir/.env" 2>/dev/null || true
+    fi
+    
+    # Run interactive setup
+    if bash "$interactive_script" "$stack_type" "$(dirname "$temp_stack_dir")"; then
+        # Copy the generated .env file to LXC
+        if [ -f "$temp_stack_dir/.env" ]; then
+            pct push "$lxc_id" "$temp_stack_dir/.env" "$stack_dir/.env"
+            print_info "✓ Environment configuration completed successfully"
+            return 0
+        else
+            print_error "Interactive setup did not create .env file"
+            return 1
+        fi
+    else
+        print_error "Interactive setup script failed"
+        return 1
+    fi
 }
 
 # Function to deploy Homepage dashboard configuration
