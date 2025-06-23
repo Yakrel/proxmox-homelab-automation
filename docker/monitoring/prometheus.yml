@@ -4,8 +4,8 @@
 # Default IPs assume 192.168.1.x network with LXC IDs as last octet
 # Proxy LXC (100): 192.168.1.100
 # Media LXC (101): 192.168.1.101  
-# Downloads LXC (102): 192.168.1.102
-# Utility LXC (103): 192.168.1.103
+# Files LXC (102): 192.168.1.102
+# Webtools LXC (103): 192.168.1.103
 # Monitoring LXC (104): 192.168.1.104 (this container)
 
 global:
@@ -48,24 +48,24 @@ scrape_configs:
         labels:
           instance: 'media-lxc-101'
 
-  # Node Exporter - Downloads LXC (102)
-  - job_name: 'node-exporter-downloads'
+  # Node Exporter - Files LXC (102)
+  - job_name: 'node-exporter-files'
     static_configs:
       - targets: ['192.168.1.102:9100']
         labels:
-          instance: 'downloads-lxc-102'
+          instance: 'files-lxc-102'
 
-  # Node Exporter - Utility LXC (103)
-  - job_name: 'node-exporter-utility'
+  # Node Exporter - Webtools LXC (103)
+  - job_name: 'node-exporter-webtools'
     static_configs:
       - targets: ['192.168.1.103:9100']
         labels:
-          instance: 'utility-lxc-103'
+          instance: 'webtools-lxc-103'
 
   # cAdvisor - Container metrics from Monitoring LXC
   - job_name: 'cadvisor'
     static_configs:
-      - targets: ['cadvisor:8081']
+      - targets: ['cadvisor:8080']
 
   # Proxmox VE Exporter
   - job_name: 'proxmox'

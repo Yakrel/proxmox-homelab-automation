@@ -47,6 +47,12 @@ validate_password_strength() {
     return 0
 }
 
+# Generate random string for encryption keys
+generate_random_string() {
+    local length=${1:-32}
+    openssl rand -base64 48 | tr -d "=+/" | cut -c1-${length}
+}
+
 # Simple validation helper
 check_empty() {
     [ -z "$1" ] && { print_error "$2 required"; return 1; }
@@ -221,19 +227,23 @@ QB_PASSWORD=$qb_password"
     return $?
 }
 
-# Function to setup downloads stack environment with smart merging
-setup_downloads_env() {
+# Function to setup files stack environment with smart merging
+setup_files_env() {
     local stack_dir=$1
     local env_file="$stack_dir/.env"
     
-    print_step "Setting up Downloads stack environment..."
+    print_step "Setting up Files stack environment..."
     
     # Read existing values if file exists
     local existing_password=$(get_existing_env_value "$env_file" "JDOWNLOADER_VNC_PASSWORD")
+    local existing_encryption_key=$(get_existing_env_value "$env_file" "PALMR_ENCRYPTION_KEY")
     
     # Show what we're preserving
     if [ -n "$existing_password" ]; then
         print_info "✓ Preserving existing JDownloader VNC password"
+    fi
+    if [ -n "$existing_encryption_key" ]; then
+        print_info "✓ Preserving existing Palmr encryption key"
     fi
     
     local jdownloader_password="$existing_password"
@@ -241,20 +251,29 @@ setup_downloads_env() {
         jdownloader_password=$(get_password "Enter JDownloader VNC password (min 8 chars)")
     fi
     
-    # Create .env file with common settings and downloads-specific content
-    local downloads_content="# JDownloader2 VNC password for web interface access
-JDOWNLOADER_VNC_PASSWORD=$jdownloader_password"
+    local palmr_encryption_key="$existing_encryption_key"
+    if [ -z "$palmr_encryption_key" ]; then
+        palmr_encryption_key=$(generate_random_string 32)
+        print_info "Generated Palmr encryption key (32 chars)"
+    fi
     
-    create_env_file "$env_file" "Downloads" "$downloads_content"
+    # Create .env file with common settings and files-specific content
+    local files_content="# JDownloader2 VNC password for web interface access
+JDOWNLOADER_VNC_PASSWORD=$jdownloader_password
+
+# Palmr encryption key for secure file sharing (32 chars minimum)
+PALMR_ENCRYPTION_KEY=$palmr_encryption_key"
+    
+    create_env_file "$env_file" "Files" "$files_content"
     return $?
 }
 
-# Function to setup utility stack environment with smart merging
-setup_utility_env() {
+# Function to setup webtools stack environment with smart merging
+setup_webtools_env() {
     local stack_dir=$1
     local env_file="$stack_dir/.env"
     
-    print_step "Setting up Utility stack environment..."
+    print_step "Setting up Webtools stack environment..."
     
     # Read existing values if file exists
     local existing_password=$(get_existing_env_value "$env_file" "FIREFOX_VNC_PASSWORD")
@@ -269,11 +288,11 @@ setup_utility_env() {
         firefox_password=$(get_password "Enter Firefox VNC password (min 8 chars)")
     fi
     
-    # Create .env file with common settings and utility-specific content
-    local utility_content="# Firefox VNC password for web interface access
+    # Create .env file with common settings and webtools-specific content
+    local webtools_content="# Firefox VNC password for web interface access
 FIREFOX_VNC_PASSWORD=$firefox_password"
     
-    create_env_file "$env_file" "Utility" "$utility_content"
+    create_env_file "$env_file" "Webtools" "$webtools_content"
     return $?
 }
 
@@ -412,11 +431,11 @@ setup_stack_environment() {
         "media")
             setup_media_env "$stack_dir"
             ;;
-        "downloads")
-            setup_downloads_env "$stack_dir"
+        "files")
+            setup_files_env "$stack_dir"
             ;;
-        "utility")
-            setup_utility_env "$stack_dir"
+        "webtools")
+            setup_webtools_env "$stack_dir"
             ;;
         "monitoring")
             setup_monitoring_env "$stack_dir"
@@ -445,7 +464,7 @@ main() {
             print_info "Setting up all stack configurations..."
             
             # Setup each stack
-            for stack in proxy media downloads utility monitoring; do
+            for stack in proxy media files webtools monitoring; do
                 echo ""
                 print_info "Setting up $stack stack..."
                 setup_stack_environment "$stack" "$base_dir/$stack-stack"
@@ -453,11 +472,11 @@ main() {
             ;;
         *)
             echo "Usage: $0 <stack_type> [base_dir]"
-            echo "Stack types: proxy, media, downloads, utility, monitoring, all"
+            echo "Stack types: proxy, media, files, webtools, monitoring, all"
             echo "Base dir: Directory where stack folders are located (default: /opt)"
             echo ""
             echo "Examples:"
-            echo "  $0 downloads /opt     # Setup downloads stack only"
+            echo "  $0 files /opt         # Setup files stack only"
             echo "  $0 monitoring /opt    # Setup monitoring stack only"
             echo "  $0 all /opt           # Setup all stacks"
             exit 1

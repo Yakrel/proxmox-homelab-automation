@@ -57,10 +57,10 @@ validate_env_file() {
         "proxy")
             required_vars="CLOUDFLARED_TOKEN"
             ;;
-        "downloads")
-            required_vars="JDOWNLOADER_VNC_PASSWORD"
+        "files")
+            required_vars="JDOWNLOADER_VNC_PASSWORD PALMR_ENCRYPTION_KEY"
             ;;
-        "utility")
+        "webtools")
             required_vars="FIREFOX_VNC_PASSWORD"
             ;;
         "media")
@@ -536,7 +536,7 @@ scrape_configs:
   # cAdvisor - Container metrics from Monitoring LXC
   - job_name: 'cadvisor'
     static_configs:
-      - targets: ['cadvisor:8081']
+      - targets: ['cadvisor:8080']
 
   # Proxmox VE Exporter
   - job_name: 'proxmox'
@@ -860,12 +860,12 @@ deploy_complete_stack() {
 
 # Validate stack type
 case "$1" in
-    media|proxy|downloads|utility|monitoring)
+    media|proxy|files|webtools|monitoring)
         # Valid stack type
         ;;
     *)
         print_error "Invalid stack type: $1"
-        print_error "Available stack types: media, proxy, downloads, utility, monitoring"
+        print_error "Available stack types: media, proxy, files, webtools, monitoring"
         exit 1
         ;;
 esac

@@ -45,8 +45,8 @@ main_deployment_menu() {
         echo "Please select the operation you want to perform:"
         echo "1) Deploy Proxy Stack (LXC 100 - Cloudflare Tunnels)"
         echo "2) Deploy Media Stack (LXC 101 - Sonarr, Radarr, Jellyfin)"
-        echo "3) Deploy Downloads Stack (LXC 102 - JDownloader, MeTube)"
-        echo "4) Deploy Utility Stack (LXC 103 - Firefox Browser)"
+        echo "3) Deploy Files Stack (LXC 102 - JDownloader, MeTube, Palmr)"
+        echo "4) Deploy Webtools Stack (LXC 103 - Homepage, Firefox)"
         echo "5) Deploy Monitoring Stack (LXC 104 - Grafana, Prometheus)"
         echo "6) Deploy Development Stack (LXC 150 - Ubuntu + Claude Code)"
         echo "7) Post-Install Setup (Recommended after fresh Proxmox install)"
@@ -72,17 +72,17 @@ main_deployment_menu() {
                 fi
                 ;;
             3)
-                echo "Starting automated Downloads stack deployment..."
+                echo "Starting automated Files stack deployment..."
                 if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/create_alpine_lxc.sh" downloads
-                    bash "$TEMP_DIR/deploy_stack.sh" downloads
+                    bash "$TEMP_DIR/create_alpine_lxc.sh" files
+                    bash "$TEMP_DIR/deploy_stack.sh" files
                 fi
                 ;;
             4)
-                echo "Starting automated Utility stack deployment..."
+                echo "Starting automated Webtools stack deployment..."
                 if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/create_alpine_lxc.sh" utility
-                    bash "$TEMP_DIR/deploy_stack.sh" utility
+                    bash "$TEMP_DIR/create_alpine_lxc.sh" webtools
+                    bash "$TEMP_DIR/deploy_stack.sh" webtools
                 fi
                 ;;
             5)

@@ -281,12 +281,12 @@ create_stack_lxc() {
 # Input validation
 if [ $# -ne 1 ]; then
     print_error "Usage: $0 <stack_type>"
-    echo "Available: media, proxy, downloads, utility, monitoring"
+    echo "Available: media, proxy, files, webtools, monitoring"
     exit 1
 fi
 
 case "$1" in
-    media|proxy|downloads|utility|monitoring)
+    media|proxy|files|webtools|monitoring)
         ;;
     *)
         print_error "Invalid stack type: $1"

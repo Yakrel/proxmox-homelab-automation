@@ -1,64 +1,62 @@
-# Downloads Stack - LXC ID: 102
-# Services: JDownloader2, MeTube
-# Purpose: General download management separate from media automation
+# Webtools Stack - LXC ID: 103
+# Services: Homepage (dashboard), Firefox (remote browser)
+# Purpose: Web dashboard and administrative tools
 
 
 networks:
-  downloads-net:
+  webtools-net:
     driver: bridge
 
 services:
-  jdownloader2:
-    image: jlesage/jdownloader-2:latest
-    container_name: jdownloader2
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - /datapool/config/homepage:/app/config:rw
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
+      - TZ=Europe/Istanbul
       - PUID=1000
       - PGID=1000
-      - UMASK=002
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  firefox:
+    image: jlesage/firefox:latest
+    container_name: firefox
+    restart: unless-stopped
+    ports:
+      - "5800:5800"
+      - "5900:5900"
+    volumes:
+      - /datapool/config/firefox:/config:rw
+    environment:
       - TZ=Europe/Istanbul
+      - VNC_PASSWORD=${FIREFOX_VNC_PASSWORD:?Firefox VNC password must be defined}
+      - PUID=1000
+      - PGID=1000
       - KEEP_APP_RUNNING=1
-      - DISPLAY_WIDTH=1280
-      - DISPLAY_HEIGHT=768
-      - VNC_PASSWORD=${JDOWNLOADER_VNC_PASSWORD:?JDownloader VNC password must be defined}
-    volumes:
-      - /datapool/config/jdownloader2:/config
-      - /datapool:/datapool
-    ports:
-      - "5801:5800" # Web UI port (changed to avoid conflict with Firefox)
+      - DISPLAY_WIDTH=1920
+      - DISPLAY_HEIGHT=1080
     networks:
-      - downloads-net
-    restart: unless-stopped
+      - webtools-net
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  metube:
-    image: ghcr.io/alexta69/metube:latest
-    container_name: metube
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - UMASK=002
-      - TZ=Europe/Istanbul
-    volumes:
-      - /datapool/config/metube:/config
-      - /datapool:/datapool
-    ports:
-      - "8082:8081"
-    networks:
-      - downloads-net
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  node-exporter-downloads:
+  node-exporter-webtools:
     image: prom/node-exporter:latest
-    container_name: node-exporter-downloads
+    container_name: node-exporter-webtools
     restart: unless-stopped
     ports:
       - "9100:9100"
@@ -74,28 +72,28 @@ services:
     environment:
       - TZ=Europe/Istanbul
     networks:
-      - downloads-net
+      - webtools-net
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  watchtower-downloads:
+  watchtower-webtools:
     image: containrrr/watchtower:latest
-    container_name: watchtower-downloads
+    container_name: watchtower-webtools
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_SCHEDULE=0 0 4 * * *
+      - WATCHTOWER_SCHEDULE=0 0 5 * * *
       - PUID=1000
       - PGID=1000
       - UMASK=002
     restart: unless-stopped
     networks:
-      - downloads-net
+      - webtools-net
     logging:
       driver: "json-file"
       options:

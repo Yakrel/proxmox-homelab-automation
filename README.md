@@ -9,7 +9,7 @@ bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-a
 ```
 
 From the menu you can choose:
-- **Options 1-6**: Deploy individual stacks (proxy, media, downloads, utility, monitoring, development)
+- **Options 1-6**: Deploy individual stacks (proxy, media, files, webtools, monitoring, development)
 - **Options 7-8**: Security setup, storage setup, system maintenance
 
 
@@ -30,8 +30,8 @@ This project deploys a complete homelab automation solution with 6 specialized s
 - **Security & Storage Setup**: Enhance Proxmox security with Fail2Ban and configure Samba/Sanoid
 - **Proxy Stack (LXC 100)**: Secure external access via Cloudflare tunnels
 - **Media Stack (LXC 101)**: Complete media automation with Sonarr, Radarr, Jellyfin, qBittorrent
-- **Downloads Stack (LXC 102)**: General downloading with JDownloader2 and MeTube
-- **Utility Stack (LXC 103)**: Administrative tools including remote Firefox browser
+- **Files Stack (LXC 102)**: File management with JDownloader2, MeTube, and Palmr file sharing
+- **Webtools Stack (LXC 103)**: Web dashboard (Homepage) and administrative tools including remote Firefox browser
 - **Monitoring Stack (LXC 104)**: System monitoring with Prometheus, Grafana, and Alertmanager
 - **Development Stack (LXC 150)**: Ubuntu development environment with Claude Code and Node.js
 
@@ -43,10 +43,31 @@ This project deploys a complete homelab automation solution with 6 specialized s
 |---------------|-----|---------|-----------|-----|---------|------------|----------------|
 | lxc-proxy-01     | 100 | Proxy Services | 1 core | 2GB | 8GB + datapool | 192.168.1.100/24 | Unprivileged LXC |
 | lxc-media-01     | 101 | Media Automation | 4 cores | 8GB | 16GB + datapool | 192.168.1.101/24 | Unprivileged LXC |
-| lxc-downloads-01 | 102 | Download Management | 2 cores | 4GB | 8GB + datapool | 192.168.1.102/24 | Unprivileged LXC |
-| lxc-utility-01   | 103 | Utility Services | 2 cores | 4GB | 8GB + datapool | 192.168.1.103/24 | Unprivileged LXC |
+| lxc-files-01     | 102 | File Management | 2 cores | 4GB | 8GB + datapool | 192.168.1.102/24 | Unprivileged LXC |
+| lxc-webtools-01  | 103 | Web Tools & Dashboard | 2 cores | 4GB | 8GB + datapool | 192.168.1.103/24 | Unprivileged LXC |
 | lxc-monitoring-01| 104 | Monitoring & Metrics | 2 cores | 4GB | 10GB + datapool | 192.168.1.104/24 | Unprivileged LXC |
 | lxc-development-01| 150 | Development Environment | 2 cores | 4GB | 12GB | 192.168.1.150/24 | Unprivileged LXC |
+
+### ⚠️ LXC Permission System (IMPORTANT)
+
+All LXC containers in this project use **unprivileged containers** for security. This requires specific PUID/PGID configuration:
+
+#### Docker Container Configuration
+- **PUID=1000** and **PGID=1000** must be used in ALL Docker containers
+- These are the standard user/group IDs inside the LXC container
+
+#### Host-side File Ownership  
+- **Host ownership**: Files must be owned by `101000:101000` on the Proxmox host
+- **LXC mapping**: UID 1000 (inside container) → UID 101000 (on host)
+- **Command**: Use `chown -R 101000:101000 /path/to/directory` on the host
+
+#### Why This Matters
+- Unprivileged LXCs use ID mapping for security isolation
+- Container UID 1000 automatically maps to host UID 101000
+- Wrong ownership (like 1000:1000 on host) will cause permission denied errors
+- ALL Docker services expect PUID=1000/PGID=1000 configuration
+
+This permission system is automatically handled by the automation scripts, but manual file operations require these ownership settings.
 
 ## Stack Contents & Access URLs
 
@@ -67,18 +88,20 @@ This project deploys a complete homelab automation solution with 6 specialized s
 - **Cleanuperr** – Media library cleanup | http://192.168.1.101:9555
 - **Huntarr** – Torrent hunting tool | http://192.168.1.101:9705
 
-### Downloads Stack (lxc-downloads-01, ID: 102)  
+### Files Stack (lxc-files-01, ID: 102)  
 - **JDownloader2** – Download manager | http://192.168.1.102:5801
-  - **MeTube** – YouTube downloader | http://192.168.1.102:8082
+- **MeTube** – YouTube downloader | http://192.168.1.102:8082
+- **Palmr** – File sharing platform | http://192.168.1.102:5487
 
-### Utility Stack (lxc-utility-01, ID: 103)
+### Webtools Stack (lxc-webtools-01, ID: 103)
+- **Homepage** – Dashboard | http://192.168.1.103:3000
 - **Firefox** – Remote browser | http://192.168.1.103:5800 | VNC: 192.168.1.103:5900
 
 ### Monitoring Stack (lxc-monitoring-01, ID: 104)
 - **Grafana** – Metrics dashboard | http://192.168.1.104:3000
 - **Prometheus** – Metrics collection | http://192.168.1.104:9090
 - **Alertmanager** – Alert management | http://192.168.1.104:9093
-  - **cAdvisor** – Container metrics | http://192.168.1.104:8081
+  - **cAdvisor** – Container metrics | http://192.168.1.104:8080
 - **Proxmox Exporter** – Proxmox metrics | http://192.168.1.104:9221
 
 ### Development Stack (lxc-development-01, ID: 150)
@@ -110,9 +133,11 @@ To ensure proper hardlinks and atomic moves, the following folder structure is u
 │   ├── flaresolverr/     # Media Stack (LXC 101)
 │   ├── recyclarr/        # Media Stack (LXC 101)
 │   ├── cloudflared/      # Proxy Stack (LXC 100)
-│   ├── jdownloader2/     # Downloads Stack (LXC 102)
-│   ├── metube/           # Downloads Stack (LXC 102)
-│   ├── firefox/          # Utility Stack (LXC 103)
+│   ├── jdownloader2/     # Files Stack (LXC 102)
+│   ├── metube/           # Files Stack (LXC 102)
+│   ├── palmr/            # Files Stack (LXC 102)
+│   ├── homepage/         # Webtools Stack (LXC 103)
+│   ├── firefox/          # Webtools Stack (LXC 103)
 │   └── monitoring/       # Monitoring Stack (LXC 104)
 │       ├── prometheus/   # Prometheus configuration
 │       ├── grafana/      # Grafana configuration
@@ -121,6 +146,7 @@ To ensure proper hardlinks and atomic moves, the following folder structure is u
 │   ├── movies/        # Complete movie torrents
 │   ├── tv/            # Complete TV show torrents
 │   └── other/         # Other torrents
+├── files/             # Palmr file sharing storage
 └── media/
     ├── movies/        # Final location for movies
     ├── tv/            # Final location for TV shows
@@ -221,12 +247,8 @@ export PVE_PASSWORD="your_proxmox_monitoring_password"
 export PVE_URL="https://your_proxmox_ip:8006"
 ```
 
-#### 3. Update Prometheus Configuration
-Edit `/datapool/config/monitoring/prometheus/prometheus.yml` and update the IP addresses to match your LXC containers:
-- Replace `10.0.0.100` with your Proxy LXC IP
-- Replace `10.0.0.101` with your Media LXC IP  
-- Replace `10.0.0.102` with your Downloads LXC IP
-- Replace `10.0.0.103` with your Utility LXC IP
+#### 3. Prometheus Configuration
+The Prometheus configuration automatically uses the standard IP scheme (192.168.1.100-104) for monitoring all LXC containers. No manual IP configuration is needed if you use the standard setup.
 
 #### 4. Grafana Dashboard Auto-Import
 Dashboards are automatically downloaded and imported during deployment:
