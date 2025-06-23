@@ -78,7 +78,7 @@ get_password() {
         echo ""
         
         if [ "$password" = "$password_confirm" ]; then
-            echo "$password"
+            printf "%s" "$password"
             return 0
         else
             print_error "Passwords do not match. Please try again."
@@ -114,7 +114,6 @@ create_env_file() {
     
     create_common_env_content "$stack_name" "$custom_content" > "$target_file"
     chmod 600 "$target_file"
-    print_info "✓ ${stack_name} .env file created"
 }
 
 # Function to setup proxy stack environment with smart merging
@@ -483,7 +482,6 @@ main() {
             ;;
     esac
     
-    echo ""
     print_info "✅ Configuration setup completed!"
     
     if [ "$stack_type" = "all" ]; then

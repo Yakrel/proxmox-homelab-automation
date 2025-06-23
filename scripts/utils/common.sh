@@ -47,12 +47,17 @@ check_lxc_status() {
 wait_for_container_ready() {
     local lxc_id=$1
     local max_attempts=${2:-30}  # Default 30 attempts
+    local quiet=${3:-false}  # Add quiet mode option
     local attempt=1
     
-    print_info "Waiting for container to be ready..."
+    [ "$quiet" != "true" ] && print_info "Waiting for container to be ready..."
     while [ $attempt -le $max_attempts ]; do
         if pct exec "$lxc_id" -- echo "ready" >/dev/null 2>&1; then
-            print_info "✓ Container is ready after ${attempt} attempts"
+            if [ "$quiet" != "true" ] && [ $attempt -gt 1 ]; then
+                print_info "✓ Container is ready after ${attempt} attempts"
+            elif [ "$quiet" != "true" ]; then
+                print_info "✓ Container is ready"
+            fi
             return 0
         fi
         sleep 2
@@ -67,17 +72,24 @@ wait_for_container_ready() {
 ensure_docker_ready() {
     local lxc_id=$1
     local max_attempts=${2:-15}  # Default 15 attempts
+    local quiet=${3:-false}  # Add quiet mode option
     local attempt=1
     
-    print_info "Ensuring Docker service is ready..."
+    # Quick check first - if Docker is already ready, don't show messages
+    if pct exec "$lxc_id" -- docker info >/dev/null 2>&1; then
+        [ "$quiet" != "true" ] && print_info "✓ Docker is already working"
+        return 0
+    fi
+    
+    [ "$quiet" != "true" ] && print_info "Ensuring Docker service is ready..."
     while [ $attempt -le $max_attempts ]; do
         if pct exec "$lxc_id" -- docker info >/dev/null 2>&1; then
-            print_info "✓ Docker service is ready"
+            [ "$quiet" != "true" ] && print_info "✓ Docker service is ready"
             return 0
         fi
         
         if [ $attempt -eq 5 ]; then
-            print_info "Docker not ready, restarting service..."
+            [ "$quiet" != "true" ] && print_info "Docker not ready, restarting service..."
             pct exec "$lxc_id" -- rc-service docker restart >/dev/null 2>&1 || true
         fi
         
@@ -120,12 +132,10 @@ ensure_datapool_mount() {
     
     # Check if mount already exists with more precise regex
     if pct config "$lxc_id" | grep -E "^mp[0-9]+=.*,mp=/datapool" >/dev/null 2>&1; then
-        print_info "✓ /datapool mount already exists"
-        
         # Verify mount is accessible if container is running
         if pct status "$lxc_id" | grep -q "running"; then
             if pct exec "$lxc_id" -- test -d /datapool 2>/dev/null; then
-                print_info "✓ /datapool mount is accessible"
+                # Only print success message if mount is working
                 return 0
             else
                 print_warning "Mount exists but not accessible - attempting remount"

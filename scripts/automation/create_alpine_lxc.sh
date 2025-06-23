@@ -204,19 +204,11 @@ create_alpine_lxc_direct() {
         
         # Add datapool mount
         print_step "Adding /datapool mount point..."
-        if ensure_datapool_mount "$lxc_id"; then
-            print_info "✓ Mount point added successfully"
-        else
-            print_warning "Failed to add mount point automatically"
-        fi
+        ensure_datapool_mount "$lxc_id"
         
         # Verify Docker installation
         print_step "Verifying Docker installation..."
-        if verify_docker "$lxc_id"; then
-            print_info "✓ Docker and Docker Compose verified"
-        else
-            print_warning "Docker verification failed, may need manual check"
-        fi
+        verify_docker "$lxc_id"
         
         return 0
     else
@@ -230,8 +222,6 @@ create_alpine_lxc_direct() {
 verify_docker() {
     local lxc_id=$1
     
-    print_info "Verifying Docker installation..."
-    
     # Check if Docker is already working
     if pct exec "$lxc_id" -- docker --version >/dev/null 2>&1; then
         print_info "✓ Docker is already working"
@@ -242,8 +232,9 @@ verify_docker() {
     print_info "Starting Docker service..."
     pct exec "$lxc_id" -- rc-service docker start >/dev/null 2>&1 || true
     
-    # Use our improved Docker readiness check
-    if ensure_docker_ready "$lxc_id"; then
+    # Use our improved Docker readiness check with quiet mode
+    if ensure_docker_ready "$lxc_id" 15 true; then
+        print_info "✓ Docker and Docker Compose verified"
         return 0
     else
         print_warning "Docker verification completed with warnings"

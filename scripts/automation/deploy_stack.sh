@@ -262,67 +262,6 @@ deploy_with_compose() {
     fi
 }
 
-# Function to ensure datapool mount exists (idempotent)
-ensure_datapool_mount() {
-    local lxc_id=$1
-    
-    # Check if mount point is already configured
-    if pct config "$lxc_id" | grep -q "/datapool"; then
-        print_info "✓ /datapool mount point already configured"
-        
-        # Verify accessibility if container is running
-        if pct status "$lxc_id" | grep -q "running"; then
-            if pct exec "$lxc_id" -- test -d /datapool 2>/dev/null; then
-                print_info "✓ /datapool is accessible"
-            else
-                print_warning "/datapool mount configured but not accessible, container may need restart"
-            fi
-        fi
-        return 0
-    fi
-    
-    print_info "Adding /datapool mount point..."
-    
-    # Use the create_alpine_lxc.sh mount function
-    local script_dir="$(dirname "$0")"
-    local create_script="$script_dir/create_alpine_lxc.sh"
-    
-    if [ -f "$create_script" ]; then
-        # Verify script integrity before sourcing
-        if ! bash -n "$create_script" 2>/dev/null; then
-            print_error "Syntax error in create_alpine_lxc.sh, using fallback method"
-        else
-            # Safely source the function from create_alpine_lxc.sh
-            source "$create_script"
-            ensure_datapool_mount "$lxc_id"
-            return $?
-        fi
-    fi
-    
-    # Fallback to simple mount add if source fails or file doesn't exist
-    local was_running=false
-    if pct status "$lxc_id" | grep -q "running"; then
-        was_running=true
-        pct shutdown "$lxc_id" 2>/dev/null || pct stop "$lxc_id"
-        sleep 5
-    fi
-    
-    local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}' 2>/dev/null)
-    next_mp_index=${next_mp_index:-0}
-    
-    if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool,acl=1; then
-        if [ "$was_running" = true ]; then
-            pct start "$lxc_id"
-            sleep 5
-        fi
-        print_info "✓ Datapool mount added successfully"
-    else
-        print_error "Failed to add datapool mount"
-        return 1
-    fi
-    
-    return 0
-}
 
 
 
@@ -823,8 +762,6 @@ deploy_complete_stack() {
         fi
     fi
     
-    # Ensure Docker daemon is ready before deployment
-    ensure_docker_ready "$lxc_id"
     
     # Deploy with docker compose (Alpine Docker template uses V2 syntax)
     pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose pull >/dev/null 2>&1 && docker compose up -d"
