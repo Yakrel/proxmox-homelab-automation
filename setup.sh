@@ -18,23 +18,37 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 
 echo "Setting up temporary directory at $TEMP_DIR"
 
+# Create proper directory structure to match GitHub repo
+mkdir -p "$TEMP_DIR/scripts/automation"
+mkdir -p "$TEMP_DIR/scripts/utils"
+mkdir -p "$TEMP_DIR/scripts/core"
+mkdir -p "$TEMP_DIR/scripts/network"
+mkdir -p "$TEMP_DIR/scripts/maintenance"
+
 # Function to download script file (always fresh)
 download_script() {
     script_path=$1
     script_name=$(basename "$script_path")
     echo "Downloading latest $script_name..."
     
-    # Remove existing file to ensure fresh download
-    [ -f "$TEMP_DIR/$script_name" ] && rm -f "$TEMP_DIR/$script_name"
+    # Create full path in temp directory to match repo structure
+    local target_path="$TEMP_DIR/$script_path"
+    local target_dir=$(dirname "$target_path")
     
-    wget -q -O "$TEMP_DIR/$script_name" "$REPO_URL/$script_path"
+    # Ensure target directory exists
+    mkdir -p "$target_dir"
+    
+    # Remove existing file to ensure fresh download
+    [ -f "$target_path" ] && rm -f "$target_path"
+    
+    wget -q -O "$target_path" "$REPO_URL/$script_path"
     
     if [ $? -ne 0 ]; then
         echo "ERROR: Failed to download $script_name from $REPO_URL/$script_path"
         return 1
     fi
     
-    chmod +x "$TEMP_DIR/$script_name"
+    chmod +x "$target_path"
     return 0
 }
 
@@ -60,42 +74,42 @@ main_deployment_menu() {
             1)
                 echo "Starting automated Proxy stack deployment..."
                 if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/create_alpine_lxc.sh" proxy
-                    bash "$TEMP_DIR/deploy_stack.sh" proxy
+                    bash "$TEMP_DIR/scripts/automation/create_alpine_lxc.sh" proxy
+                    bash "$TEMP_DIR/scripts/automation/deploy_stack.sh" proxy
                 fi
                 ;;
             2)
                 echo "Starting automated Media stack deployment..."
                 if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/create_alpine_lxc.sh" media
-                    bash "$TEMP_DIR/deploy_stack.sh" media
+                    bash "$TEMP_DIR/scripts/automation/create_alpine_lxc.sh" media
+                    bash "$TEMP_DIR/scripts/automation/deploy_stack.sh" media
                 fi
                 ;;
             3)
                 echo "Starting automated Files stack deployment..."
                 if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/create_alpine_lxc.sh" files
-                    bash "$TEMP_DIR/deploy_stack.sh" files
+                    bash "$TEMP_DIR/scripts/automation/create_alpine_lxc.sh" files
+                    bash "$TEMP_DIR/scripts/automation/deploy_stack.sh" files
                 fi
                 ;;
             4)
                 echo "Starting automated Webtools stack deployment..."
                 if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/create_alpine_lxc.sh" webtools
-                    bash "$TEMP_DIR/deploy_stack.sh" webtools
+                    bash "$TEMP_DIR/scripts/automation/create_alpine_lxc.sh" webtools
+                    bash "$TEMP_DIR/scripts/automation/deploy_stack.sh" webtools
                 fi
                 ;;
             5)
                 echo "Starting automated Monitoring stack deployment..."
                 if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/create_alpine_lxc.sh" monitoring
-                    bash "$TEMP_DIR/deploy_stack.sh" monitoring
+                    bash "$TEMP_DIR/scripts/automation/create_alpine_lxc.sh" monitoring
+                    bash "$TEMP_DIR/scripts/automation/deploy_stack.sh" monitoring
                 fi
                 ;;
             6)
                 echo "Starting automated Development stack deployment..."
                 if download_script "scripts/automation/create_development_lxc.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/create_development_lxc.sh" development
+                    bash "$TEMP_DIR/scripts/automation/create_development_lxc.sh" development
                 fi
                 ;;
             7)
@@ -152,31 +166,31 @@ post_install_menu() {
             3)
                 if download_script "scripts/core/optimize_zfs.sh"; then
                     echo "Starting ZFS performance optimization..."
-                    bash "$TEMP_DIR/optimize_zfs.sh"
+                    bash "$TEMP_DIR/scripts/core/optimize_zfs.sh"
                 fi
                 ;;
             4)
                 if download_script "scripts/core/install_security.sh"; then
                     echo "Starting security installation..."
-                    bash "$TEMP_DIR/install_security.sh"
+                    bash "$TEMP_DIR/scripts/core/install_security.sh"
                 fi
                 ;;
             5)
                 if download_script "scripts/core/install_storage.sh"; then
                     echo "Starting storage installation..."
-                    bash "$TEMP_DIR/install_storage.sh"
+                    bash "$TEMP_DIR/scripts/core/install_storage.sh"
                 fi
                 ;;
             6)
                 if download_script "scripts/network/setup_bonding.sh"; then
                     echo "Starting network bonding setup..."
-                    bash "$TEMP_DIR/setup_bonding.sh"
+                    bash "$TEMP_DIR/scripts/network/setup_bonding.sh"
                 fi
                 ;;
             7)
                 if download_script "scripts/core/configure_timezone.sh"; then
                     echo "Starting timezone configuration..."
-                    bash "$TEMP_DIR/configure_timezone.sh"
+                    bash "$TEMP_DIR/scripts/core/configure_timezone.sh"
                 fi
                 ;;
             8)
@@ -210,7 +224,7 @@ system_maintenance_menu() {
             1)
                 if download_script "scripts/maintenance/security_monitor.sh"; then
                     echo "Checking security status..."
-                    bash "$TEMP_DIR/security_monitor.sh"
+                    bash "$TEMP_DIR/scripts/maintenance/security_monitor.sh"
                 fi
                 ;;
             2)

@@ -1,15 +1,23 @@
 #!/bin/bash
 set -e  # Stop the script if any command fails
 
+# Source common utilities
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../utils/common.sh"
+
+# Check root privileges
+check_root
+
 # Samba installation
+print_step "Installing Samba for network storage..."
 apt update
 apt install -y samba
 
 # Get custom Samba username
-echo "Samba Configuration:"
+print_info "Samba Configuration:"
 read -p "Enter Samba username: " samba_username
 while [ -z "$samba_username" ]; do
-    echo "Username cannot be empty!"
+    print_error "Username cannot be empty!"
     read -p "Enter Samba username: " samba_username
 done
 
@@ -52,17 +60,17 @@ echo
 
 # Check if passwords match
 if [ "$samba_password" != "$samba_password_confirm" ]; then
-    echo "Error: Passwords do not match. Please try again."
+    print_error "Passwords do not match. Please try again."
     exit 1
 fi
 
-echo "Configuring Samba password..."
+print_info "Configuring Samba password..."
 (echo "$samba_password"; echo "$samba_password") | smbpasswd -a "$samba_username" > /dev/null 2>&1
 
 if [ $? -eq 0 ]; then
-    echo "Samba password configured successfully for user '$samba_username'."
+    print_success "Samba password configured successfully for user '$samba_username'."
 else
-    echo "Failed to set Samba password. Please check the error and try again."
+    print_error "Failed to set Samba password. Please check the error and try again."
     exit 1
 fi
 
@@ -78,6 +86,7 @@ sleep 3
 systemctl status smbd | head -20
 
 # Sanoid installation
+print_step "Installing Sanoid for ZFS snapshot management..."
 apt update
 apt install -y sanoid
 
@@ -85,7 +94,7 @@ apt install -y sanoid
 mkdir -p /etc/sanoid
 
 # Detect available ZFS datasets for sanoid configuration
-echo "Detecting ZFS datasets for snapshot configuration..."
+print_info "Detecting ZFS datasets for snapshot configuration..."
 
 # Create configuration file with detected datasets
 cat > /etc/sanoid/sanoid.conf << 'EOF'
@@ -116,7 +125,7 @@ if zfs list rpool/ROOT >/dev/null 2>&1; then
     echo "[rpool/ROOT]" >> /etc/sanoid/sanoid.conf
     echo "        use_template = system" >> /etc/sanoid/sanoid.conf
     echo "        recursive = yes" >> /etc/sanoid/sanoid.conf
-    echo "✓ Added rpool/ROOT to sanoid configuration"
+    print_info "✓ Added rpool/ROOT to sanoid configuration"
 fi
 
 # Add data pools if they exist
@@ -125,7 +134,7 @@ if zfs list datapool >/dev/null 2>&1; then
     echo "[datapool]" >> /etc/sanoid/sanoid.conf
     echo "        use_template = data" >> /etc/sanoid/sanoid.conf
     echo "        recursive = yes" >> /etc/sanoid/sanoid.conf
-    echo "✓ Added datapool to sanoid configuration"
+    print_info "✓ Added datapool to sanoid configuration"
 fi
 
 # Enable and start the service
