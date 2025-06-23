@@ -192,9 +192,12 @@ setup_env_file() {
     
     # Download and run interactive setup script (maintain directory structure)
     local interactive_script="$TEMP_DIR/scripts/automation/interactive_setup.sh"
+    local common_script="$TEMP_DIR/scripts/utils/common.sh"
     if [ ! -f "$interactive_script" ]; then
         mkdir -p "$(dirname "$interactive_script")"
+        mkdir -p "$(dirname "$common_script")"
         wget -q -O "$interactive_script" "$GITHUB_REPO/scripts/automation/interactive_setup.sh"
+        wget -q -O "$common_script" "$GITHUB_REPO/scripts/utils/common.sh"
         chmod +x "$interactive_script"
     fi
     
