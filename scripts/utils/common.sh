@@ -43,61 +43,48 @@ check_lxc_status() {
     fi
 }
 
-# Function to wait for container readiness (unified implementation)
+# Function to wait for container readiness (simplified implementation)
 wait_for_container_ready() {
     local lxc_id=$1
-    local max_attempts=${2:-30}  # Default 30 attempts
-    local quiet=${3:-false}  # Add quiet mode option
+    local max_attempts=${2:-30}
     local attempt=1
     
-    [ "$quiet" != "true" ] && print_info "Waiting for container to be ready..."
+    print_info "Waiting for container to be ready..."
     while [ $attempt -le $max_attempts ]; do
         if pct exec "$lxc_id" -- echo "ready" >/dev/null 2>&1; then
-            if [ "$quiet" != "true" ] && [ $attempt -gt 1 ]; then
-                print_info "✓ Container is ready after ${attempt} attempts"
-            elif [ "$quiet" != "true" ]; then
-                print_info "✓ Container is ready"
-            fi
+            print_info "✓ Container is ready"
             return 0
         fi
         sleep 2
         attempt=$((attempt + 1))
     done
     
-    print_warning "Container readiness check timeout after $((max_attempts * 2)) seconds, continuing..."
-    return 0  # Don't fail entire script
+    print_warning "Container readiness timeout, continuing..."
+    return 0
 }
 
-# Function to ensure Docker service is ready (unified implementation)
+# Function to ensure Docker service is ready (simplified implementation)
 ensure_docker_ready() {
     local lxc_id=$1
-    local max_attempts=${2:-15}  # Default 15 attempts
-    local quiet=${3:-false}  # Add quiet mode option
-    local attempt=1
     
-    # Quick check first - if Docker is already ready, don't show messages
+    # Quick check - if Docker is already ready, return
     if pct exec "$lxc_id" -- docker info >/dev/null 2>&1; then
-        [ "$quiet" != "true" ] && print_info "✓ Docker is already working"
+        print_info "✓ Docker is ready"
         return 0
     fi
     
-    [ "$quiet" != "true" ] && print_info "Ensuring Docker service is ready..."
-    while [ $attempt -le $max_attempts ]; do
-        if pct exec "$lxc_id" -- docker info >/dev/null 2>&1; then
-            [ "$quiet" != "true" ] && print_info "✓ Docker service is ready"
-            return 0
-        fi
-        
-        if [ $attempt -eq 5 ]; then
-            [ "$quiet" != "true" ] && print_info "Docker not ready, restarting service..."
-            pct exec "$lxc_id" -- rc-service docker restart >/dev/null 2>&1 || true
-        fi
-        
-        sleep 3
-        attempt=$((attempt + 1))
-    done
+    # Try to start Docker service
+    print_info "Starting Docker service..."
+    pct exec "$lxc_id" -- rc-service docker start >/dev/null 2>&1 || true
     
-    print_warning "Docker readiness check timeout, continuing anyway..."
+    # Wait a bit and check again
+    sleep 5
+    if pct exec "$lxc_id" -- docker info >/dev/null 2>&1; then
+        print_info "✓ Docker service started"
+        return 0
+    fi
+    
+    print_warning "Docker may not be ready, continuing anyway..."
     return 0
 }
 
@@ -335,9 +322,8 @@ ensure_datapool_permissions() {
             mkdir -p /datapool/config/{homepage,firefox}
             ;;
         "monitoring")
-            mkdir -p /datapool/config/{prometheus,grafana,alertmanager}
-            mkdir -p /datapool/config/prometheus/{rules,data}
-            mkdir -p /datapool/config/grafana/provisioning/{datasources,dashboards}
+            mkdir -p /datapool/config/monitoring/{prometheus/rules,prometheus/data,grafana,alertmanager}
+            mkdir -p /datapool/config/monitoring/grafana/provisioning/{datasources,dashboards}
             ;;
     esac
     

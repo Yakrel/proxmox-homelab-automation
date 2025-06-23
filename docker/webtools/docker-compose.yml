@@ -21,6 +21,7 @@ services:
       - TZ=Europe/Istanbul
       - PUID=1000
       - PGID=1000
+      - HOMEPAGE_ALLOWED_HOSTS=192.168.1.103,localhost,0.0.0.0
     networks:
       - webtools-net
     logging:

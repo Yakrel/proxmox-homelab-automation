@@ -19,8 +19,8 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - /datapool/config/prometheus:/etc/prometheus:ro
-      - /datapool/config/prometheus/data:/prometheus
+      - /datapool/config/monitoring/prometheus:/etc/prometheus:ro
+      - /datapool/config/monitoring/prometheus/data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -50,8 +50,8 @@ services:
       - "3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
-      - /datapool/config/grafana/provisioning:/etc/grafana/provisioning:ro
-      - /datapool/config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - /datapool/config/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - /datapool/config/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
       - TZ=Europe/Istanbul
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
@@ -135,7 +135,7 @@ services:
     ports:
       - "9093:9093"
     volumes:
-      - /datapool/config/alertmanager:/etc/alertmanager:ro
+      - /datapool/config/monitoring/alertmanager:/etc/alertmanager:ro
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
