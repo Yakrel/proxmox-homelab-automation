@@ -80,8 +80,8 @@ get_password() {
         echo ""
         
         if [ "$password" = "$password_confirm" ]; then
-            # Use echo instead of printf to avoid potential issues with special characters
-            echo "$password"
+            # Use printf to avoid newlines that get captured by command substitution
+            printf "%s" "$password"
             return 0
         else
             print_error "Passwords do not match. Please try again."
@@ -514,6 +514,9 @@ main() {
     if [ "$stack_type" = "all" ]; then
         print_warning "REMINDER: Configure services through their web UIs and update credentials as needed"
     fi
+    
+    # Exit explicitly to prevent script hanging
+    exit 0
 }
 
 # Execute main function
