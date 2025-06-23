@@ -8,13 +8,18 @@ set -e
 # Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source common.sh from utils directory
+# Source common.sh from utils directory with better error reporting
 if [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
     source "$SCRIPT_DIR/../utils/common.sh"
 elif [ -f "/tmp/common.sh" ]; then
     source "/tmp/common.sh"
 else
     echo "ERROR: common.sh not found!" >&2
+    echo "DEBUG: SCRIPT_DIR=$SCRIPT_DIR" >&2
+    echo "DEBUG: Looking for common.sh at: $SCRIPT_DIR/../utils/common.sh" >&2
+    echo "DEBUG: File exists check: $(test -f "$SCRIPT_DIR/../utils/common.sh" && echo "YES" || echo "NO")" >&2
+    echo "DEBUG: Directory contents of $SCRIPT_DIR/../utils/:" >&2
+    ls -la "$SCRIPT_DIR/../utils/" 2>/dev/null || echo "Directory does not exist" >&2
     exit 1
 fi
 
@@ -185,9 +190,10 @@ setup_env_file() {
         print_info "✓ Backed up existing .env to $(basename "$backup_file")"
     fi
     
-    # Download and run interactive setup script
-    local interactive_script="$TEMP_DIR/interactive_setup.sh"
+    # Download and run interactive setup script (maintain directory structure)
+    local interactive_script="$TEMP_DIR/scripts/automation/interactive_setup.sh"
     if [ ! -f "$interactive_script" ]; then
+        mkdir -p "$(dirname "$interactive_script")"
         wget -q -O "$interactive_script" "$GITHUB_REPO/scripts/automation/interactive_setup.sh"
         chmod +x "$interactive_script"
     fi

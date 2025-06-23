@@ -113,7 +113,13 @@ main_deployment_menu() {
                 ;;
             4)
                 echo "Starting automated Webtools stack deployment..."
-                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
+                if ! download_script "scripts/automation/create_alpine_lxc.sh"; then
+                    echo "ERROR: Failed to download create_alpine_lxc.sh"
+                elif ! download_script "scripts/automation/deploy_stack.sh"; then
+                    echo "ERROR: Failed to download deploy_stack.sh"
+                elif ! download_script "scripts/utils/common.sh"; then
+                    echo "ERROR: Failed to download common.sh"
+                else
                     bash "$TEMP_DIR/scripts/automation/create_alpine_lxc.sh" webtools
                     bash "$TEMP_DIR/scripts/automation/deploy_stack.sh" webtools
                 fi
