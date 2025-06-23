@@ -142,11 +142,12 @@ ensure_datapool_permissions() {
         "monitoring")
             mkdir -p /datapool/config/monitoring/{grafana,prometheus,alertmanager} 2>/dev/null || true
             ;;
-        "utility")
+        "webtools")
             mkdir -p /datapool/config/{homepage,firefox} 2>/dev/null || true
             ;;
-        "downloads")
-            mkdir -p /datapool/config/{jdownloader2,metube} 2>/dev/null || true
+        "files")
+            mkdir -p /datapool/config/{jdownloader2,metube,palmr} 2>/dev/null || true
+            mkdir -p /datapool/files 2>/dev/null || true
             ;;
         "proxy")
             mkdir -p /datapool/config/cloudflared 2>/dev/null || true
@@ -891,8 +892,8 @@ if [ -z "$LXC_ID" ]; then
     case $STACK_TYPE in
         "media") LXC_ID=101 ;;
         "proxy") LXC_ID=100 ;;
-        "downloads") LXC_ID=102 ;;
-        "utility") LXC_ID=103 ;;
+        "files") LXC_ID=102 ;;
+        "webtools") LXC_ID=103 ;;
         "monitoring") LXC_ID=104 ;;
         *) 
             print_error "Unknown stack type: $STACK_TYPE"

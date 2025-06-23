@@ -309,11 +309,12 @@ ensure_datapool_permissions() {
             mkdir -p /datapool/{torrents,media}/{tv,movies}
             mkdir -p /datapool/torrents/other
             ;;
-        "downloads")
-            mkdir -p /datapool/config/{jdownloader2,metube}
+        "files")
+            mkdir -p /datapool/config/{jdownloader2,metube,palmr}
+            mkdir -p /datapool/files
             ;;
-        "utility")
-            mkdir -p /datapool/config/firefox
+        "webtools")
+            mkdir -p /datapool/config/{homepage,firefox}
             ;;
         "monitoring")
             mkdir -p /datapool/config/{prometheus,grafana,alertmanager}

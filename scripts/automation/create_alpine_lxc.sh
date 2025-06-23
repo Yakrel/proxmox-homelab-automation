@@ -262,11 +262,11 @@ create_stack_lxc() {
         "proxy")
             create_alpine_lxc_direct 100 "lxc-proxy-01" 2 2048 8
             ;;
-        "downloads")
-            create_alpine_lxc_direct 102 "lxc-downloads-01" 2 3072 8
+        "files")
+            create_alpine_lxc_direct 102 "lxc-files-01" 2 3072 8
             ;;
-        "utility")
-            create_alpine_lxc_direct 103 "lxc-utility-01" 3 6144 8
+        "webtools")
+            create_alpine_lxc_direct 103 "lxc-webtools-01" 3 6144 8
             ;;
         "monitoring")
             create_alpine_lxc_direct 104 "lxc-monitoring-01" 2 4096 12

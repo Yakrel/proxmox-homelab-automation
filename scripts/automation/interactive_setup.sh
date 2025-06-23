@@ -456,7 +456,7 @@ main() {
     echo ""
     
     case $stack_type in
-        "proxy"|"media"|"downloads"|"utility"|"monitoring")
+        "proxy"|"media"|"files"|"webtools"|"monitoring")
             print_info "Setting up $stack_type stack configuration..."
             setup_stack_environment "$stack_type" "$base_dir/$stack_type-stack"
             ;;
