@@ -60,23 +60,33 @@ get_password() {
     local prompt=$1
     local password
     local password_confirm
+    local attempt=1
+    local max_attempts=3
     
-    while true; do
+    while [ $attempt -le $max_attempts ]; do
         # Clear any previous input
         read -t 0.1 -n 10000 discard 2>/dev/null || true
         
-        read -sp "$prompt: " password
+        # Add attempt counter for user feedback
+        if [ $attempt -gt 1 ]; then
+            print_info "Password attempt $attempt/$max_attempts"
+        fi
+        
+        printf "%s: " "$prompt"
+        read -s password
         echo ""
         
         if ! validate_password_strength "$password"; then
             print_warning "Please enter a non-empty password"
+            attempt=$((attempt + 1))
             continue
         fi
         
         # Clear any previous input before confirmation
         read -t 0.1 -n 10000 discard 2>/dev/null || true
         
-        read -sp "Confirm password: " password_confirm
+        printf "Confirm password: "
+        read -s password_confirm
         echo ""
         
         if [ "$password" = "$password_confirm" ]; then
@@ -85,8 +95,17 @@ get_password() {
             return 0
         else
             print_error "Passwords do not match. Please try again."
+            attempt=$((attempt + 1))
+            
+            # Add delay before retry to prevent rapid retries
+            if [ $attempt -le $max_attempts ]; then
+                sleep 1
+            fi
         fi
     done
+    
+    print_error "Failed to set password after $max_attempts attempts"
+    return 1
 }
 
 # Helper function to create common environment settings
@@ -251,12 +270,10 @@ setup_files_env() {
     local jdownloader_password="$existing_password"
     if [ -z "$jdownloader_password" ]; then
         jdownloader_password=$(get_password "Enter JDownloader VNC password (min 8 chars)")
-    fi
-    
-    # Validate password is not empty after function call
-    if [ -z "$jdownloader_password" ]; then
-        print_error "Password cannot be empty"
-        return 1
+        if [ $? -ne 0 ] || [ -z "$jdownloader_password" ]; then
+            print_error "Failed to get JDownloader VNC password"
+            return 1
+        fi
     fi
     
     local palmr_encryption_key="$existing_encryption_key"
@@ -294,12 +311,10 @@ setup_webtools_env() {
     local firefox_password="$existing_password"
     if [ -z "$firefox_password" ]; then
         firefox_password=$(get_password "Enter Firefox VNC password (min 8 chars)")
-    fi
-    
-    # Validate password is not empty after function call
-    if [ -z "$firefox_password" ]; then
-        print_error "Password cannot be empty"
-        return 1
+        if [ $? -ne 0 ] || [ -z "$firefox_password" ]; then
+            print_error "Failed to get Firefox VNC password"
+            return 1
+        fi
     fi
     
     # Create .env file with common settings and webtools-specific content
@@ -341,23 +356,19 @@ setup_monitoring_env() {
     local grafana_password="$existing_grafana_pwd"
     if [ -z "$grafana_password" ]; then
         grafana_password=$(get_password "Enter Grafana admin password (min 8 chars)")
-    fi
-    
-    # Validate password is not empty after function call
-    if [ -z "$grafana_password" ]; then
-        print_error "Grafana password cannot be empty"
-        return 1
+        if [ $? -ne 0 ] || [ -z "$grafana_password" ]; then
+            print_error "Failed to get Grafana admin password"
+            return 1
+        fi
     fi
     
     local pve_password="$existing_pve_pwd"
     if [ -z "$pve_password" ]; then
         pve_password=$(get_password "Enter Proxmox monitoring user password (min 8 chars)")
-    fi
-    
-    # Validate password is not empty after function call
-    if [ -z "$pve_password" ]; then
-        print_error "Proxmox password cannot be empty"
-        return 1
+        if [ $? -ne 0 ] || [ -z "$pve_password" ]; then
+            print_error "Failed to get Proxmox monitoring password"
+            return 1
+        fi
     fi
     
     local email_address="$existing_email"

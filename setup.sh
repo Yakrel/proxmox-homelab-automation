@@ -14,7 +14,26 @@ fi
 # Repository URL
 REPO_URL="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main"
 TEMP_DIR=$(mktemp -d)
-trap 'rm -rf "$TEMP_DIR"' EXIT
+
+# Cleanup function
+cleanup_and_exit() {
+    local exit_code=${1:-0}
+    echo ""
+    echo "======================================================"
+    if [ $exit_code -eq 0 ]; then
+        echo "Operation completed!"
+    else
+        echo "Operation interrupted or failed!"
+    fi
+    echo "Cleaning up temporary files..."
+    rm -rf "$TEMP_DIR" 2>/dev/null || true
+    echo "======================================================"
+    exit $exit_code
+}
+
+# Set up signal handlers for graceful exit
+trap 'cleanup_and_exit 1' INT TERM
+trap 'cleanup_and_exit 0' EXIT
 
 echo "Setting up temporary directory at $TEMP_DIR"
 
@@ -123,7 +142,7 @@ main_deployment_menu() {
             9)
                 # Exit
                 echo "Exiting..."
-                exit 0
+                return 0
                 ;;
             *)
                 echo "Invalid choice!"
@@ -240,7 +259,5 @@ system_maintenance_menu() {
 # Execute main menu
 main_deployment_menu
 
-echo "======================================================"
-echo "Operation completed!"
-echo "======================================================"
+# Normal exit - cleanup will be handled by EXIT trap
 exit 0

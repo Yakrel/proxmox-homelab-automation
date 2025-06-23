@@ -130,17 +130,23 @@ ensure_container_ready() {
 ensure_datapool_mount() {
     local lxc_id=$1
     
+    print_info "Checking /datapool mount for LXC $lxc_id..."
+    
     # Check if mount already exists with more precise regex
-    if pct config "$lxc_id" | grep -E "^mp[0-9]+=.*,mp=/datapool" >/dev/null 2>&1; then
+    local existing_mount=$(pct config "$lxc_id" | grep -E "^mp[0-9]+=.*,mp=/datapool" 2>/dev/null)
+    if [ -n "$existing_mount" ]; then
+        print_info "✓ Found existing datapool mount configuration: $(echo "$existing_mount" | cut -d'=' -f1)"
+        
         # Verify mount is accessible if container is running
         if pct status "$lxc_id" | grep -q "running"; then
             if pct exec "$lxc_id" -- test -d /datapool 2>/dev/null; then
-                # Only print success message if mount is working
+                print_info "✓ /datapool mount is accessible and working"
                 return 0
             else
-                print_warning "Mount exists but not accessible - attempting remount"
+                print_warning "Mount exists in config but not accessible - attempting remount"
                 # Try to remount without full restart
                 pct exec "$lxc_id" -- mount -a 2>/dev/null || true
+                sleep 2
                 if pct exec "$lxc_id" -- test -d /datapool 2>/dev/null; then
                     print_info "✓ /datapool mount remounted successfully"
                     return 0
@@ -150,8 +156,10 @@ ensure_datapool_mount() {
                     return 0
                 fi
             fi
+        else
+            print_info "✓ Mount configured, container not running (mount will be available on startup)"
+            return 0
         fi
-        return 0
     fi
     
     print_info "Adding /datapool mount point..."
