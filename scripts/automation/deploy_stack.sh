@@ -8,22 +8,14 @@ set -e
 # Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Try different locations for common.sh based on execution context
-if [ -f "$SCRIPT_DIR/common.sh" ]; then
-    source "$SCRIPT_DIR/common.sh"
-elif [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
+# Source common.sh from utils directory
+if [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
     source "$SCRIPT_DIR/../utils/common.sh"
-elif [ -f "scripts/utils/common.sh" ]; then
-    source "scripts/utils/common.sh"
 elif [ -f "/tmp/common.sh" ]; then
     source "/tmp/common.sh"
 else
-    # Define basic print functions if common.sh is not found
-    print_info() { echo "[INFO] $1"; }
-    print_error() { echo "[ERROR] $1"; }
-    print_warning() { echo "[WARNING] $1"; }
-    print_step() { echo "[STEP] $1"; }
-    check_root() { [ "$(id -u)" -eq 0 ] || { echo "This script must be run as root"; exit 1; }; }
+    echo "ERROR: common.sh not found!" >&2
+    exit 1
 fi
 
 # Configuration
@@ -109,56 +101,6 @@ validate_env_file() {
     return 0
 }
 
-# Function to backup existing env file
-backup_env_file() {
-    local lxc_id=$1
-    local env_file=$2
-    
-    if pct exec "$lxc_id" -- test -f "$env_file" 2>/dev/null; then
-        local backup_file="${env_file}.backup.$(date +%Y%m%d_%H%M%S)"
-        pct exec "$lxc_id" -- cp "$env_file" "$backup_file" 2>/dev/null
-        print_info "✓ Backed up existing .env to $(basename "$backup_file")"
-    fi
-}
-
-
-# Function to ensure proper datapool permissions
-ensure_datapool_permissions() {
-    local stack_type=$1
-    
-    # Ensure base datapool config directory exists and has proper permissions
-    mkdir -p /datapool/config 2>/dev/null || true
-    chown -R 101000:101000 /datapool/config 2>/dev/null || {
-        print_warning "Could not set ownership on /datapool/config"
-        print_info "This may be normal if not running on Proxmox host"
-    }
-    
-    # Create stack-specific config directories as needed
-    case $stack_type in
-        "media")
-            mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr} 2>/dev/null || true
-            mkdir -p /datapool/{torrents,media}/{movies,tv,other} 2>/dev/null || true
-            ;;
-        "monitoring")
-            mkdir -p /datapool/config/monitoring/{grafana,prometheus,alertmanager} 2>/dev/null || true
-            ;;
-        "webtools")
-            mkdir -p /datapool/config/{homepage,firefox} 2>/dev/null || true
-            ;;
-        "files")
-            mkdir -p /datapool/config/{jdownloader2,metube,palmr} 2>/dev/null || true
-            mkdir -p /datapool/files 2>/dev/null || true
-            ;;
-        "proxy")
-            mkdir -p /datapool/config/cloudflared 2>/dev/null || true
-            ;;
-    esac
-    
-    # Set consistent ownership
-    chown -R 101000:101000 /datapool/config 2>/dev/null || true
-    
-    return 0
-}
 
 # Function to download files from GitHub
 download_stack_files() {
@@ -203,7 +145,9 @@ setup_env_file() {
     
     # If .env exists but invalid, back it up
     if pct exec "$lxc_id" -- test -f "$stack_dir/.env" 2>/dev/null; then
-        backup_env_file "$lxc_id" "$stack_dir/.env"
+        local backup_file="${stack_dir}/.env.backup.$(date +%Y%m%d_%H%M%S)"
+        pct exec "$lxc_id" -- cp "$stack_dir/.env" "$backup_file" 2>/dev/null
+        print_info "✓ Backed up existing .env to $(basename "$backup_file")"
     fi
     
     # Download and run interactive setup script
@@ -241,29 +185,6 @@ setup_env_file() {
         return 1
     fi
 }
-
-# Function to deploy stack with Docker Compose
-deploy_with_compose() {
-    local stack_dir=$1
-    local stack_type=$2
-    
-    cd "$stack_dir"
-    
-    $DOCKER_COMPOSE_CMD pull >/dev/null 2>&1
-    $DOCKER_COMPOSE_CMD up -d
-    
-    if [ $? -eq 0 ]; then
-        print_info "✓ $stack_type stack deployed successfully!"
-        $DOCKER_COMPOSE_CMD ps
-        return 0
-    else
-        print_error "Failed to deploy $stack_type stack"
-        return 1
-    fi
-}
-
-
-
 
 # Function to deploy Homepage dashboard configuration
 deploy_homepage_configs() {
@@ -340,9 +261,7 @@ deploy_monitoring_configs() {
     print_info "Deploying monitoring configuration files..."
     
     # Create monitoring config directories
-    pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/alertmanager 2>/dev/null
-    pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/grafana 2>/dev/null
-    pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/prometheus 2>/dev/null
+    pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/{alertmanager,grafana,prometheus} 2>/dev/null
     
     # These files are already handled by download_stack_files function
     print_info "✓ Monitoring config directories prepared"
@@ -645,8 +564,6 @@ setup_grafana_dashboards() {
         
         if wget -q --timeout=10 --tries=3 -O "$output_path" "$url"; then
             print_info "✓ Downloaded $filename successfully"
-            # Set proper ownership
-            chown 101000:101000 "$output_path" 2>/dev/null || true
         else
             print_warning "Failed to download $filename from GitHub"
             print_info "Dashboard will need to be imported manually with ID: ${filename##*-}"
@@ -673,9 +590,11 @@ providers:
     options:
       path: /var/lib/grafana/dashboards
 EOF
-        chown 101000:101000 "$provider_dir/dashboard-provider.yml" 2>/dev/null || true
         print_info "✓ Dashboard provider configured"
     fi
+    
+    # Set proper ownership for all Grafana files in one operation
+    chown -R 101000:101000 /datapool/config/grafana 2>/dev/null || true
     
     print_info "✓ Grafana dashboard setup completed"
     print_info "📋 Dashboards will be available in Grafana under 'Homelab' folder after container startup"

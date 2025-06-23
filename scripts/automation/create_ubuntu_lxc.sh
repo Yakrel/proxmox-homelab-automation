@@ -7,47 +7,14 @@ set -e
 
 # Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Check if common.sh exists in the same directory (for setup.sh execution)
-if [ -f "$SCRIPT_DIR/common.sh" ]; then
-    source "$SCRIPT_DIR/common.sh"
-elif [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
+
+if [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
     source "$SCRIPT_DIR/../utils/common.sh"
 else
-    echo "ERROR: common.sh not found!"
+    echo "ERROR: common.sh not found!" >&2
     exit 1
 fi
 
-# Function to check LXC status
-check_lxc_status() {
-    local lxc_id=$1
-    
-    if pct status "$lxc_id" >/dev/null 2>&1; then
-        local status=$(pct status "$lxc_id" | awk '{print $2}')
-        echo "$status"
-    else
-        echo "not_exists"
-    fi
-}
-
-# Function to wait for container readiness
-wait_for_container_ready() {
-    local lxc_id=$1
-    local max_attempts=30
-    local attempt=1
-    
-    print_info "Waiting for container to be ready..."
-    while [ $attempt -le $max_attempts ]; do
-        if pct exec "$lxc_id" -- echo "ready" >/dev/null 2>&1; then
-            print_info "✓ Container is ready after ${attempt} attempts"
-            return 0
-        fi
-        sleep 2
-        attempt=$((attempt + 1))
-    done
-    
-    print_warning "Container readiness check timeout after $((max_attempts * 2)) seconds, continuing..."
-    return 0  # Don't fail entire script
-}
 
 # Function to create Ubuntu LXC using direct Proxmox commands (idempotent)
 create_ubuntu_lxc_direct() {

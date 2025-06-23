@@ -7,12 +7,11 @@ set -euo pipefail
 
 # Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SCRIPT_DIR/common.sh" ]; then
-    source "$SCRIPT_DIR/common.sh"
-elif [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
+
+if [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
     source "$SCRIPT_DIR/../utils/common.sh"
 else
-    echo "ERROR: common.sh not found!"
+    echo "ERROR: common.sh not found!" >&2
     exit 1
 fi
 
@@ -23,25 +22,6 @@ readonly CPU_CORES=2
 readonly RAM_MB=4096
 readonly DISK_GB=12
 
-# Function to wait for container readiness
-wait_for_container_ready() {
-    local lxc_id=$1
-    local max_attempts=30
-    local attempt=1
-    
-    print_info "Waiting for container to be ready..."
-    while [ $attempt -le $max_attempts ]; do
-        if pct exec "$lxc_id" -- echo "ready" >/dev/null 2>&1; then
-            print_info "✓ Container is ready after ${attempt} attempts"
-            return 0
-        fi
-        sleep 2
-        attempt=$((attempt + 1))
-    done
-    
-    print_warning "Container readiness check timeout after $((max_attempts * 2)) seconds, continuing..."
-    return 0  # Don't fail entire script
-}
 
 # Function to create Ubuntu LXC
 create_ubuntu_lxc() {

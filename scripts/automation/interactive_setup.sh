@@ -17,13 +17,9 @@ trap cleanup_temp_files EXIT
 # Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Try different locations for common.sh based on execution context
-if [ -f "$SCRIPT_DIR/common.sh" ]; then
-    source "$SCRIPT_DIR/common.sh"
-elif [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
+# Source common.sh from utils directory
+if [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
     source "$SCRIPT_DIR/../utils/common.sh"
-elif [ -f "scripts/utils/common.sh" ]; then
-    source "scripts/utils/common.sh"
 elif [ -f "/tmp/common.sh" ]; then
     source "/tmp/common.sh"
 else
