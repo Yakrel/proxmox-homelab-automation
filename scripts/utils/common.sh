@@ -292,12 +292,15 @@ download_and_prepare_template() {
     pveam update
     
     if [ "$template_type" = "alpine" ]; then
-        # Get latest Alpine template
-        local template_name=$(pveam available | grep "alpine" | grep "default" | grep "amd64" | tail -1 | awk '{print $2}')
+        # Get latest Alpine template - correct pattern matching
+        local template_name=$(pveam available | grep "^system.*alpine.*default.*amd64" | tail -1 | awk '{print $2}')
     else
-        # Get latest Ubuntu LTS template  
-        local template_name=$(pveam available | grep "ubuntu" | grep "standard" | grep "amd64" | tail -1 | awk '{print $2}')
+        # Get latest Ubuntu LTS template - correct pattern matching
+        local template_name=$(pveam available | grep "^system.*ubuntu.*standard.*amd64" | tail -1 | awk '{print $2}')
     fi
+    
+    # Debug: print template name and length
+    print_info "Found template: $template_name (${#template_name} characters)"
     
     local template_path="/datapool/template/cache/$template_name"
     
@@ -307,7 +310,6 @@ download_and_prepare_template() {
         pveam download datapool "$template_name"
     fi
     
-    print_info "Using template: $template_name"
     echo "$template_path"
     return 0
 }

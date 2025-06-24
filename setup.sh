@@ -18,6 +18,13 @@ TEMP_DIR=$(mktemp -d)
 # Cleanup function
 cleanup_and_exit() {
     local exit_code=${1:-0}
+    
+    # Prevent multiple cleanup calls
+    if [ "${CLEANUP_DONE:-}" = "true" ]; then
+        exit $exit_code
+    fi
+    CLEANUP_DONE=true
+    
     echo ""
     echo "======================================================"
     if [ $exit_code -eq 0 ]; then
