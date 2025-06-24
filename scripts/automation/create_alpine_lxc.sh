@@ -131,7 +131,7 @@ if create_alpine_lxc_unified "$STACK_TYPE"; then
     print_info ""
     
     # Show next steps
-    local lxc_id=$(get_stack_lxc_id "$STACK_TYPE")
+    lxc_id=$(get_stack_lxc_id "$STACK_TYPE")
     print_info "Next steps:"
     print_info "  1. Deploy stack: bash scripts/automation/deploy_stack.sh $STACK_TYPE"
     print_info "  2. Access container: pct enter $lxc_id"

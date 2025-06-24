@@ -337,6 +337,7 @@ create_lxc_container() {
         --rootfs "datapool:${disk}" \
         --net0 "name=eth0,bridge=vmbr0,ip=dhcp" \
         --unprivileged 1 \
+        --features nesting=1 \
         --start 1; then
         
         print_success "✓ LXC container $lxc_id created successfully"
