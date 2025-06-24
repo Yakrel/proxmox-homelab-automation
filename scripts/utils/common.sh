@@ -284,7 +284,7 @@ get_stack_specifications() {
     esac
 }
 
-# Download latest LXC templates (homelab simplified)
+# Download latest LXC templates (get latest LTS versions dynamically)
 download_and_prepare_template() {
     local template_type=$1
     
@@ -292,37 +292,19 @@ download_and_prepare_template() {
     pveam update
     
     if [ "$template_type" = "alpine" ]; then
-        # Get latest Alpine template - more robust pattern matching
-        local template_name=$(pveam available | grep -i "alpine" | grep -i "default" | grep "amd64" | head -1 | awk '{print $2}')
+        # Get latest Alpine template
+        local template_name=$(pveam available | grep "alpine" | grep "default" | grep "amd64" | tail -1 | awk '{print $2}')
     else
-        # Get latest Ubuntu LTS template - more robust pattern matching
-        local template_name=$(pveam available | grep -i "ubuntu" | grep -i "standard" | grep "amd64" | head -1 | awk '{print $2}')
+        # Get latest Ubuntu LTS template  
+        local template_name=$(pveam available | grep "ubuntu" | grep "standard" | grep "amd64" | tail -1 | awk '{print $2}')
     fi
     
-    # Validate template name
-    if [ -z "$template_name" ]; then
-        print_error "Failed to find $template_type template"
-        print_info "Available templates:"
-        pveam available | head -10
-        return 1
-    fi
-    
-    # Validate template name length (Proxmox limit is 255 chars)
-    if [ ${#template_name} -gt 255 ]; then
-        print_error "Template name too long: ${#template_name} characters (max 255)"
-        print_error "Template name: $template_name"
-        return 1
-    fi
-    
-    local template_path="/var/lib/vz/template/cache/$template_name"
+    local template_path="/datapool/template/cache/$template_name"
     
     # Download if not exists
     if [ ! -f "$template_path" ]; then
         print_info "Downloading $template_name..."
-        if ! pveam download datapool "$template_name"; then
-            print_error "Failed to download template: $template_name"
-            return 1
-        fi
+        pveam download datapool "$template_name"
     fi
     
     print_info "Using template: $template_name"
