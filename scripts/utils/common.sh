@@ -288,8 +288,8 @@ get_stack_specifications() {
 download_and_prepare_template() {
     local template_type=$1
     
-    print_info "Getting latest $template_type template..."
-    pveam update
+    print_info "Getting latest $template_type template..." >&2
+    pveam update >&2
     
     if [ "$template_type" = "alpine" ]; then
         # Get latest Alpine template - correct pattern matching
@@ -300,14 +300,14 @@ download_and_prepare_template() {
     fi
     
     # Debug: print template name and length
-    print_info "Found template: $template_name (${#template_name} characters)"
+    print_info "Found template: $template_name (${#template_name} characters)" >&2
     
     local template_path="/datapool/template/cache/$template_name"
     
     # Download if not exists
     if [ ! -f "$template_path" ]; then
-        print_info "Downloading $template_name..."
-        pveam download datapool "$template_name"
+        print_info "Downloading $template_name..." >&2
+        pveam download datapool "$template_name" >&2
     fi
     
     echo "$template_path"
