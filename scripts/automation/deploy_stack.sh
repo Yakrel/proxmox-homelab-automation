@@ -47,7 +47,7 @@ validate_env_file() {
     local required_vars=""
     case "$stack_type" in
         "monitoring")
-            required_vars="GRAFANA_ADMIN_PASSWORD PVE_PASSWORD"
+            required_vars="GRAFANA_ADMIN_PASSWORD PVE_PASSWORD GMAIL_ADDRESS GMAIL_APP_PASSWORD"
             ;;
         "proxy")
             required_vars="CLOUDFLARED_TOKEN"
@@ -102,9 +102,18 @@ download_stack_files() {
     
     # Download additional config files for monitoring stack
     if [ "$stack_type" = "monitoring" ]; then
-        wget -q -O "$target_dir/prometheus.yml" "$GITHUB_REPO/docker/monitoring/prometheus.yml" 2>/dev/null || true
-        wget -q -O "$target_dir/alertmanager.yml" "$GITHUB_REPO/docker/monitoring/alertmanager.yml" 2>/dev/null || true
+        # Download template files for dynamic configuration
+        wget -q -O "$target_dir/prometheus.yml.template" "$GITHUB_REPO/docker/monitoring/prometheus.yml.template" 2>/dev/null || true
+        wget -q -O "$target_dir/alertmanager.yml.template" "$GITHUB_REPO/docker/monitoring/alertmanager.yml.template" 2>/dev/null || true
         wget -q -O "$target_dir/alerts.yml" "$GITHUB_REPO/docker/monitoring/alerts.yml" 2>/dev/null || true
+        
+        # Fallback to static files if templates don't exist
+        if [ ! -f "$target_dir/prometheus.yml.template" ]; then
+            wget -q -O "$target_dir/prometheus.yml" "$GITHUB_REPO/docker/monitoring/prometheus.yml" 2>/dev/null || true
+        fi
+        if [ ! -f "$target_dir/alertmanager.yml.template" ]; then
+            wget -q -O "$target_dir/alertmanager.yml" "$GITHUB_REPO/docker/monitoring/alertmanager.yml" 2>/dev/null || true
+        fi
     fi
     
     print_info "✓ Stack files downloaded"
@@ -237,14 +246,50 @@ deploy_homepage_configs() {
     fi
 }
 
+# Function to process monitoring templates with environment substitution
+process_monitoring_templates() {
+    local lxc_id=$1
+    local stack_dir=$2
+    
+    print_info "Processing monitoring configuration templates..."
+    
+    # Install envsubst if not available
+    if ! pct exec "$lxc_id" -- command -v envsubst >/dev/null 2>&1; then
+        print_info "Installing gettext-base for envsubst..."
+        pct exec "$lxc_id" -- apk add --no-cache gettext 2>/dev/null || \
+        pct exec "$lxc_id" -- apt-get update -qq && apt-get install -y gettext-base 2>/dev/null || true
+    fi
+    
+    # Process prometheus template if it exists
+    if pct exec "$lxc_id" -- test -f "$stack_dir/prometheus.yml.template" 2>/dev/null; then
+        print_info "Processing prometheus.yml template..."
+        pct exec "$lxc_id" -- bash -c "cd '$stack_dir' && set -a && source .env && envsubst < prometheus.yml.template > prometheus.yml" 2>/dev/null || {
+            print_warning "Template processing failed, using template as-is"
+            pct exec "$lxc_id" -- cp "$stack_dir/prometheus.yml.template" "$stack_dir/prometheus.yml" 2>/dev/null
+        }
+    fi
+    
+    # Process alertmanager template if it exists
+    if pct exec "$lxc_id" -- test -f "$stack_dir/alertmanager.yml.template" 2>/dev/null; then
+        print_info "Processing alertmanager.yml template..."
+        pct exec "$lxc_id" -- bash -c "cd '$stack_dir' && set -a && source .env && envsubst < alertmanager.yml.template > alertmanager.yml" 2>/dev/null || {
+            print_warning "Template processing failed, using template as-is"
+            pct exec "$lxc_id" -- cp "$stack_dir/alertmanager.yml.template" "$stack_dir/alertmanager.yml" 2>/dev/null
+        }
+    fi
+    
+    print_info "✓ Template processing completed"
+    return 0
+}
+
 # Function to deploy monitoring stack specific configs
 deploy_monitoring_configs() {
     local lxc_id=$1
     
     print_info "Deploying monitoring configuration files..."
     
-    # Create monitoring config directories
-    pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/{alertmanager,grafana,prometheus} 2>/dev/null
+    # Create monitoring config directories with data subdirectories
+    pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/{prometheus/{rules,data},alertmanager/data,grafana} 2>/dev/null
     
     # These files are already handled by download_stack_files function
     print_info "✓ Monitoring config directories prepared"
@@ -367,31 +412,52 @@ deploy_complete_stack() {
     if [ "$stack_type" = "monitoring" ]; then
         print_info "Setting up monitoring configuration files..."
         
-        # Ensure monitoring config directories exist
-        pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/{prometheus/rules,alertmanager,grafana} 2>/dev/null
+        # Ensure monitoring config directories exist (including data directories)
+        pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/{prometheus/{rules,data},alertmanager/data,grafana} 2>/dev/null
         
-        # Copy config files to proper locations
+        # Copy template and static files to LXC first
+        if [ -f "$TEMP_DIR/$stack_type/prometheus.yml.template" ]; then
+            pct push "$lxc_id" "$TEMP_DIR/$stack_type/prometheus.yml.template" "$target_dir/prometheus.yml.template"
+        fi
+        if [ -f "$TEMP_DIR/$stack_type/alertmanager.yml.template" ]; then
+            pct push "$lxc_id" "$TEMP_DIR/$stack_type/alertmanager.yml.template" "$target_dir/alertmanager.yml.template"
+        fi
         if [ -f "$TEMP_DIR/$stack_type/prometheus.yml" ]; then
-            pct push "$lxc_id" "$TEMP_DIR/$stack_type/prometheus.yml" "/datapool/config/monitoring/prometheus/prometheus.yml"
-            print_info "✓ Deployed prometheus.yml"
+            pct push "$lxc_id" "$TEMP_DIR/$stack_type/prometheus.yml" "$target_dir/prometheus.yml"
         fi
         if [ -f "$TEMP_DIR/$stack_type/alertmanager.yml" ]; then
-            pct push "$lxc_id" "$TEMP_DIR/$stack_type/alertmanager.yml" "/datapool/config/monitoring/alertmanager/alertmanager.yml"
-            print_info "✓ Deployed alertmanager.yml"
+            pct push "$lxc_id" "$TEMP_DIR/$stack_type/alertmanager.yml" "$target_dir/alertmanager.yml"
         fi
         if [ -f "$TEMP_DIR/$stack_type/alerts.yml" ]; then
-            pct push "$lxc_id" "$TEMP_DIR/$stack_type/alerts.yml" "/datapool/config/monitoring/prometheus/rules/alerts.yml"
-            print_info "✓ Deployed alerts.yml to prometheus rules directory"
+            pct push "$lxc_id" "$TEMP_DIR/$stack_type/alerts.yml" "$target_dir/alerts.yml"
         fi
         
-        print_info "✓ Monitoring configuration files deployed"
+        print_info "✓ Monitoring configuration files copied to LXC"
     fi
     
     # Interactive configuration for the stack
     setup_env_file "$target_dir" "$stack_type" "$lxc_id"
     
-    # For monitoring stack, create PVE monitoring user on host using credentials from .env
+    # For monitoring stack, process templates and create PVE monitoring user
     if [ "$stack_type" = "monitoring" ]; then
+        # Process template files with environment variable substitution
+        process_monitoring_templates "$lxc_id" "$target_dir"
+        
+        # Deploy final configuration files to their proper locations
+        print_info "Deploying processed configuration files..."
+        if pct exec "$lxc_id" -- test -f "$target_dir/prometheus.yml" 2>/dev/null; then
+            pct exec "$lxc_id" -- cp "$target_dir/prometheus.yml" "/datapool/config/monitoring/prometheus/prometheus.yml"
+            print_info "✓ Deployed processed prometheus.yml"
+        fi
+        if pct exec "$lxc_id" -- test -f "$target_dir/alertmanager.yml" 2>/dev/null; then
+            pct exec "$lxc_id" -- cp "$target_dir/alertmanager.yml" "/datapool/config/monitoring/alertmanager/alertmanager.yml"
+            print_info "✓ Deployed processed alertmanager.yml"
+        fi
+        if pct exec "$lxc_id" -- test -f "$target_dir/alerts.yml" 2>/dev/null; then
+            pct exec "$lxc_id" -- cp "$target_dir/alerts.yml" "/datapool/config/monitoring/prometheus/rules/alerts.yml"
+            print_info "✓ Deployed alerts.yml to prometheus rules directory"
+        fi
+        
         # Read PVE password from .env file (set by interactive_setup.sh)
         local pve_password
         if pct exec "$lxc_id" -- test -f "$target_dir/.env" 2>/dev/null; then
@@ -401,6 +467,8 @@ deploy_complete_stack() {
         if [ -n "$pve_password" ]; then
             ensure_pve_monitoring_user "monitoring@pve" "$pve_password"
         fi
+        
+        print_info "✓ Monitoring stack configuration completed"
     fi
     
     
@@ -467,17 +535,11 @@ print_info "Starting deployment process for $STACK_TYPE stack..."
 
 # Determine LXC ID if not provided
 if [ -z "$LXC_ID" ]; then
-    case $STACK_TYPE in
-        "media") LXC_ID=101 ;;
-        "proxy") LXC_ID=100 ;;
-        "files") LXC_ID=102 ;;
-        "webtools") LXC_ID=103 ;;
-        "monitoring") LXC_ID=104 ;;
-        *) 
-            print_error "Unknown stack type: $STACK_TYPE"
-            exit 1
-            ;;
-    esac
+    LXC_ID=$(get_stack_lxc_id "$STACK_TYPE")
+    if [ $? -ne 0 ]; then
+        print_error "Unknown stack type: $STACK_TYPE"
+        exit 1
+    fi
 fi
 
 # Check if LXC exists and has existing stack

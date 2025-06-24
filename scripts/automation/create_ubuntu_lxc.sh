@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Ubuntu Development LXC Creation using native Proxmox commands
-# Creates Ubuntu LXC with development tools - no Docker, no datapool mount
+# Ubuntu Development LXC Creation using unified common functions
+# Creates Ubuntu LXC with development tools - refactored for maintainability
 
 set -e
 
@@ -15,19 +15,24 @@ else
     exit 1
 fi
 
-
-# Function to create Ubuntu LXC using direct Proxmox commands (idempotent)
-create_ubuntu_lxc_direct() {
-    local lxc_id=$1
-    local lxc_name=$2
-    local cpu_cores=$3
-    local ram_mb=$4
-    local disk_gb=$5
-
-    print_info "Managing Ubuntu Development LXC: $lxc_name (ID: $lxc_id)"
-    print_info "Specs: ${cpu_cores} cores, ${ram_mb}MB RAM, ${disk_gb}GB disk"
+# Main Ubuntu LXC creation function using unified approach
+create_ubuntu_lxc_unified() {
+    local stack_type=$1
     
-    # Check current LXC status
+    print_info "Creating $stack_type environment using unified LXC creation..."
+    
+    # Get LXC ID and specifications from common.sh
+    local lxc_id=$(get_stack_lxc_id "$stack_type")
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+    
+    local specs=$(get_stack_specifications "$stack_type")
+    local template_type=$(echo "$specs" | grep -o 'template=[a-z]*' | cut -d'=' -f2)
+    
+    print_info "Stack: $stack_type, LXC ID: $lxc_id, Template: $template_type"
+    
+    # Check current LXC status (idempotent)
     local lxc_status=$(check_lxc_status "$lxc_id")
     
     case "$lxc_status" in
@@ -35,191 +40,93 @@ create_ubuntu_lxc_direct() {
             print_info "LXC $lxc_id does not exist, creating new container..."
             ;;
         "running")
-            print_info "LXC $lxc_id already running, development LXC is ready!"
-            print_info "✓ LXC $lxc_id updated successfully!"
+            print_info "LXC $lxc_id already running, development environment ready!"
+            print_success "✓ LXC $lxc_id verified!"
             return 0
             ;;
         "stopped")
             print_info "LXC $lxc_id exists but stopped, starting..."
             pct start "$lxc_id"
             wait_for_container_ready "$lxc_id"
-            print_info "✓ LXC $lxc_id updated successfully!"
+            print_success "✓ LXC $lxc_id started!"
             return 0
             ;;
         *)
-            print_warning "LXC $lxc_id in unknown state: $lxc_status, attempting to start..."
+            print_warning "LXC $lxc_id in unknown state: $lxc_status, attempting recovery..."
             pct start "$lxc_id" >/dev/null 2>&1 || true
             wait_for_container_ready "$lxc_id"
-            print_info "✓ LXC $lxc_id updated successfully!"
+            print_success "✓ LXC $lxc_id recovered!"
             return 0
             ;;
     esac
-
-    print_step "Creating Ubuntu Development LXC using direct Proxmox commands..."
     
-    # Use datapool for both templates and disk storage
-    local template_storage="datapool"
-    local disk_storage="datapool"
-    
-    print_info "Using storage: datapool (for both templates and containers)"
-    
-    # Get latest Ubuntu LTS template
-    print_step "Finding latest Ubuntu LTS template..."
-    local template_name=$(pveam available | grep ubuntu | grep -E "22\.04|24\.04" | sort -V | tail -1 | awk '{print $2}')
-    if [ -z "$template_name" ]; then
-        template_name="ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
-    fi
-    
-    # Download template if not exists
-    print_step "Downloading Ubuntu template: $template_name"
-    if ! pveam list "$template_storage" | grep -q "$template_name"; then
-        print_info "Downloading template to $template_storage..."
-        pveam download "$template_storage" "$template_name"
-    else
-        print_info "Template already exists in $template_storage"
-    fi
-    
-    # Create LXC container directly with Ubuntu
-    print_step "Creating LXC container $lxc_id..."
-    if pct create "$lxc_id" "$template_storage:vztmpl/$template_name" \
-        --hostname "$lxc_name" \
-        --cores "$cpu_cores" \
-        --memory "$ram_mb" \
-        --rootfs "$disk_storage:$disk_gb" \
-        --net0 "name=eth0,bridge=vmbr0,ip=192.168.1.${lxc_id}/24,gw=192.168.1.1" \
-        --nameserver "192.168.1.1" \
-        --onboot 1 \
-        --unprivileged 1 \
-        --features "nesting=1"; then
-        
-        print_info "✓ LXC container created successfully!"
-        
-        # Start the container
-        print_step "Starting LXC container..."
-        pct start "$lxc_id"
-        wait_for_container_ready "$lxc_id"
-        
-        # Configure Ubuntu container for development
-        print_step "Configuring Ubuntu container for development..."
-        
-        # Create and run setup script inside container
-        pct exec "$lxc_id" -- bash -c '
-            # Complete silent Ubuntu setup
-            echo "Setting up Development Container..."
-            
-            # Update package list
-            export DEBIAN_FRONTEND=noninteractive
-            apt-get update -qq >/dev/null 2>&1
-            
-            # Install essential packages
-            echo "Installing essential packages..." >/dev/null
-            apt-get install -y -qq curl wget git nano vim htop net-tools >/dev/null 2>&1
-            
-            # Configure timezone
-            ln -sf /usr/share/zoneinfo/Europe/Istanbul /etc/localtime >/dev/null 2>&1
-            
-            # Configure bash for root
-            echo "export TERM=\"xterm-256color\"" >> /root/.bashrc
-            echo "export EDITOR=nano" >> /root/.bashrc
-            
-            # Disable SSH password authentication (keep key-based)
-            sed -i "s/#PasswordAuthentication yes/PasswordAuthentication no/" /etc/ssh/sshd_config >/dev/null 2>&1
-            
-            echo "Basic configuration completed!" >/dev/null
-        '
-        
-        # Wait for services to stabilize
-        sleep 5
-        
-        print_info "✓ Ubuntu Development LXC creation completed!"
-    else
-        print_error "Ubuntu LXC creation failed!"
-        print_error "Please check Proxmox logs and try again"
+    # Download template
+    local template_path=$(download_and_prepare_template "$template_type")
+    if [ $? -ne 0 ]; then
+        print_error "Failed to prepare template"
         return 1
     fi
     
-    # Verify LXC creation
-    print_step "Verifying LXC creation..."
-    
-    # Check if we're in a Proxmox environment
-    if ! command -v pct >/dev/null 2>&1; then
-        print_warning "Not in Proxmox environment - skipping LXC verification"
-        print_info "✓ Automation methods executed successfully"
-        return 0
-    fi
-    
-    if pct status "$lxc_id" >/dev/null 2>&1; then
-        print_info "✓ LXC $lxc_name created successfully!"
+    # Create LXC container
+    if create_lxc_container "$stack_type" "$lxc_id" "$specs" "$template_path"; then
+        print_info "✓ Container created, configuring..."
         
-        # Wait for container to be fully ready
-        sleep 10
+        # Configure container post-creation
+        configure_container_post_creation "$lxc_id" "$stack_type" "$template_type"
         
-        # Verify container exists and is running
-        if pct status "$lxc_id" | grep -q "running"; then
-            print_info "✓ Container is running"
-        else
-            print_warning "Container not running, starting..."
-            pct start "$lxc_id"
-            sleep 5
-        fi
-        
+        print_success "✓ $stack_type LXC ($lxc_id) created and configured successfully!"
         return 0
     else
-        print_error "Script execution failed or timed out"
+        print_error "Failed to create LXC container"
         return 1
     fi
-}
-
-# Main function
-create_development_lxc() {
-    local stack_type=$1
-    
-    case $stack_type in
-        "development")
-            create_ubuntu_lxc_direct 150 "lxc-development-01" 2 4096 12
-            ;;
-        *)
-            print_error "Unknown stack type: $stack_type"
-            return 1
-            ;;
-    esac
 }
 
 # Input validation
 if [ $# -ne 1 ]; then
     print_error "Usage: $0 <stack_type>"
-    echo "Available: development"
+    print_info "Available stack types:"
+    print_info "  - development (LXC 150): Ubuntu development environment"
     exit 1
 fi
 
-case "$1" in
+# Validate stack type
+STACK_TYPE=$1
+case "$STACK_TYPE" in
     development)
         ;;
     *)
-        print_error "Invalid stack type: $1"
+        print_error "Invalid stack type: $STACK_TYPE"
+        print_info "Valid types: development"
         exit 1
         ;;
 esac
 
+# Root check
 check_root
 
-# Execute
-STACK_TYPE=$1
-print_info "Creating $STACK_TYPE LXC using Ubuntu template..."
+# Execute unified creation
+print_info "=== Ubuntu LXC Creation - $STACK_TYPE Environment ==="
+print_info "Using unified creation functions from common.sh"
 
-if create_development_lxc "$STACK_TYPE"; then
-    print_info "🎉 $STACK_TYPE LXC created successfully!"
+if create_ubuntu_lxc_unified "$STACK_TYPE"; then
+    print_success "🎉 $STACK_TYPE LXC created successfully!"
     print_info ""
-    print_info "Features installed:"
-    print_info "✓ Latest Ubuntu LTS with essential packages"
-    print_info "✓ Git, curl, wget, nano, vim, htop"
-    print_info "✓ SSH with key-based authentication only"
-    print_info "✓ Turkish timezone configured"
-    print_info "✓ Development-ready environment"
-    print_info "✓ No Docker, no datapool mount - clean development setup"
+    print_info "✓ Ubuntu LTS with development tools"
+    print_info "✓ Node.js LTS and Claude Code CLI"
+    print_info "✓ Git, nano, vim, htop, build tools"
+    print_info "✓ SSH with secure configuration"
+    print_info "✓ /datapool mount point with correct permissions"
+    print_info "✓ Development environment ready"
     print_info ""
-    print_info "LXC container created successfully!"
-    print_info "Next: Run deployment script to install Claude Code and Node.js"
+    
+    # Show next steps
+    local lxc_id=$(get_stack_lxc_id "$STACK_TYPE")
+    print_info "Next steps:"
+    print_info "  1. Access container: pct enter $lxc_id"
+    print_info "  2. SSH access: ssh root@192.168.1.$lxc_id"
+    print_info "  3. Start Claude Code: cd /root/projects && claude-code"
+    print_info "  4. Deploy services: bash scripts/automation/deploy_development.sh"
 else
     print_error "Failed to create $STACK_TYPE LXC"
     exit 1

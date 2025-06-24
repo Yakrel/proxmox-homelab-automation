@@ -30,9 +30,9 @@ services:
       - '--web.enable-lifecycle'
       - '--web.enable-admin-api'
     environment:
-      - TZ=Europe/Istanbul
-      - PUID=1000
-      - PGID=1000
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
     user: "1000:1000"
     networks:
       - monitoring-net
@@ -53,14 +53,14 @@ services:
       - /datapool/config/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - /datapool/config/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
-      - TZ=Europe/Istanbul
+      - TZ=${TZ:-Europe/Istanbul}
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?Grafana admin password must be defined}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
       - GF_SECURITY_ALLOW_EMBEDDING=true
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
     user: "1000:1000"
     networks:
       - monitoring-net
@@ -88,7 +88,9 @@ services:
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     environment:
-      - TZ=Europe/Istanbul
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
     networks:
       - monitoring-net
     logging:
@@ -113,7 +115,7 @@ services:
     devices:
       - /dev/kmsg
     environment:
-      - TZ=Europe/Istanbul
+      - TZ=${TZ:-Europe/Istanbul}
     networks:
       - monitoring-net
     healthcheck:
@@ -136,12 +138,15 @@ services:
       - "9093:9093"
     volumes:
       - /datapool/config/monitoring/alertmanager:/etc/alertmanager:ro
+      - /datapool/config/monitoring/alertmanager/data:/alertmanager
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
       - '--web.external-url=http://localhost:9093'
     environment:
-      - TZ=Europe/Istanbul
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
     networks:
       - monitoring-net
     logging:
@@ -157,11 +162,13 @@ services:
     ports:
       - "9221:9221"
     environment:
-      - TZ=Europe/Istanbul
+      - TZ=${TZ:-Europe/Istanbul}
       - PVE_USER=${PVE_USER:-monitoring@pve}
       - PVE_PASSWORD=${PVE_PASSWORD:?Proxmox monitoring user password required}
       - PVE_URL=${PVE_URL:-https://proxmox.local:8006}
       - PVE_VERIFY_SSL=${PVE_VERIFY_SSL:-false}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
     networks:
       - monitoring-net
     logging:
@@ -176,11 +183,11 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - TZ=Europe/Istanbul
+      - TZ=${TZ:-Europe/Istanbul}
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 6 * * *
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
       - UMASK=002
     restart: unless-stopped
     networks:

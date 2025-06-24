@@ -16,9 +16,9 @@ services:
     command: tunnel --protocol http2 run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARED_TOKEN:?Cloudflare tunnel token must be defined}
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Istanbul
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-Europe/Istanbul}
     volumes:
       - /datapool/config/cloudflared:/etc/cloudflared:ro
     networks:
@@ -46,7 +46,7 @@ services:
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     environment:
-      - TZ=Europe/Istanbul
+      - TZ=${TZ:-Europe/Istanbul}
     networks:
       - proxy-net
     logging:
@@ -61,11 +61,11 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - TZ=Europe/Istanbul
+      - TZ=${TZ:-Europe/Istanbul}
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 2 * * *
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
       - UMASK=002
     restart: unless-stopped
     networks:

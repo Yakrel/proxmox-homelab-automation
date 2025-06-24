@@ -18,10 +18,10 @@ services:
       - /datapool/config/homepage:/app/config:rw
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
-      - TZ=Europe/Istanbul
-      - PUID=1000
-      - PGID=1000
-      - HOMEPAGE_ALLOWED_HOSTS=192.168.1.103,localhost,0.0.0.0
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - HOMEPAGE_ALLOWED_HOSTS=${NETWORK_BASE:-192.168.1}.103,localhost,0.0.0.0
     networks:
       - webtools-net
     logging:
@@ -40,10 +40,10 @@ services:
     volumes:
       - /datapool/config/firefox:/config:rw
     environment:
-      - TZ=Europe/Istanbul
+      - TZ=${TZ:-Europe/Istanbul}
       - VNC_PASSWORD=${FIREFOX_VNC_PASSWORD:?Firefox VNC password must be defined}
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
       - KEEP_APP_RUNNING=1
       - DISPLAY_WIDTH=1920
       - DISPLAY_HEIGHT=1080
@@ -71,7 +71,7 @@ services:
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     environment:
-      - TZ=Europe/Istanbul
+      - TZ=${TZ:-Europe/Istanbul}
     networks:
       - webtools-net
     logging:
@@ -86,11 +86,11 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - TZ=Europe/Istanbul
+      - TZ=${TZ:-Europe/Istanbul}
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 5 * * *
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
       - UMASK=002
     restart: unless-stopped
     networks:

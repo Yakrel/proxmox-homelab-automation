@@ -133,8 +133,8 @@ main_deployment_menu() {
                 ;;
             6)
                 echo "Starting automated Development stack deployment..."
-                if download_script "scripts/automation/create_development_lxc.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/scripts/automation/create_development_lxc.sh" development
+                if download_script "scripts/automation/create_ubuntu_lxc.sh" && download_script "scripts/utils/common.sh"; then
+                    bash "$TEMP_DIR/scripts/automation/create_ubuntu_lxc.sh" development
                 fi
                 ;;
             7)

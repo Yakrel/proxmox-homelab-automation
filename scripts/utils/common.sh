@@ -433,3 +433,256 @@ get_existing_env_value() {
         grep "^${var_name}=" "$env_file" 2>/dev/null | cut -d'=' -f2- | sed "s/^['\"]//; s/['\"]$//"
     fi
 }
+
+# ========== UNIFIED LXC CREATION FUNCTIONS ==========
+
+# Stack type to LXC ID mapping
+get_stack_lxc_id() {
+    local stack_type=$1
+    
+    case $stack_type in
+        "proxy") echo "100" ;;
+        "media") echo "101" ;;
+        "files") echo "102" ;;
+        "webtools") echo "103" ;;
+        "monitoring") echo "104" ;;
+        "content") echo "105" ;;
+        "development") echo "150" ;;
+        *) 
+            print_error "Unknown stack type: $stack_type"
+            return 1
+            ;;
+    esac
+}
+
+# Get stack specifications (CPU, RAM, disk, template)
+get_stack_specifications() {
+    local stack_type=$1
+    
+    case $stack_type in
+        "proxy")
+            echo "cores=1 memory=512 disk=8 template=alpine"
+            ;;
+        "media")
+            echo "cores=2 memory=2048 disk=20 template=alpine"
+            ;;
+        "files")
+            echo "cores=1 memory=1024 disk=12 template=alpine"
+            ;;
+        "webtools")
+            echo "cores=1 memory=1024 disk=12 template=alpine"
+            ;;
+        "monitoring")
+            echo "cores=2 memory=2048 disk=16 template=alpine"
+            ;;
+        "content")
+            echo "cores=2 memory=2048 disk=20 template=alpine"
+            ;;
+        "development")
+            echo "cores=2 memory=2048 disk=20 template=ubuntu"
+            ;;
+        *)
+            print_error "Unknown stack type: $stack_type"
+            return 1
+            ;;
+    esac
+}
+
+# Download and prepare LXC template
+download_and_prepare_template() {
+    local template_type=$1
+    
+    case $template_type in
+        "alpine")
+            local template_name="alpine-3.20-default_20240908_amd64.tar.xz"
+            ;;
+        "ubuntu")
+            local template_name="ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
+            ;;
+        *)
+            print_error "Unknown template type: $template_type"
+            return 1
+            ;;
+    esac
+    
+    local template_path="/var/lib/vz/template/cache/$template_name"
+    
+    # Check if template already exists
+    if [ -f "$template_path" ]; then
+        print_info "✓ Template $template_name already exists"
+        echo "$template_path"
+        return 0
+    fi
+    
+    print_info "Downloading $template_type template..."
+    if [ "$template_type" = "alpine" ]; then
+        pveam update
+        pveam download local alpine-3.20-default_20240908_amd64.tar.xz
+    else
+        pveam update
+        pveam download local ubuntu-24.04-standard_24.04-2_amd64.tar.zst
+    fi
+    
+    if [ -f "$template_path" ]; then
+        print_info "✓ Template downloaded successfully"
+        echo "$template_path"
+        return 0
+    else
+        print_error "Failed to download template"
+        return 1
+    fi
+}
+
+# Universal LXC container creation
+create_lxc_container() {
+    local stack_type=$1
+    local lxc_id=$2
+    local specs_string=$3
+    local template_path=$4
+    
+    # Parse specifications string
+    local cores=$(echo "$specs_string" | grep -o 'cores=[0-9]*' | cut -d'=' -f2)
+    local memory=$(echo "$specs_string" | grep -o 'memory=[0-9]*' | cut -d'=' -f2)
+    local disk=$(echo "$specs_string" | grep -o 'disk=[0-9]*' | cut -d'=' -f2)
+    
+    print_info "Creating LXC container $lxc_id for $stack_type stack..."
+    print_info "Specs: ${cores} cores, ${memory}MB RAM, ${disk}GB disk"
+    
+    # Create the container
+    if pct create "$lxc_id" "$template_path" \
+        --hostname "${stack_type}-server" \
+        --cores "$cores" \
+        --memory "$memory" \
+        --rootfs "local-lvm:${disk}" \
+        --net0 "name=eth0,bridge=vmbr0,ip=dhcp" \
+        --unprivileged 1 \
+        --start 1; then
+        
+        print_success "✓ LXC container $lxc_id created successfully"
+        return 0
+    else
+        print_error "Failed to create LXC container"
+        return 1
+    fi
+}
+
+# Configure container security settings
+configure_container_security() {
+    local lxc_id=$1
+    local template_type=$2
+    
+    print_info "Configuring security settings for container $lxc_id..."
+    
+    # Wait for container to be ready
+    wait_for_container_ready "$lxc_id"
+    
+    if [ "$template_type" = "alpine" ]; then
+        # Alpine-specific security setup
+        pct exec "$lxc_id" -- apk update
+        pct exec "$lxc_id" -- apk add --no-cache openssh shadow sudo
+        
+        # Set root password and enable autologin
+        echo "root:root" | pct exec "$lxc_id" -- chpasswd
+        
+        # Enable SSH root login
+        pct exec "$lxc_id" -- sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config 2>/dev/null || true
+        pct exec "$lxc_id" -- rc-update add sshd default
+        pct exec "$lxc_id" -- rc-service sshd start
+        
+        # Setup console autologin
+        pct exec "$lxc_id" -- sed -i 's/^tty1::respawn:/tty1::respawn:-\/bin\/login -f root /' /etc/inittab 2>/dev/null || true
+        
+    else
+        # Ubuntu-specific security setup
+        # Set root password
+        echo "root:root" | pct exec "$lxc_id" -- chpasswd
+        
+        # Enable SSH root login
+        pct exec "$lxc_id" -- sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+        pct exec "$lxc_id" -- systemctl restart ssh
+        
+        # Setup console autologin
+        pct exec "$lxc_id" -- mkdir -p /etc/systemd/system/console-getty.service.d/
+        cat << 'EOF' | pct exec "$lxc_id" -- tee /etc/systemd/system/console-getty.service.d/autologin.conf > /dev/null
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin root --noclear %I $TERM
+EOF
+        pct exec "$lxc_id" -- systemctl daemon-reload
+    fi
+    
+    print_success "✓ Security settings configured"
+}
+
+# Setup Alpine Docker container
+setup_alpine_docker_container() {
+    local lxc_id=$1
+    
+    print_info "Setting up Alpine Docker environment..."
+    
+    # Install Docker and dependencies
+    pct exec "$lxc_id" -- apk update
+    pct exec "$lxc_id" -- apk add --no-cache docker docker-compose wget curl git nano
+    
+    # Add Docker to boot
+    pct exec "$lxc_id" -- rc-update add docker default
+    pct exec "$lxc_id" -- rc-service docker start
+    
+    # Wait for Docker to be ready
+    ensure_docker_ready "$lxc_id"
+    
+    print_success "✓ Alpine Docker environment ready"
+}
+
+# Setup Ubuntu development container
+setup_ubuntu_development_container() {
+    local lxc_id=$1
+    
+    print_info "Setting up Ubuntu development environment..."
+    
+    # Update package list
+    pct exec "$lxc_id" -- apt update
+    
+    # Install basic development tools
+    pct exec "$lxc_id" -- apt install -y \
+        curl wget git nano vim htop tree \
+        build-essential software-properties-common \
+        apt-transport-https ca-certificates gnupg lsb-release
+    
+    # Install Node.js LTS
+    pct exec "$lxc_id" -- curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
+    pct exec "$lxc_id" -- apt install -y nodejs
+    
+    # Create projects directory
+    pct exec "$lxc_id" -- mkdir -p /root/projects
+    
+    # Install Claude Code CLI
+    pct exec "$lxc_id" -- npm install -g @anthropic/claude-code
+    
+    print_success "✓ Ubuntu development environment ready"
+}
+
+# Main container post-creation configuration dispatcher
+configure_container_post_creation() {
+    local lxc_id=$1
+    local stack_type=$2
+    local template_type=$3
+    
+    # Configure security settings
+    configure_container_security "$lxc_id" "$template_type"
+    
+    # Setup environment based on template type
+    if [ "$template_type" = "alpine" ]; then
+        setup_alpine_docker_container "$lxc_id"
+    elif [ "$template_type" = "ubuntu" ]; then
+        setup_ubuntu_development_container "$lxc_id"
+    fi
+    
+    # Ensure datapool mount
+    ensure_datapool_mount "$lxc_id"
+    
+    # Set datapool permissions
+    ensure_datapool_permissions "$stack_type"
+    
+    print_success "✓ Container $lxc_id configuration complete"
+}
