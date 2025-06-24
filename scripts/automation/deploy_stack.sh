@@ -32,52 +32,20 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 # Docker Compose command (Alpine Docker template uses V2 syntax)
 DOCKER_COMPOSE_CMD="docker compose"
 
-# Function to validate environment file (simplified)
+# Function to validate environment file (simplified for homelab)
 validate_env_file() {
     local lxc_id=$1
     local env_file=$2
     local stack_type=$3
     
-    # Check if file exists
-    if ! pct exec "$lxc_id" -- test -f "$env_file" 2>/dev/null; then
-        return 1
+    # Simple check: file exists and is not empty
+    if pct exec "$lxc_id" -- test -f "$env_file" 2>/dev/null && \
+       pct exec "$lxc_id" -- test -s "$env_file" 2>/dev/null; then
+        print_info "✓ Environment file exists and is not empty"
+        return 0
     fi
     
-    # Define required variables per stack type
-    local required_vars=""
-    case "$stack_type" in
-        "monitoring")
-            required_vars="GRAFANA_ADMIN_PASSWORD PVE_PASSWORD GMAIL_ADDRESS GMAIL_APP_PASSWORD"
-            ;;
-        "proxy")
-            required_vars="CLOUDFLARED_TOKEN"
-            ;;
-        "files")
-            required_vars="JDOWNLOADER_VNC_PASSWORD"
-            ;;
-        "webtools")
-            required_vars="FIREFOX_VNC_PASSWORD"
-            ;;
-        "media")
-            required_vars="TZ PUID PGID"
-            ;;
-        *)
-            return 0  # Unknown stack, assume valid
-            ;;
-    esac
-    
-    # Check each required variable has a value
-    for var in $required_vars; do
-        local value=$(pct exec "$lxc_id" -- grep "^${var}=" "$env_file" 2>/dev/null | cut -d'=' -f2- | sed 's/^["\x27]//; s/["\x27]$//')
-        
-        if [ -z "$value" ]; then
-            print_warning "Missing or empty required variable: $var"
-            return 1
-        fi
-    done
-    
-    print_info "✓ Environment file validation passed"
-    return 0
+    return 1
 }
 
 
@@ -130,13 +98,6 @@ setup_env_file() {
     if validate_env_file "$lxc_id" "$stack_dir/.env" "$stack_type"; then
         print_info "✓ Existing .env file is valid"
         return 0
-    fi
-    
-    # If .env exists but invalid, back it up
-    if pct exec "$lxc_id" -- test -f "$stack_dir/.env" 2>/dev/null; then
-        local backup_file="${stack_dir}/.env.backup.$(date +%Y%m%d_%H%M%S)"
-        pct exec "$lxc_id" -- cp "$stack_dir/.env" "$backup_file" 2>/dev/null
-        print_info "✓ Backed up existing .env to $(basename "$backup_file")"
     fi
     
     # Download and run interactive setup script (maintain directory structure)
@@ -195,25 +156,9 @@ deploy_homepage_configs() {
         local temp_file="$TEMP_DIR/$config_file"
         local target_path="/datapool/config/homepage/$config_file"
         
-        # Download config file
+        # Download and deploy config file (simplified for homelab)
         if wget -q -O "$temp_file" "$GITHUB_REPO/config/homepage/$config_file" 2>/dev/null; then
-            # Check if file already exists and is identical
-            if pct exec "$lxc_id" -- test -f "$target_path" 2>/dev/null; then
-                # Compare files to avoid unnecessary overwrites
-                if pct exec "$lxc_id" -- md5sum "$target_path" 2>/dev/null | cut -d' ' -f1 | \
-                   { read existing_md5; [ "$(md5sum "$temp_file" | cut -d' ' -f1)" = "$existing_md5" ]; }; then
-                    print_info "✓ $config_file already up-to-date"
-                    success_count=$((success_count + 1))
-                    continue
-                fi
-                
-                # Backup existing file
-                local backup_name="${config_file}.backup.$(date +%Y%m%d_%H%M%S)"
-                pct exec "$lxc_id" -- cp "$target_path" "/datapool/config/homepage/$backup_name" 2>/dev/null
-                print_info "Backed up existing $config_file to $backup_name"
-            fi
-            
-            # Copy new file to container
+            # Simply copy new file to container (overwrite existing)
             if pct push "$lxc_id" "$temp_file" "$target_path" 2>/dev/null; then
                 print_info "✓ Deployed $config_file"
                 success_count=$((success_count + 1))
@@ -225,9 +170,8 @@ deploy_homepage_configs() {
         fi
     done
     
-    # Set proper permissions (consistent with other stack setup scripts)
-    # All LXC setup scripts use host-side 101000:101000 for unprivileged containers
-    # Docker containers use PUID=1000, LXC mapping: 1000 → 101000
+    # Set proper permissions (homelab hardcoded values)
+    # Unprivileged LXC mapping: 1000 (container) → 101000 (host)
     chown -R 101000:101000 /datapool/config/homepage 2>/dev/null || {
         print_warning "Failed to set ownership to 101000:101000"
         print_info "Ensure /datapool is accessible and you have proper permissions"
@@ -246,54 +190,35 @@ deploy_homepage_configs() {
     fi
 }
 
-# Function to process monitoring templates with environment substitution
+# Function to process monitoring templates (simplified for homelab)
 process_monitoring_templates() {
     local lxc_id=$1
     local stack_dir=$2
     
     print_info "Processing monitoring configuration templates..."
     
-    # Install envsubst if not available
-    if ! pct exec "$lxc_id" -- command -v envsubst >/dev/null 2>&1; then
-        print_info "Installing gettext-base for envsubst..."
-        pct exec "$lxc_id" -- apk add --no-cache gettext 2>/dev/null || \
-        pct exec "$lxc_id" -- apt-get update -qq && apt-get install -y gettext-base 2>/dev/null || true
-    fi
-    
-    # Process prometheus template if it exists
+    # Simplified: Just copy templates to final config files
     if pct exec "$lxc_id" -- test -f "$stack_dir/prometheus.yml.template" 2>/dev/null; then
-        print_info "Processing prometheus.yml template..."
-        pct exec "$lxc_id" -- bash -c "cd '$stack_dir' && set -a && source .env && envsubst < prometheus.yml.template > prometheus.yml" 2>/dev/null || {
-            print_warning "Template processing failed, using template as-is"
-            pct exec "$lxc_id" -- cp "$stack_dir/prometheus.yml.template" "$stack_dir/prometheus.yml" 2>/dev/null
-        }
+        pct exec "$lxc_id" -- cp "$stack_dir/prometheus.yml.template" "$stack_dir/prometheus.yml" 2>/dev/null
+        print_info "✓ Deployed prometheus.yml"
     fi
     
-    # Process alertmanager template if it exists
     if pct exec "$lxc_id" -- test -f "$stack_dir/alertmanager.yml.template" 2>/dev/null; then
-        print_info "Processing alertmanager.yml template..."
-        pct exec "$lxc_id" -- bash -c "cd '$stack_dir' && set -a && source .env && envsubst < alertmanager.yml.template > alertmanager.yml" 2>/dev/null || {
-            print_warning "Template processing failed, using template as-is"
-            pct exec "$lxc_id" -- cp "$stack_dir/alertmanager.yml.template" "$stack_dir/alertmanager.yml" 2>/dev/null
-        }
+        pct exec "$lxc_id" -- cp "$stack_dir/alertmanager.yml.template" "$stack_dir/alertmanager.yml" 2>/dev/null
+        print_info "✓ Deployed alertmanager.yml"
     fi
     
-    print_info "✓ Template processing completed"
     return 0
 }
 
-# Function to deploy monitoring stack specific configs
+# Function to deploy monitoring stack specific configs (simplified)
 deploy_monitoring_configs() {
     local lxc_id=$1
-    
-    print_info "Deploying monitoring configuration files..."
     
     # Create monitoring config directories with data subdirectories
     pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/{prometheus/{rules,data},alertmanager/data,grafana} 2>/dev/null
     
-    # These files are already handled by download_stack_files function
     print_info "✓ Monitoring config directories prepared"
-    
     return 0
 }
 
@@ -484,9 +409,9 @@ deploy_complete_stack() {
         # Clean up .env.example file
         pct exec "$lxc_id" -- sh -c "cd $target_dir && rm -f .env.example" 2>/dev/null || true
         
-        # Add stack-specific configuration notes
+        # Add stack-specific configuration notes (hardcoded homelab IPs)
         if [ "$stack_type" = "media" ]; then
-            print_info "📋 Media Stack Configuration:"
+            print_info "📋 Media Stack Configuration (homelab URLs):"
             print_info "  - Sonarr: http://192.168.1.101:8989"
             print_info "  - Radarr: http://192.168.1.101:7878"
             print_info "  - Jellyfin: http://192.168.1.101:8096"

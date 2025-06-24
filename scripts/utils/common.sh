@@ -133,8 +133,8 @@ ensure_datapool_permissions() {
             ;;
     esac
     
-    # Set ownership for all application directories in one command
-    chown -R 101000:101000 /datapool/{config,torrents,media} 2>/dev/null || true
+    # Set ownership for all application directories in one command (homelab hardcoded)
+    chown -R $HOMELAB_HOST_UID:$HOMELAB_HOST_GID /datapool/{config,torrents,media,files} 2>/dev/null || true
     
     print_info "✓ Datapool permissions configured for $stack_type"
 }
@@ -156,17 +156,17 @@ check_root() {
     fi
 }
 
-# Function to validate timezone
+# Homelab hardcoded defaults
+HOMELAB_TIMEZONE="Europe/Istanbul"
+HOMELAB_NETWORK_BASE="192.168.1"
+HOMELAB_PUID="1000"
+HOMELAB_PGID="1000"
+HOMELAB_HOST_UID="101000"
+HOMELAB_HOST_GID="101000"
+
+# Function to validate timezone (simplified for homelab)
 validate_timezone() {
-    local timezone=$1
-    local default_tz=${2:-"Europe/Istanbul"}
-    
-    if [ -z "$timezone" ] || [ ! -f "/usr/share/zoneinfo/$timezone" ]; then
-        print_warning "Invalid or empty timezone '$timezone', using default $default_tz"
-        echo "$default_tz"
-    else
-        echo "$timezone"
-    fi
+    echo "$HOMELAB_TIMEZONE"
 }
 
 # Unified environment setup functions
@@ -190,20 +190,21 @@ generate_encryption_key() {
     openssl rand -base64 48 | tr -d "=+/" | cut -c1-${length}
 }
 
-# Create common environment content for all stacks
+# Create common environment content for all stacks (homelab hardcoded)
 create_common_env_content() {
     local stack_name=$1
     local custom_content=$2
     
     cat << EOF
 # ${stack_name} Stack Environment Variables - Generated $(date)
+# Homelab Configuration - Hardcoded for consistency
 
 # Timezone setting
-TZ=Europe/Istanbul
+TZ=$HOMELAB_TIMEZONE
 
-# PUID/PGID for file permissions
-PUID=1000
-PGID=1000
+# PUID/PGID for file permissions (Docker containers)
+PUID=$HOMELAB_PUID
+PGID=$HOMELAB_PGID
 
 ${custom_content}
 EOF
@@ -250,7 +251,7 @@ get_stack_lxc_id() {
     esac
 }
 
-# Get stack specifications (CPU, RAM, disk, template)
+# Get stack specifications (CPU, RAM, disk, template) - Homelab optimized and simplified
 get_stack_specifications() {
     local stack_type=$1
     
@@ -259,22 +260,22 @@ get_stack_specifications() {
             echo "cores=1 memory=512 disk=8 template=alpine"
             ;;
         "media")
-            echo "cores=2 memory=2048 disk=20 template=alpine"
-            ;;
-        "files")
-            echo "cores=1 memory=1024 disk=12 template=alpine"
-            ;;
-        "webtools")
-            echo "cores=1 memory=1024 disk=12 template=alpine"
-            ;;
-        "monitoring")
             echo "cores=2 memory=2048 disk=16 template=alpine"
             ;;
+        "files")
+            echo "cores=1 memory=1024 disk=10 template=alpine"
+            ;;
+        "webtools")
+            echo "cores=1 memory=1024 disk=10 template=alpine"
+            ;;
+        "monitoring")
+            echo "cores=2 memory=2048 disk=12 template=alpine"
+            ;;
         "content")
-            echo "cores=2 memory=2048 disk=20 template=alpine"
+            echo "cores=2 memory=2048 disk=16 template=alpine"
             ;;
         "development")
-            echo "cores=2 memory=2048 disk=20 template=ubuntu"
+            echo "cores=2 memory=2048 disk=16 template=ubuntu"
             ;;
         *)
             print_error "Unknown stack type: $stack_type"

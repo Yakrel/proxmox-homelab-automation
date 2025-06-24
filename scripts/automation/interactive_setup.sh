@@ -79,10 +79,10 @@ setup_media_env() {
         print_info "✓ Preserving existing qBittorrent password"
     fi
     
-    # Use existing values or defaults
+    # Use existing values or hardcoded homelab defaults
     local sonarr_key=${existing_sonarr_key:-""}
     local radarr_key=${existing_radarr_key:-""}
-    local qb_username=${existing_qb_username:-"admin"}
+    local qb_username=${existing_qb_username:-"admin"}  # Hardcoded for homelab
     local qb_password=${existing_qb_password:-""}
     
     # Create .env file
@@ -99,10 +99,10 @@ QB_PASSWORD=$qb_password"
     
     create_stack_env_file "$env_file" "Media" "$media_content"
     
-    # Show guidance for empty API keys
+    # Show guidance for empty API keys (hardcoded homelab IPs)
     if [ -z "$existing_sonarr_key" ] || [ -z "$existing_radarr_key" ]; then
         echo
-        print_info "📝 API Key Setup Guidance:"
+        print_info "📝 API Key Setup Guidance (homelab URLs):"
         if [ -z "$sonarr_key" ]; then
             print_info "  • Sonarr API Key: http://192.168.1.101:8989 → Settings → General → API Key"
         fi
@@ -272,36 +272,23 @@ setup_monitoring_env() {
         fi
     fi
     
-    # Network Configuration
-    print_step "Configuring network settings..."
-    echo
-    print_info "Using hardcoded network configuration:"
-    print_info "LXC monitoring targets:"
-    print_info "  • Proxy LXC (100): 192.168.1.100:9104"
-    print_info "  • Media LXC (101): 192.168.1.101:9101" 
-    print_info "  • Downloads LXC (102): 192.168.1.102:9102"
-    print_info "  • Utility LXC (103): 192.168.1.103:9103"
-    echo
-    
-    # Hardcoded network configuration for homelab
+    # Hardcoded network configuration for homelab (simplified)
     local grafana_url="http://192.168.1.104:3000"
     local pve_url="https://192.168.1.10:8006"
-    print_info "Using homelab Proxmox URL: $pve_url"
     
     # Create .env file
     local monitoring_content="# Email notification settings for Alertmanager
 GMAIL_ADDRESS=$email_address
 GMAIL_APP_PASSWORD=$email_password
 
-# Network Configuration
-NETWORK_BASE=$network_base
+# Network Configuration (hardcoded for homelab)
 GRAFANA_URL=$grafana_url
 
 # Grafana admin credentials for dashboard access
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=$grafana_password
 
-# Proxmox monitoring credentials
+# Proxmox monitoring credentials (hardcoded for homelab)
 PVE_USER=monitoring@pve
 PVE_PASSWORD=$pve_password
 PVE_URL=$pve_url
