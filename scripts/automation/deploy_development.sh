@@ -245,7 +245,7 @@ show_post_install_info() {
     print_info "🎉 Development environment setup completed!"
     print_info ""
     print_info "✓ Tools: Node.js, npm, Git, Claude Code CLI, Python3"
-    print_info "✓ Access: pct enter $lxc_id or ssh root@192.168.1.$lxc_id"
+    print_info "✓ Access: pct enter 150 or ssh root@192.168.1.150"
     print_info "✓ Getting Started: cd /root/projects && claude-cli"
     print_info ""
     print_info "📖 See /etc/motd for more details."

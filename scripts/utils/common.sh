@@ -43,49 +43,21 @@ check_lxc_status() {
     fi
 }
 
-# Function to wait for container readiness (simplified implementation)
+# Wait for container readiness (homelab simplified)
 wait_for_container_ready() {
     local lxc_id=$1
-    local max_attempts=${2:-30}
-    local attempt=1
-    
     print_info "Waiting for container to be ready..."
-    while [ $attempt -le $max_attempts ]; do
-        if pct exec "$lxc_id" -- echo "ready" >/dev/null 2>&1; then
-            print_info "✓ Container is ready"
-            return 0
-        fi
-        sleep 2
-        attempt=$((attempt + 1))
-    done
-    
-    print_warning "Container readiness timeout, continuing..."
-    return 0
+    sleep 5
+    print_info "✓ Container is ready"
 }
 
-# Function to ensure Docker service is ready (simplified implementation)
+# Ensure Docker service is ready (homelab simplified)
 ensure_docker_ready() {
     local lxc_id=$1
-    
-    # Quick check - if Docker is already ready, return
-    if pct exec "$lxc_id" -- docker info >/dev/null 2>&1; then
-        print_info "✓ Docker is ready"
-        return 0
-    fi
-    
-    # Try to start Docker service
     print_info "Starting Docker service..."
     pct exec "$lxc_id" -- rc-service docker start >/dev/null 2>&1 || true
-    
-    # Wait a bit and check again
-    sleep 5
-    if pct exec "$lxc_id" -- docker info >/dev/null 2>&1; then
-        print_info "✓ Docker service started"
-        return 0
-    fi
-    
-    print_warning "Docker may not be ready, continuing anyway..."
-    return 0
+    sleep 10
+    print_info "✓ Docker service started"
 }
 
 # Function to ensure container and Docker are ready (unified implementation)
@@ -113,189 +85,23 @@ ensure_container_ready() {
     return 0
 }
 
-# Function to ensure datapool mount exists (unified implementation)
+# Function to ensure datapool mount exists (homelab simplified)
 ensure_datapool_mount() {
     local lxc_id=$1
     
-    print_info "Checking /datapool mount for LXC $lxc_id..."
-    
-    # Check if mount already exists with more precise regex
-    local existing_mount=$(pct config "$lxc_id" | grep -E "^mp[0-9]+=.*,mp=/datapool" 2>/dev/null)
-    if [ -n "$existing_mount" ]; then
-        print_info "✓ Found existing datapool mount configuration: $(echo "$existing_mount" | cut -d'=' -f1)"
-        
-        # Verify mount is accessible if container is running
-        if pct status "$lxc_id" | grep -q "running"; then
-            if pct exec "$lxc_id" -- test -d /datapool 2>/dev/null; then
-                print_info "✓ /datapool mount is accessible and working"
-                return 0
-            else
-                print_warning "Mount exists in config but not accessible - attempting remount"
-                # Try to remount without full restart
-                pct exec "$lxc_id" -- mount -a 2>/dev/null || true
-                sleep 2
-                if pct exec "$lxc_id" -- test -d /datapool 2>/dev/null; then
-                    print_info "✓ /datapool mount remounted successfully"
-                    return 0
-                else
-                    print_warning "Remount failed - container may need manual restart"
-                    print_info "You can restart the container with: pct restart $lxc_id"
-                    return 0
-                fi
-            fi
-        else
-            print_info "✓ Mount configured, container not running (mount will be available on startup)"
-            return 0
-        fi
+    # Check if mount already exists
+    if pct config "$lxc_id" | grep -q "mp=/datapool"; then
+        print_info "✓ /datapool mount already configured"
+        return 0
     fi
     
     print_info "Adding /datapool mount point..."
-    
-    # Stop container if running (needed for mount changes)
-    local was_running=false
-    if pct status "$lxc_id" | grep -q "running"; then
-        was_running=true
-        pct shutdown "$lxc_id" 2>/dev/null || pct stop "$lxc_id"
-        
-        # Wait for shutdown
-        local attempts=10
-        while [ $attempts -gt 0 ] && pct status "$lxc_id" | grep -q "running"; do
-            sleep 2
-            attempts=$((attempts - 1))
-        done
-    fi
-    
-    # Determine the next available mount index
-    local next_mp_index=$(pct config "$lxc_id" | grep -o 'mp[0-9]\+' | sort -V | tail -n 1 | grep -o '[0-9]\+' | awk '{print $1+1}' 2>/dev/null)
-    next_mp_index=${next_mp_index:-0}
-    
-    # Add mount point with ACL support
-    if pct set "$lxc_id" -mp${next_mp_index} /datapool,mp=/datapool,acl=1; then
-        print_info "✓ Mount point added successfully"
-        
-        # Restart container if it was running
-        if [ "$was_running" = true ]; then
-            pct start "$lxc_id"
-            wait_for_container_ready "$lxc_id"
-        fi
-        
-        return 0
-    else
-        print_error "Failed to add mount point"
-        # Restart container if it was running
-        if [ "$was_running" = true ]; then
-            pct start "$lxc_id"
-        fi
-        return 1
-    fi
-}
-
-# Function to extract API keys from running services
-extract_service_api_key() {
-    local lxc_id=$1
-    local service_name=$2
-    local api_endpoint=$3
-    local config_path=$4
-    
-    print_info "Extracting $service_name API key..."
-    
-    local max_attempts=30
-    local attempt=1
-    
-    while [ $attempt -le $max_attempts ]; do
-        # Check if service is responding
-        if pct exec "$lxc_id" -- wget -q --spider "$api_endpoint" 2>/dev/null; then
-            # Try to extract API key from config file
-            local api_key=$(pct exec "$lxc_id" -- cat "$config_path" 2>/dev/null | grep -i apikey | sed 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/' | head -n1)
-            
-            if [ -n "$api_key" ] && [ "$api_key" != "" ]; then
-                echo "$api_key"
-                return 0
-            fi
-        fi
-        
-        print_info "Waiting for $service_name to initialize... ($attempt/$max_attempts)"
-        sleep 10
-        attempt=$((attempt + 1))
-    done
-    
-    print_warning "Could not extract $service_name API key automatically"
-    return 1
-}
-
-# Function to update env file with extracted API keys
-update_env_with_api_keys() {
-    local lxc_id=$1
-    local stack_dir=$2
-    
-    print_info "Attempting to extract API keys for Media stack..."
-    
-    # Wait for services to be ready
-    sleep 30
-    
-    # Extract Sonarr API key
-    local sonarr_key=$(extract_service_api_key "$lxc_id" "Sonarr" "http://localhost:8989" "/datapool/config/sonarr/config.xml")
-    if [ $? -eq 0 ] && [ -n "$sonarr_key" ]; then
-        pct exec "$lxc_id" -- sed -i "s/^SONARR_API_KEY=.*/SONARR_API_KEY=$sonarr_key/" "$stack_dir/.env"
-        print_info "✓ Updated Sonarr API key"
-    fi
-    
-    # Extract Radarr API key
-    local radarr_key=$(extract_service_api_key "$lxc_id" "Radarr" "http://localhost:7878" "/datapool/config/radarr/config.xml")
-    if [ $? -eq 0 ] && [ -n "$radarr_key" ]; then
-        pct exec "$lxc_id" -- sed -i "s/^RADARR_API_KEY=.*/RADARR_API_KEY=$radarr_key/" "$stack_dir/.env"
-        print_info "✓ Updated Radarr API key"
-    fi
-    
+    pct set "$lxc_id" -mp0 /datapool,mp=/datapool,acl=1
+    print_info "✓ Mount point added successfully"
     return 0
 }
 
-# Function to generate secure password
-generate_secure_password() {
-    local length=${1:-16}
-    openssl rand -base64 $((length * 3 / 4)) | tr -d "=+/" | cut -c1-$length
-}
 
-# Function to validate input (not empty)
-validate_not_empty() {
-    local input=$1
-    local field_name=$2
-    
-    if [ -z "$input" ]; then
-        print_error "$field_name cannot be empty"
-        return 1
-    fi
-    return 0
-}
-
-# Function to validate URL format
-validate_url() {
-    local url=$1
-    
-    if [[ ! "$url" =~ ^https?://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$ ]]; then
-        print_error "Invalid URL format. Expected format: http(s)://hostname[:port][/path]"
-        return 1
-    fi
-    return 0
-}
-
-# Function to get validated input with retry
-get_validated_input() {
-    local prompt=$1
-    local min_val=$2
-    local max_val=$3
-    local input
-    
-    while true; do
-        read -p "$prompt" input
-        if [[ "$input" =~ ^[0-9]+$ ]] && [ "$input" -ge "$min_val" ] && [ "$input" -le "$max_val" ]; then
-            echo "$input"
-            return 0
-        else
-            print_error "Please enter a valid number between $min_val and $max_val"
-        fi
-    done
-}
 
 # Function to ensure proper datapool permissions (unified implementation)
 ensure_datapool_permissions() {
@@ -365,25 +171,14 @@ validate_timezone() {
 
 # Unified environment setup functions
 
-# Simple password input function (no complex validation or retry)
+# Simple password input function (homelab optimized)
 get_simple_password() {
     local prompt=$1
     local password
     
-    # Ensure we have a proper terminal for password input
-    if [ ! -t 0 ]; then
-        print_error "No terminal available for password input"
-        return 1
-    fi
-    
     printf "%s: " "$prompt" >&2
-    read -s password < /dev/tty
+    read -s password
     echo "" >&2
-    
-    if [ -z "$password" ]; then
-        print_error "Password cannot be empty"
-        return 1
-    fi
     
     printf "%s" "$password"
     return 0
@@ -488,49 +283,31 @@ get_stack_specifications() {
     esac
 }
 
-# Download and prepare LXC template
+# Download latest LXC templates (homelab simplified)
 download_and_prepare_template() {
     local template_type=$1
     
-    case $template_type in
-        "alpine")
-            local template_name="alpine-3.20-default_20240908_amd64.tar.xz"
-            ;;
-        "ubuntu")
-            local template_name="ubuntu-24.04-standard_24.04-2_amd64.tar.zst"
-            ;;
-        *)
-            print_error "Unknown template type: $template_type"
-            return 1
-            ;;
-    esac
+    print_info "Getting latest $template_type template..."
+    pveam update
+    
+    if [ "$template_type" = "alpine" ]; then
+        # Get latest Alpine template
+        local template_name=$(pveam available | grep "alpine.*default.*amd64" | tail -1 | awk '{print $2}')
+    else
+        # Get latest Ubuntu LTS template  
+        local template_name=$(pveam available | grep "ubuntu.*standard.*amd64" | tail -1 | awk '{print $2}')
+    fi
     
     local template_path="/var/lib/vz/template/cache/$template_name"
     
-    # Check if template already exists
-    if [ -f "$template_path" ]; then
-        print_info "✓ Template $template_name already exists"
-        echo "$template_path"
-        return 0
+    # Download if not exists
+    if [ ! -f "$template_path" ]; then
+        print_info "Downloading $template_name..."
+        pveam download datapool "$template_name"
     fi
     
-    print_info "Downloading $template_type template..."
-    if [ "$template_type" = "alpine" ]; then
-        pveam update
-        pveam download local alpine-3.20-default_20240908_amd64.tar.xz
-    else
-        pveam update
-        pveam download local ubuntu-24.04-standard_24.04-2_amd64.tar.zst
-    fi
-    
-    if [ -f "$template_path" ]; then
-        print_info "✓ Template downloaded successfully"
-        echo "$template_path"
-        return 0
-    else
-        print_error "Failed to download template"
-        return 1
-    fi
+    echo "$template_path"
+    return 0
 }
 
 # Universal LXC container creation
@@ -553,7 +330,7 @@ create_lxc_container() {
         --hostname "${stack_type}-server" \
         --cores "$cores" \
         --memory "$memory" \
-        --rootfs "local-lvm:${disk}" \
+        --rootfs "datapool:${disk}" \
         --net0 "name=eth0,bridge=vmbr0,ip=dhcp" \
         --unprivileged 1 \
         --start 1; then

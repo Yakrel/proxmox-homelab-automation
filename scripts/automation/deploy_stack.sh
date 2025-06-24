@@ -486,15 +486,12 @@ deploy_complete_stack() {
         
         # Add stack-specific configuration notes
         if [ "$stack_type" = "media" ]; then
-            print_info "🔄 Attempting to extract API keys automatically..."
-            update_env_with_api_keys "$lxc_id" "$target_dir"
-            
             print_info "📋 Media Stack Configuration:"
             print_info "  - Sonarr: http://192.168.1.101:8989"
             print_info "  - Radarr: http://192.168.1.101:7878"
             print_info "  - Jellyfin: http://192.168.1.101:8096"
             print_info "  - qBittorrent: http://192.168.1.101:30000"
-            print_warning "⚠️  If API key extraction failed, configure them manually from service web interfaces"
+            print_info "💡 Configure API keys manually from service web interfaces for cross-app integration"
         fi
         
         return 0

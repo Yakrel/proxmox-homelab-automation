@@ -123,8 +123,8 @@ if create_ubuntu_lxc_unified "$STACK_TYPE"; then
     # Show next steps
     local lxc_id=$(get_stack_lxc_id "$STACK_TYPE")
     print_info "Next steps:"
-    print_info "  1. Access container: pct enter $lxc_id"
-    print_info "  2. SSH access: ssh root@192.168.1.$lxc_id"
+    print_info "  1. Access container: pct enter 150"
+    print_info "  2. SSH access: ssh root@192.168.1.150"
     print_info "  3. Start Claude Code: cd /root/projects && claude-code"
     print_info "  4. Deploy services: bash scripts/automation/deploy_development.sh"
 else

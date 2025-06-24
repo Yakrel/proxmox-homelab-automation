@@ -283,14 +283,10 @@ setup_monitoring_env() {
     print_info "  • Utility LXC (103): 192.168.1.103:9103"
     echo
     
-    # Hardcoded network configuration
-    local network_base="192.168.1"
+    # Hardcoded network configuration for homelab
     local grafana_url="http://192.168.1.104:3000"
-    
-    # Auto-detect Proxmox host IP for PVE URL
-    local detected_ip=$(hostname -I | cut -d' ' -f1)
-    local pve_url="https://${detected_ip}:8006"
-    print_info "Using auto-detected Proxmox URL: $pve_url"
+    local pve_url="https://192.168.1.10:8006"
+    print_info "Using homelab Proxmox URL: $pve_url"
     
     # Create .env file
     local monitoring_content="# Email notification settings for Alertmanager
