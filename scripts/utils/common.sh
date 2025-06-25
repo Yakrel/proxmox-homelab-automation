@@ -370,17 +370,16 @@ configure_container_security() {
     if [ "$template_type" = "alpine" ]; then
         # Alpine-specific security setup
         pct exec "$lxc_id" -- apk update
-        pct exec "$lxc_id" -- apk add --no-cache openssh shadow sudo
+        pct exec "$lxc_id" -- apk add --no-cache shadow sudo
         
         # Set root password and enable autologin
         echo "root:root" | pct exec "$lxc_id" -- chpasswd
         
-        # Enable SSH root login
-        pct exec "$lxc_id" -- sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config 2>/dev/null || true
-        pct exec "$lxc_id" -- rc-update add sshd default
-        pct exec "$lxc_id" -- rc-service sshd start
+        # Disable SSH service completely for security
+        pct exec "$lxc_id" -- rc-update del sshd default 2>/dev/null || true
+        pct exec "$lxc_id" -- rc-service sshd stop 2>/dev/null || true
         
-        # Setup console autologin
+        # Setup console autologin for Proxmox console access
         pct exec "$lxc_id" -- sed -i 's/^tty1::respawn:/tty1::respawn:-\/bin\/login -f root /' /etc/inittab 2>/dev/null || true
         
     else
@@ -388,11 +387,11 @@ configure_container_security() {
         # Set root password
         echo "root:root" | pct exec "$lxc_id" -- chpasswd
         
-        # Enable SSH root login
-        pct exec "$lxc_id" -- sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-        pct exec "$lxc_id" -- systemctl restart ssh
+        # Disable SSH service completely for security
+        pct exec "$lxc_id" -- systemctl stop ssh 2>/dev/null || true
+        pct exec "$lxc_id" -- systemctl disable ssh 2>/dev/null || true
         
-        # Setup console autologin
+        # Setup console autologin for Proxmox console access
         pct exec "$lxc_id" -- mkdir -p /etc/systemd/system/console-getty.service.d/
         cat << 'EOF' | pct exec "$lxc_id" -- tee /etc/systemd/system/console-getty.service.d/autologin.conf > /dev/null
 [Service]

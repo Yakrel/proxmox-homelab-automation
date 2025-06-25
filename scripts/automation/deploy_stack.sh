@@ -28,20 +28,43 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 # Docker Compose command (Alpine Docker template uses V2 syntax)
 DOCKER_COMPOSE_CMD="docker compose"
 
-# Function to validate environment file (simplified for homelab)
+# Function to validate environment file with stack-specific checks
 validate_env_file() {
     local lxc_id=$1
     local env_file=$2
     local stack_type=$3
     
-    # Simple check: file exists and is not empty
-    if pct exec "$lxc_id" -- test -f "$env_file" 2>/dev/null && \
-       pct exec "$lxc_id" -- test -s "$env_file" 2>/dev/null; then
-        print_info "✓ Environment file exists and is not empty"
-        return 0
+    # Check if file exists and is not empty
+    if ! pct exec "$lxc_id" -- test -f "$env_file" 2>/dev/null || \
+       ! pct exec "$lxc_id" -- test -s "$env_file" 2>/dev/null; then
+        return 1
     fi
     
-    return 1
+    # Stack-specific required variable checks
+    case $stack_type in
+        "proxy")
+            if ! pct exec "$lxc_id" -- grep -q "^CLOUDFLARED_TOKEN=" "$env_file" 2>/dev/null; then
+                print_info "Missing CLOUDFLARED_TOKEN in environment file"
+                return 1
+            fi
+            ;;
+        "monitoring")
+            if ! pct exec "$lxc_id" -- grep -q "^GRAFANA_ADMIN_PASSWORD=" "$env_file" 2>/dev/null || \
+               ! pct exec "$lxc_id" -- grep -q "^PVE_PASSWORD=" "$env_file" 2>/dev/null; then
+                print_info "Missing required passwords in monitoring environment file"
+                return 1
+            fi
+            ;;
+        "files"|"webtools")
+            if ! pct exec "$lxc_id" -- grep -q "^VNC_PASSWORD=" "$env_file" 2>/dev/null; then
+                print_info "Missing VNC_PASSWORD in environment file"
+                return 1
+            fi
+            ;;
+    esac
+    
+    print_info "✓ Environment file validated successfully"
+    return 0
 }
 
 
@@ -411,7 +434,7 @@ deploy_complete_stack() {
             print_info "  - Sonarr: http://192.168.1.101:8989"
             print_info "  - Radarr: http://192.168.1.101:7878"
             print_info "  - Jellyfin: http://192.168.1.101:8096"
-            print_info "  - qBittorrent: http://192.168.1.101:30000"
+            print_info "  - qBittorrent: http://192.168.1.101:8080"
             print_info "💡 Configure API keys manually from service web interfaces for cross-app integration"
         fi
         

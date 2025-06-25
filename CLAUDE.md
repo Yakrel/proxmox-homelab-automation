@@ -91,6 +91,32 @@ claude-code
 - `/datapool/torrents/`: Torrent download location
 - `/opt/<stack>-stack/`: Docker Compose files inside each LXC
 
+### Service Access URLs (Hardcoded Homelab IPs)
+**Media Stack (LXC 101)**:
+- Sonarr: http://192.168.1.101:8989
+- Radarr: http://192.168.1.101:7878  
+- Jellyfin: http://192.168.1.101:8096
+- qBittorrent: http://192.168.1.101:8080
+- Jellyseerr: http://192.168.1.101:5055
+- Prowlarr: http://192.168.1.101:9696
+
+**Monitoring Stack (LXC 104)**:
+- Grafana: http://192.168.1.104:3000
+- Prometheus: http://192.168.1.104:9090
+- Alertmanager: http://192.168.1.104:9093
+
+**Webtools Stack (LXC 103)**:
+- Homepage Dashboard: http://192.168.1.103:3000
+- Firefox Remote: http://192.168.1.103:5800
+
+**Files Stack (LXC 102)**:
+- JDownloader2: http://192.168.1.102:5800
+- MeTube: http://192.168.1.102:8081
+- Palmr: http://192.168.1.102:8090
+
+**Proxy Stack (LXC 100)**:
+- Cloudflared tunnels (no direct web UI)
+
 ## Development Notes
 
 ### Shared Functions
@@ -114,12 +140,26 @@ The `scripts/utils/common.sh` file contains essential shared functions:
 5. Deploy services with `docker compose up -d`
 6. Configure monitoring user (for monitoring stack)
 
+### Interactive Setup Features
+- **Smart Environment Merging**: Preserves existing API keys and passwords
+- **Validation**: Email format validation, password requirements
+- **Security**: Generates secure encryption keys automatically
+- **Guidance**: Provides setup URLs and configuration instructions
+- **Idempotent**: Safe to run multiple times without losing configuration
+
 ### Environment Configuration
 Each stack uses `.env` files for configuration:
 - **Monitoring**: Requires GRAFANA_ADMIN_PASSWORD, PVE_PASSWORD, PVE_URL
 - **Proxy**: Requires CLOUDFLARED_TOKEN
 - **Utility/Downloads**: Require VNC passwords
 - **Media**: Uses timezone and standard PUID/PGID
+
+### Environment Variable Management
+- All stacks use `.env.example` files with comprehensive documentation
+- Interactive setup preserves existing values when re-running scripts
+- Environment files include service URLs, setup instructions, and security notes
+- API keys are initially empty and require manual configuration after deployment
+- Smart merging prevents accidental overwrites of configured values
 
 
 ## Development Environment Notes
@@ -186,6 +226,38 @@ These principles must be considered throughout all development processes:
 - Zero-to-deployment automation is the goal
 - Manual operations are completely eliminated
 - Proxmox user management, service configurations, `.env` files are automatically prepared
+
+## Post-Install Setup Options
+
+The `setup.sh` includes a comprehensive post-install menu:
+- **Helper Scripts**: Community Proxmox optimization scripts
+- **Microcode Update**: CPU microcode installation
+- **ZFS Optimization**: Performance tuning for storage
+- **Security Setup**: Fail2ban configuration
+- **Storage Setup**: Samba and Sanoid configuration
+- **Network Bonding**: Network interface bonding setup
+- **Timezone Configuration**: Turkey timezone setup
+- **Auto-Update**: Automated LXC update scheduling
+
+## Security and Monitoring Features
+
+### Security Monitor
+- **Security Monitor**: `scripts/maintenance/security_monitor.sh` provides:
+  - Fail2ban status and blocked IPs
+  - Recent attack summaries (24h)
+  - Top attacking IPs analysis
+  - SSH and Proxmox web interface failed attempts
+- **Monitoring Stack Automation**: Fully automated Proxmox user creation
+- **Template Processing**: Dynamic configuration file generation
+
+## Configuration File Patterns
+
+### File Structure Clarification
+- `.env.example`: Template files with documentation and placeholder values
+- Template files (`.template`): Dynamic configuration files for monitoring stack
+- Homepage configs: YAML files in `config/homepage/` for dashboard configuration
+- No CI/CD: Project focuses on deployment automation, not code quality automation
+- No testing framework: Scripts are validated through deployment testing only
 
 ## Important Instructions for Claude
 
