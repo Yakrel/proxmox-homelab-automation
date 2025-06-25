@@ -199,22 +199,16 @@ setup_monitoring_env() {
     
     # Check for existing values
     local existing_grafana_pwd=$(get_existing_env_value "$env_file" "GRAFANA_ADMIN_PASSWORD")
-    local existing_pve_pwd=$(get_existing_env_value "$env_file" "PVE_PASSWORD")
-    local existing_email=$(get_existing_env_value "$env_file" "GMAIL_ADDRESS")
-    local existing_email_pwd=$(get_existing_env_value "$env_file" "GMAIL_APP_PASSWORD")
+    
+    print_step "Configuring monitoring stack environment..."
+    echo
+    print_info "Simplified monitoring setup - only Grafana admin password required"
+    print_info "Other configurations (PVE user, email alerts) need manual setup"
+    echo
     
     # Show what we're preserving
     if [ -n "$existing_grafana_pwd" ]; then
         print_info "✓ Preserving existing Grafana admin password"
-    fi
-    if [ -n "$existing_pve_pwd" ]; then
-        print_info "✓ Preserving existing Proxmox monitoring password"
-    fi
-    if [ -n "$existing_email" ]; then
-        print_info "✓ Preserving existing email: $existing_email"
-    fi
-    if [ -n "$existing_email_pwd" ]; then
-        print_info "✓ Preserving existing email password"
     fi
     
     # Get missing values only
@@ -227,72 +221,22 @@ setup_monitoring_env() {
         fi
     fi
     
-    local pve_password="$existing_pve_pwd"
-    if [ -z "$pve_password" ]; then
-        pve_password=$(get_simple_password "Enter Proxmox monitoring user password")
-        if [ $? -ne 0 ] || [ -z "$pve_password" ]; then
-            print_error "Failed to get Proxmox monitoring password"
-            return 1
-        fi
-    fi
-    
-    local email_address="$existing_email"
-    local email_password="$existing_email_pwd"
-    
-    if [ -z "$email_address" ] || [ -z "$email_password" ]; then
-        print_step "Configuring email notifications..."
-        echo
-        print_info "Email configuration is required for system alerts from Alertmanager"
-        print_info "For Gmail, you need to generate an App Password (not your regular password)"
-        print_info "Gmail App Password instructions: https://myaccount.google.com/apppasswords"
-        print_info "For other providers, use your regular email credentials or app-specific passwords"
-        echo
-        
-        if [ -z "$email_address" ]; then
-            while true; do
-                read -p "Enter your email address: " email_address
-                if [[ "$email_address" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-                    break
-                else
-                    print_error "Please enter a valid email address (e.g., user@example.com)"
-                fi
-            done
-        fi
-        
-        if [ -z "$email_password" ]; then
-            while true; do
-                read -s -p "Enter email password: " email_password
-                echo
-                if [ -n "$email_password" ]; then
-                    break
-                else
-                    print_error "Email password cannot be empty"
-                fi
-            done
-        fi
-    fi
-    
-    # Hardcoded network configuration for homelab (simplified)
-    local grafana_url="http://192.168.1.104:3000"
-    local pve_url="https://192.168.1.10:8006"
-    
-    # Create .env file
-    local monitoring_content="# Email notification settings for Alertmanager
-GMAIL_ADDRESS=$email_address
-GMAIL_APP_PASSWORD=$email_password
-
-# Network Configuration (hardcoded for homelab)
-GRAFANA_URL=$grafana_url
-
-# Grafana admin credentials for dashboard access
+    # Create simplified .env file
+    local monitoring_content="# Grafana admin credentials for dashboard access
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=$grafana_password
 
-# Proxmox monitoring credentials (hardcoded for homelab)
-PVE_USER=monitoring@pve
-PVE_PASSWORD=$pve_password
-PVE_URL=$pve_url
-PVE_VERIFY_SSL=false"
+# Timezone setting
+TZ=Europe/Istanbul
+
+# Standard Docker configuration
+PUID=1000
+PGID=1000
+
+# Manual Configuration Required:
+# - Create monitoring@pve user in Proxmox with PVEAuditor role
+# - Configure email settings in alertmanager.yml for alerts
+# - Update prometheus.yml if network differs from 192.168.1.x"
     
     create_stack_env_file "$env_file" "Monitoring" "$monitoring_content"
     return $?
@@ -340,7 +284,7 @@ main() {
     case $stack_type in
         "proxy"|"media"|"files"|"webtools"|"monitoring")
             print_info "Setting up $stack_type stack configuration..."
-            setup_stack_environment "$stack_type" "$base_dir/$stack_type-stack"
+            setup_stack_environment "$stack_type" "$base_dir/$stack_type"
             ;;
         "all")
             print_info "Setting up all stack configurations..."
@@ -349,7 +293,7 @@ main() {
             for stack in proxy media files webtools monitoring; do
                 echo ""
                 print_info "Setting up $stack stack..."
-                setup_stack_environment "$stack" "$base_dir/$stack-stack"
+                setup_stack_environment "$stack" "$base_dir/$stack"
             done
             ;;
         *)

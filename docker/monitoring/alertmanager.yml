@@ -1,8 +1,14 @@
+# Alertmanager Configuration for Proxmox Homelab Monitoring
+# Simplified static configuration - email settings need manual configuration
+
 global:
+  # Configure your email settings below
+  # For Gmail: Use App Password, not regular password
+  # Gmail App Password setup: https://myaccount.google.com/apppasswords
   smtp_smarthost: 'smtp.gmail.com:587'
-  smtp_from: '${GMAIL_ADDRESS}'
-  smtp_auth_username: '${GMAIL_ADDRESS}'
-  smtp_auth_password: '${GMAIL_APP_PASSWORD}'
+  smtp_from: 'your-email@gmail.com'           # Replace with your email
+  smtp_auth_username: 'your-email@gmail.com'  # Replace with your email
+  smtp_auth_password: 'your-gmail-app-password'  # Replace with Gmail App Password
 
 route:
   group_by: ['alertname', 'severity']
@@ -24,7 +30,7 @@ route:
 receivers:
   - name: 'default'
     email_configs:
-      - to: '${GMAIL_ADDRESS}'
+      - to: 'your-email@gmail.com'  # Replace with your email
         subject: '[HOMELAB] System Alert'
         body: |
           🚨 HOMELAB ALERT 🚨
@@ -41,7 +47,7 @@ receivers:
 
   - name: 'email-notifications'
     email_configs:
-      - to: '${GMAIL_ADDRESS}'
+      - to: 'your-email@gmail.com'  # Replace with your email
         subject: '[HOMELAB] {{ .GroupLabels.alertname }} Alert'
         body: |
           🚨 HOMELAB ALERT 🚨
@@ -69,7 +75,7 @@ receivers:
 
   - name: 'critical-alerts'
     email_configs:
-      - to: '${GMAIL_ADDRESS}'
+      - to: 'your-email@gmail.com'  # Replace with your email
         subject: '🔥 [CRITICAL] {{ .GroupLabels.alertname }} - Immediate Action Required'
         body: |
           🔥 CRITICAL ALERT 🔥

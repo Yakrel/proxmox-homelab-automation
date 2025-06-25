@@ -55,7 +55,7 @@ services:
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?Grafana admin password must be defined}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-change_me}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
       - GF_SECURITY_ALLOW_EMBEDDING=true
@@ -164,8 +164,8 @@ services:
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PVE_USER=${PVE_USER:-monitoring@pve}
-      - PVE_PASSWORD=${PVE_PASSWORD:?Proxmox monitoring user password required}
-      - PVE_URL=${PVE_URL:-https://proxmox.local:8006}
+      - PVE_PASSWORD=${PVE_PASSWORD:-change_me}
+      - PVE_URL=${PVE_URL:-https://192.168.1.10:8006}
       - PVE_VERIFY_SSL=${PVE_VERIFY_SSL:-false}
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}

@@ -104,6 +104,8 @@ This permission system is automatically handled by the automation scripts, but m
   - **cAdvisor** – Container metrics | http://192.168.1.104:8080
 - **Proxmox Exporter** – Proxmox metrics | http://192.168.1.104:9221
 
+**📖 Monitoring Setup**: The monitoring stack uses simplified manual configuration. See [docker/monitoring/README-MONITORING.md](docker/monitoring/README-MONITORING.md) for detailed setup instructions including Proxmox user creation, email alerts, and advanced configuration.
+
 ### Development Stack (lxc-development-01, ID: 150)
 - **Ubuntu LTS** – Latest Ubuntu LTS base system
 - **Node.js & npm** – JavaScript runtime and package manager (latest LTS)

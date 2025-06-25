@@ -209,33 +209,13 @@ deploy_homepage_configs() {
     fi
 }
 
-# Function to process monitoring templates (simplified for homelab)
-process_monitoring_templates() {
-    local lxc_id=$1
-    local stack_dir=$2
-    
-    print_info "Processing monitoring configuration templates..."
-    
-    # Simplified: Just copy templates to final config files
-    if pct exec "$lxc_id" -- test -f "$stack_dir/prometheus.yml.template" 2>/dev/null; then
-        pct exec "$lxc_id" -- cp "$stack_dir/prometheus.yml.template" "$stack_dir/prometheus.yml" 2>/dev/null
-        print_info "✓ Deployed prometheus.yml"
-    fi
-    
-    if pct exec "$lxc_id" -- test -f "$stack_dir/alertmanager.yml.template" 2>/dev/null; then
-        pct exec "$lxc_id" -- cp "$stack_dir/alertmanager.yml.template" "$stack_dir/alertmanager.yml" 2>/dev/null
-        print_info "✓ Deployed alertmanager.yml"
-    fi
-    
-    return 0
-}
 
 # Function to deploy monitoring stack specific configs (simplified)
 deploy_monitoring_configs() {
     local lxc_id=$1
     
     # Create monitoring config directories with data subdirectories
-    pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/{prometheus/{rules,data},alertmanager/data,grafana} 2>/dev/null
+    pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/{prometheus/{rules,data},alertmanager/data,grafana/{provisioning/{datasources,dashboards},dashboards}} 2>/dev/null
     
     print_info "✓ Monitoring config directories prepared"
     return 0
@@ -244,51 +224,6 @@ deploy_monitoring_configs() {
 
 
 
-# Function to ensure PVE monitoring user exists (idempotent)
-ensure_pve_monitoring_user() {
-    local pve_user=$1
-    local pve_password=$2
-    
-    print_info "Ensuring Proxmox monitoring user exists..."
-    
-    # Always try to set password (works for both existing and new users)
-    if pveum user list | grep -q "^$pve_user:"; then
-        print_info "User $pve_user exists, updating password..."
-        if pveum passwd "$pve_user" --password "$pve_password" >/dev/null 2>&1; then
-            print_info "✓ Password updated successfully"
-        else
-            print_warning "Password update failed, continuing..."
-        fi
-    else
-        print_info "Creating user $pve_user..."
-        if pveum user add "$pve_user" --password "$pve_password" --comment "Monitoring user for Prometheus PVE exporter" >/dev/null 2>&1; then
-            print_info "✓ User created successfully"
-        else
-            # Try to update password in case user was created by another process
-            if pveum passwd "$pve_user" --password "$pve_password" >/dev/null 2>&1; then
-                print_info "✓ User existed, password updated"
-            else
-                print_error "Failed to create or update user $pve_user"
-                return 1
-            fi
-        fi
-    fi
-    
-    # Ensure PVEAuditor role is assigned (idempotent)
-    if pveum acl list | grep -q "$pve_user.*PVEAuditor"; then
-        print_info "✓ PVEAuditor role already assigned"
-    else
-        print_info "Assigning PVEAuditor role..."
-        if pveum acl modify / --users "$pve_user" --roles PVEAuditor >/dev/null 2>&1; then
-            print_info "✓ Role assigned successfully"
-        else
-            print_warning "Failed to assign role, but continuing..."
-        fi
-    fi
-    
-    print_info "✓ PVE monitoring user ready"
-    return 0
-}
 
 
 
@@ -334,7 +269,7 @@ deploy_complete_stack() {
     print_info "🚀 Deploying $stack_type stack (LXC $lxc_id)"
     
     # Set target directory inside LXC
-    local target_dir="/opt/$stack_type-stack"
+    local target_dir="/opt/$stack_type"
     
     # Create directory structure inside LXC
     pct exec "$lxc_id" -- mkdir -p "$target_dir"
@@ -389,34 +324,28 @@ deploy_complete_stack() {
     # Interactive configuration for the stack
     setup_env_file "$target_dir" "$stack_type" "$lxc_id"
     
-    # For monitoring stack, process templates and create PVE monitoring user
+    # For monitoring stack, deploy config files
     if [ "$stack_type" = "monitoring" ]; then
-        # Process template files with environment variable substitution
-        process_monitoring_templates "$lxc_id" "$target_dir"
-        
-        # Deploy final configuration files to their proper locations
-        print_info "Deploying processed configuration files..."
+        print_info "Deploying configuration files..."
         if pct exec "$lxc_id" -- test -f "$target_dir/prometheus.yml" 2>/dev/null; then
             pct exec "$lxc_id" -- cp "$target_dir/prometheus.yml" "/datapool/config/monitoring/prometheus/prometheus.yml"
-            print_info "✓ Deployed processed prometheus.yml"
+            print_info "✓ Deployed prometheus.yml"
         fi
         if pct exec "$lxc_id" -- test -f "$target_dir/alertmanager.yml" 2>/dev/null; then
             pct exec "$lxc_id" -- cp "$target_dir/alertmanager.yml" "/datapool/config/monitoring/alertmanager/alertmanager.yml"
-            print_info "✓ Deployed processed alertmanager.yml"
+            print_info "✓ Deployed alertmanager.yml"
         fi
         if pct exec "$lxc_id" -- test -f "$target_dir/alerts.yml" 2>/dev/null; then
             pct exec "$lxc_id" -- cp "$target_dir/alerts.yml" "/datapool/config/monitoring/prometheus/rules/alerts.yml"
             print_info "✓ Deployed alerts.yml to prometheus rules directory"
         fi
-        
-        # Read PVE password from .env file (set by interactive_setup.sh)
-        local pve_password
-        if pct exec "$lxc_id" -- test -f "$target_dir/.env" 2>/dev/null; then
-            pve_password=$(pct exec "$lxc_id" -- grep "^PVE_PASSWORD=" "$target_dir/.env" 2>/dev/null | cut -d'=' -f2)
+        if pct exec "$lxc_id" -- test -f "$target_dir/grafana-provisioning-datasources.yml" 2>/dev/null; then
+            pct exec "$lxc_id" -- cp "$target_dir/grafana-provisioning-datasources.yml" "/datapool/config/monitoring/grafana/provisioning/datasources/datasources.yml"
+            print_info "✓ Deployed Grafana datasource provisioning"
         fi
-        
-        if [ -n "$pve_password" ]; then
-            ensure_pve_monitoring_user "monitoring@pve" "$pve_password"
+        if pct exec "$lxc_id" -- test -f "$target_dir/grafana-provisioning-dashboards.yml" 2>/dev/null; then
+            pct exec "$lxc_id" -- cp "$target_dir/grafana-provisioning-dashboards.yml" "/datapool/config/monitoring/grafana/provisioning/dashboards/dashboards.yml"
+            print_info "✓ Deployed Grafana dashboard provisioning"
         fi
         
         print_info "✓ Monitoring stack configuration completed"
