@@ -168,7 +168,9 @@ check_root() {
     fi
 }
 
-# Homelab hardcoded defaults
+# Homelab hardcoded defaults (network configuration is intentionally fixed)
+# Network hardcoded for simplicity - all IPs follow 192.168.1.x pattern
+# LXC IDs are fixed: proxy=100, media=101, files=102, webtools=103, monitoring=104
 HOMELAB_TIMEZONE="Europe/Istanbul"
 HOMELAB_NETWORK_BASE="192.168.1"
 HOMELAB_PUID="1000"
@@ -296,6 +298,8 @@ get_stack_specifications() {
 }
 
 # Download latest LXC templates (get latest LTS versions dynamically)
+# Alpine: Uses latest stable version (e.g., 3.22)
+# Ubuntu: Uses latest LTS version only (20.04, 22.04, 24.04, etc.) for long-term support
 download_and_prepare_template() {
     local template_type=$1
     
@@ -303,11 +307,29 @@ download_and_prepare_template() {
     pveam update >&2
     
     if [ "$template_type" = "alpine" ]; then
-        # Get latest Alpine template - correct pattern matching
+        # Get latest Alpine template - always use latest stable
         local template_name=$(pveam available | grep "^system.*alpine.*default.*amd64" | tail -1 | awk '{print $2}')
     else
-        # Get latest Ubuntu LTS template - correct pattern matching
-        local template_name=$(pveam available | grep "^system.*ubuntu.*standard.*amd64" | tail -1 | awk '{print $2}')
+        # Get latest Ubuntu LTS template - hardcoded LTS versions for reliability
+        # Ubuntu LTS releases: every 2 years in April (XX.04 format)
+        local UBUNTU_LTS_VERSIONS=("20.04" "22.04" "24.04" "26.04" "28.04")
+        local latest_lts=""
+        
+        # Find the latest available LTS version
+        for version in "${UBUNTU_LTS_VERSIONS[@]}"; do
+            local template_candidate=$(pveam available | grep "ubuntu-${version}-standard.*amd64" | tail -1 | awk '{print $2}')
+            if [ -n "$template_candidate" ]; then
+                latest_lts="$template_candidate"
+            fi
+        done
+        
+        local template_name="$latest_lts"
+        
+        if [ -z "$template_name" ]; then
+            print_error "No Ubuntu LTS template found! Available templates:" >&2
+            pveam available | grep "ubuntu.*standard.*amd64" >&2
+            return 1
+        fi
     fi
     
     
@@ -375,11 +397,13 @@ configure_container_security() {
         # Set root password and enable autologin
         echo "root:root" | pct exec "$lxc_id" -- chpasswd
         
-        # Disable SSH service completely for security
+        # Disable SSH service completely for security (access via Proxmox web console only)
+        # SSH disabled for homelab security - access through Proxmox GUI console with root autologin
         pct exec "$lxc_id" -- rc-update del sshd default 2>/dev/null || true
         pct exec "$lxc_id" -- rc-service sshd stop 2>/dev/null || true
         
-        # Setup console autologin for Proxmox console access
+        # Setup console autologin for Proxmox console access (no password prompt)
+        # Root autologin enables direct access via Proxmox web console
         pct exec "$lxc_id" -- sed -i 's/^tty1::respawn:/tty1::respawn:-\/bin\/login -f root /' /etc/inittab 2>/dev/null || true
         
     else
@@ -387,11 +411,13 @@ configure_container_security() {
         # Set root password
         echo "root:root" | pct exec "$lxc_id" -- chpasswd
         
-        # Disable SSH service completely for security
+        # Disable SSH service completely for security (access via Proxmox web console only)
+        # SSH disabled for homelab security - access through Proxmox GUI console with root autologin
         pct exec "$lxc_id" -- systemctl stop ssh 2>/dev/null || true
         pct exec "$lxc_id" -- systemctl disable ssh 2>/dev/null || true
         
-        # Setup console autologin for Proxmox console access
+        # Setup console autologin for Proxmox console access (no password prompt)
+        # Root autologin enables direct access via Proxmox web console
         pct exec "$lxc_id" -- mkdir -p /etc/systemd/system/console-getty.service.d/
         cat << 'EOF' | pct exec "$lxc_id" -- tee /etc/systemd/system/console-getty.service.d/autologin.conf > /dev/null
 [Service]

@@ -352,6 +352,13 @@ deploy_complete_stack() {
     # Ensure proper datapool permissions for new deployment
     ensure_datapool_permissions "$stack_type"
     
+    # Set proper ownership for stack files after copying (fixes permission issues)
+    # Stack files need proper ownership for Docker containers to access them
+    chown -R $HOMELAB_HOST_UID:$HOMELAB_HOST_GID "$target_dir" 2>/dev/null || {
+        print_warning "Could not set ownership for stack files in $target_dir"
+        print_info "This may cause permission issues with Docker containers"
+    }
+    
     # Copy monitoring config files to proper locations for monitoring stack
     if [ "$stack_type" = "monitoring" ]; then
         print_info "Setting up monitoring configuration files..."
