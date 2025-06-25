@@ -23,11 +23,10 @@ This project uses 6 specialized LXC containers:
 - **Idempotent Scripts**: All scripts can be safely run multiple times for updates and maintenance
 - Docker stacks include their own watchtower for automatic updates
 
-## Overview
+## System Overview
 
-This project deploys a complete homelab automation solution with 6 specialized stacks:
+This project deploys a complete homelab automation solution across 6 specialized LXC containers:
 
-- **Security & Storage Setup**: Enhance Proxmox security with Fail2Ban and configure Samba/Sanoid
 - **Proxy Stack (LXC 100)**: Secure external access via Cloudflare tunnels
 - **Media Stack (LXC 101)**: Complete media automation with Sonarr, Radarr, Jellyfin, qBittorrent
 - **Files Stack (LXC 102)**: File management with JDownloader2, MeTube, and Palmr file sharing
@@ -41,12 +40,12 @@ This project deploys a complete homelab automation solution with 6 specialized s
 
 | Container Name | ID  | Purpose | CPU Cores | RAM | Storage | IP Address | Container Type |
 |---------------|-----|---------|-----------|-----|---------|------------|----------------|
-| lxc-proxy-01     | 100 | Proxy Services | 1 core | 2GB | 8GB + datapool | 192.168.1.100/24 | Unprivileged LXC |
-| lxc-media-01     | 101 | Media Automation | 4 cores | 8GB | 16GB + datapool | 192.168.1.101/24 | Unprivileged LXC |
-| lxc-files-01     | 102 | File Management | 2 cores | 4GB | 8GB + datapool | 192.168.1.102/24 | Unprivileged LXC |
-| lxc-webtools-01  | 103 | Web Tools & Dashboard | 2 cores | 4GB | 8GB + datapool | 192.168.1.103/24 | Unprivileged LXC |
-| lxc-monitoring-01| 104 | Monitoring & Metrics | 2 cores | 4GB | 10GB + datapool | 192.168.1.104/24 | Unprivileged LXC |
-| lxc-development-01| 150 | Development Environment | 2 cores | 4GB | 12GB | 192.168.1.150/24 | Unprivileged LXC |
+| proxy     | 100 | Proxy Services | 1 core | 512MB | 8GB + datapool | 192.168.1.100/24 | Unprivileged LXC |
+| media     | 101 | Media Automation | 2 cores | 2GB | 16GB + datapool | 192.168.1.101/24 | Unprivileged LXC |
+| files     | 102 | File Management | 1 core | 1GB | 10GB + datapool | 192.168.1.102/24 | Unprivileged LXC |
+| webtools  | 103 | Web Tools & Dashboard | 1 core | 1GB | 10GB + datapool | 192.168.1.103/24 | Unprivileged LXC |
+| monitoring| 104 | Monitoring & Metrics | 2 cores | 2GB | 12GB + datapool | 192.168.1.104/24 | Unprivileged LXC |
+| development| 150 | Development Environment | 2 cores | 2GB | 16GB | 192.168.1.150/24 | Unprivileged LXC |
 
 ### ⚠️ LXC Permission System (IMPORTANT)
 
@@ -71,11 +70,11 @@ This permission system is automatically handled by the automation scripts, but m
 
 ## Stack Contents & Access URLs
 
-### Proxy Stack (lxc-proxy-01, ID: 100)
+### Proxy Stack (proxy, ID: 100)
 - **Cloudflared** – Secure tunnel to external services
 - **Access**: Check Cloudflare Zero Trust dashboard for tunnel status
 
-### Media Stack (lxc-media-01, ID: 101)
+### Media Stack (media, ID: 101)
 - **Sonarr** – TV show automation | http://192.168.1.101:8989
 - **Radarr** – Movie automation | http://192.168.1.101:7878  
 - **Bazarr** – Subtitle management | http://192.168.1.101:6767
@@ -88,33 +87,30 @@ This permission system is automatically handled by the automation scripts, but m
 - **Cleanuperr** – Media library cleanup | http://192.168.1.101:9555
 - **Huntarr** – Torrent hunting tool | http://192.168.1.101:9705
 
-### Files Stack (lxc-files-01, ID: 102)  
+### Files Stack (files, ID: 102)  
 - **JDownloader2** – Download manager | http://192.168.1.102:5801
 - **MeTube** – YouTube downloader | http://192.168.1.102:8082
 - **Palmr** – File sharing platform | http://192.168.1.102:5487
 
-### Webtools Stack (lxc-webtools-01, ID: 103)
+### Webtools Stack (webtools, ID: 103)
 - **Homepage** – Dashboard | http://192.168.1.103:3000
 - **Firefox** – Remote browser | http://192.168.1.103:5800 | VNC: 192.168.1.103:5900
 
-### Monitoring Stack (lxc-monitoring-01, ID: 104)
+### Monitoring Stack (monitoring, ID: 104)
 - **Grafana** – Metrics dashboard | http://192.168.1.104:3000
 - **Prometheus** – Metrics collection | http://192.168.1.104:9090
 - **Alertmanager** – Alert management | http://192.168.1.104:9093
-  - **cAdvisor** – Container metrics | http://192.168.1.104:8080
+- **cAdvisor** – Container metrics | http://192.168.1.104:8080
 - **Proxmox Exporter** – Proxmox metrics | http://192.168.1.104:9221
 
-**📖 Monitoring Setup**: The monitoring stack uses simplified manual configuration. See [docker/monitoring/README-MONITORING.md](docker/monitoring/README-MONITORING.md) for detailed setup instructions including Proxmox user creation, email alerts, and advanced configuration.
-
-### Development Stack (lxc-development-01, ID: 150)
-- **Ubuntu LTS** – Latest Ubuntu LTS base system
+### Development Stack (development, ID: 150)
+- **Ubuntu LTS** – Latest Ubuntu LTS base system  
 - **Node.js & npm** – JavaScript runtime and package manager (latest LTS)
-- **Git** – Version control with helpful aliases and configuration
+- **Git** – Version control
 - **Claude Code** – AI-powered coding assistant by Anthropic
 - **Python3** – Python development environment
 - **Development Tools** – build-essential, tree, jq, tmux, screen, and more
-- **Access**: SSH to 192.168.1.150 or console via `pct enter 150`
-- **Project Directories**: `/root/projects` and `/root/development`
+- **Access**: Console via `pct enter 150`
 
 ## Media Server: Folder Structure & Configuration
 
@@ -157,177 +153,15 @@ To ensure proper hardlinks and atomic moves, the following folder structure is u
         └── channels/
 ```
 
-### qBittorrent Configuration
+**📖 Media Configuration**: For detailed qBittorrent, Sonarr/Radarr setup and hardlinks configuration, refer to the TRaSH Guides or service documentation.
 
-For proper hardlinks and optimal performance, configure qBittorrent as follows:
-
-1. Go to Settings > Downloads
-   - Enable "Keep incomplete torrents in:" and set it to a temporary location *inside* the container if desired (e.g., `/tmp/incomplete`), but it's often simpler to let qBittorrent manage this internally without a specific path.
-   - Ensure "Move completed torrents to" is **disabled** (categories will handle this).
-   - Disable "Append .!qB extension to incomplete files"
-
-2. Add Categories:
-   - Category: `tv`
-     - Save Path: `/datapool/torrents/tv`
-   - Category: `movies`
-     - Save Path: `/datapool/torrents/movies`
-
-3. Go to Settings > BitTorrent:
-   - Disable "Automatically add torrents from:" option
-
-4. Go to Settings > Connection:
-   - Set proper port number that doesn't conflict with other services
-
-### Sonarr/Radarr Configuration
-
-1. Media Management Settings:
-   - Enable "Use Hardlinks instead of Copy"
-   - Disable "Copy using Hardlinks when importing from torrents"
-
-2. Root Folders:
-   - Sonarr: `/datapool/media/tv`
-   - Radarr: `/datapool/media/movies`
-
-3. Download Client Settings (qBittorrent):
-   - Host: qbittorrent
-   - Port: 8080
-   - Category: `tv` (for Sonarr) or `movies` (for Radarr)
-   - Directory: (leave empty)
-
-### Hardlinks Verification
-
-To verify hardlinks are working properly:
-
-```bash
-# Create a test file in torrents folder
-touch /datapool/torrents/movies/test-file
-
-# Create a hardlink in media folder
-ln /datapool/torrents/movies/test-file /datapool/media/movies/test-hardlink
-
-# Verify both files have the same inode number (should match)
-ls -i /datapool/torrents/movies/test-file /datapool/media/movies/test-hardlink
-
-# Clean up test files
-rm /datapool/torrents/movies/test-file /datapool/media/movies/test-hardlink
-```
-
-If both files show the same inode number, hardlinks are working correctly.
-
-## Monitoring System Setup
+## Monitoring System
 
 The monitoring stack provides comprehensive system and application monitoring using Prometheus, Grafana, and Alertmanager.
 
-### Setup
-The monitoring stack can be deployed using the setup script:
-```bash
-# Run setup script and choose option 5 (Deploy Monitoring Stack)
-bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
-```
+**📖 Detailed Setup**: For complete setup instructions including Proxmox user creation, environment configuration, and troubleshooting, see [docker/monitoring/README-MONITORING.md](docker/monitoring/README-MONITORING.md).
 
-### Manual Configuration Steps
 
-After deploying the stacks, complete these manual steps:
-
-#### 1. Proxmox API User Setup
-Create a monitoring user in Proxmox for the PVE exporter:
-
-1. Go to Datacenter > Permissions > Users
-2. Add user: `monitoring@pve`
-3. Set a strong password
-4. Go to Datacenter > Permissions > Groups
-5. Create group: `monitoring`
-6. Go to Datacenter > Permissions
-7. Add permission: Path: `/`, User: `monitoring@pve`, Role: `PVEAuditor`
-
-#### 2. Environment Variables
-Set these environment variables in your monitoring LXC before starting services:
-```bash
-export GRAFANA_ADMIN_PASSWORD="your_secure_password"
-export PVE_USER="monitoring@pve"
-export PVE_PASSWORD="your_proxmox_monitoring_password"
-export PVE_URL="https://your_proxmox_ip:8006"
-```
-
-#### 3. Prometheus Configuration
-The Prometheus configuration automatically uses the standard IP scheme (192.168.1.100-104) for monitoring all LXC containers. No manual IP configuration is needed if you use the standard setup.
-
-#### 4. Grafana Dashboard Auto-Import
-Dashboards are automatically downloaded and imported during deployment:
-
-- **Proxmox via Prometheus** - Proxmox host and VM metrics
-- **Node Exporter Full** - System resource monitoring for all LXCs
-- **Docker Containers** - Container resource monitoring
-
-Access Grafana at `http://your_monitoring_lxc_ip:3000`:
-1. Login with admin/your_configured_password
-2. Dashboards are available in the "Homelab" folder
-3. If auto-import fails, manually import dashboard IDs: 10347, 1860, 193
-
-#### 5. Configure Alertmanager (Optional)
-Edit `/datapool/config/monitoring/alertmanager/alertmanager.yml` to configure notifications:
-  - Email alerts
-  - Slack/Discord webhooks
-  - Custom notification channels
-
-### Port Overview
-- **Grafana**: 3000
-- **Prometheus**: 9090  
-- **Alertmanager**: 9093
-- **cAdvisor**: 8080
-- **PVE Exporter**: 9221
-- **Node Exporters**: 9100-9103 (one per LXC)
-
-## Development Environment Setup
-
-### Getting Started with Development Stack
-
-The Development Stack (LXC 150) provides a complete Ubuntu-based development environment with AI-powered coding assistance:
-
-#### Initial Setup
-1. Deploy the development stack from the main menu (Option 6)
-2. Access the container: `pct enter 150`
-3. Configure Git with your credentials:
-   ```bash
-   git config --global user.name "Your Name"
-   git config --global user.email "your@email.com"
-   ```
-
-#### Using Claude Code
-Claude Code is an AI-powered coding assistant that helps with:
-- Code generation and completion
-- Code review and optimization
-- Debugging assistance
-- Architecture suggestions
-
-Start Claude Code in your project directory:
-```bash
-cd /root/projects
-claude-code
-```
-
-#### Development Features
-- **Pre-configured directories**: `/root/projects` and `/root/development`
-- **Git aliases**: `gs` (status), `ga` (add), `gc` (commit), `gp` (push), etc.
-- **Development tools**: Python3, build tools, jq, tree, tmux, screen
-- **Clean environment**: No Docker containers, focused on development only
-
-#### Remote Access
-- **SSH**: `ssh root@192.168.1.150` (key-based authentication)
-- **Console**: `pct enter 150` from Proxmox host
-- **File transfer**: Use `scp` or `rsync` for project files
-
-For more information about Claude Code, visit: https://www.anthropic.com/claude-code
-
-### Planned Features
-
-These features are planned for future releases:
-
-### Logging System
-- Elasticsearch – Log storage
-- Logstash – Log processing
-- Kibana – Log visualization
-- Filebeat – Log collection
 
 ## License
 

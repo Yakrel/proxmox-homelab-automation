@@ -16,8 +16,17 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Standardized print functions
+# Global quiet mode variable (set by scripts if needed)
+QUIET_MODE=${QUIET_MODE:-false}
+
+# Standardized print functions with quiet mode support
 print_info() {
+    if [ "$QUIET_MODE" != "true" ]; then
+        echo -e "${GREEN}[INFO]${NC} $1"
+    fi
+}
+
+print_info_quiet() {
     echo -e "${GREEN}[INFO]${NC} $1"
 }
 
@@ -35,6 +44,12 @@ print_step() {
 
 print_success() {
     echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_progress() {
+    if [ "$QUIET_MODE" != "true" ]; then
+        echo -e "${BLUE}[PROGRESS]${NC} $1"
+    fi
 }
 
 # Check LXC container status
@@ -58,18 +73,18 @@ check_lxc_status() {
 # Returns: 0 on success, 1 on timeout
 wait_for_container_ready() {
     local lxc_id=$1
-    print_info "Waiting for container to be ready..."
+    print_progress "Waiting for container to be ready..."
     sleep 5
-    print_info "✓ Container is ready"
+    print_progress "✓ Container is ready"
 }
 
 # Ensure Docker service is ready (homelab simplified)
 ensure_docker_ready() {
     local lxc_id=$1
-    print_info "Starting Docker service..."
+    print_progress "Starting Docker service..."
     pct exec "$lxc_id" -- rc-service docker start >/dev/null 2>&1 || true
     sleep 10
-    print_info "✓ Docker service started"
+    print_progress "✓ Docker service started"
 }
 
 # Function to ensure container and Docker are ready (unified implementation)
@@ -121,6 +136,12 @@ ensure_datapool_permissions() {
     
     print_step "Setting up datapool permissions for $stack_type stack..."
     
+    # Check if /datapool is accessible before attempting operations
+    if [ ! -d "/datapool" ]; then
+        print_warning "Datapool directory not accessible - skipping permission setup"
+        return 1
+    fi
+    
     # Create necessary directories based on stack type
     case $stack_type in
         "proxy")
@@ -145,10 +166,17 @@ ensure_datapool_permissions() {
             ;;
     esac
     
-    # Set ownership for all application directories in one command (homelab hardcoded)
-    chown -R $HOMELAB_HOST_UID:$HOMELAB_HOST_GID /datapool/{config,torrents,media,files} 2>/dev/null || true
-    
-    print_info "✓ Datapool permissions configured for $stack_type"
+    # Set ownership for all application directories with better error handling
+    if chown -R $HOMELAB_HOST_UID:$HOMELAB_HOST_GID /datapool/{config,torrents,media,files} 2>/dev/null; then
+        print_progress "✓ Datapool permissions configured for $stack_type"
+    else
+        # Check if directories exist and give more specific error
+        if [ -w "/datapool" ]; then
+            print_warning "Permission setup completed with warnings (some directories may not exist yet)"
+        else
+            print_warning "Cannot set datapool permissions - ensure /datapool is properly mounted"
+        fi
+    fi
 }
 
 # Function to create temporary directory with cleanup trap
@@ -362,7 +390,7 @@ create_lxc_container() {
     
     # Create the container
     if pct create "$lxc_id" "$template_path" \
-        --hostname "${stack_type}-server" \
+        --hostname "${stack_type}" \
         --cores "$cores" \
         --memory "$memory" \
         --rootfs "datapool:${disk}" \

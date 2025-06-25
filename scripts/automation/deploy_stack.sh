@@ -5,6 +5,24 @@
 
 set -e
 
+# Parse command line arguments for quiet mode
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --quiet|-q)
+            export QUIET_MODE=true
+            shift
+            ;;
+        --*)
+            echo "Unknown option: $1" >&2
+            shift
+            ;;
+        *)
+            # Non-option argument, break to handle positional args
+            break
+            ;;
+    esac
+done
+
 # Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -63,7 +81,7 @@ validate_env_file() {
             ;;
     esac
     
-    print_info "✓ Environment file validated successfully"
+    print_progress "✓ Environment file validated successfully"
     return 0
 }
 
@@ -103,7 +121,7 @@ download_stack_files() {
         fi
     fi
     
-    print_info "✓ Stack files downloaded"
+    print_progress "✓ Stack files downloaded"
     return 0
 }
 
@@ -115,7 +133,7 @@ setup_env_file() {
     
     # Check if .env exists and is valid
     if validate_env_file "$lxc_id" "$stack_dir/.env" "$stack_type"; then
-        print_info "✓ Existing .env file is valid"
+        print_progress "✓ Existing .env file is valid"
         return 0
     fi
     
@@ -130,7 +148,9 @@ setup_env_file() {
         chmod +x "$interactive_script"
     fi
     
-    print_info "Setting up environment configuration..."
+    if [ "$QUIET_MODE" != "true" ]; then
+        print_info "Setting up environment configuration..."
+    fi
     
     # Run interactive setup for this stack type and create .env file in temp directory
     local temp_stack_dir="$TEMP_DIR/$(basename "$stack_dir")"
@@ -146,7 +166,7 @@ setup_env_file() {
         # Copy the generated .env file to LXC
         if [ -f "$temp_stack_dir/.env" ]; then
             pct push "$lxc_id" "$temp_stack_dir/.env" "$stack_dir/.env"
-            print_info "✓ Environment configuration completed successfully"
+            print_success "✓ Environment configuration completed successfully"
             return 0
         else
             print_error "Interactive setup did not create .env file"
@@ -162,7 +182,9 @@ setup_env_file() {
 deploy_homepage_configs() {
     local lxc_id=$1
     
-    print_info "Deploying Homepage dashboard configuration..."
+    if [ "$QUIET_MODE" != "true" ]; then
+        print_info "Deploying Homepage dashboard configuration..."
+    fi
     
     # Create homepage config directory
     pct exec "$lxc_id" -- mkdir -p /datapool/config/homepage 2>/dev/null
@@ -179,7 +201,7 @@ deploy_homepage_configs() {
         if wget -q -O "$temp_file" "$GITHUB_REPO/config/homepage/$config_file" 2>/dev/null; then
             # Simply copy new file to container (overwrite existing)
             if pct push "$lxc_id" "$temp_file" "$target_path" 2>/dev/null; then
-                print_info "✓ Deployed $config_file"
+                print_progress "✓ Deployed $config_file"
                 success_count=$((success_count + 1))
             else
                 print_warning "Failed to deploy $config_file"
@@ -191,14 +213,17 @@ deploy_homepage_configs() {
     
     # Set proper permissions (homelab hardcoded values)
     # Unprivileged LXC mapping: 1000 (container) → 101000 (host)
-    chown -R 101000:101000 /datapool/config/homepage 2>/dev/null || {
-        print_warning "Failed to set ownership to 101000:101000"
-        print_info "Ensure /datapool is accessible and you have proper permissions"
-    }
+    if [ -w "/datapool/config" ]; then
+        chown -R 101000:101000 /datapool/config/homepage 2>/dev/null || {
+            print_warning "Could not set ownership for homepage config (may already be correct)"
+        }
+    else
+        print_warning "Cannot access /datapool/config for permission setup"
+    fi
     chmod -R 644 /datapool/config/homepage/*.yaml 2>/dev/null || true
     
     if [ $success_count -eq ${#config_files[@]} ]; then
-        print_info "✓ All Homepage configuration files deployed successfully"
+        print_success "✓ All Homepage configuration files deployed successfully"
         return 0
     elif [ $success_count -gt 0 ]; then
         print_warning "Partially deployed Homepage configs ($success_count/${#config_files[@]} files)"
@@ -217,7 +242,7 @@ deploy_monitoring_configs() {
     # Create monitoring config directories with data subdirectories
     pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/{prometheus/{rules,data},alertmanager/data,grafana/{provisioning/{datasources,dashboards},dashboards}} 2>/dev/null
     
-    print_info "✓ Monitoring config directories prepared"
+    print_progress "✓ Monitoring config directories prepared"
     return 0
 }
 
@@ -257,7 +282,7 @@ update_existing_stack() {
     # Update Docker images and restart services
     pct exec "$lxc_id" -- bash -c "cd '$stack_dir' && docker compose pull && docker compose up -d"
     
-    print_info "✓ Stack updated successfully with latest compose files"
+    print_success "✓ Stack updated successfully with latest compose files"
 }
 
 
@@ -289,14 +314,17 @@ deploy_complete_stack() {
     
     # Set proper ownership for stack files after copying (fixes permission issues)
     # Stack files need proper ownership for Docker containers to access them
-    chown -R $HOMELAB_HOST_UID:$HOMELAB_HOST_GID "$target_dir" 2>/dev/null || {
-        print_warning "Could not set ownership for stack files in $target_dir"
-        print_info "This may cause permission issues with Docker containers"
-    }
+    if [ -d "$target_dir" ] && [ -w "$(dirname "$target_dir")" ]; then
+        chown -R $HOMELAB_HOST_UID:$HOMELAB_HOST_GID "$target_dir" 2>/dev/null || {
+            print_warning "Could not set ownership for stack files (may already be correct)"
+        }
+    fi
     
     # Copy monitoring config files to proper locations for monitoring stack
     if [ "$stack_type" = "monitoring" ]; then
-        print_info "Setting up monitoring configuration files..."
+        if [ "$QUIET_MODE" != "true" ]; then
+            print_info "Setting up monitoring configuration files..."
+        fi
         
         # Ensure monitoring config directories exist (including data directories)
         pct exec "$lxc_id" -- mkdir -p /datapool/config/monitoring/{prometheus/{rules,data},alertmanager/data,grafana} 2>/dev/null
@@ -318,7 +346,7 @@ deploy_complete_stack() {
             pct push "$lxc_id" "$TEMP_DIR/$stack_type/alerts.yml" "$target_dir/alerts.yml"
         fi
         
-        print_info "✓ Monitoring configuration files copied to LXC"
+        print_progress "✓ Monitoring configuration files copied to LXC"
     fi
     
     # Interactive configuration for the stack
@@ -326,29 +354,31 @@ deploy_complete_stack() {
     
     # For monitoring stack, deploy config files
     if [ "$stack_type" = "monitoring" ]; then
-        print_info "Deploying configuration files..."
+        if [ "$QUIET_MODE" != "true" ]; then
+            print_info "Deploying configuration files..."
+        fi
         if pct exec "$lxc_id" -- test -f "$target_dir/prometheus.yml" 2>/dev/null; then
             pct exec "$lxc_id" -- cp "$target_dir/prometheus.yml" "/datapool/config/monitoring/prometheus/prometheus.yml"
-            print_info "✓ Deployed prometheus.yml"
+            print_progress "✓ Deployed prometheus.yml"
         fi
         if pct exec "$lxc_id" -- test -f "$target_dir/alertmanager.yml" 2>/dev/null; then
             pct exec "$lxc_id" -- cp "$target_dir/alertmanager.yml" "/datapool/config/monitoring/alertmanager/alertmanager.yml"
-            print_info "✓ Deployed alertmanager.yml"
+            print_progress "✓ Deployed alertmanager.yml"
         fi
         if pct exec "$lxc_id" -- test -f "$target_dir/alerts.yml" 2>/dev/null; then
             pct exec "$lxc_id" -- cp "$target_dir/alerts.yml" "/datapool/config/monitoring/prometheus/rules/alerts.yml"
-            print_info "✓ Deployed alerts.yml to prometheus rules directory"
+            print_progress "✓ Deployed alerts.yml to prometheus rules directory"
         fi
         if pct exec "$lxc_id" -- test -f "$target_dir/grafana-provisioning-datasources.yml" 2>/dev/null; then
             pct exec "$lxc_id" -- cp "$target_dir/grafana-provisioning-datasources.yml" "/datapool/config/monitoring/grafana/provisioning/datasources/datasources.yml"
-            print_info "✓ Deployed Grafana datasource provisioning"
+            print_progress "✓ Deployed Grafana datasource provisioning"
         fi
         if pct exec "$lxc_id" -- test -f "$target_dir/grafana-provisioning-dashboards.yml" 2>/dev/null; then
             pct exec "$lxc_id" -- cp "$target_dir/grafana-provisioning-dashboards.yml" "/datapool/config/monitoring/grafana/provisioning/dashboards/dashboards.yml"
-            print_info "✓ Deployed Grafana dashboard provisioning"
+            print_progress "✓ Deployed Grafana dashboard provisioning"
         fi
         
-        print_info "✓ Monitoring stack configuration completed"
+        print_success "✓ Monitoring stack configuration completed"
     fi
     
     
@@ -408,7 +438,11 @@ check_root
 STACK_TYPE=$1
 LXC_ID=$2
 
-print_info "Starting deployment process for $STACK_TYPE stack..."
+if [ "$QUIET_MODE" = "true" ]; then
+    print_info_quiet "🚀 Deploying $STACK_TYPE stack..."
+else
+    print_info "Starting deployment process for $STACK_TYPE stack..."
+fi
 
 # Determine LXC ID if not provided
 if [ -z "$LXC_ID" ]; then

@@ -138,7 +138,7 @@ main_deployment_menu() {
                 echo "Starting automated Monitoring stack deployment..."
                 if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
                     bash "$TEMP_DIR/scripts/automation/create_alpine_lxc.sh" monitoring
-                    bash "$TEMP_DIR/scripts/automation/deploy_stack.sh" monitoring
+                    bash "$TEMP_DIR/scripts/automation/deploy_stack.sh" monitoring --quiet
                 fi
                 ;;
             6)
