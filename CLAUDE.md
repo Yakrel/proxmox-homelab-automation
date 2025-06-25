@@ -143,49 +143,49 @@ This environment is for **development and testing only**:
 - **Here**: Script development, syntax validation, configuration updates
 - **Proxmox**: Actual deployment, Docker operations, LXC management, integration testing
 
-## Tasarım Kuralları
+## Design Principles
 
-Bu kurallar, projenin tüm geliştirme süreçlerinde göz önünde bulundurulmalıdır:
+These principles must be considered throughout all development processes:
 
-### 1. Tek ve Belirgin Senaryo
-- Otomasyon yalnızca bu özel homelab yapısı için tasarlanmıştır
-- LXC ID'leri, IP adresleri (192.168.1.x), depolama havuzu (`datapool`) sabit ve kod içinde belirtilmiştir
-- Farklı ortamlar için esneklik aranmaz - bu basitlik ve anlaşılırlık sağlar
+### 1. Single and Specific Scenario
+- Automation is designed exclusively for this specific homelab setup
+- LXC IDs, IP addresses (192.168.1.x), storage pool (`datapool`) are fixed and hardcoded
+- No flexibility for different environments - this ensures simplicity and clarity
 
-### 2. En Son LTS Sürümleri
-- LXC konteynerleri için her zaman en güncel LTS sürümleri (Ubuntu LTS) kullanılır
-- Proxmox tarafından otomatik indirilen şablonlar tercih edilir
-- Manuel şablon güncellemesi ihtiyacını ortadan kaldırır
+### 2. Latest LTS Versions
+- Always use the latest LTS versions (Ubuntu LTS) for LXC containers
+- Prefer automatically downloaded templates from Proxmox
+- Eliminates the need for manual template updates
 
-### 3. Merkezi Fonksiyonlar (`common.sh`)
-- Tekrar eden görevler `scripts/utils/common.sh` dosyasında toplanır
-- Loglama, durum kontrolü, komut kontrolü gibi yardımcı fonksiyonlar merkezi olarak yönetilir
-- Kod tekrarını önler ve bakımı kolaylaştırır
+### 3. Centralized Functions (`common.sh`)
+- Repetitive tasks are consolidated in `scripts/utils/common.sh`
+- Logging, status checks, command controls are managed centrally
+- Prevents code duplication and simplifies maintenance
 
-### 4. Idempotent (Tekrarlanabilir) Scriptler
-- Tüm scriptler birden çok kez çalıştırıldığında güvenli olmalıdır
-- Mevcut yapılandırmalar ve veriler korunmalıdır
-- Örnek: `.env` dosyasındaki şifreler script tekrar çalıştığında silinmemelidir
+### 4. Idempotent (Repeatable) Scripts
+- All scripts must be safe to run multiple times
+- Existing configurations and data must be preserved
+- Example: Passwords in `.env` files should not be deleted when script runs again
 
-### 5. Güvenlik ve Erişim Modeli
-- **Root Erişimi:** LXC konteynerlerine yalnızca Proxmox konsolu veya `pct enter` ile şifresiz erişim
-- **SSH Kapalı:** LXC konteynerlerinde SSH servisi varsayılan olarak kapalıdır
-- Harici erişim vektörlerini azaltır ve yönetimi merkezileştirir
+### 5. Security and Access Model
+- **Root Access:** LXC containers accessible only via Proxmox console or `pct enter` without password
+- **SSH Disabled:** SSH service is disabled by default in LXC containers
+- Reduces external access vectors and centralizes management
 
-### 6. Etkileşimli ve Otomatik Kurulum
-- Hassas veriler (API anahtarları, şifreler) interactive script'ler ile alınır
-- Mevcut değerler varsa tekrar sorulmaz
-- **Monitoring Stack:** `monitoring@pve` kullanıcısı otomatik oluşturulur/güncellenir
+### 6. Interactive and Automated Setup
+- Sensitive data (API keys, passwords) collected via interactive scripts
+- Existing values are not re-prompted
+- **Monitoring Stack:** `monitoring@pve` user is automatically created/updated
 
-### 7. Basitlik ve Odaklanmış Hata Kontrolü
-- "Keep It Simple" prensibi uygulanır
-- Karmaşık yan senaryolar yerine ana senaryo üzerinde odaklanılır
-- Hata kontrolü basit ve etkili tutulur
+### 7. Simplicity and Focused Error Handling
+- "Keep It Simple" principle is applied
+- Focus on main scenario rather than complex edge cases
+- Error handling kept simple and effective
 
-### 8. Tam Otomatik Monitoring Stack
-- Sıfırdan tam otomatik dağıtım hedeflenir
-- Manuel işlemler tamamen ortadan kaldırılır
-- Proxmox kullanıcı yönetimi, servis yapılandırmaları, `.env` dosyaları otomatik hazırlanır
+### 8. Fully Automated Monitoring Stack
+- Zero-to-deployment automation is the goal
+- Manual operations are completely eliminated
+- Proxmox user management, service configurations, `.env` files are automatically prepared
 
 ## Important Instructions for Claude
 
