@@ -18,8 +18,8 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/sonarr:/config # Config mount unchanged
-      - /datapool:/datapool           # Shared parent directory mount
+      - /datapool/config/sonarr:/config # Config directory mount
+      - /datapool:/datapool           # Datapool access for media files
     ports:
       - "8989:8989"
     networks:
@@ -46,8 +46,8 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/radarr:/config # Config mount unchanged
-      - /datapool:/datapool           # Shared parent directory mount
+      - /datapool/config/radarr:/config # Config directory mount
+      - /datapool:/datapool           # Datapool access for media files
     ports:
       - "7878:7878"
     networks:
@@ -68,8 +68,8 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/bazarr:/config # Config mount unchanged
-      - /datapool:/datapool           # Shared parent directory mount (Bazarr will use /datapool/media/...)
+      - /datapool/config/bazarr:/config # Config directory mount
+      - /datapool:/datapool           # Datapool access for subtitles and media
     ports:
       - "6767:6767"
     networks:
@@ -90,8 +90,8 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/jellyfin:/config # Config mount unchanged
-      - /datapool:/datapool           # Shared parent directory mount (Jellyfin will use /datapool/media/...)
+      - /datapool/config/jellyfin:/config # Config directory mount
+      - /datapool:/datapool           # Datapool access for media streaming
     ports:
       - "8096:8096"
     networks:
@@ -114,7 +114,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/jellyseerr:/app/config # Config mount unchanged
+      - /datapool/config/jellyseerr:/app/config # Config directory mount
     ports:
       - "5055:5055"
     networks:
@@ -136,8 +136,8 @@ services:
       - TZ=Europe/Istanbul
       - WEBUI_PORT=8080
     volumes:
-      - /datapool/config/qbittorrent:/config # Config mount unchanged
-      - /datapool:/datapool                # Shared parent directory mount (qBittorrent will use /datapool/torrents/...)
+      - /datapool/config/qbittorrent:/config # Config directory mount
+      - /datapool:/datapool                # Datapool access for torrent downloads
     ports:
       - "8080:8080"
       - "6881:6881"
@@ -166,7 +166,7 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/prowlarr:/config # Config mount unchanged
+      - /datapool/config/prowlarr:/config # Config directory mount
     ports:
       - "9696:9696"
     networks:
@@ -194,7 +194,7 @@ services:
     networks:
       - media-net
     restart: unless-stopped
-    logging: # Değişiklik yok
+    logging:
       driver: "json-file"
       options:
         max-size: "10m"
@@ -209,11 +209,11 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
-      - /datapool/config/recyclarr:/config # Config mount unchanged
+      - /datapool/config/recyclarr:/config # Config directory mount
     networks:
       - media-net
     restart: unless-stopped
-    logging: # Değişiklik yok
+    logging:
       driver: "json-file"
       options:
         max-size: "10m"
@@ -260,7 +260,7 @@ services:
     restart: unless-stopped
     networks:
       - media-net
-    logging: # Değişiklik yok
+    logging:
       driver: "json-file"
       options:
         max-size: "10m"

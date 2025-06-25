@@ -2,6 +2,12 @@
 
 # Common utility functions for Proxmox Homelab Automation
 # This file contains shared functions used across multiple scripts
+#
+# Error Handling Standard:
+# - Functions return 0 for success, 1 for failure
+# - Use print_error/print_info for consistent messaging
+# - Commands should be checked with proper error handling
+# - Use set -e in calling scripts for automatic error exit
 
 # Color definitions (standardized across all scripts)
 RED='\033[0;31m'
@@ -31,19 +37,25 @@ print_success() {
     echo -e "${GREEN}[SUCCESS]${NC} $1"
 }
 
-# Function to check LXC status (unified implementation)
+# Check LXC container status
+# Returns: running, stopped, or not_exists
+# Usage: status=$(check_lxc_status 101)
 check_lxc_status() {
     local lxc_id=$1
     
     if pct status "$lxc_id" >/dev/null 2>&1; then
         local status=$(pct status "$lxc_id" | awk '{print $2}')
         echo "$status"
+        return 0
     else
         echo "not_exists"
+        return 1
     fi
 }
 
-# Wait for container readiness (homelab simplified)
+# Wait for LXC container to be ready for commands 
+# Usage: wait_for_container_ready 101
+# Returns: 0 on success, 1 on timeout
 wait_for_container_ready() {
     local lxc_id=$1
     print_info "Waiting for container to be ready..."
@@ -164,7 +176,6 @@ HOMELAB_PGID="1000"
 HOMELAB_HOST_UID="101000"
 HOMELAB_HOST_GID="101000"
 
-# Function to validate timezone (simplified for homelab)
 validate_timezone() {
     echo "$HOMELAB_TIMEZONE"
 }
@@ -299,8 +310,6 @@ download_and_prepare_template() {
         local template_name=$(pveam available | grep "^system.*ubuntu.*standard.*amd64" | tail -1 | awk '{print $2}')
     fi
     
-    # Debug: print template name and length
-    print_info "Found template: $template_name (${#template_name} characters)" >&2
     
     local template_path="/datapool/template/cache/$template_name"
     

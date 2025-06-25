@@ -15,10 +15,6 @@ elif [ -f "/tmp/common.sh" ]; then
     source "/tmp/common.sh"
 else
     echo "ERROR: common.sh not found!" >&2
-    echo "DEBUG: SCRIPT_DIR=$SCRIPT_DIR" >&2
-    echo "DEBUG: Looking for common.sh at: $SCRIPT_DIR/../utils/common.sh" >&2
-    echo "DEBUG: File exists check: $(test -f "$SCRIPT_DIR/../utils/common.sh" && echo "YES" || echo "NO")" >&2
-    echo "DEBUG: Directory contents of $SCRIPT_DIR/../utils/:" >&2
     ls -la "$SCRIPT_DIR/../utils/" 2>/dev/null || echo "Directory does not exist" >&2
     exit 1
 fi
