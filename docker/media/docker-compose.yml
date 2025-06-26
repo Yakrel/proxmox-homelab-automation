@@ -253,7 +253,7 @@ services:
     environment:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_SCHEDULE=0 0 3 * * *
+      - WATCHTOWER_SCHEDULE=0 0 8,14,20,2 * * *
       - PUID=1000
       - PGID=1000
       - UMASK=002

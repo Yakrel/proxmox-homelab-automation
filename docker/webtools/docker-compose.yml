@@ -88,7 +88,7 @@ services:
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_SCHEDULE=0 0 5 * * *
+      - WATCHTOWER_SCHEDULE=0 0 8,14,20,2 * * *
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - UMASK=002
