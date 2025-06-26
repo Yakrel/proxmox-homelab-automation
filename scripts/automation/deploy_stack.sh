@@ -248,7 +248,7 @@ update_existing_stack() {
     
     
     # Download latest compose files from GitHub
-    print_long_operation "Downloading latest compose files..."
+    print_long_operation "📥 Downloading latest compose files..."
     download_stack_files "$stack_type" "$TEMP_DIR/$stack_type"
     
     # Update compose files in LXC
@@ -266,8 +266,10 @@ update_existing_stack() {
     fi
     
     # Update Docker images and restart services
-    print_long_operation "Updating services..."
-    pct exec "$lxc_id" -- bash -c "cd '$stack_dir' && docker compose pull --quiet && docker compose up -d"
+    print_long_operation "🔄 Pulling latest images..."
+    pct exec "$lxc_id" -- bash -c "cd '$stack_dir' && docker compose pull"
+    print_long_operation "🚀 Starting services..."
+    pct exec "$lxc_id" -- bash -c "cd '$stack_dir' && docker compose up -d"
     
 }
 
@@ -277,6 +279,7 @@ deploy_complete_stack() {
     local stack_type=$1
     local lxc_id=$2
     
+    print_long_operation "🚀 Deploying $stack_type stack to LXC $lxc_id..."
     
     # Set target directory inside LXC
     local target_dir="/opt/$stack_type"
@@ -355,16 +358,19 @@ deploy_complete_stack() {
     
     
     # Deploy with docker compose (Alpine Docker template uses V2 syntax)
-    print_long_operation "Starting services..."
-    pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose pull --quiet && docker compose up -d"
+    print_long_operation "🔄 Pulling Docker images..."
+    pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose pull"
+    print_long_operation "🚀 Starting services..."
+    pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose up -d"
     
     if [ $? -eq 0 ]; then
+        print_long_operation "✅ $stack_type stack deployed successfully!"
+        
         # Show status
         pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose ps"
         
         # Clean up .env.example file
         pct exec "$lxc_id" -- sh -c "cd $target_dir && rm -f .env.example" 2>/dev/null || true
-        
         
         return 0
     else
