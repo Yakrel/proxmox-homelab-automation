@@ -257,6 +257,13 @@ create_stack_env_file() {
     local stack_name=$2
     local custom_content=$3
     
+    # Create backup of existing .env file before modifying
+    if [ -f "$target_file" ]; then
+        local backup_file="${target_file}.backup"
+        cp "$target_file" "$backup_file" 2>/dev/null || true
+        print_info "Backup created: $(basename "$backup_file")"
+    fi
+    
     create_common_env_content "$stack_name" "$custom_content" > "$target_file"
     chmod 600 "$target_file"
 }
