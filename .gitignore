@@ -44,3 +44,6 @@ WORKFLOW-DIAGRAM.md
 *.local.json
 setting.local.json
 .mcp.json
+
+# Gemini AI files
+.gemini/
