@@ -19,17 +19,7 @@ NC='\033[0m'
 # Global quiet mode variable (set by scripts if needed)
 QUIET_MODE=${QUIET_MODE:-false}
 
-# Standardized print functions with quiet mode support
-print_info() {
-    if [ "$QUIET_MODE" != "true" ]; then
-        echo -e "${GREEN}[INFO]${NC} $1"
-    fi
-}
-
-print_info_quiet() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
-
+# Minimized print functions - only for errors and long operations
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
@@ -38,19 +28,17 @@ print_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
-print_step() {
-    echo -e "${BLUE}[STEP]${NC} $1"
+# Only show messages for long operations to prevent terminal hang confusion
+print_long_operation() {
+    echo "$1"
 }
 
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_progress() {
-    if [ "$QUIET_MODE" != "true" ]; then
-        echo -e "${BLUE}[PROGRESS]${NC} $1"
-    fi
-}
+# Legacy function stubs for compatibility - now silent
+print_info() { :; }
+print_info_quiet() { :; }
+print_step() { :; }
+print_success() { :; }
+print_progress() { :; }
 
 # Check LXC container status
 # Returns: running, stopped, or not_exists
@@ -94,13 +82,10 @@ ensure_datapool_mount() {
     
     # Check if mount already exists
     if pct config "$lxc_id" | grep -q "mp=/datapool"; then
-        print_info "✓ /datapool mount already configured"
         return 0
     fi
     
-    print_info "Adding /datapool mount point..."
     pct set "$lxc_id" -mp0 /datapool,mp=/datapool,acl=1
-    print_info "✓ Mount point added successfully"
     return 0
 }
 
@@ -109,8 +94,6 @@ ensure_datapool_mount() {
 # Function to ensure proper datapool permissions (unified implementation)
 ensure_datapool_permissions() {
     local stack_type=$1
-    
-    print_step "Setting up datapool permissions for $stack_type stack..."
     
     # Check if /datapool is accessible before attempting operations
     if [ ! -d "/datapool" ]; then
@@ -142,14 +125,9 @@ ensure_datapool_permissions() {
             ;;
     esac
     
-    # Set ownership for all application directories with better error handling
-    if chown -R $HOMELAB_HOST_UID:$HOMELAB_HOST_GID /datapool/{config,torrents,media,files} 2>/dev/null; then
-        print_progress "✓ Datapool permissions configured for $stack_type"
-    else
-        # Check if directories exist and give more specific error
-        if [ -w "/datapool" ]; then
-            print_warning "Permission setup completed with warnings (some directories may not exist yet)"
-        else
+    # Set ownership for all application directories
+    if ! chown -R $HOMELAB_HOST_UID:$HOMELAB_HOST_GID /datapool/{config,torrents,media,files} 2>/dev/null; then
+        if [ ! -w "/datapool" ]; then
             print_warning "Cannot set datapool permissions - ensure /datapool is properly mounted"
         fi
     fi
@@ -329,7 +307,7 @@ get_stack_specifications() {
 download_and_prepare_template() {
     local template_type=$1
     
-    print_info "Getting latest $template_type template..." >&2
+    print_long_operation "Getting latest $template_type template..."
     pveam update >&2
     
     if [ "$template_type" = "alpine" ]; then
@@ -363,7 +341,7 @@ download_and_prepare_template() {
     
     # Download if not exists
     if [ ! -f "$template_path" ]; then
-        print_info "Downloading $template_name..." >&2
+        print_long_operation "Downloading $template_name..."
         pveam download datapool "$template_name" >&2
     fi
     
@@ -383,8 +361,7 @@ create_lxc_container() {
     local memory=$(echo "$specs_string" | grep -o 'memory=[0-9]*' | cut -d'=' -f2)
     local disk=$(echo "$specs_string" | grep -o 'disk=[0-9]*' | cut -d'=' -f2)
     
-    print_info "Creating LXC container $lxc_id for $stack_type stack..."
-    print_info "Specs: ${cores} cores, ${memory}MB RAM, ${disk}GB disk"
+    print_long_operation "Creating LXC container $lxc_id..."
     
     # Create the container
     if pct create "$lxc_id" "$template_path" \
@@ -397,7 +374,6 @@ create_lxc_container() {
         --features nesting=1 \
         --start 1; then
         
-        print_success "✓ LXC container $lxc_id created successfully"
         return 0
     else
         print_error "Failed to create LXC container"
@@ -409,8 +385,6 @@ create_lxc_container() {
 configure_container_security() {
     local lxc_id=$1
     local template_type=$2
-    
-    print_info "Configuring security settings for container $lxc_id..."
     
     if [ "$template_type" = "alpine" ]; then
         # Alpine-specific security setup
@@ -450,14 +424,13 @@ EOF
         pct exec "$lxc_id" -- systemctl daemon-reload
     fi
     
-    print_success "✓ Security settings configured"
 }
 
 # Setup Alpine Docker container
 setup_alpine_docker_container() {
     local lxc_id=$1
     
-    print_info "Setting up Alpine Docker environment..."
+    print_long_operation "Setting up Docker environment..."
     
     # Install Docker and dependencies
     pct exec "$lxc_id" -- apk update
@@ -466,15 +439,13 @@ setup_alpine_docker_container() {
     # Add Docker to boot
     pct exec "$lxc_id" -- rc-update add docker default
     pct exec "$lxc_id" -- rc-service docker start
-    
-    print_success "✓ Alpine Docker environment ready"
 }
 
 # Setup Ubuntu development container
 setup_ubuntu_development_container() {
     local lxc_id=$1
     
-    print_info "Setting up Ubuntu development environment..."
+    print_long_operation "Setting up development environment..."
     
     # Update package list
     pct exec "$lxc_id" -- apt update
@@ -494,8 +465,6 @@ setup_ubuntu_development_container() {
     
     # Install Claude Code CLI
     pct exec "$lxc_id" -- npm install -g @anthropic/claude-code
-    
-    print_success "✓ Ubuntu development environment ready"
 }
 
 # Main container post-creation configuration dispatcher
@@ -520,5 +489,4 @@ configure_container_post_creation() {
     # Set datapool permissions
     ensure_datapool_permissions "$stack_type"
     
-    print_success "✓ Container $lxc_id configuration complete"
 }

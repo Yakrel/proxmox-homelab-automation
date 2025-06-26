@@ -19,8 +19,6 @@ fi
 create_alpine_lxc_unified() {
     local stack_type=$1
     
-    print_info "Creating $stack_type stack using unified LXC creation..."
-    
     # Get LXC ID and specifications from common.sh
     local lxc_id=$(get_stack_lxc_id "$stack_type")
     if [ $? -ne 0 ]; then
@@ -30,36 +28,28 @@ create_alpine_lxc_unified() {
     local specs=$(get_stack_specifications "$stack_type")
     local template_type=$(echo "$specs" | grep -o 'template=[a-z]*' | cut -d'=' -f2)
     
-    print_info "Stack: $stack_type, LXC ID: $lxc_id, Template: $template_type"
-    
     # Check current LXC status (idempotent)
     local lxc_status=$(check_lxc_status "$lxc_id")
     
     case "$lxc_status" in
         "not_exists")
-            print_info "LXC $lxc_id does not exist, creating new container..."
+            print_long_operation "Creating LXC $lxc_id..."
             ;;
         "running")
-            print_info "LXC $lxc_id already running, verifying configuration..."
             ensure_datapool_mount "$lxc_id"
             ensure_datapool_permissions "$stack_type"
-            print_success "✓ LXC $lxc_id verified and updated!"
             return 0
             ;;
         "stopped")
-            print_info "LXC $lxc_id exists but stopped, starting and updating..."
             pct start "$lxc_id"
             ensure_datapool_mount "$lxc_id"
             ensure_datapool_permissions "$stack_type"
-            print_success "✓ LXC $lxc_id started and updated!"
             return 0
             ;;
         *)
-            print_warning "LXC $lxc_id in unknown state: $lxc_status, attempting recovery..."
             pct start "$lxc_id" >/dev/null 2>&1 || true
             ensure_datapool_mount "$lxc_id"
             ensure_datapool_permissions "$stack_type"
-            print_success "✓ LXC $lxc_id recovered!"
             return 0
             ;;
     esac
@@ -73,12 +63,8 @@ create_alpine_lxc_unified() {
     
     # Create LXC container
     if create_lxc_container "$stack_type" "$lxc_id" "$specs" "$template_path"; then
-        print_info "✓ Container created, configuring..."
-        
         # Configure container post-creation
         configure_container_post_creation "$lxc_id" "$stack_type" "$template_type"
-        
-        print_success "✓ $stack_type LXC ($lxc_id) created and configured successfully!"
         return 0
     else
         print_error "Failed to create LXC container"
@@ -115,25 +101,7 @@ esac
 check_root
 
 # Execute unified creation
-print_info "=== Alpine LXC Creation - $STACK_TYPE Stack ==="
-print_info "Using unified creation functions from common.sh"
-
-if create_alpine_lxc_unified "$STACK_TYPE"; then
-    print_success "🎉 $STACK_TYPE LXC created successfully!"
-    print_info ""
-    print_info "✓ Alpine Linux with Docker and Docker Compose"
-    print_info "✓ Unprivileged container with proper security"
-    print_info "✓ /datapool mount point with correct permissions"
-    print_info "✓ Container ready for stack deployment"
-    print_info ""
-    
-    # Show next steps
-    lxc_id=$(get_stack_lxc_id "$STACK_TYPE")
-    print_info "Next steps:"
-    print_info "  1. Deploy stack: bash scripts/automation/deploy_stack.sh $STACK_TYPE"
-    print_info "  2. Access container: pct enter $lxc_id"
-    print_info "  3. Check services: pct exec $lxc_id -- docker compose ps"
-else
+if ! create_alpine_lxc_unified "$STACK_TYPE"; then
     print_error "Failed to create $STACK_TYPE LXC"
     exit 1
 fi
