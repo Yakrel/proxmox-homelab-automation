@@ -356,6 +356,15 @@ deploy_complete_stack() {
         
     fi
     
+    # For webtools stack, deploy homepage configurations
+    if [ "$stack_type" = "webtools" ]; then
+        print_long_operation "📋 Deploying Homepage configurations..."
+        if deploy_homepage_configs "$lxc_id"; then
+            print_info "✅ Homepage configurations deployed successfully"
+        else
+            print_warning "⚠️  Homepage configurations deployment had issues (continuing with stack deployment)"
+        fi
+    fi
     
     # Deploy with docker compose (Alpine Docker template uses V2 syntax)
     print_long_operation "🔄 Pulling Docker images..."
