@@ -41,7 +41,6 @@ create_alpine_lxc_unified() {
             ;;
         "running")
             print_info "LXC $lxc_id already running, verifying configuration..."
-            ensure_container_ready "$lxc_id"
             ensure_datapool_mount "$lxc_id"
             ensure_datapool_permissions "$stack_type"
             print_success "✓ LXC $lxc_id verified and updated!"
@@ -50,7 +49,6 @@ create_alpine_lxc_unified() {
         "stopped")
             print_info "LXC $lxc_id exists but stopped, starting and updating..."
             pct start "$lxc_id"
-            ensure_container_ready "$lxc_id"
             ensure_datapool_mount "$lxc_id"
             ensure_datapool_permissions "$stack_type"
             print_success "✓ LXC $lxc_id started and updated!"
@@ -59,7 +57,6 @@ create_alpine_lxc_unified() {
         *)
             print_warning "LXC $lxc_id in unknown state: $lxc_status, attempting recovery..."
             pct start "$lxc_id" >/dev/null 2>&1 || true
-            ensure_container_ready "$lxc_id"
             ensure_datapool_mount "$lxc_id"
             ensure_datapool_permissions "$stack_type"
             print_success "✓ LXC $lxc_id recovered!"

@@ -68,26 +68,8 @@ check_lxc_status() {
     fi
 }
 
-# Wait for LXC container to be ready for commands 
-# Usage: wait_for_container_ready 101
-# Returns: 0 on success, 1 on timeout
-wait_for_container_ready() {
-    local lxc_id=$1
-    print_progress "Waiting for container to be ready..."
-    sleep 5
-    print_progress "✓ Container is ready"
-}
 
-# Ensure Docker service is ready (homelab simplified)
-ensure_docker_ready() {
-    local lxc_id=$1
-    print_progress "Starting Docker service..."
-    pct exec "$lxc_id" -- rc-service docker start >/dev/null 2>&1 || true
-    sleep 10
-    print_progress "✓ Docker service started"
-}
-
-# Function to ensure container and Docker are ready (unified implementation)
+# Function to ensure container is running (simplified)
 ensure_container_ready() {
     local lxc_id=$1
     
@@ -102,12 +84,6 @@ ensure_container_ready() {
         print_info "Starting container $lxc_id..."
         pct start "$lxc_id"
     fi
-    
-    # Wait for container readiness
-    wait_for_container_ready "$lxc_id"
-    
-    # Ensure Docker is ready
-    ensure_docker_ready "$lxc_id"
     
     return 0
 }
@@ -251,18 +227,33 @@ ${custom_content}
 EOF
 }
 
-# Create .env file with proper permissions
+# Create .env file with proper permissions (for LXC container usage)
+create_stack_env_file_in_lxc() {
+    local lxc_id=$1
+    local target_file=$2
+    local stack_name=$3
+    local custom_content=$4
+    
+    # Create backup of existing .env file before modifying (inside LXC container)
+    if pct exec "$lxc_id" -- test -f "$target_file" 2>/dev/null; then
+        local backup_file="${target_file}.backup"
+        pct exec "$lxc_id" -- cp "$target_file" "$backup_file" 2>/dev/null || true
+        print_info "Backup created: $(basename "$backup_file")"
+    fi
+    
+    # Create temp file with new content and push to LXC
+    local temp_file=$(mktemp)
+    create_common_env_content "$stack_name" "$custom_content" > "$temp_file"
+    pct push "$lxc_id" "$temp_file" "$target_file"
+    pct exec "$lxc_id" -- chmod 600 "$target_file"
+    rm -f "$temp_file"
+}
+
+# Create .env file with proper permissions (legacy function for backward compatibility)
 create_stack_env_file() {
     local target_file=$1
     local stack_name=$2
     local custom_content=$3
-    
-    # Create backup of existing .env file before modifying
-    if [ -f "$target_file" ]; then
-        local backup_file="${target_file}.backup"
-        cp "$target_file" "$backup_file" 2>/dev/null || true
-        print_info "Backup created: $(basename "$backup_file")"
-    fi
     
     create_common_env_content "$stack_name" "$custom_content" > "$target_file"
     chmod 600 "$target_file"
@@ -421,9 +412,6 @@ configure_container_security() {
     
     print_info "Configuring security settings for container $lxc_id..."
     
-    # Wait for container to be ready
-    wait_for_container_ready "$lxc_id"
-    
     if [ "$template_type" = "alpine" ]; then
         # Alpine-specific security setup
         pct exec "$lxc_id" -- apk update
@@ -478,9 +466,6 @@ setup_alpine_docker_container() {
     # Add Docker to boot
     pct exec "$lxc_id" -- rc-update add docker default
     pct exec "$lxc_id" -- rc-service docker start
-    
-    # Wait for Docker to be ready
-    ensure_docker_ready "$lxc_id"
     
     print_success "✓ Alpine Docker environment ready"
 }
