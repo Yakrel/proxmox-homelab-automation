@@ -57,24 +57,6 @@ check_lxc_status() {
 }
 
 
-# Function to ensure container is running (simplified)
-ensure_container_ready() {
-    local lxc_id=$1
-    
-    # Check if container exists
-    if ! pct status "$lxc_id" >/dev/null 2>&1; then
-        print_error "LXC $lxc_id does not exist!"
-        return 1
-    fi
-    
-    # Start container if not running
-    if ! pct status "$lxc_id" | grep -q "running"; then
-        print_info "Starting container $lxc_id..."
-        pct start "$lxc_id"
-    fi
-    
-    return 0
-}
 
 # Function to ensure datapool mount exists (homelab simplified)
 ensure_datapool_mount() {
@@ -133,14 +115,6 @@ ensure_datapool_permissions() {
     fi
 }
 
-# Function to create temporary directory with cleanup trap
-setup_temp_dir() {
-    local temp_dir=$(mktemp -d)
-    # Global variable for cleanup
-    SCRIPT_TEMP_DIR="$temp_dir"
-    trap 'rm -rf "$SCRIPT_TEMP_DIR"' EXIT
-    echo "$temp_dir"
-}
 
 # Function to check if running as root (standardized check)
 check_root() {
@@ -160,9 +134,6 @@ HOMELAB_PGID="1000"
 HOMELAB_HOST_UID="101000"
 HOMELAB_HOST_GID="101000"
 
-validate_timezone() {
-    echo "$HOMELAB_TIMEZONE"
-}
 
 # Unified environment setup functions
 
@@ -205,8 +176,9 @@ ${custom_content}
 EOF
 }
 
-# Create .env file with proper permissions (for LXC container usage)
-create_stack_env_file_in_lxc() {
+# Unified .env file management for LXC containers
+# Preserves ALL existing values and creates backup automatically
+create_stack_env_file() {
     local lxc_id=$1
     local target_file=$2
     local stack_name=$3
@@ -217,23 +189,92 @@ create_stack_env_file_in_lxc() {
         local backup_file="${target_file}.backup"
         pct exec "$lxc_id" -- cp "$target_file" "$backup_file" 2>/dev/null || true
         print_info "Backup created: $(basename "$backup_file")"
+        
+        # Pull existing .env to merge values
+        local temp_existing=$(mktemp)
+        pct pull "$lxc_id" "$target_file" "$temp_existing" 2>/dev/null || true
+        
+        # Merge existing values with new template
+        local temp_merged=$(mktemp)
+        create_common_env_content "$stack_name" "$custom_content" > "$temp_merged"
+        
+        # Preserve ALL existing values from old .env
+        if [ -f "$temp_existing" ] && [ -s "$temp_existing" ]; then
+            # Read each line from existing file and preserve values
+            while IFS= read -r line; do
+                # Skip comments and empty lines
+                if [[ "$line" =~ ^[[:space:]]*# ]] || [[ "$line" =~ ^[[:space:]]*$ ]]; then
+                    continue
+                fi
+                
+                # Extract variable name
+                if [[ "$line" =~ ^([^=]+)= ]]; then
+                    local var_name="${BASH_REMATCH[1]}"
+                    # Replace the variable in merged file with existing value
+                    sed -i "s|^${var_name}=.*|${line}|" "$temp_merged" 2>/dev/null || true
+                fi
+            done < "$temp_existing"
+        fi
+        
+        # Push merged content to LXC
+        pct push "$lxc_id" "$temp_merged" "$target_file"
+        rm -f "$temp_existing" "$temp_merged"
+    else
+        # No existing file, create new one
+        local temp_file=$(mktemp)
+        create_common_env_content "$stack_name" "$custom_content" > "$temp_file"
+        pct push "$lxc_id" "$temp_file" "$target_file"
+        rm -f "$temp_file"
     fi
     
-    # Create temp file with new content and push to LXC
-    local temp_file=$(mktemp)
-    create_common_env_content "$stack_name" "$custom_content" > "$temp_file"
-    pct push "$lxc_id" "$temp_file" "$target_file"
+    # Set proper permissions
     pct exec "$lxc_id" -- chmod 600 "$target_file"
-    rm -f "$temp_file"
 }
 
-# Create .env file with proper permissions (legacy function for backward compatibility)
-create_stack_env_file() {
+
+# Create .env file with backup for local filesystem (used by interactive_setup.sh)
+create_stack_env_file_local() {
     local target_file=$1
     local stack_name=$2
     local custom_content=$3
     
-    create_common_env_content "$stack_name" "$custom_content" > "$target_file"
+    # Create backup of existing .env file before modifying (local filesystem)
+    if [ -f "$target_file" ]; then
+        local backup_file="${target_file}.backup"
+        cp "$target_file" "$backup_file" 2>/dev/null || true
+        print_info "Backup created: $(basename "$backup_file")"
+        
+        # Merge existing values with new template
+        local temp_merged=$(mktemp)
+        create_common_env_content "$stack_name" "$custom_content" > "$temp_merged"
+        
+        # Preserve ALL existing values from old .env
+        if [ -f "$target_file" ] && [ -s "$target_file" ]; then
+            # Read each line from existing file and preserve values
+            while IFS= read -r line; do
+                # Skip comments and empty lines
+                if [[ "$line" =~ ^[[:space:]]*# ]] || [[ "$line" =~ ^[[:space:]]*$ ]]; then
+                    continue
+                fi
+                
+                # Extract variable name
+                if [[ "$line" =~ ^([^=]+)= ]]; then
+                    local var_name="${BASH_REMATCH[1]}"
+                    # Replace the variable in merged file with existing value
+                    sed -i "s|^${var_name}=.*|${line}|" "$temp_merged" 2>/dev/null || true
+                fi
+            done < "$target_file"
+        fi
+        
+        # Replace original file with merged content
+        cp "$temp_merged" "$target_file"
+        rm -f "$temp_merged"
+    else
+        # No existing file, create new one
+        create_common_env_content "$stack_name" "$custom_content" > "$target_file"
+    fi
+    
+    # Set proper permissions
     chmod 600 "$target_file"
 }
 

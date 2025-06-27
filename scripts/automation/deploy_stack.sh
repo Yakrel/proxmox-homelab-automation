@@ -46,42 +46,21 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 # Docker Compose command (Alpine Docker template uses V2 syntax)
 DOCKER_COMPOSE_CMD="docker compose"
 
-# Function to validate environment file with stack-specific checks
+# Simple environment file validation - preserves all existing values
 validate_env_file() {
     local lxc_id=$1
     local env_file=$2
     local stack_type=$3
     
-    # Check if file exists and is not empty
-    if ! pct exec "$lxc_id" -- test -f "$env_file" 2>/dev/null || \
-       ! pct exec "$lxc_id" -- test -s "$env_file" 2>/dev/null; then
-        return 1
+    # Only check if file exists and is not empty
+    # All existing values will be preserved by unified create_stack_env_file function
+    if pct exec "$lxc_id" -- test -f "$env_file" 2>/dev/null && \
+       pct exec "$lxc_id" -- test -s "$env_file" 2>/dev/null; then
+        print_info "Existing .env file found - will preserve all current values"
+        return 0
     fi
     
-    # Stack-specific required variable checks
-    case $stack_type in
-        "proxy")
-            if ! pct exec "$lxc_id" -- grep -q "^CLOUDFLARED_TOKEN=" "$env_file" 2>/dev/null; then
-                print_info "Missing CLOUDFLARED_TOKEN in environment file"
-                return 1
-            fi
-            ;;
-        "monitoring")
-            if ! pct exec "$lxc_id" -- grep -q "^GRAFANA_ADMIN_PASSWORD=" "$env_file" 2>/dev/null || \
-               ! pct exec "$lxc_id" -- grep -q "^PVE_PASSWORD=" "$env_file" 2>/dev/null; then
-                print_info "Missing required passwords in monitoring environment file"
-                return 1
-            fi
-            ;;
-        "files"|"webtools")
-            if ! pct exec "$lxc_id" -- grep -q "^VNC_PASSWORD=" "$env_file" 2>/dev/null; then
-                print_info "Missing VNC_PASSWORD in environment file"
-                return 1
-            fi
-            ;;
-    esac
-    
-    return 0
+    return 1
 }
 
 

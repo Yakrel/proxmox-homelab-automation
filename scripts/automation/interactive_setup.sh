@@ -48,7 +48,7 @@ setup_proxy_env() {
     local proxy_content="# Cloudflare tunnel token for secure connections
 CLOUDFLARED_TOKEN=$cloudflare_token"
     
-    create_stack_env_file "$env_file" "Proxy" "$proxy_content"
+    create_stack_env_file_local "$env_file" "Proxy" "$proxy_content"
     return $?
 }
 
@@ -97,7 +97,7 @@ RADARR_API_KEY=$radarr_key
 QB_USERNAME=$qb_username
 QB_PASSWORD=$qb_password"
     
-    create_stack_env_file "$env_file" "Media" "$media_content"
+    create_stack_env_file_local "$env_file" "Media" "$media_content"
     
     # Show guidance for empty API keys (hardcoded homelab IPs)
     if [ -z "$existing_sonarr_key" ] || [ -z "$existing_radarr_key" ]; then
@@ -155,7 +155,7 @@ JDOWNLOADER_VNC_PASSWORD=$jdownloader_password
 # Palmr encryption key for secure file sharing (32 chars minimum)
 PALMR_ENCRYPTION_KEY=$palmr_encryption_key"
     
-    create_stack_env_file "$env_file" "Files" "$files_content"
+    create_stack_env_file_local "$env_file" "Files" "$files_content"
     return $?
 }
 
@@ -186,7 +186,7 @@ setup_webtools_env() {
     local webtools_content="# Firefox VNC password for web interface access
 FIREFOX_VNC_PASSWORD=$firefox_password"
     
-    create_stack_env_file "$env_file" "Webtools" "$webtools_content"
+    create_stack_env_file_local "$env_file" "Webtools" "$webtools_content"
     return $?
 }
 
@@ -238,7 +238,7 @@ PGID=1000
 # - Configure email settings in alertmanager.yml for alerts
 # - Update prometheus.yml if network differs from 192.168.1.x"
     
-    create_stack_env_file "$env_file" "Monitoring" "$monitoring_content"
+    create_stack_env_file_local "$env_file" "Monitoring" "$monitoring_content"
     return $?
 }
 
