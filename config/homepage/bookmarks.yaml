@@ -5,9 +5,6 @@
     - Homelab GitHub:
         - abbr: HG
           href: https://github.com/Yakrel/proxmox-homelab-automation
-    - TRaSH Guides:
-        - abbr: TG
-          href: https://trash-guides.info/
 
 - Yönetim:
     - Proxmox:

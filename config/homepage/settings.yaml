@@ -19,19 +19,27 @@ customCSS: |-
     margin-bottom: 8px !important;
   }
   .resource-widget .resource-stat {
-    margin-bottom: 6px !important;
-    line-height: 1.4 !important;
+    margin-bottom: 8px !important;
+    line-height: 1.6 !important;
+    padding: 2px 0 !important;
   }
   .resource-value {
     display: inline-block !important;
-    margin-right: 8px !important;
+    margin-right: 10px !important;
   }
   .resource-label {
     display: inline-block !important;
-    margin-left: 4px !important;
+    margin-left: 6px !important;
   }
   .greeting-text, .datetime-text {
     letter-spacing: 0.5px !important;
+  }
+  .resource-widget div {
+    margin-bottom: 4px !important;
+  }
+  .system-stats .stat-item {
+    margin-bottom: 6px !important;
+    white-space: nowrap !important;
   }
 
 layout:

@@ -28,7 +28,7 @@
     label: Sistem Durumu
     cpu: true
     memory: true
-    disk: /
+    disk: /datapool
     cputemp: true
     uptime: true
     units: metric
