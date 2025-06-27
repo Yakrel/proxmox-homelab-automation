@@ -111,7 +111,7 @@ setup_env_file() {
         wget -q -O /tmp/.env.example '$GITHUB_REPO/docker/$stack_type/.env.example' 2>/dev/null || true
         
         # Create/update .env with container-safe merge functionality
-        create_env_file_inside_container '$stack_dir/.env' '$stack_type' ''
+        create_stack_env_file '$stack_dir/.env' '$stack_type' ''
     "; then
         print_info ".env file updated successfully"
         return 0

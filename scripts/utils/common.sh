@@ -176,65 +176,9 @@ ${custom_content}
 EOF
 }
 
-# Unified .env file management for LXC containers
-# Preserves ALL existing values and creates backup automatically
+# Unified .env file management for stacks (container-side execution)
+# Preserves ALL existing values, creates backup, and merges .env.example template
 create_stack_env_file() {
-    local lxc_id=$1
-    local target_file=$2
-    local stack_name=$3
-    local custom_content=$4
-    
-    # Create backup of existing .env file before modifying (inside LXC container)
-    if pct exec "$lxc_id" -- test -f "$target_file" 2>/dev/null; then
-        local backup_file="${target_file}.backup"
-        pct exec "$lxc_id" -- cp "$target_file" "$backup_file" 2>/dev/null || true
-        print_info "Backup created: $(basename "$backup_file")"
-        
-        # Pull existing .env to merge values
-        local temp_existing=$(mktemp)
-        pct pull "$lxc_id" "$target_file" "$temp_existing" 2>/dev/null || true
-        
-        # Merge existing values with new template
-        local temp_merged=$(mktemp)
-        create_common_env_content "$stack_name" "$custom_content" > "$temp_merged"
-        
-        # Preserve ALL existing values from old .env
-        if [ -f "$temp_existing" ] && [ -s "$temp_existing" ]; then
-            # Read each line from existing file and preserve values
-            while IFS= read -r line; do
-                # Skip comments and empty lines
-                if [[ "$line" =~ ^[[:space:]]*# ]] || [[ "$line" =~ ^[[:space:]]*$ ]]; then
-                    continue
-                fi
-                
-                # Extract variable name
-                if [[ "$line" =~ ^([^=]+)= ]]; then
-                    local var_name="${BASH_REMATCH[1]}"
-                    # Replace the variable in merged file with existing value
-                    sed -i "s|^${var_name}=.*|${line}|" "$temp_merged" 2>/dev/null || true
-                fi
-            done < "$temp_existing"
-        fi
-        
-        # Push merged content to LXC
-        pct push "$lxc_id" "$temp_merged" "$target_file"
-        rm -f "$temp_existing" "$temp_merged"
-    else
-        # No existing file, create new one
-        local temp_file=$(mktemp)
-        create_common_env_content "$stack_name" "$custom_content" > "$temp_file"
-        pct push "$lxc_id" "$temp_file" "$target_file"
-        rm -f "$temp_file"
-    fi
-    
-    # Set proper permissions
-    pct exec "$lxc_id" -- chmod 600 "$target_file"
-}
-
-
-
-# Create environment file inside LXC container (without pct commands)
-create_env_file_inside_container() {
     local target_file=$1
     local stack_name=$2
     local custom_content=$3
@@ -248,6 +192,26 @@ create_env_file_inside_container() {
         # Merge existing values with new template
         local temp_merged=$(mktemp)
         create_common_env_content "$stack_name" "$custom_content" > "$temp_merged"
+        
+        # Add variables from .env.example template if available
+        if [ -f "/tmp/.env.example" ]; then
+            # Extract variables from .env.example (skip comments and empty lines)
+            while IFS= read -r line; do
+                # Skip comments and empty lines
+                if [[ "$line" =~ ^[[:space:]]*# ]] || [[ "$line" =~ ^[[:space:]]*$ ]]; then
+                    continue
+                fi
+                
+                # Extract variable definitions
+                if [[ "$line" =~ ^([^=]+)= ]]; then
+                    local var_name="${BASH_REMATCH[1]}"
+                    # Add variable to merged file if not already present
+                    if ! grep -q "^${var_name}=" "$temp_merged" 2>/dev/null; then
+                        echo "$line" >> "$temp_merged"
+                    fi
+                fi
+            done < "/tmp/.env.example"
+        fi
         
         # Preserve ALL existing values from old .env
         if [ -f "$target_file" ] && [ -s "$target_file" ]; then
@@ -271,7 +235,31 @@ create_env_file_inside_container() {
         mv "$temp_merged" "$target_file"
     else
         # No existing file, create new one
-        create_common_env_content "$stack_name" "$custom_content" > "$target_file"
+        local temp_new=$(mktemp)
+        create_common_env_content "$stack_name" "$custom_content" > "$temp_new"
+        
+        # Add variables from .env.example template if available
+        if [ -f "/tmp/.env.example" ]; then
+            # Extract variables from .env.example (skip comments and empty lines)
+            while IFS= read -r line; do
+                # Skip comments and empty lines
+                if [[ "$line" =~ ^[[:space:]]*# ]] || [[ "$line" =~ ^[[:space:]]*$ ]]; then
+                    continue
+                fi
+                
+                # Extract variable definitions
+                if [[ "$line" =~ ^([^=]+)= ]]; then
+                    local var_name="${BASH_REMATCH[1]}"
+                    # Add variable to new file if not already present
+                    if ! grep -q "^${var_name}=" "$temp_new" 2>/dev/null; then
+                        echo "$line" >> "$temp_new"
+                    fi
+                fi
+            done < "/tmp/.env.example"
+        fi
+        
+        # Move new content to target
+        mv "$temp_new" "$target_file"
     fi
     
     # Set proper permissions
