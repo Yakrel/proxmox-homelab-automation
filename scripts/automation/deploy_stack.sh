@@ -46,29 +46,6 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 # Docker Compose command (Alpine Docker template uses V2 syntax)
 DOCKER_COMPOSE_CMD="docker compose"
 
-# Simple environment file validation - preserves all existing values
-validate_env_file() {
-    local lxc_id=$1
-    local env_file=$2
-    local stack_type=$3
-    
-    # Check if file exists and is not empty
-    if ! pct exec "$lxc_id" -- test -f "$env_file" 2>/dev/null || \
-       ! pct exec "$lxc_id" -- test -s "$env_file" 2>/dev/null; then
-        return 1
-    fi
-    
-    # For webtools stack, ensure NETWORK_BASE exists
-    if [ "$stack_type" = "webtools" ]; then
-        if ! pct exec "$lxc_id" -- grep -q "^NETWORK_BASE=" "$env_file" 2>/dev/null; then
-            print_info "Webtools .env missing NETWORK_BASE - recreating with current values"
-            return 1
-        fi
-    fi
-    
-    print_info "Existing .env file found and valid - will preserve all current values"
-    return 0
-}
 
 
 # Function to download files from GitHub
@@ -109,54 +86,37 @@ download_stack_files() {
     return 0
 }
 
-# Function to setup environment file (simplified, single attempt)
+# Unified environment file setup - always refresh with backup and merge
 setup_env_file() {
     local stack_dir=$1
     local stack_type=$2
     local lxc_id=$3
     
-    # Check if .env exists and is valid
-    if validate_env_file "$lxc_id" "$stack_dir/.env" "$stack_type"; then
-        return 0
-    fi
+    print_info "Setting up .env file for $stack_type stack..."
     
-    # Download and run interactive setup script (maintain directory structure)
-    local interactive_script="$TEMP_DIR/scripts/automation/interactive_setup.sh"
-    local common_script="$TEMP_DIR/scripts/utils/common.sh"
-    if [ ! -f "$interactive_script" ]; then
-        mkdir -p "$(dirname "$interactive_script")"
-        mkdir -p "$(dirname "$common_script")"
-        wget -q -O "$interactive_script" "$GITHUB_REPO/scripts/automation/interactive_setup.sh"
-        wget -q -O "$common_script" "$GITHUB_REPO/scripts/utils/common.sh"
-        chmod +x "$interactive_script"
-    fi
-    
-    
-    # Run interactive setup for this stack type and create .env file in temp directory
-    local temp_stack_dir="$TEMP_DIR/$(basename "$stack_dir")"
-    mkdir -p "$temp_stack_dir"
-    
-    # Copy existing .env to temp directory for smart merging
+    # 1. Always create backup if .env exists
     if pct exec "$lxc_id" -- test -f "$stack_dir/.env" 2>/dev/null; then
-        # Create backup in LXC before modifying
         pct exec "$lxc_id" -- cp "$stack_dir/.env" "$stack_dir/.env.backup" 2>/dev/null || true
-        print_info "Backup created in LXC: $stack_dir/.env.backup"
-        
-        pct pull "$lxc_id" "$stack_dir/.env" "$temp_stack_dir/.env" 2>/dev/null || true
+        print_info "Backup created: $stack_dir/.env.backup"
     fi
     
-    # Run interactive setup
-    if bash "$interactive_script" "$stack_type" "$(dirname "$temp_stack_dir")"; then
-        # Copy the generated .env file to LXC
-        if [ -f "$temp_stack_dir/.env" ]; then
-            pct push "$lxc_id" "$temp_stack_dir/.env" "$stack_dir/.env"
-            return 0
-        else
-            print_error "Interactive setup did not create .env file"
-            return 1
-        fi
+    # 2. Download common.sh to LXC and create unified .env system
+    pct exec "$lxc_id" -- wget -q -O /tmp/common.sh "$GITHUB_REPO/scripts/utils/common.sh"
+    
+    # 3. Create/update .env file directly in LXC using unified function
+    # This preserves existing values and merges with latest .env.example
+    if pct exec "$lxc_id" -- bash -c "
+        source /tmp/common.sh
+        # Download latest .env.example for template
+        wget -q -O /tmp/.env.example '$GITHUB_REPO/docker/$stack_type/.env.example' 2>/dev/null || true
+        
+        # Create/update .env with merge functionality
+        create_stack_env_file '$lxc_id' '$stack_dir/.env' '$stack_type' ''
+    "; then
+        print_info ".env file updated successfully"
+        return 0
     else
-        print_error "Interactive setup script failed"
+        print_error "Environment file creation failed"
         return 1
     fi
 }

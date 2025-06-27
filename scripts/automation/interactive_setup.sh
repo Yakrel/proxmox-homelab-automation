@@ -17,7 +17,8 @@ else
     exit 1
 fi
 
-# Function to setup proxy stack environment
+# DEPRECATED: All stack-specific environment functions moved to unified system
+# Function to setup proxy stack environment  
 setup_proxy_env() {
     local stack_dir=$1
     local env_file="$stack_dir/.env"
@@ -252,7 +253,7 @@ PGID=1000
     return $?
 }
 
-# Function to setup environment for specific stack
+# Unified environment setup - uses .env.example and interactive prompts
 setup_stack_environment() {
     local stack_type=$1
     local stack_dir=$2
@@ -260,27 +261,9 @@ setup_stack_environment() {
     # Ensure directory exists
     mkdir -p "$stack_dir"
     
-    case $stack_type in
-        "proxy")
-            setup_proxy_env "$stack_dir"
-            ;;
-        "media")
-            setup_media_env "$stack_dir"
-            ;;
-        "files")
-            setup_files_env "$stack_dir"
-            ;;
-        "webtools")
-            setup_webtools_env "$stack_dir"
-            ;;
-        "monitoring")
-            setup_monitoring_env "$stack_dir"
-            ;;
-        *)
-            print_error "Unknown stack type: $stack_type"
-            return 1
-            ;;
-    esac
+    # This function is now deprecated - deploy_stack.sh handles .env creation directly
+    print_info "Environment setup moved to unified system in deploy_stack.sh"
+    return 0
 }
 
 # Main function

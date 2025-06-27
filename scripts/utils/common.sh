@@ -232,51 +232,6 @@ create_stack_env_file() {
 }
 
 
-# Create .env file with backup for local filesystem (used by interactive_setup.sh)
-create_stack_env_file_local() {
-    local target_file=$1
-    local stack_name=$2
-    local custom_content=$3
-    
-    # Create backup of existing .env file before modifying (local filesystem)
-    if [ -f "$target_file" ]; then
-        local backup_file="${target_file}.backup"
-        cp "$target_file" "$backup_file" 2>/dev/null || true
-        print_info "Backup created: $(basename "$backup_file")"
-        
-        # Merge existing values with new template
-        local temp_merged=$(mktemp)
-        create_common_env_content "$stack_name" "$custom_content" > "$temp_merged"
-        
-        # Preserve ALL existing values from old .env
-        if [ -f "$target_file" ] && [ -s "$target_file" ]; then
-            # Read each line from existing file and preserve values
-            while IFS= read -r line; do
-                # Skip comments and empty lines
-                if [[ "$line" =~ ^[[:space:]]*# ]] || [[ "$line" =~ ^[[:space:]]*$ ]]; then
-                    continue
-                fi
-                
-                # Extract variable name
-                if [[ "$line" =~ ^([^=]+)= ]]; then
-                    local var_name="${BASH_REMATCH[1]}"
-                    # Replace the variable in merged file with existing value
-                    sed -i "s|^${var_name}=.*|${line}|" "$temp_merged" 2>/dev/null || true
-                fi
-            done < "$target_file"
-        fi
-        
-        # Replace original file with merged content
-        cp "$temp_merged" "$target_file"
-        rm -f "$temp_merged"
-    else
-        # No existing file, create new one
-        create_common_env_content "$stack_name" "$custom_content" > "$target_file"
-    fi
-    
-    # Set proper permissions
-    chmod 600 "$target_file"
-}
 
 # Get existing environment variable value
 get_existing_env_value() {
