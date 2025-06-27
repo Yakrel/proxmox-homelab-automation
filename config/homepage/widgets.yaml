@@ -17,9 +17,9 @@
       locale: tr-TR
 
 - openmeteo:
-    label: İstanbul
-    latitude: 41.0082
-    longitude: 28.9784
+    label: Kırıkkale
+    latitude: 39.8468
+    longitude: 33.5153
     timezone: Europe/Istanbul
     units: metric
     cache: 5

@@ -13,6 +13,27 @@ providers:
   openweathermap: openweathermap
   search: google
 
+# Custom CSS for improved spacing and layout
+customCSS: |-
+  .widget-label {
+    margin-bottom: 8px !important;
+  }
+  .resource-widget .resource-stat {
+    margin-bottom: 6px !important;
+    line-height: 1.4 !important;
+  }
+  .resource-value {
+    display: inline-block !important;
+    margin-right: 8px !important;
+  }
+  .resource-label {
+    display: inline-block !important;
+    margin-left: 4px !important;
+  }
+  .greeting-text, .datetime-text {
+    letter-spacing: 0.5px !important;
+  }
+
 layout:
   - Media:
       icon: mdi-movie-open
