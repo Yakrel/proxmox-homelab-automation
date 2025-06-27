@@ -52,15 +52,22 @@ validate_env_file() {
     local env_file=$2
     local stack_type=$3
     
-    # Only check if file exists and is not empty
-    # All existing values will be preserved by unified create_stack_env_file function
-    if pct exec "$lxc_id" -- test -f "$env_file" 2>/dev/null && \
-       pct exec "$lxc_id" -- test -s "$env_file" 2>/dev/null; then
-        print_info "Existing .env file found - will preserve all current values"
-        return 0
+    # Check if file exists and is not empty
+    if ! pct exec "$lxc_id" -- test -f "$env_file" 2>/dev/null || \
+       ! pct exec "$lxc_id" -- test -s "$env_file" 2>/dev/null; then
+        return 1
     fi
     
-    return 1
+    # For webtools stack, ensure NETWORK_BASE exists
+    if [ "$stack_type" = "webtools" ]; then
+        if ! pct exec "$lxc_id" -- grep -q "^NETWORK_BASE=" "$env_file" 2>/dev/null; then
+            print_info "Webtools .env missing NETWORK_BASE - recreating with current values"
+            return 1
+        fi
+    fi
+    
+    print_info "Existing .env file found and valid - will preserve all current values"
+    return 0
 }
 
 
