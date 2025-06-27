@@ -103,15 +103,15 @@ setup_env_file() {
     # 2. Download common.sh to LXC and create unified .env system
     pct exec "$lxc_id" -- wget -q -O /tmp/common.sh "$GITHUB_REPO/scripts/utils/common.sh"
     
-    # 3. Create/update .env file directly in LXC using unified function
+    # 3. Create/update .env file directly in LXC using container-safe function
     # This preserves existing values and merges with latest .env.example
     if pct exec "$lxc_id" -- bash -c "
         source /tmp/common.sh
         # Download latest .env.example for template
         wget -q -O /tmp/.env.example '$GITHUB_REPO/docker/$stack_type/.env.example' 2>/dev/null || true
         
-        # Create/update .env with merge functionality
-        create_stack_env_file '$lxc_id' '$stack_dir/.env' '$stack_type' ''
+        # Create/update .env with container-safe merge functionality
+        create_env_file_inside_container '$stack_dir/.env' '$stack_type' ''
     "; then
         print_info ".env file updated successfully"
         return 0
