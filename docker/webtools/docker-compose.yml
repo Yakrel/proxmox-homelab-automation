@@ -21,7 +21,7 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
-      - HOMEPAGE_ALLOWED_HOSTS=${NETWORK_BASE:-192.168.1}.103,localhost,0.0.0.0
+      - HOMEPAGE_ALLOWED_HOSTS=192.168.1.103:3000,192.168.1.103,localhost,0.0.0.0
     networks:
       - webtools-net
     logging:
