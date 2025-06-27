@@ -183,8 +183,18 @@ setup_webtools_env() {
     fi
     
     # Create .env file
-    local webtools_content="# Firefox VNC password for web interface access
-FIREFOX_VNC_PASSWORD=$firefox_password"
+    local webtools_content="# Network base for Homepage allowed hosts
+NETWORK_BASE=192.168.1
+
+# Firefox VNC password for web interface access
+FIREFOX_VNC_PASSWORD=$firefox_password
+
+# Homepage API Keys (configure after deployment)
+HOMEPAGE_SONARR_API_KEY=
+HOMEPAGE_RADARR_API_KEY=
+HOMEPAGE_PROWLARR_API_KEY=
+HOMEPAGE_JELLYSEERR_API_KEY=
+HOMEPAGE_GRAFANA_API_KEY="
     
     create_stack_env_file_local "$env_file" "Webtools" "$webtools_content"
     return $?

@@ -131,6 +131,10 @@ setup_env_file() {
     
     # Copy existing .env to temp directory for smart merging
     if pct exec "$lxc_id" -- test -f "$stack_dir/.env" 2>/dev/null; then
+        # Create backup in LXC before modifying
+        pct exec "$lxc_id" -- cp "$stack_dir/.env" "$stack_dir/.env.backup" 2>/dev/null || true
+        print_info "Backup created in LXC: $stack_dir/.env.backup"
+        
         pct pull "$lxc_id" "$stack_dir/.env" "$temp_stack_dir/.env" 2>/dev/null || true
     fi
     
