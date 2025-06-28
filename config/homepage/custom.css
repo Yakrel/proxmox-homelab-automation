@@ -1,47 +1,14 @@
-/* Custom CSS for Homepage Dashboard */
+/* Custom CSS for Homepage Dashboard - Default Styling */
 
-/* Fix text spacing issues */
-.widget-label {
-    margin-bottom: 8px !important;
+/* Keep essential layout improvements only */
+.widget-container {
+    padding: 16px !important;
 }
 
-/* Improve resource widget spacing */
-.resource-widget .resource-stat {
-    margin-bottom: 6px !important;
-    line-height: 1.4 !important;
-}
-
-/* Better service card spacing */
 .service-card .service-title {
     margin-bottom: 4px !important;
 }
 
 .service-card .service-description {
     margin-top: 4px !important;
-}
-
-/* Fix widget container spacing */
-.widget-container {
-    padding: 16px !important;
-}
-
-/* Better spacing for Turkish text */
-.greeting-text, .datetime-text {
-    letter-spacing: 0.5px !important;
-}
-
-/* Improve bookmark spacing */
-.bookmark-item {
-    margin: 4px 8px !important;
-}
-
-/* Fix temperature display spacing */
-.resource-value {
-    display: inline-block !important;
-    margin-right: 8px !important;
-}
-
-.resource-label {
-    display: inline-block !important;
-    margin-left: 4px !important;
 }

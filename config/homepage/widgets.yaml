@@ -7,14 +7,14 @@
 
 - greeting:
     text_size: xl
-    text: "Homelab Kontrol Merkezi"
+    text: "Homelab Control Center"
 
 - datetime:
     text_size: xl
     format:
       timeStyle: short
       dateStyle: short
-      locale: tr-TR
+      locale: en-US
 
 - openmeteo:
     label: Kırıkkale
@@ -25,7 +25,7 @@
     cache: 5
 
 - resources:
-    label: Sistem Durumu
+    label: System Status
     cpu: true
     memory: true
     disk: /datapool

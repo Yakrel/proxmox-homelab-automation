@@ -4,7 +4,7 @@
 title: "Homelab Dashboard"
 theme: dark # or light
 color: zinc
-language: tr
+language: en
 target: _self
 
 favicon: https://cdn-icons-png.flaticon.com/512/25/25694.png
@@ -13,34 +13,6 @@ providers:
   openweathermap: openweathermap
   search: google
 
-# Custom CSS for improved spacing and layout
-customCSS: |-
-  .widget-label {
-    margin-bottom: 8px !important;
-  }
-  .resource-widget .resource-stat {
-    margin-bottom: 8px !important;
-    line-height: 1.6 !important;
-    padding: 2px 0 !important;
-  }
-  .resource-value {
-    display: inline-block !important;
-    margin-right: 10px !important;
-  }
-  .resource-label {
-    display: inline-block !important;
-    margin-left: 6px !important;
-  }
-  .greeting-text, .datetime-text {
-    letter-spacing: 0.5px !important;
-  }
-  .resource-widget div {
-    margin-bottom: 4px !important;
-  }
-  .system-stats .stat-item {
-    margin-bottom: 6px !important;
-    white-space: nowrap !important;
-  }
 
 layout:
   - Media:

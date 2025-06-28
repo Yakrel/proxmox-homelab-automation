@@ -1,12 +1,12 @@
 # Homepage Bookmarks Configuration
 # Quick access to frequently used links
 
-- Proje:
+- Project:
     - Homelab GitHub:
         - abbr: HG
           href: https://github.com/Yakrel/proxmox-homelab-automation
 
-- Yönetim:
+- Management:
     - Proxmox:
         - abbr: PX
           href: https://192.168.1.10:8006
