@@ -85,7 +85,6 @@ This permission system is automatically handled by the automation scripts, but m
 - **Flaresolverr** – Cloudflare bypass | http://192.168.1.101:8191
 - **Recyclarr** – *arr configuration tool (no web UI)
 - **Cleanuperr** – Media library cleanup | http://192.168.1.101:9555
-- **Huntarr** – Torrent hunting tool | http://192.168.1.101:9705
 
 ### Files Stack (files, ID: 102)  
 - **JDownloader2** – Download manager | http://192.168.1.102:5801

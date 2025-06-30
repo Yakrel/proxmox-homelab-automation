@@ -323,24 +323,3 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  huntarr:
-    image: huntarr/huntarr:latest
-    container_name: huntarr
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - UMASK=002
-      - TZ=Europe/Istanbul
-    volumes:
-      - /datapool/config/huntarr:/config
-      - /datapool:/datapool
-    ports:
-      - "9705:9705"
-    networks:
-      - media-net
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"

@@ -66,10 +66,6 @@
           url: http://192.168.1.101:6767
           key: "{{HOMEPAGE_VAR_BAZARR_API_KEY}}"
 
-    - Huntarr:
-        icon: huntarr.png
-        href: http://192.168.1.101:9705
-        description: TV Episode Renaming
 
 - Downloads:
     - JDownloader2:

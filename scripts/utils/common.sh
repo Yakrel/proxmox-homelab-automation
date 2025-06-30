@@ -89,7 +89,7 @@ ensure_datapool_permissions() {
             mkdir -p /datapool/config/cloudflared
             ;;
         "media")
-            mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,recyclarr,cleanuperr,huntarr}
+            mkdir -p /datapool/config/{sonarr,radarr,bazarr,jellyfin,jellyseerr,qbittorrent,prowlarr,flaresolverr,recyclarr,cleanuperr}
             mkdir -p /datapool/config/jellyseerr/logs
             mkdir -p /datapool/{torrents,media}/{tv,movies}
             mkdir -p /datapool/torrents/other
