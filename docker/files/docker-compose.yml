@@ -1,7 +1,3 @@
-# Files Stack - LXC ID: 102
-# Services: JDownloader2, MeTube, Palmr
-# Purpose: File downloads, video downloads, and file sharing
-
 networks:
   files-net:
     driver: bridge
@@ -23,7 +19,7 @@ services:
       - /datapool/config/jdownloader2:/config
       - /datapool:/datapool
     ports:
-      - "5801:5800" # Web UI port
+      - "5801:5800"
     networks:
       - files-net
     restart: unless-stopped
@@ -69,8 +65,8 @@ services:
       - /datapool/config/palmr:/app/server
       - /datapool/files:/app/uploads
     ports:
-      - "5487:5487" # Web UI port
-      - "3333:3333"  # API port
+      - "5487:5487"
+      - "3333:3333"
     networks:
       - files-net
     restart: unless-stopped

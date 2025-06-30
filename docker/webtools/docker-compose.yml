@@ -1,8 +1,3 @@
-# Webtools Stack - LXC ID: 103
-# Services: Homepage (dashboard), Firefox (remote browser)
-# Purpose: Web dashboard and administrative tools
-
-
 networks:
   webtools-net:
     driver: bridge

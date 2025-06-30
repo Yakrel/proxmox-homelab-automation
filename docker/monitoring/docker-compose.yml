@@ -1,8 +1,3 @@
-# Monitoring Stack - LXC ID: 104
-# Services: Prometheus, Grafana, Node Exporter, cAdvisor
-# Purpose: System and container monitoring with alerting
-
-
 networks:
   monitoring-net:
     driver: bridge
