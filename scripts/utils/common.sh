@@ -336,8 +336,8 @@ get_stack_specifications() {
 download_and_prepare_template() {
     local template_type=$1
     
-    print_long_operation "Getting latest $template_type template..." >&2
-    pveam update >&2
+    # Silent operation - no output to stdout during template preparation
+    pveam update >/dev/null 2>&1
     
     if [ "$template_type" = "alpine" ]; then
         # Get latest Alpine template - always use latest stable
@@ -359,7 +359,7 @@ download_and_prepare_template() {
         local template_name="$latest_lts"
         
         if [ -z "$template_name" ]; then
-            print_error "No Ubuntu LTS template found! Available templates:" >&2
+            echo "ERROR: No Ubuntu LTS template found!" >&2
             pveam available | grep "ubuntu.*standard.*amd64" >&2
             return 1
         fi
@@ -370,8 +370,7 @@ download_and_prepare_template() {
     
     # Download if not exists
     if [ ! -f "$template_path" ]; then
-        print_long_operation "Downloading $template_name..."
-        pveam download datapool "$template_name" >&2
+        pveam download datapool "$template_name" >/dev/null 2>&1
     fi
     
     echo "$template_path"

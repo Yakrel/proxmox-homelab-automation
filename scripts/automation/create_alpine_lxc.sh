@@ -55,6 +55,7 @@ create_alpine_lxc_unified() {
     esac
     
     # Download template
+    print_long_operation "Getting latest $template_type template..."
     local template_path=$(download_and_prepare_template "$template_type")
     if [ $? -ne 0 ]; then
         print_error "Failed to prepare template"
