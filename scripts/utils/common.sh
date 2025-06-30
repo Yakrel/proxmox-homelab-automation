@@ -336,7 +336,7 @@ get_stack_specifications() {
 download_and_prepare_template() {
     local template_type=$1
     
-    print_long_operation "Getting latest $template_type template..."
+    print_long_operation "Getting latest $template_type template..." >&2
     pveam update >&2
     
     if [ "$template_type" = "alpine" ]; then
