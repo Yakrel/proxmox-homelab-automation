@@ -393,7 +393,7 @@ create_lxc_container() {
     
     # Create the container
     if pct create "$lxc_id" "$template_path" \
-        --hostname "${stack_type}" \
+        --hostname "lxc-${stack_type}-$(printf "%02d" $((lxc_id % 100)))" \
         --cores "$cores" \
         --memory "$memory" \
         --rootfs "datapool:${disk}" \
