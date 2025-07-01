@@ -102,43 +102,32 @@ main_deployment_menu() {
         case $auto_choice in
             1)
                 echo "Starting automated Proxy stack deployment..."
-                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/scripts/automation/create_alpine_lxc.sh" proxy
-                    bash "$TEMP_DIR/scripts/automation/deploy_stack.sh" proxy
+                if download_script "scripts/automation/deploy_proxy.sh"; then
+                    bash "$TEMP_DIR/scripts/automation/deploy_proxy.sh"
                 fi
                 ;;
             2)
                 echo "Starting automated Media stack deployment..."
-                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/scripts/automation/create_alpine_lxc.sh" media
-                    bash "$TEMP_DIR/scripts/automation/deploy_stack.sh" media
+                if download_script "scripts/automation/deploy_media.sh"; then
+                    bash "$TEMP_DIR/scripts/automation/deploy_media.sh"
                 fi
                 ;;
             3)
                 echo "Starting automated Files stack deployment..."
-                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/scripts/automation/create_alpine_lxc.sh" files
-                    bash "$TEMP_DIR/scripts/automation/deploy_stack.sh" files
+                if download_script "scripts/automation/deploy_files.sh"; then
+                    bash "$TEMP_DIR/scripts/automation/deploy_files.sh"
                 fi
                 ;;
             4)
                 echo "Starting automated Webtools stack deployment..."
-                if ! download_script "scripts/automation/create_alpine_lxc.sh"; then
-                    echo "ERROR: Failed to download create_alpine_lxc.sh"
-                elif ! download_script "scripts/automation/deploy_stack.sh"; then
-                    echo "ERROR: Failed to download deploy_stack.sh"
-                elif ! download_script "scripts/utils/common.sh"; then
-                    echo "ERROR: Failed to download common.sh"
-                else
-                    bash "$TEMP_DIR/scripts/automation/create_alpine_lxc.sh" webtools
-                    bash "$TEMP_DIR/scripts/automation/deploy_stack.sh" webtools
+                if download_script "scripts/automation/deploy_webtools.sh"; then
+                    bash "$TEMP_DIR/scripts/automation/deploy_webtools.sh"
                 fi
                 ;;
             5)
                 echo "Starting automated Monitoring stack deployment..."
-                if download_script "scripts/automation/create_alpine_lxc.sh" && download_script "scripts/automation/deploy_stack.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/scripts/automation/create_alpine_lxc.sh" monitoring
-                    bash "$TEMP_DIR/scripts/automation/deploy_stack.sh" monitoring --quiet
+                if download_script "scripts/automation/deploy_monitoring.sh"; then
+                    bash "$TEMP_DIR/scripts/automation/deploy_monitoring.sh"
                 fi
                 ;;
             6)
