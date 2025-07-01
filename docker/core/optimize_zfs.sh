@@ -90,7 +90,6 @@ show_current_settings() {
 
 # Main optimization function
 optimize_all() {
-    echo "Starting ZFS performance optimization..."
     echo
     
     # Show current settings
