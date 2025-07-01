@@ -104,39 +104,59 @@ main_deployment_menu() {
         
         case $auto_choice in
             1)
-                echo "Starting automated Proxy stack deployment..."
-                if download_script "scripts/automation/deploy_proxy.sh"; then
-                    bash "$TEMP_DIR/scripts/automation/deploy_proxy.sh"
+                echo "Creating Proxy stack LXC..."
+                if download_script "scripts/create-lxc.sh"; then
+                    bash "$TEMP_DIR/scripts/create-lxc.sh" proxy
+                    echo "LXC created. Now deploying Docker services..."
+                    if download_script "scripts/deploy-stack.sh"; then
+                        bash "$TEMP_DIR/scripts/deploy-stack.sh" proxy
+                    fi
                 fi
                 ;;
             2)
-                echo "Starting automated Media stack deployment..."
-                if download_script "scripts/automation/deploy_media.sh"; then
-                    bash "$TEMP_DIR/scripts/automation/deploy_media.sh"
+                echo "Creating Media stack LXC..."
+                if download_script "scripts/create-lxc.sh"; then
+                    bash "$TEMP_DIR/scripts/create-lxc.sh" media
+                    echo "LXC created. Now deploying Docker services..."
+                    if download_script "scripts/deploy-stack.sh"; then
+                        bash "$TEMP_DIR/scripts/deploy-stack.sh" media
+                    fi
                 fi
                 ;;
             3)
-                echo "Starting automated Files stack deployment..."
-                if download_script "scripts/automation/deploy_files.sh"; then
-                    bash "$TEMP_DIR/scripts/automation/deploy_files.sh"
+                echo "Creating Files stack LXC..."
+                if download_script "scripts/create-lxc.sh"; then
+                    bash "$TEMP_DIR/scripts/create-lxc.sh" files
+                    echo "LXC created. Now deploying Docker services..."
+                    if download_script "scripts/deploy-stack.sh"; then
+                        bash "$TEMP_DIR/scripts/deploy-stack.sh" files
+                    fi
                 fi
                 ;;
             4)
-                echo "Starting automated Webtools stack deployment..."
-                if download_script "scripts/automation/deploy_webtools.sh"; then
-                    bash "$TEMP_DIR/scripts/automation/deploy_webtools.sh"
+                echo "Creating Webtools stack LXC..."
+                if download_script "scripts/create-lxc.sh"; then
+                    bash "$TEMP_DIR/scripts/create-lxc.sh" webtools
+                    echo "LXC created. Now deploying Docker services..."
+                    if download_script "scripts/deploy-stack.sh"; then
+                        bash "$TEMP_DIR/scripts/deploy-stack.sh" webtools
+                    fi
                 fi
                 ;;
             5)
-                echo "Starting automated Monitoring stack deployment..."
-                if download_script "scripts/automation/deploy_monitoring.sh"; then
-                    bash "$TEMP_DIR/scripts/automation/deploy_monitoring.sh"
+                echo "Creating Monitoring stack LXC..."
+                if download_script "scripts/create-lxc.sh"; then
+                    bash "$TEMP_DIR/scripts/create-lxc.sh" monitoring
+                    echo "LXC created. Now deploying Docker services..."
+                    if download_script "scripts/deploy-stack.sh"; then
+                        bash "$TEMP_DIR/scripts/deploy-stack.sh" monitoring
+                    fi
                 fi
                 ;;
             6)
                 echo "Starting automated Development stack deployment..."
-                if download_script "scripts/automation/create_ubuntu_lxc.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/scripts/automation/create_ubuntu_lxc.sh" development
+                if download_script "docker/development/setup.sh" && download_script "scripts/utils/common.sh"; then
+                    bash "$TEMP_DIR/docker/development/setup.sh" development
                 fi
                 ;;
             7)
@@ -191,33 +211,33 @@ post_install_menu() {
                 bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/microcode.sh)"
                 ;;
             3)
-                if download_script "scripts/core/optimize_zfs.sh"; then
+                if download_script "docker/core/optimize_zfs.sh"; then
                     echo "Starting ZFS performance optimization..."
-                    bash "$TEMP_DIR/scripts/core/optimize_zfs.sh"
+                    bash "$TEMP_DIR/docker/core/optimize_zfs.sh"
                 fi
                 ;;
             4)
-                if download_script "scripts/core/install_security.sh"; then
+                if download_script "docker/core/install_security.sh"; then
                     echo "Starting security installation..."
-                    bash "$TEMP_DIR/scripts/core/install_security.sh"
+                    bash "$TEMP_DIR/docker/core/install_security.sh"
                 fi
                 ;;
             5)
-                if download_script "scripts/core/install_storage.sh"; then
+                if download_script "docker/core/install_storage.sh"; then
                     echo "Starting storage installation..."
-                    bash "$TEMP_DIR/scripts/core/install_storage.sh"
+                    bash "$TEMP_DIR/docker/core/install_storage.sh"
                 fi
                 ;;
             6)
-                if download_script "scripts/network/setup_bonding.sh"; then
+                if download_script "docker/core/setup_bonding.sh"; then
                     echo "Starting network bonding setup..."
-                    bash "$TEMP_DIR/scripts/network/setup_bonding.sh"
+                    bash "$TEMP_DIR/docker/core/setup_bonding.sh"
                 fi
                 ;;
             7)
-                if download_script "scripts/core/configure_timezone.sh"; then
+                if download_script "docker/core/configure_timezone.sh"; then
                     echo "Starting timezone configuration..."
-                    bash "$TEMP_DIR/scripts/core/configure_timezone.sh"
+                    bash "$TEMP_DIR/docker/core/configure_timezone.sh"
                 fi
                 ;;
             8)

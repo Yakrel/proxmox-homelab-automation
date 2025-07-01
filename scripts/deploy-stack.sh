@@ -26,14 +26,11 @@ done
 # Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source common.sh from utils directory with better error reporting
-if [ -f "$SCRIPT_DIR/../utils/common.sh" ]; then
-    source "$SCRIPT_DIR/../utils/common.sh"
-elif [ -f "/tmp/common.sh" ]; then
-    source "/tmp/common.sh"
+# Source utils from new location
+if [ -f "$SCRIPT_DIR/utils.sh" ]; then
+    source "$SCRIPT_DIR/utils.sh"
 else
-    echo "ERROR: common.sh not found!" >&2
-    ls -la "$SCRIPT_DIR/../utils/" 2>/dev/null || echo "Directory does not exist" >&2
+    echo "ERROR: utils.sh not found!" >&2
     exit 1
 fi
 
