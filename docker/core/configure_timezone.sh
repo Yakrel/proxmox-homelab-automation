@@ -5,42 +5,45 @@
 
 set -e
 
-# Source common utilities
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../utils/common.sh"
-
+# Simple utility functions
+check_root() {
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "ERROR: This script must be run as root"
+        exit 1
+    fi
+}
 
 # Function to set timezone
 configure_timezone() {
-    print_step "Configuring timezone to Europe/Istanbul..."
+    echo "Configuring timezone to Europe/Istanbul..."
     
     # Set timezone
     timedatectl set-timezone Europe/Istanbul
     
     if [ $? -eq 0 ]; then
-        print_success "Timezone set to Europe/Istanbul"
+        echo "✓ Timezone set to Europe/Istanbul"
         
         # Show current time
         local current_time=$(date)
-        print_info "Current time: $current_time"
+        echo "Current time: $current_time"
     else
-        print_error "Failed to set timezone"
+        echo "ERROR: Failed to set timezone"
         return 1
     fi
 }
 
 # Function to configure NTP servers
 configure_ntp() {
-    print_step "Configuring NTP servers for Turkey..."
+    echo "Configuring NTP servers for Turkey..."
     
     # Check if chronyd is available (Proxmox uses chrony)
     if systemctl is-enabled chronyd >/dev/null 2>&1 || systemctl is-active chronyd >/dev/null 2>&1; then
-        print_info "Using chronyd for NTP configuration"
+        echo "Using chronyd for NTP configuration"
         
         # Backup original chrony config
         if [ -f /etc/chrony/chrony.conf ]; then
             cp /etc/chrony/chrony.conf /etc/chrony/chrony.conf.backup
-            print_info "Backed up original chrony.conf"
+            echo "Backed up original chrony.conf"
         fi
         
         # Configure Turkish NTP servers in chrony
@@ -92,20 +95,20 @@ EOF
         systemctl restart chronyd
         
         if [ $? -eq 0 ]; then
-            print_success "Chrony NTP servers configured and service restarted"
+            echo "✓ Chrony NTP servers configured and service restarted"
         else
-            print_error "Failed to configure Chrony"
+            echo "ERROR: Failed to configure Chrony"
             return 1
         fi
         
     # Fallback to timesyncd if available
     elif systemctl list-unit-files | grep -q systemd-timesyncd; then
-        print_info "Using systemd-timesyncd for NTP configuration"
+        echo "Using systemd-timesyncd for NTP configuration"
         
         # Backup original config
         if [ -f /etc/systemd/timesyncd.conf ]; then
             cp /etc/systemd/timesyncd.conf /etc/systemd/timesyncd.conf.backup
-            print_info "Backed up original timesyncd.conf"
+            echo "Backed up original timesyncd.conf"
         fi
         
         # Configure Turkish NTP servers
@@ -123,14 +126,14 @@ EOF
         systemctl restart systemd-timesyncd
         
         if [ $? -eq 0 ]; then
-            print_success "NTP servers configured and service restarted"
+            echo "✓ NTP servers configured and service restarted"
         else
-            print_error "Failed to configure NTP"
+            echo "ERROR: Failed to configure NTP"
             return 1
         fi
     else
-        print_warning "Neither chronyd nor systemd-timesyncd is available"
-        print_info "Installing chrony..."
+        echo "WARNING: Neither chronyd nor systemd-timesyncd is available"
+        echo "Installing chrony..."
         apt update && apt install -y chrony
         
         # Configure chrony after installation
@@ -140,76 +143,76 @@ EOF
 
 # Function to show time sync status
 show_time_status() {
-    print_step "Checking time synchronization status..."
+    echo "Checking time synchronization status..."
     
     # Show timedatectl status
     echo ""
-    print_info "System Time Status:"
+    echo "System Time Status:"
     timedatectl status
     
     echo ""
-    print_info "NTP Synchronization Status:"
+    echo "NTP Synchronization Status:"
     if systemctl is-active --quiet chronyd; then
         if chronyc tracking >/dev/null 2>&1; then
             chronyc tracking | head -5
         else
-            print_info "Chrony tracking information not available yet"
+            echo "Chrony tracking information not available yet"
         fi
     else
-        print_info "Using system time synchronization"
+        echo "Using system time synchronization"
     fi
     
     # Check if NTP is active (check both chronyd and timesyncd)
     if systemctl is-active --quiet chronyd; then
-        print_success "Chrony time synchronization is active"
+        echo "✓ Chrony time synchronization is active"
     elif systemctl is-active --quiet systemd-timesyncd; then
-        print_success "Systemd-timesyncd synchronization is active"
+        echo "✓ Systemd-timesyncd synchronization is active"
     else
-        print_warning "Time synchronization service is not active"
+        echo "WARNING: Time synchronization service is not active"
     fi
 }
 
 # Function to test NTP connectivity (using chrony sources)
 test_ntp_connectivity() {
-    print_step "Checking NTP server connectivity..."
+    echo "Checking NTP server connectivity..."
     
     # Wait a moment for chrony to start connecting
     sleep 5
     
     if systemctl is-active --quiet chronyd; then
-        print_info "Checking chrony sources status..."
+        echo "Checking chrony sources status..."
         
         # Check if chrony has sources
         if chronyc sources >/dev/null 2>&1; then
             local source_count=$(chronyc sources | wc -l)
             if [ "$source_count" -gt 3 ]; then
-                print_success "✓ NTP sources are available and working"
+                echo "✓ NTP sources are available and working"
                 
                 # Show active sources
                 local active_sources=$(chronyc sources | grep -E '^\^[\*\+]' | wc -l)
                 if [ "$active_sources" -gt 0 ]; then
-                    print_success "✓ $active_sources NTP sources are actively synchronizing"
+                    echo "✓ $active_sources NTP sources are actively synchronizing"
                 else
-                    print_info "NTP sources are connecting (this may take a few minutes)"
+                    echo "NTP sources are connecting (this may take a few minutes)"
                 fi
             else
-                print_warning "NTP sources are still connecting..."
+                echo "WARNING: NTP sources are still connecting..."
             fi
         else
-            print_warning "Chrony is starting up, sources not ready yet"
+            echo "WARNING: Chrony is starting up, sources not ready yet"
         fi
     else
-        print_warning "Chrony service is not running"
+        echo "WARNING: Chrony service is not running"
     fi
 }
 
 # Function to force time sync
 force_time_sync() {
-    print_step "Forcing immediate time synchronization..."
+    echo "Forcing immediate time synchronization..."
     
     # Check which service is running and force sync accordingly
     if systemctl is-active --quiet chronyd; then
-        print_info "Using chrony for immediate sync"
+        echo "Using chrony for immediate sync"
         # Wait a bit more for chrony to initialize properly
         sleep 3
         # Try to force sync quietly without showing warnings
@@ -221,15 +224,15 @@ force_time_sync() {
         # Force sync with ntpdate if available
         if command -v ntpdate >/dev/null 2>&1; then
             ntpdate -s tr.pool.ntp.org
-            print_info "Used ntpdate for immediate sync"
+            echo "Used ntpdate for immediate sync"
         else
-            print_warning "ntpdate not available, using timedatectl"
+            echo "WARNING: ntpdate not available, using timedatectl"
         fi
         
         # Start timesyncd again
         systemctl start systemd-timesyncd
     else
-        print_warning "No time sync service is running"
+        echo "WARNING: No time sync service is running"
         return 1
     fi
     
@@ -237,9 +240,9 @@ force_time_sync() {
     sleep 3
     
     if timedatectl status | grep -q "synchronized: yes"; then
-        print_success "Time synchronization successful"
+        echo "✓ Time synchronization successful"
     else
-        print_warning "Time sync may take a few minutes to complete"
+        echo "WARNING: Time sync may take a few minutes to complete"
     fi
 }
 
@@ -247,7 +250,7 @@ force_time_sync() {
 check_root
 
 # Main execution
-print_info "🕐 Configuring Timezone and NTP for Turkey"
+echo "Configuring Timezone and NTP for Turkey"
 echo ""
 
 configure_timezone
@@ -257,5 +260,5 @@ force_time_sync
 show_time_status
 
 echo ""
-print_success "✅ Timezone and NTP configuration completed!"
-print_info "Your system is now configured for Turkey (Europe/Istanbul)"
+echo "✓ Timezone and NTP configuration completed!"
+echo "Your system is now configured for Turkey (Europe/Istanbul)"

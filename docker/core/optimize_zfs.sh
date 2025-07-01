@@ -5,19 +5,23 @@
 
 set -e
 
-# Source common utilities
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../utils/common.sh"
+# Simple utility functions
+check_root() {
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "ERROR: This script must be run as root"
+        exit 1
+    fi
+}
 
 # Function to check if ZFS pools exist
 check_zfs_pools() {
     if ! command -v zfs >/dev/null 2>&1; then
-        print_error "ZFS not found on this system"
+        echo "ERROR: ZFS not found on this system"
         exit 1
     fi
     
     if ! zpool list >/dev/null 2>&1; then
-        print_error "No ZFS pools found"
+        echo "ERROR: No ZFS pools found"
         exit 1
     fi
 }
@@ -25,22 +29,22 @@ check_zfs_pools() {
 # Function to optimize rpool (disable atime)
 optimize_rpool() {
     if zpool list rpool >/dev/null 2>&1; then
-        print_info "Optimizing rpool (disabling atime)..."
+        echo "Optimizing rpool (disabling atime)..."
         zfs set atime=off rpool
-        print_info "✓ rpool atime disabled"
+        echo "✓ rpool atime disabled"
     else
-        print_warning "rpool not found, skipping atime optimization"
+        echo "WARNING: rpool not found, skipping atime optimization"
     fi
 }
 
 # Function to optimize datapool (disable sync)
 optimize_datapool() {
     if zpool list datapool >/dev/null 2>&1; then
-        print_info "Optimizing datapool (disabling sync)..."
+        echo "Optimizing datapool (disabling sync)..."
         zfs set sync=disabled datapool
-        print_info "✓ datapool sync disabled"
+        echo "✓ datapool sync disabled"
     else
-        print_warning "datapool not found, skipping sync optimization"
+        echo "WARNING: datapool not found, skipping sync optimization"
     fi
 }
 
@@ -50,7 +54,7 @@ configure_arc_memory() {
     local arc_max_gb=$((total_ram_gb / 2))
     local arc_max_bytes=$((arc_max_gb * 1024 * 1024 * 1024))
     
-    print_info "Configuring ZFS ARC memory (${arc_max_gb}GB max)..."
+    echo "Configuring ZFS ARC memory (${arc_max_gb}GB max)..."
     
     # Create modprobe configuration
     echo "options zfs zfs_arc_max=${arc_max_bytes}" > /etc/modprobe.d/zfs.conf
@@ -58,13 +62,13 @@ configure_arc_memory() {
     # Update initramfs
     update-initramfs -u -k all >/dev/null 2>&1
     
-    print_info "✓ ZFS ARC configured for ${arc_max_gb}GB"
-    print_warning "Reboot required for ARC settings to take effect"
+    echo "✓ ZFS ARC configured for ${arc_max_gb}GB"
+    echo "WARNING: Reboot required for ARC settings to take effect"
 }
 
 # Function to show current ZFS settings
 show_current_settings() {
-    print_info "Current ZFS settings:"
+    echo "Current ZFS settings:"
     
     if zpool list rpool >/dev/null 2>&1; then
         local atime=$(zfs get -H -o value atime rpool)
@@ -86,7 +90,7 @@ show_current_settings() {
 
 # Main optimization function
 optimize_all() {
-    print_info "Starting ZFS performance optimization..."
+    echo "Starting ZFS performance optimization..."
     echo
     
     # Show current settings
@@ -94,7 +98,7 @@ optimize_all() {
     echo
     
     # Confirm optimization
-    print_warning "This will apply the following optimizations:"
+    echo "This will apply the following optimizations:"
     echo "1. Disable atime on rpool (reduces SSD wear)"
     echo "2. Disable sync on datapool (improves VM performance)"
     echo "3. Configure ZFS ARC to use 50% of RAM"
@@ -102,7 +106,7 @@ optimize_all() {
     read -p "Continue with optimization? (y/N): " confirm
     
     if [[ ! $confirm =~ ^[Yy]$ ]]; then
-        print_info "Optimization cancelled"
+        echo "Optimization cancelled"
         exit 0
     fi
     
@@ -114,8 +118,8 @@ optimize_all() {
     configure_arc_memory
     
     echo
-    print_info "ZFS optimization completed successfully!"
-    print_warning "Reboot recommended to fully apply all changes"
+    echo "ZFS optimization completed successfully!"
+    echo "WARNING: Reboot recommended to fully apply all changes"
 }
 
 # Check root privileges
