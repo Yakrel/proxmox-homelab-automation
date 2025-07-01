@@ -58,14 +58,17 @@ create_lxc() {
     print_info "Using ${config[template]} template for container creation..."
     
     # Export variables for community script
-    export var_cpu="${config[cores]}"
-    export var_ram="${config[memory]}"
-    export var_disk="${config[disk]}"
-    export var_hostname="${config[hostname]}"
-    export var_ip="${config[ip]}"
-    export var_gateway="192.168.1.1"
-    export var_unprivileged="1"
-    export var_bridge="vmbr0"
+    export CT_ID="${config[id]}"
+    export HOSTNAME="${config[hostname]}"  
+    export IP_ADDRESS="${config[ip]}"
+    export GATEWAY="192.168.1.1"
+    export CPU_CORES="${config[cores]}"
+    export RAM_SIZE="${config[memory]}"
+    export DISK_SIZE="${config[disk]}"
+    export CT_TYPE="1"
+    export BRIDGE="vmbr0"
+    export SSH_ACCESS="no"
+    export TAGS="homelab-stack;${config[template]};docker"
     
     # Use appropriate community script based on template
     local script_url
@@ -75,7 +78,7 @@ create_lxc() {
         script_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/ubuntu.sh"
     fi
     
-    print_info "Running community script: $script_url"
+    print_info "Running community script with exported variables: $script_url"
     bash -c "$(curl -fsSL $script_url)"
     
     # Add datapool mount
