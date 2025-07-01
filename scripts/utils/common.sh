@@ -303,25 +303,25 @@ get_stack_specifications() {
     
     case $stack_type in
         "proxy")
-            echo "cores=1 memory=512 disk=8 template=alpine"
+            echo "cores=2 memory=2048 disk=20 template=alpine"
             ;;
         "media")
-            echo "cores=2 memory=2048 disk=16 template=alpine"
+            echo "cores=4 memory=10240 disk=20 template=alpine"
             ;;
         "files")
-            echo "cores=1 memory=1024 disk=10 template=alpine"
+            echo "cores=2 memory=3072 disk=20 template=alpine"
             ;;
         "webtools")
-            echo "cores=1 memory=1024 disk=10 template=alpine"
+            echo "cores=2 memory=4096 disk=20 template=alpine"
             ;;
         "monitoring")
-            echo "cores=2 memory=2048 disk=12 template=alpine"
+            echo "cores=4 memory=6144 disk=20 template=alpine"
             ;;
         "content")
-            echo "cores=2 memory=2048 disk=16 template=alpine"
+            echo "cores=4 memory=8192 disk=20 template=alpine"
             ;;
         "development")
-            echo "cores=2 memory=2048 disk=16 template=ubuntu"
+            echo "cores=4 memory=8192 disk=20 template=ubuntu"
             ;;
         *)
             print_error "Unknown stack type: $stack_type"
