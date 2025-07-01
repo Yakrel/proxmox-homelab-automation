@@ -15,9 +15,11 @@ From the menu you can choose:
 
 ## Deployment Approach
 
-This project uses 6 specialized LXC containers:
-- **Automated LXC Creation**: Uses Alpine Docker templates for Docker stacks, Ubuntu for development
-- **Stack-based Architecture**: 6 separate stacks for better resource management and isolation
+This project uses 7 specialized LXC containers with unified management:
+- **Unified LXC Management**: Single configuration source with consistent resource allocation
+- **Community Script Integration**: Uses proven community Alpine Docker and Ubuntu scripts for reliable container creation
+- **Smart Environment Management**: Preserves existing API keys and passwords when re-running scripts
+- **Stack-based Architecture**: 7 separate stacks for better resource management and isolation
 - **Individual Stack Deployment**: Deploy each stack separately for better control
 - **Interactive Configuration**: Automated password and configuration setup
 - **Idempotent Scripts**: All scripts can be safely run multiple times for updates and maintenance
@@ -25,13 +27,14 @@ This project uses 6 specialized LXC containers:
 
 ## System Overview
 
-This project deploys a complete homelab automation solution across 6 specialized LXC containers:
+This project deploys a complete homelab automation solution across 7 specialized LXC containers:
 
 - **Proxy Stack (LXC 100)**: Secure external access via Cloudflare tunnels
 - **Media Stack (LXC 101)**: Complete media automation with Sonarr, Radarr, Jellyfin, qBittorrent
 - **Files Stack (LXC 102)**: File management with JDownloader2, MeTube, and Palmr file sharing
 - **Webtools Stack (LXC 103)**: Web dashboard (Homepage) and administrative tools including remote Firefox browser
 - **Monitoring Stack (LXC 104)**: System monitoring with Prometheus, Grafana, and Alertmanager
+- **Content Stack (LXC 105)**: Reserved for future content management services (Immich, etc.)
 - **Development Stack (LXC 150)**: Ubuntu development environment with Claude Code and Node.js
 
 ## LXC Container Specifications
@@ -40,12 +43,13 @@ This project deploys a complete homelab automation solution across 6 specialized
 
 | Container Name | ID  | Purpose | CPU Cores | RAM | Storage | IP Address | Container Type |
 |---------------|-----|---------|-----------|-----|---------|------------|----------------|
-| proxy     | 100 | Proxy Services | 1 core | 512MB | 8GB + datapool | 192.168.1.100/24 | Unprivileged LXC |
-| media     | 101 | Media Automation | 2 cores | 2GB | 16GB + datapool | 192.168.1.101/24 | Unprivileged LXC |
-| files     | 102 | File Management | 1 core | 1GB | 10GB + datapool | 192.168.1.102/24 | Unprivileged LXC |
-| webtools  | 103 | Web Tools & Dashboard | 1 core | 1GB | 10GB + datapool | 192.168.1.103/24 | Unprivileged LXC |
-| monitoring| 104 | Monitoring & Metrics | 2 cores | 2GB | 12GB + datapool | 192.168.1.104/24 | Unprivileged LXC |
-| development| 150 | Development Environment | 2 cores | 2GB | 16GB | 192.168.1.150/24 | Unprivileged LXC |
+| proxy     | 100 | Proxy Services | 2 cores | 2GB | 20GB + datapool | 192.168.1.100/24 | Unprivileged LXC |
+| media     | 101 | Media Automation | 4 cores | 10GB | 20GB + datapool | 192.168.1.101/24 | Unprivileged LXC |
+| files     | 102 | File Management | 2 cores | 3GB | 20GB + datapool | 192.168.1.102/24 | Unprivileged LXC |
+| webtools  | 103 | Web Tools & Dashboard | 2 cores | 6GB | 20GB + datapool | 192.168.1.103/24 | Unprivileged LXC |
+| monitoring| 104 | Monitoring & Metrics | 4 cores | 6GB | 20GB + datapool | 192.168.1.104/24 | Unprivileged LXC |
+| content   | 105 | Content Management | 4 cores | 8GB | 20GB + datapool | 192.168.1.105/24 | Unprivileged LXC |
+| development| 150 | Development Environment | 4 cores | 8GB | 20GB | 192.168.1.150/24 | Unprivileged LXC |
 
 ### ⚠️ LXC Permission System (IMPORTANT)
 

@@ -104,53 +104,33 @@ main_deployment_menu() {
         
         case $auto_choice in
             1)
-                echo "Creating Proxy stack LXC..."
-                if download_script "scripts/create-lxc.sh"; then
-                    bash "$TEMP_DIR/scripts/create-lxc.sh" proxy
-                    echo "LXC created. Now deploying Docker services..."
-                    if download_script "scripts/deploy-stack.sh"; then
-                        bash "$TEMP_DIR/scripts/deploy-stack.sh" proxy
-                    fi
+                echo "Deploying Proxy stack..."
+                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh"; then
+                    bash "$TEMP_DIR/scripts/lxc-manager.sh" full proxy
                 fi
                 ;;
             2)
-                echo "Creating Media stack LXC..."
-                if download_script "scripts/create-lxc.sh"; then
-                    bash "$TEMP_DIR/scripts/create-lxc.sh" media
-                    echo "LXC created. Now deploying Docker services..."
-                    if download_script "scripts/deploy-stack.sh"; then
-                        bash "$TEMP_DIR/scripts/deploy-stack.sh" media
-                    fi
+                echo "Deploying Media stack..."
+                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh"; then
+                    bash "$TEMP_DIR/scripts/lxc-manager.sh" full media
                 fi
                 ;;
             3)
-                echo "Creating Files stack LXC..."
-                if download_script "scripts/create-lxc.sh"; then
-                    bash "$TEMP_DIR/scripts/create-lxc.sh" files
-                    echo "LXC created. Now deploying Docker services..."
-                    if download_script "scripts/deploy-stack.sh"; then
-                        bash "$TEMP_DIR/scripts/deploy-stack.sh" files
-                    fi
+                echo "Deploying Files stack..."
+                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh"; then
+                    bash "$TEMP_DIR/scripts/lxc-manager.sh" full files
                 fi
                 ;;
             4)
-                echo "Creating Webtools stack LXC..."
-                if download_script "scripts/create-lxc.sh"; then
-                    bash "$TEMP_DIR/scripts/create-lxc.sh" webtools
-                    echo "LXC created. Now deploying Docker services..."
-                    if download_script "scripts/deploy-stack.sh"; then
-                        bash "$TEMP_DIR/scripts/deploy-stack.sh" webtools
-                    fi
+                echo "Deploying Webtools stack..."
+                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh"; then
+                    bash "$TEMP_DIR/scripts/lxc-manager.sh" full webtools
                 fi
                 ;;
             5)
-                echo "Creating Monitoring stack LXC..."
-                if download_script "scripts/create-lxc.sh"; then
-                    bash "$TEMP_DIR/scripts/create-lxc.sh" monitoring
-                    echo "LXC created. Now deploying Docker services..."
-                    if download_script "scripts/deploy-stack.sh"; then
-                        bash "$TEMP_DIR/scripts/deploy-stack.sh" monitoring
-                    fi
+                echo "Deploying Monitoring stack..."
+                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh"; then
+                    bash "$TEMP_DIR/scripts/lxc-manager.sh" full monitoring
                 fi
                 ;;
             6)
