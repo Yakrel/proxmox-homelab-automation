@@ -57,18 +57,13 @@ create_lxc() {
     
     print_info "Using ${config[template]} template for container creation..."
     
-    # Export variables for community script
-    export CT_ID="${config[id]}"
-    export HOSTNAME="${config[hostname]}"  
-    export IP_ADDRESS="${config[ip]}"
-    export GATEWAY="192.168.1.1"
-    export CPU_CORES="${config[cores]}"
-    export RAM_SIZE="${config[memory]}"
-    export DISK_SIZE="${config[disk]}"
-    export CT_TYPE="1"
-    export BRIDGE="vmbr0"
-    export SSH_ACCESS="no"
-    export TAGS="homelab-stack;${config[template]};docker"
+    # Export variables for community script (var_ prefix required)
+    export var_cpu="${config[cores]}"
+    export var_ram="${config[memory]}"
+    export var_disk="${config[disk]}"
+    export var_tags="homelab-stack;${config[template]};docker"
+    export var_unprivileged="1"
+    export SILENT="1"
     
     # Use appropriate community script based on template
     local script_url
@@ -80,6 +75,11 @@ create_lxc() {
     
     print_info "Running community script with exported variables: $script_url"
     bash -c "$(curl -fsSL $script_url)"
+    
+    # Configure hostname and network (community script doesn't support these via env vars)
+    print_info "Configuring hostname and network..."
+    pct set "${config[id]}" --hostname "${config[hostname]}"
+    pct set "${config[id]}" --net0 name=eth0,bridge=vmbr0,ip="${config[ip]}",gw=192.168.1.1
     
     # Add datapool mount
     print_info "Adding datapool mount..."
