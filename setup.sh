@@ -105,31 +105,31 @@ main_deployment_menu() {
         case $auto_choice in
             1)
                 echo "Deploying Proxy stack..."
-                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh"; then
+                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/utils.sh"; then
                     bash "$TEMP_DIR/scripts/lxc-manager.sh" full proxy
                 fi
                 ;;
             2)
                 echo "Deploying Media stack..."
-                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh"; then
+                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh" && download_script "scripts/utils.sh"; then
                     bash "$TEMP_DIR/scripts/lxc-manager.sh" full media
                 fi
                 ;;
             3)
                 echo "Deploying Files stack..."
-                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh"; then
+                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh" && download_script "scripts/utils.sh"; then
                     bash "$TEMP_DIR/scripts/lxc-manager.sh" full files
                 fi
                 ;;
             4)
                 echo "Deploying Webtools stack..."
-                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh"; then
+                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh" && download_script "scripts/utils.sh"; then
                     bash "$TEMP_DIR/scripts/lxc-manager.sh" full webtools
                 fi
                 ;;
             5)
                 echo "Deploying Monitoring stack..."
-                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh"; then
+                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh" && download_script "scripts/utils.sh"; then
                     bash "$TEMP_DIR/scripts/lxc-manager.sh" full monitoring
                 fi
                 ;;
