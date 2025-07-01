@@ -77,6 +77,9 @@ download_script() {
         return 1
     fi
     
+    # Convert Windows line endings to Unix
+    sed -i 's/\r$//' "$target_path" 2>/dev/null || true
+    
     chmod +x "$target_path"
     return 0
 }
