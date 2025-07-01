@@ -71,7 +71,7 @@ create_lxc() {
     export IP_ADDRESS="${config[ip]}"
     export GATEWAY="192.168.1.1"
     export BRIDGE="vmbr0"
-    export DNS="8.8.8.8"
+    export DNS=""  # Use host DNS
     export TIMEZONE="Europe/Istanbul"
     
     # Use appropriate community script based on template
