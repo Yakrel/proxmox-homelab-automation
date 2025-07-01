@@ -57,13 +57,22 @@ create_lxc() {
     
     print_info "Using ${config[template]} template for container creation..."
     
-    # Export variables for community script (var_ prefix required)
+    # Export variables for community script (comprehensive configuration)
     export var_cpu="${config[cores]}"
     export var_ram="${config[memory]}"
     export var_disk="${config[disk]}"
     export var_tags="homelab-stack;${config[template]};docker"
     export var_unprivileged="1"
     export SILENT="1"
+    
+    # Advanced configuration - pass all parameters to community script
+    export CT_ID="${config[id]}"
+    export HOSTNAME="${config[hostname]}"
+    export IP_ADDRESS="${config[ip]}"
+    export GATEWAY="192.168.1.1"
+    export BRIDGE="vmbr0"
+    export DNS="8.8.8.8"
+    export TIMEZONE="Europe/Istanbul"
     
     # Use appropriate community script based on template
     local script_url
@@ -73,13 +82,8 @@ create_lxc() {
         script_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/ubuntu.sh"
     fi
     
-    print_info "Running community script with exported variables: $script_url"
+    print_info "Running community script with all configuration parameters: $script_url"
     bash -c "$(curl -fsSL $script_url)"
-    
-    # Configure hostname and network (community script doesn't support these via env vars)
-    print_info "Configuring hostname and network..."
-    pct set "${config[id]}" --hostname "${config[hostname]}"
-    pct set "${config[id]}" --net0 name=eth0,bridge=vmbr0,ip="${config[ip]}",gw=192.168.1.1
     
     # Add datapool mount
     print_info "Adding datapool mount..."
