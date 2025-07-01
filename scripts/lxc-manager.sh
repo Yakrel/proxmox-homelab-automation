@@ -8,6 +8,7 @@ set -e
 # Source configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/stack-config.sh"
+source "$SCRIPT_DIR/utils.sh"
 
 # Print functions
 print_info() { echo -e "\033[36m[INFO]\033[0m $1"; }
@@ -57,32 +58,17 @@ create_lxc() {
     
     print_info "Using ${config[template]} template for container creation..."
     
-    # Export variables for community script (comprehensive configuration)
-    export var_cpu="${config[cores]}"
-    export var_ram="${config[memory]}"
-    export var_disk="${config[disk]}"
-    export var_tags="homelab-stack;${config[template]};docker"
-    export var_unprivileged="1"
-    export SILENT="1"
-    
-    # Advanced configuration - pass all parameters to community script
-    export CT_ID="${config[id]}"
-    export HOSTNAME="${config[hostname]}"
-    export IP_ADDRESS="${config[ip]}"
-    export GATEWAY="192.168.1.1"
-    export BRIDGE="vmbr0"
-    export DNS=""  # Use host DNS
-    export TIMEZONE="Europe/Istanbul"
-    
-    # Use appropriate community script based on template
+    # Use appropriate community script and export variables
     local script_url
     if [[ "${config[template]}" == "alpine" ]]; then
         script_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh"
+        export_alpine_docker_variables "${config[id]}" "${config[hostname]}" "${config[ip]}" "${config[cores]}" "${config[memory]}" "${config[disk]}"
     else
         script_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/ubuntu.sh"
+        export_ubuntu_variables "${config[id]}" "${config[hostname]}" "${config[ip]}" "${config[cores]}" "${config[memory]}" "${config[disk]}"
     fi
     
-    print_info "Running community script with all configuration parameters: $script_url"
+    print_info "Running community script with exported variables: $script_url"
     bash -c "$(curl -fsSL $script_url)"
     
     # Add datapool mount
