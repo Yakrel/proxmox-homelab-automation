@@ -179,87 +179,41 @@ EOF
 create_stack_env_file() {
     local target_file=$1
     local stack_name=$2
-    local custom_content=$3
-    
+    local env_example_content=$3
+
     # Create backup of existing .env file before modifying
     if [ -f "$target_file" ]; then
         local backup_file="${target_file}.backup"
         cp "$target_file" "$backup_file" 2>/dev/null || true
         echo "INFO: Backup created: $(basename "$backup_file")"
-        
-        # Merge existing values with new template
-        local temp_merged=$(mktemp)
-        create_common_env_content "$stack_name" "$custom_content" > "$temp_merged"
-        
-        # Add variables from .env.example template if available
-        if [ -f "/tmp/.env.example" ]; then
-            # Extract variables from .env.example (skip comments and empty lines)
-            while IFS= read -r line; do
-                # Skip comments and empty lines
-                if [[ "$line" =~ ^[[:space:]]*# ]] || [[ "$line" =~ ^[[:space:]]*$ ]]; then
-                    continue
-                fi
-                
-                # Extract variable definitions
-                if [[ "$line" =~ ^([^=]+)= ]]; then
-                    local var_name="${BASH_REMATCH[1]}"
-                    # Add variable to merged file if not already present
-                    if ! grep -q "^${var_name}=" "$temp_merged" 2>/dev/null; then
-                        echo "$line" >> "$temp_merged"
-                    fi
-                fi
-            done < "/tmp/.env.example"
-        fi
-        
-        # Preserve ALL existing values from old .env
-        if [ -f "$target_file" ] && [ -s "$target_file" ]; then
-            # Read each line from existing file and preserve values
-            while IFS= read -r line; do
-                # Skip comments and empty lines
-                if [[ "$line" =~ ^[[:space:]]*# ]] || [[ "$line" =~ ^[[:space:]]*$ ]]; then
-                    continue
-                fi
-                
-                # Extract variable name
-                if [[ "$line" =~ ^([^=]+)= ]]; then
-                    local var_name="${BASH_REMATCH[1]}"
-                    # Replace the variable in merged file with existing value
-                    sed -i "s|^${var_name}=.*|${line}|" "$temp_merged" 2>/dev/null || true
-                fi
-            done < "$target_file"
-        fi
-        
-        # Move merged content to target
-        mv "$temp_merged" "$target_file"
-    else
-        # No existing file, create new one
-        local temp_new=$(mktemp)
-        create_common_env_content "$stack_name" "$custom_content" > "$temp_new"
-        
-        # Add variables from .env.example template if available
-        if [ -f "/tmp/.env.example" ]; then
-            # Extract variables from .env.example (skip comments and empty lines)
-            while IFS= read -r line; do
-                # Skip comments and empty lines
-                if [[ "$line" =~ ^[[:space:]]*# ]] || [[ "$line" =~ ^[[:space:]]*$ ]]; then
-                    continue
-                fi
-                
-                # Extract variable definitions
-                if [[ "$line" =~ ^([^=]+)= ]]; then
-                    local var_name="${BASH_REMATCH[1]}"
-                    # Add variable to new file if not already present
-                    if ! grep -q "^${var_name}=" "$temp_new" 2>/dev/null; then
-                        echo "$line" >> "$temp_new"
-                    fi
-                fi
-            done < "/tmp/.env.example"
-        fi
-        
-        # Move new content to target
-        mv "$temp_new" "$target_file"
     fi
+
+    local temp_env=$(mktemp)
     
+    # If a .env file already exists, start with its content
+    if [ -f "$target_file" ]; then
+        cp "$target_file" "$temp_env"
+    fi
+
+    # Read the .env.example content line by line
+    echo "$env_example_content" | while IFS= read -r line || [[ -n "$line" ]]; do
+        # Skip comments and empty lines
+        if [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "$line" ]]; then
+            continue
+        fi
+
+        # Extract variable name
+        var_name=$(echo "$line" | cut -d'=' -f1)
+
+        # If the variable is not already in the .env file, add it
+        if ! grep -q "^${var_name}=" "$temp_env"; then
+            echo "$line" >> "$temp_env"
+        fi
+    done
+
+    # Overwrite the original .env file with the updated content
+    mv "$temp_env" "$target_file"
+
     # Set proper permissions
     chmod 600 "$target_file"
 }
@@ -288,7 +242,7 @@ get_stack_lxc_id() {
         "monitoring") echo "104" ;;
         "content") echo "105" ;;
         "development") echo "150" ;;
-        *) 
+        *)
             print_error "Unknown stack type: $stack_type"
             return 1
             ;;
@@ -303,9 +257,9 @@ disable_motd() {
     
     # Empty MOTD file and remove welcome message
     pct exec "$lxc_id" -- bash -c '
-        echo "" > /etc/motd
-        echo "" > /etc/issue
-        [ -f /etc/profile.d/00_lxc-details.sh ] && echo "" > /etc/profile.d/00_lxc-details.sh
+        > /etc/motd
+        > /etc/issue
+        rm -f /etc/profile.d/community-scripts.sh
     ' 2>/dev/null || true
     
     return 0

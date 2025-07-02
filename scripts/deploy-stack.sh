@@ -61,9 +61,6 @@ download_stack_files() {
         return 1
     fi
     
-    # Download .env.example
-    wget -q -O "$target_dir/.env.example" "$GITHUB_REPO/docker/$stack_type/.env.example" 2>/dev/null || true
-    
     # Download additional config files for monitoring stack
     if [ "$stack_type" = "monitoring" ]; then
         # Download template files for dynamic configuration
@@ -90,26 +87,19 @@ setup_env_file() {
     local lxc_id=$3
     
     print_info "Setting up .env file for $stack_type stack..."
-    
-    # 1. Always create backup if .env exists
-    if pct exec "$lxc_id" -- test -f "$stack_dir/.env" 2>/dev/null; then
-        pct exec "$lxc_id" -- cp "$stack_dir/.env" "$stack_dir/.env.backup" 2>/dev/null || true
-        print_info "Backup created: $stack_dir/.env.backup"
-    fi
-    
-    # 2. Download utils.sh to LXC and create unified .env system
-    pct exec "$lxc_id" -- wget -q -O /tmp/utils.sh "$GITHUB_REPO/scripts/utils.sh"
-    
-    # 3. Create/update .env file directly in LXC using container-safe function
-    # This preserves existing values and merges with latest .env.example
+
+    # 1. Get the content of the .env.example file from the repository
+    local env_example_content
+    env_example_content=$(curl -sL "$GITHUB_REPO/docker/$stack_type/.env.example")
+
+    # 2. Push the updated utils.sh script to the LXC
+    pct push "$lxc_id" "$SCRIPT_DIR/utils.sh" "/tmp/utils.sh" -perms 755
+
+    # 3. Execute the create_stack_env_file function inside the LXC
     if pct exec "$lxc_id" -- bash -c "
         source /tmp/utils.sh
-        # Download latest .env.example for template
-        wget -q -O /tmp/.env.example '$GITHUB_REPO/docker/$stack_type/.env.example' 2>/dev/null || true
-        
-        # Create/update .env with container-safe merge functionality
-        create_stack_env_file '$stack_dir/.env' '$stack_type' ''
-    "; then
+        create_stack_env_file '$stack_dir/.env' '$stack_type' \"\$1\"
+    " -- "$env_example_content"; then
         print_info ".env file updated successfully"
         return 0
     else
@@ -239,10 +229,6 @@ deploy_complete_stack() {
     
     # Copy files to LXC
     pct push "$lxc_id" "$TEMP_DIR/$stack_type/docker-compose.yml" "$target_dir/docker-compose.yml"
-    
-    if [ -f "$TEMP_DIR/$stack_type/.env.example" ]; then
-        pct push "$lxc_id" "$TEMP_DIR/$stack_type/.env.example" "$target_dir/.env.example"
-    fi
     
     # Ensure proper datapool permissions for new deployment
     ensure_datapool_permissions "$stack_type"
