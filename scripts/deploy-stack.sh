@@ -245,7 +245,9 @@ update_existing_stack() {
     
     # Update Docker images and restart services
     print_long_operation "🚀 Restarting services..."
-    pct exec "$lxc_id" -- bash -c "cd '$stack_dir' && docker compose up -d"
+    # Push config.sh to LXC for environment variables
+    pct push "$lxc_id" "$SCRIPT_DIR/../config.sh" "/tmp/config.sh" -perms 755
+    pct exec "$lxc_id" -- bash -c "source /tmp/config.sh && cd '$stack_dir' && docker compose up -d"
     
 }
 
@@ -343,7 +345,9 @@ deploy_complete_stack() {
     
     # Deploy with docker compose (Alpine Docker template uses V2 syntax)
     print_long_operation "🚀 Starting services..."
-    pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose up -d"
+    # Push config.sh to LXC for environment variables
+    pct push "$lxc_id" "$SCRIPT_DIR/../config.sh" "/tmp/config.sh" -perms 755
+    pct exec "$lxc_id" -- sh -c "source /tmp/config.sh && cd $target_dir && docker compose up -d"
     
     if [ $? -eq 0 ]; then
         print_long_operation "✅ $stack_type stack deployed successfully!"

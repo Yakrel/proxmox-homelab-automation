@@ -14,8 +14,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - TZ=${TZ:-Europe/Istanbul}
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
+      - PUID=${HOMELAB_PUID:-1000}
+      - PGID=${HOMELAB_PGID:-1000}
       - HOMEPAGE_ALLOWED_HOSTS=192.168.1.103:3000,192.168.1.103,localhost,0.0.0.0
       - HOMEPAGE_VAR_SONARR_API_KEY=${HOMEPAGE_VAR_SONARR_API_KEY}
       - HOMEPAGE_VAR_RADARR_API_KEY=${HOMEPAGE_VAR_RADARR_API_KEY}
@@ -47,8 +47,8 @@ services:
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - VNC_PASSWORD=${FIREFOX_VNC_PASSWORD:?Firefox VNC password must be defined}
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
+      - PUID=${HOMELAB_PUID:-1000}
+      - PGID=${HOMELAB_PGID:-1000}
       - KEEP_APP_RUNNING=1
       - DISPLAY_WIDTH=1920
       - DISPLAY_HEIGHT=1080
@@ -94,8 +94,8 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 8,14,20,2 * * *
-      - PUID=${PUID:-1000}
-      - PGID=${PGID:-1000}
+      - PUID=${HOMELAB_PUID:-1000}
+      - PGID=${HOMELAB_PGID:-1000}
       - UMASK=002
     restart: unless-stopped
     networks:
