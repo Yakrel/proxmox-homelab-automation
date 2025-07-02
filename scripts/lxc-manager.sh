@@ -104,9 +104,47 @@ ENABLE_TUN="no"
 SKIP_NETWORK_CHECK="yes"
 SILENT="1"
 EOF
+    elif [[ "${config[template]}" == "ubuntu" ]]; then
+        config_file="$config_dir/ubuntu.conf"
+        script_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/ubuntu.sh"
+        
+        # Force regenerate config file every time
+        rm -f "$config_file"
+        print_info "Generating config file at $config_file..."
+        cat > "$config_file" <<EOF
+# ubuntu Configuration File
+# Generated on $(date)
+
+CT_ID="${config[id]}"
+CT_TYPE="1"
+DISK_SIZE="${config[disk]}"
+CORE_COUNT="${config[cores]}"
+RAM_SIZE="${config[memory]}"
+HN="${config[hostname]}"
+BRG="vmbr0"
+APT_CACHER_IP="none"
+DISABLEIP6="yes"
+IPV6_METHOD="none"
+PW='none'
+SSH="yes"
+SSH_AUTHORIZED_KEY=""
+VERBOSE="no"
+TAGS=""
+VLAN="none"
+MTU="1500"
+GATE="192.168.1.1"
+SD="none"
+MAC="none"
+NS="192.168.1.1"
+NET="${config[ip]}"
+FUSE="no"
+ENABLE_FUSE="no"
+ENABLE_TUN="no"
+SKIP_NETWORK_CHECK="yes"
+SILENT="1"
+EOF
     else
-        # For now, we only support alpine with config file
-        print_error "Ubuntu templates are not yet configured to use config files."
+        print_error "Unsupported template: ${config[template]}"
         return 1
     fi
     
