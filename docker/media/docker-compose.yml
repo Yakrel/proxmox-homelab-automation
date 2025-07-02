@@ -261,7 +261,7 @@ services:
         max-file: "3"
 
   cleanuperr:
-    image: ghcr.io/flmorg/cleanuperr:latest
+    image: ghcr.io/cleanuparr/cleanuparr:latest
     container_name: cleanuperr
     environment:
       - PUID=1000
@@ -296,7 +296,7 @@ services:
       - /datapool/config/cleanuperr:/config
       - /datapool:/datapool
     ports:
-      - "9555:9555"
+      - "11011:11011"
     networks:
       - media-net
     restart: unless-stopped

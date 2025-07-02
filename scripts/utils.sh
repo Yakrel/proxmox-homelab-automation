@@ -301,8 +301,12 @@ disable_motd() {
     
     print_info "Disabling MOTD for LXC $lxc_id"
     
-    # Simply empty the MOTD file
-    pct exec "$lxc_id" -- bash -c 'echo "" > /etc/motd' 2>/dev/null || true
+    # Empty MOTD file and remove welcome message
+    pct exec "$lxc_id" -- bash -c '
+        echo "" > /etc/motd
+        echo "" > /etc/issue
+        [ -f /etc/profile.d/00_lxc-details.sh ] && echo "" > /etc/profile.d/00_lxc-details.sh
+    ' 2>/dev/null || true
     
     return 0
 }
