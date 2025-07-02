@@ -111,7 +111,7 @@ EOF
     fi
     
     print_info "Running community script with config file: $script_url"
-    bash -c "$(curl -fsSL $script_url)"
+    bash -c "$(curl -fsSL $script_url)" -s
     
     # Add datapool mount
     print_info "Adding datapool mount..."
