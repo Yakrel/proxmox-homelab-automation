@@ -71,22 +71,22 @@ create_lxc() {
         
         print_info "Generating config file at $config_file..."
         cat > "$config_file" <<EOF
-CTID=${config[id]}
-HOSTNAME=${config[hostname]}
-NETWORK_INTERFACE=${config[ip]}
-CPU_CORES=${config[cores]}
-RAM_SIZE=${config[memory]}
-DISK_SIZE=${config[disk]}
-BRIDGE=vmbr0
-GATEWAY=192.168.1.1
-OS_TYPE=alpine
-UNPRIVILEGED=1
-TAGS=homelab-stack;alpine;docker
-TIMEZONE=Europe/Istanbul
-DISABLE_IPV6=yes
-SSH_KEYS=no
-VERBOSE=no
-SILENT=1
+var_ctid="${config[id]}"
+var_hostname="${config[hostname]}"
+var_net="${config[ip]}"
+var_cpu="${config[cores]}"
+var_ram="${config[memory]}"
+var_disk="${config[disk]}"
+var_bridge="vmbr0"
+var_gate="192.168.1.1"
+var_os="alpine"
+var_unprivileged="1"
+var_tags="homelab-stack;alpine;docker"
+var_timezone="Europe/Istanbul"
+var_disableip6="yes"
+var_ssh="no"
+var_verbose="no"
+SILENT="1"
 EOF
     else
         # For now, we only support alpine with config file
