@@ -90,7 +90,7 @@ PW='none'
 SSH="no"
 SSH_AUTHORIZED_KEY=""
 VERBOSE="no"
-TAGS="homelab-stack;alpine;docker"
+TAGS=""
 VLAN="none"
 MTU="1500"
 GATE="192.168.1.1"
@@ -101,6 +101,7 @@ NET="${config[ip]}"
 FUSE="no"
 ENABLE_FUSE="no"
 ENABLE_TUN="no"
+SKIP_NETWORK_CHECK="yes"
 SILENT="1"
 EOF
     else
