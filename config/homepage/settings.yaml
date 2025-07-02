@@ -1,0 +1,45 @@
+# settings.yaml
+
+title: My Homelab
+background:
+  image: https://images.unsplash.com/photo-1604147706283-d7119b5b822c
+  blur: sm
+  saturate: 50
+  brightness: 50
+  opacity: 80
+
+layout:
+  "My Services":
+    icon: fas fa-server
+    items:
+      - "Media":
+          items:
+            - Sonarr
+            - Radarr
+            - Bazarr
+            - Jellyfin
+            - Jellyseerr
+            - qBittorrent
+            - Prowlarr
+      - "Tools":
+          items:
+            - Homepage
+            - Firefox
+            - JDownloader
+            - "MeTube"
+            - Palmr
+      - "Monitoring":
+          items:
+            - Grafana
+            - Prometheus
+            - Alertmanager
+  "My Bookmarks":
+    icon: fas fa-bookmark
+    items:
+      - "Social":
+          items:
+            - "GitHub"
+            - "Reddit"
+      - "News":
+          items:
+            - "Hacker News"

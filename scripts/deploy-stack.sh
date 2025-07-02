@@ -150,51 +150,49 @@ setup_env_file() {
 deploy_homepage_configs() {
     local lxc_id=$1
     
+    print_info "Deploying Homepage configuration..."
     
     # Create homepage config directory
     pct exec "$lxc_id" -- mkdir -p /datapool/config/homepage 2>/dev/null
     
     # Download and deploy each config file
     local config_files=("bookmarks.yaml" "docker.yaml" "services.yaml" "settings.yaml" "widgets.yaml")
-    local success_count=0
+    local essential_files=("settings.yaml" "widgets.yaml" "services.yaml")
+    local deployed_files=()
     
     for config_file in "${config_files[@]}"; do
         local temp_file="$TEMP_DIR/$config_file"
         local target_path="/datapool/config/homepage/$config_file"
         
-        # Download and deploy config file (simplified for homelab)
-        if wget -q -O "$temp_file" "$GITHUB_REPO/config/homepage/$config_file" 2>/dev/null; then
-            # Simply copy new file to container (overwrite existing)
-            if pct push "$lxc_id" "$temp_file" "$target_path" 2>/dev/null; then
-                success_count=$((success_count + 1))
+        if wget -q -O "$temp_file" "$GITHUB_REPO_URL/config/homepage/$config_file"; then
+            if pct push "$lxc_id" "$temp_file" "$target_path" >/dev/null 2>&1; then
+                deployed_files+=("$config_file")
             else
-                print_warning "Failed to deploy $config_file"
+                print_warning "Failed to push $config_file to LXC."
             fi
         else
-            print_warning "Failed to download $config_file"
+            print_warning "Failed to download $config_file from repository."
         fi
     done
     
-    # Set proper permissions (homelab hardcoded values)
-    # Unprivileged LXC mapping: 1000 (container) → 101000 (host)
+    # Verify that essential files were deployed
+    for essential in "${essential_files[@]}"; do
+        if ! [[ " ${deployed_files[@]} " =~ " ${essential} " ]]; then
+            print_error "Essential Homepage config file '$essential' could not be deployed. Aborting."
+            return 1
+        fi
+    done
+
+    # Set proper permissions
     if [ -w "/datapool/config" ]; then
-        chown -R 101000:101000 /datapool/config/homepage 2>/dev/null || {
-            print_warning "Could not set ownership for homepage config (may already be correct)"
-        }
+        chown -R "$HOMELAB_HOST_UID:$HOMELAB_HOST_GID" /datapool/config/homepage 2>/dev/null
+        chmod -R 644 /datapool/config/homepage/*.yaml 2>/dev/null
     else
-        print_warning "Cannot access /datapool/config for permission setup"
+        print_warning "Cannot access /datapool/config to set permissions."
     fi
-    chmod -R 644 /datapool/config/homepage/*.yaml 2>/dev/null || true
     
-    if [ $success_count -eq ${#config_files[@]} ]; then
-        return 0
-    elif [ $success_count -gt 0 ]; then
-        print_warning "Partially deployed Homepage configs ($success_count/${#config_files[@]} files)"
-        return 0
-    else
-        print_error "Failed to deploy Homepage configuration files"
-        return 1
-    fi
+    print_success "Homepage configuration deployed successfully."
+    return 0
 }
 
 
