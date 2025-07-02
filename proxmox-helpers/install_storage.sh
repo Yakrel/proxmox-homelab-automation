@@ -32,7 +32,9 @@ useradd -r -s /bin/false "$samba_username" 2>/dev/null || true
 usermod -a -G root "$samba_username"
 
 # Samba configuration with full access but no ownership changes
-cat >> /etc/samba/smb.conf << EOF
+if ! grep -q "\[datapool\]" /etc/samba/smb.conf; then
+    echo "Adding [datapool] to smb.conf..."
+    cat >> /etc/samba/smb.conf << EOF
 
 [datapool]
    path = /datapool
@@ -51,6 +53,9 @@ cat >> /etc/samba/smb.conf << EOF
    write raw = yes
    strict locking = no
 EOF
+else
+    echo "[datapool] already exists in smb.conf. Skipping."
+fi
 
 # No ownership changes - Samba user gets access via root group membership
 
