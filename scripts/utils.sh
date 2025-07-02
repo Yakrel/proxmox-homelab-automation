@@ -122,56 +122,35 @@ check_root() {
     fi
 }
 
-# Homelab hardcoded defaults (network configuration is intentionally fixed)
-# Network hardcoded for simplicity - all IPs follow 192.168.1.x pattern
-# LXC IDs are fixed: proxy=100, media=101, files=102, webtools=103, monitoring=104
-HOMELAB_TIMEZONE="Europe/Istanbul"
-HOMELAB_NETWORK_BASE="192.168.1"
-HOMELAB_PUID="1000"
-HOMELAB_PGID="1000"
-HOMELAB_HOST_UID="101000"
-HOMELAB_HOST_GID="101000"
-
 
 # Unified environment setup functions
 
-# Simple password input function (homelab optimized)
-get_simple_password() {
-    local prompt=$1
-    local password
+# Interactive user input
+get_user_input() {
+    local prompt="$1"
+    local variable_name="$2"
+    local default_value="${3:-}"
     
-    printf "%s: " "$prompt" >&2
-    read -s password
-    echo "" >&2
-    
-    printf "%s" "$password"
-    return 0
+    if [ -n "$default_value" ]; then
+        read -p "$prompt [$default_value]: " "$variable_name"
+        eval "$variable_name=\"\${$variable_name:-$default_value}\""
+    else
+        read -p "$prompt: " "$variable_name"
+    fi
 }
 
-# Generate random encryption key
-generate_encryption_key() {
-    local length=${1:-32}
-    openssl rand -base64 48 | tr -d "=+/" | cut -c1-${length}
+# Silent (password) input
+get_user_password() {
+    local prompt="$1"
+    local variable_name="$2"
+    
+    read -sp "$prompt: " "$variable_name"
+    echo
 }
 
-# Create common environment content for all stacks (homelab hardcoded)
-create_common_env_content() {
-    local stack_name=$1
-    local custom_content=$2
-    
-    cat << EOF
-# ${stack_name} Stack Environment Variables - Generated $(date)
-# Homelab Configuration - Hardcoded for consistency
-
-# Timezone setting
-TZ=$HOMELAB_TIMEZONE
-
-# PUID/PGID for file permissions (Docker containers)
-PUID=$HOMELAB_PUID
-PGID=$HOMELAB_PGID
-
-${custom_content}
-EOF
+# Generate a random key
+generate_random_key() {
+    openssl rand -base64 32
 }
 
 # Unified .env file management for stacks (container-side execution)
@@ -216,16 +195,6 @@ create_stack_env_file() {
 
     # Set proper permissions
     chmod 600 "$target_file"
-}
-
-# Get existing environment variable value
-get_existing_env_value() {
-    local env_file=$1
-    local var_name=$2
-    
-    if [ -f "$env_file" ]; then
-        grep "^${var_name}=" "$env_file" 2>/dev/null | cut -d'=' -f2- | sed "s/^['\"]//; s/['\"]$//"
-    fi
 }
 
 # ========== UNIFIED LXC CREATION FUNCTIONS ==========

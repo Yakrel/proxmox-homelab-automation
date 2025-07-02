@@ -26,6 +26,14 @@ done
 # Source common utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Source central configuration
+if [ -f "$SCRIPT_DIR/../config.sh" ]; then
+    source "$SCRIPT_DIR/../config.sh"
+else
+    echo "ERROR: config.sh not found!" >&2
+    exit 1
+fi
+
 # Source utils from new location
 if [ -f "$SCRIPT_DIR/utils.sh" ]; then
     source "$SCRIPT_DIR/utils.sh"
@@ -35,8 +43,6 @@ else
 fi
 
 # Configuration
-# Repository URL
-GITHUB_REPO="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main"
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
@@ -54,7 +60,7 @@ download_stack_files() {
     mkdir -p "$target_dir"
     
     # Download docker-compose.yml
-    wget -q -O "$target_dir/docker-compose.yml" "$GITHUB_REPO/docker/$stack_type/docker-compose.yml"
+    wget -q -O "$target_dir/docker-compose.yml" "$GITHUB_REPO_URL/docker/$stack_type/docker-compose.yml"
     
     if [ $? -ne 0 ]; then
         print_error "Failed to download docker-compose.yml for $stack_type"
@@ -64,20 +70,39 @@ download_stack_files() {
     # Download additional config files for monitoring stack
     if [ "$stack_type" = "monitoring" ]; then
         # Download template files for dynamic configuration
-        wget -q -O "$target_dir/prometheus.yml.template" "$GITHUB_REPO/docker/monitoring/prometheus.yml.template" 2>/dev/null || true
-        wget -q -O "$target_dir/alertmanager.yml.template" "$GITHUB_REPO/docker/monitoring/alertmanager.yml.template" 2>/dev/null || true
-        wget -q -O "$target_dir/alerts.yml" "$GITHUB_REPO/docker/monitoring/alerts.yml" 2>/dev/null || true
+        wget -q -O "$target_dir/prometheus.yml.template" "$GITHUB_REPO_URL/docker/monitoring/prometheus.yml.template" 2>/dev/null || true
+        wget -q -O "$target_dir/alertmanager.yml.template" "$GITHUB_REPO_URL/docker/monitoring/alertmanager.yml.template" 2>/dev/null || true
+        wget -q -O "$target_dir/alerts.yml" "$GITHUB_REPO_URL/docker/monitoring/alerts.yml" 2>/dev/null || true
         
         # Fallback to static files if templates don't exist
         if [ ! -f "$target_dir/prometheus.yml.template" ]; then
-            wget -q -O "$target_dir/prometheus.yml" "$GITHUB_REPO/docker/monitoring/prometheus.yml" 2>/dev/null || true
+            wget -q -O "$target_dir/prometheus.yml" "$GITHUB_REPO_URL/docker/monitoring/prometheus.yml" 2>/dev/null || true
         fi
         if [ ! -f "$target_dir/alertmanager.yml.template" ]; then
-            wget -q -O "$target_dir/alertmanager.yml" "$GITHUB_REPO/docker/monitoring/alertmanager.yml" 2>/dev/null || true
+            wget -q -O "$target_dir/alertmanager.yml" "$GITHUB_REPO_URL/docker/monitoring/alertmanager.yml" 2>/dev/null || true
         fi
     fi
     
     return 0
+}
+
+# Function for interactive setup
+interactive_setup() {
+    local stack_type=$1
+
+    case "$stack_type" in
+        "files")
+            get_user_password "Enter JDownloader VNC Password" JDOWNLOADER_VNC_PASSWORD
+            PALMR_ENCRYPTION_KEY=$(generate_random_key)
+            print_info "Generated random encryption key for Palmr."
+            ;;
+        "proxy")
+            get_user_input "Enter Cloudflared Tunnel Token" CLOUDFLARED_TOKEN
+            ;;
+        "webtools")
+            get_user_password "Enter Firefox VNC Password" FIREFOX_VNC_PASSWORD
+            ;;
+    esac
 }
 
 # Unified environment file setup - always refresh with backup and merge
@@ -85,21 +110,34 @@ setup_env_file() {
     local stack_dir=$1
     local stack_type=$2
     local lxc_id=$3
-    
+    local jdownloader_password=$4
+    local palmr_key=$5
+    local cloudflared_token=$6
+    local firefox_password=$7
+
     print_info "Setting up .env file for $stack_type stack..."
 
     # 1. Get the content of the .env.example file from the repository
     local env_example_content
-    env_example_content=$(curl -sL "$GITHUB_REPO/docker/$stack_type/.env.example")
+    env_example_content=$(curl -sL "$GITHUB_REPO_URL/docker/$stack_type/.env.example")
 
-    # 2. Push the updated utils.sh script to the LXC
+    # 2. Create a string of variables to pass to the LXC
+    local extra_vars=""
+    [ -n "$jdownloader_password" ] && extra_vars+="JDOWNLOADER_VNC_PASSWORD=$jdownloader_password\n"
+    [ -n "$palmr_key" ] && extra_vars+="PALMR_ENCRYPTION_KEY=$palmr_key\n"
+    [ -n "$cloudflared_token" ] && extra_vars+="CLOUDFLARED_TOKEN=$cloudflared_token\n"
+    [ -n "$firefox_password" ] && extra_vars+="FIREFOX_VNC_PASSWORD=$firefox_password\n"
+
+    # 3. Push the updated utils.sh script to the LXC
     pct push "$lxc_id" "$SCRIPT_DIR/utils.sh" "/tmp/utils.sh" -perms 755
 
-    # 3. Execute the create_stack_env_file function inside the LXC
+    # 4. Execute the create_stack_env_file function inside the LXC
     if pct exec "$lxc_id" -- bash -c "
         source /tmp/utils.sh
-        create_stack_env_file '$stack_dir/.env' '$stack_type' \"\$1\"
-    " -- "$env_example_content"; then
+        # Append extra vars to the example content before processing
+        env_example_content=\$(echo -e \"\$1\n\$2\")
+        create_stack_env_file '$stack_dir/.env' '$stack_type' \"\$env_example_content\"
+    " -- "$env_example_content" "$extra_vars"; then
         print_info ".env file updated successfully"
         return 0
     else
@@ -183,6 +221,7 @@ update_existing_stack() {
     local stack_dir=$2
     local stack_type=$3
     
+    print_long_operation "🔄 Updating $stack_type stack in LXC $lxc_id..."
     
     # Download latest compose files from GitHub
     print_long_operation "📥 Downloading latest compose files..."
@@ -191,6 +230,10 @@ update_existing_stack() {
     # Update compose files in LXC
     pct push "$lxc_id" "$TEMP_DIR/$stack_type/docker-compose.yml" "$stack_dir/docker-compose.yml"
     
+    # Run interactive setup and update .env file
+    interactive_setup "$stack_type"
+    setup_env_file "$stack_dir" "$stack_type" "$lxc_id" "$JDOWNLOADER_VNC_PASSWORD" "$PALMR_ENCRYPTION_KEY" "$CLOUDFLARED_TOKEN" "$FIREFOX_VNC_PASSWORD"
+
     # Copy additional config files for monitoring stack
     if [ "$stack_type" = "monitoring" ]; then
         if [ -f "$TEMP_DIR/$stack_type/prometheus.yml" ]; then
@@ -203,9 +246,7 @@ update_existing_stack() {
     fi
     
     # Update Docker images and restart services
-    print_long_operation "🔄 Pulling latest images..."
-    pct exec "$lxc_id" -- bash -c "cd '$stack_dir' && docker compose pull"
-    print_long_operation "🚀 Starting services..."
+    print_long_operation "🚀 Restarting services..."
     pct exec "$lxc_id" -- bash -c "cd '$stack_dir' && docker compose up -d"
     
 }
@@ -267,7 +308,10 @@ deploy_complete_stack() {
     fi
     
     # Interactive configuration for the stack
-    setup_env_file "$target_dir" "$stack_type" "$lxc_id"
+    interactive_setup "$stack_type"
+    
+    # Pass the collected variables to the setup_env_file function
+    setup_env_file "$target_dir" "$stack_type" "$lxc_id" "$JDOWNLOADER_VNC_PASSWORD" "$PALMR_ENCRYPTION_KEY" "$CLOUDFLARED_TOKEN" "$FIREFOX_VNC_PASSWORD"
     
     # For monitoring stack, deploy config files
     if [ "$stack_type" = "monitoring" ]; then
@@ -300,8 +344,6 @@ deploy_complete_stack() {
     fi
     
     # Deploy with docker compose (Alpine Docker template uses V2 syntax)
-    print_long_operation "🔄 Pulling Docker images..."
-    pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose pull"
     print_long_operation "🚀 Starting services..."
     pct exec "$lxc_id" -- sh -c "cd $target_dir && docker compose up -d"
     

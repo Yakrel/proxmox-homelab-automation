@@ -7,6 +7,13 @@ set -e
 
 # Source configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Source central configuration
+if [ -f "$SCRIPT_DIR/../config.sh" ]; then
+    source "$SCRIPT_DIR/../config.sh"
+else
+    echo "ERROR: config.sh not found!" >&2
+    exit 1
+fi
 source "$SCRIPT_DIR/stack-config.sh"
 source "$SCRIPT_DIR/utils.sh"
 
@@ -64,16 +71,23 @@ create_lxc() {
     
     local config_file
     local script_url
-    
+
     if [[ "${config[template]}" == "alpine" ]]; then
         config_file="$config_dir/alpine-docker.conf"
-        script_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh"
-        
-        # Force regenerate config file every time
-        rm -f "$config_file"
-        print_info "Generating config file at $config_file..."
-        cat > "$config_file" <<EOF
-# alpine-docker Configuration File
+        script_url="$COMMUNITY_SCRIPTS_URL/ct/alpine-docker.sh"
+    elif [[ "${config[template]}" == "ubuntu" ]]; then
+        config_file="$config_dir/ubuntu.conf"
+        script_url="$COMMUNITY_SCRIPTS_URL/ct/ubuntu.sh"
+    else
+        print_error "Unsupported template: ${config[template]}"
+        return 1
+    fi
+
+    # Force regenerate config file every time
+    rm -f "$config_file"
+    print_info "Generating config file at $config_file..."
+    cat > "$config_file" <<EOF
+# ${config[template]}-docker Configuration File
 # Generated on $(date)
 
 CT_ID="${config[id]}"
@@ -82,7 +96,7 @@ DISK_SIZE="${config[disk]}"
 CORE_COUNT="${config[cores]}"
 RAM_SIZE="${config[memory]}"
 HN="${config[hostname]}"
-BRG="vmbr0"
+BRG="$LXC_BRIDGE"
 APT_CACHER_IP="none"
 DISABLEIP6="yes"
 IPV6_METHOD="none"
@@ -93,10 +107,10 @@ VERBOSE="no"
 TAGS=""
 VLAN="none"
 MTU="1500"
-GATE="192.168.1.1"
+GATE="$LXC_GATEWAY"
 SD="none"
 MAC="none"
-NS="192.168.1.1"
+NS="$LXC_NAMESERVER"
 NET="${config[ip]}"
 FUSE="no"
 ENABLE_FUSE="no"
@@ -104,49 +118,6 @@ ENABLE_TUN="no"
 SKIP_NETWORK_CHECK="yes"
 SILENT="1"
 EOF
-    elif [[ "${config[template]}" == "ubuntu" ]]; then
-        config_file="$config_dir/ubuntu.conf"
-        script_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/ubuntu.sh"
-        
-        # Force regenerate config file every time
-        rm -f "$config_file"
-        print_info "Generating config file at $config_file..."
-        cat > "$config_file" <<EOF
-# ubuntu Configuration File
-# Generated on $(date)
-
-CT_ID="${config[id]}"
-CT_TYPE="1"
-DISK_SIZE="${config[disk]}"
-CORE_COUNT="${config[cores]}"
-RAM_SIZE="${config[memory]}"
-HN="${config[hostname]}"
-BRG="vmbr0"
-APT_CACHER_IP="none"
-DISABLEIP6="yes"
-IPV6_METHOD="none"
-PW='none'
-SSH="yes"
-SSH_AUTHORIZED_KEY=""
-VERBOSE="no"
-TAGS=""
-VLAN="none"
-MTU="1500"
-GATE="192.168.1.1"
-SD="none"
-MAC="none"
-NS="192.168.1.1"
-NET="${config[ip]}"
-FUSE="no"
-ENABLE_FUSE="no"
-ENABLE_TUN="no"
-SKIP_NETWORK_CHECK="yes"
-SILENT="1"
-EOF
-    else
-        print_error "Unsupported template: ${config[template]}"
-        return 1
-    fi
     
     print_info "Running community script with config file: $script_url"
     bash -c "$(curl -fsSL $script_url)" -s
