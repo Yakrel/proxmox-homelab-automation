@@ -71,21 +71,32 @@ create_lxc() {
         
         print_info "Generating config file at $config_file..."
         cat > "$config_file" <<EOF
-var_ctid="${config[id]}"
-var_hostname="${config[hostname]}"
-var_net="${config[ip]}"
-var_cpu="${config[cores]}"
-var_ram="${config[memory]}"
-var_disk="${config[disk]}"
-var_bridge="vmbr0"
-var_gate="192.168.1.1"
-var_os="alpine"
-var_unprivileged="1"
-var_tags="homelab-stack;alpine;docker"
-var_timezone="Europe/Istanbul"
-var_disableip6="yes"
-var_ssh="no"
-var_verbose="no"
+# alpine-docker Configuration File
+# Generated on $(date)
+
+CT_ID="${config[id]}"
+CT_TYPE="1"
+DISK_SIZE="${config[disk]}"
+CORE_COUNT="${config[cores]}"
+RAM_SIZE="${config[memory]}"
+HN="${config[hostname]}"
+BRG="vmbr0"
+APT_CACHER_IP="none"
+DISABLEIP6="yes"
+PW='none'
+SSH="no"
+SSH_AUTHORIZED_KEY=""
+VERBOSE="no"
+TAGS="homelab-stack;alpine;docker"
+VLAN="none"
+MTU="1500"
+GATE="192.168.1.1"
+SD="none"
+MAC="none"
+NS="none"
+NET="${config[ip]}"
+FUSE="no"
+ENABLE_FUSE="no"
 SILENT="1"
 EOF
     else
