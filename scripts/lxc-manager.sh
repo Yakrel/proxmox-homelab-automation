@@ -69,6 +69,8 @@ create_lxc() {
         config_file="$config_dir/alpine-docker.conf"
         script_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh"
         
+        # Force regenerate config file every time
+        rm -f "$config_file"
         print_info "Generating config file at $config_file..."
         cat > "$config_file" <<EOF
 # alpine-docker Configuration File
@@ -98,6 +100,7 @@ NS="none"
 NET="${config[ip]}"
 FUSE="no"
 ENABLE_FUSE="no"
+ENABLE_TUN="no"
 SILENT="1"
 EOF
     else
