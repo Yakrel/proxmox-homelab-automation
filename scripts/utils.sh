@@ -28,6 +28,10 @@ print_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
+print_info() {
+    echo -e "\033[36m[INFO]\033[0m $1"
+}
+
 # Only show messages for long operations to prevent terminal hang confusion
 print_long_operation() {
     echo "$1"
@@ -289,6 +293,18 @@ get_stack_lxc_id() {
             return 1
             ;;
     esac
+}
+
+# Disable MOTD in LXC container
+disable_motd() {
+    local lxc_id=$1
+    
+    print_info "Disabling MOTD for LXC $lxc_id"
+    
+    # Simply empty the MOTD file
+    pct exec "$lxc_id" -- bash -c 'echo "" > /etc/motd' 2>/dev/null || true
+    
+    return 0
 }
 
 

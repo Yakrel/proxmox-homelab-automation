@@ -97,13 +97,13 @@ setup_env_file() {
         print_info "Backup created: $stack_dir/.env.backup"
     fi
     
-    # 2. Download common.sh to LXC and create unified .env system
-    pct exec "$lxc_id" -- wget -q -O /tmp/common.sh "$GITHUB_REPO/scripts/utils/common.sh"
+    # 2. Download utils.sh to LXC and create unified .env system
+    pct exec "$lxc_id" -- wget -q -O /tmp/utils.sh "$GITHUB_REPO/scripts/utils.sh"
     
     # 3. Create/update .env file directly in LXC using container-safe function
     # This preserves existing values and merges with latest .env.example
     if pct exec "$lxc_id" -- bash -c "
-        source /tmp/common.sh
+        source /tmp/utils.sh
         # Download latest .env.example for template
         wget -q -O /tmp/.env.example '$GITHUB_REPO/docker/$stack_type/.env.example' 2>/dev/null || true
         

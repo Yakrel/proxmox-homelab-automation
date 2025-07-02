@@ -166,6 +166,9 @@ EOF
         sleep 10
     fi
     
+    # Disable MOTD
+    disable_motd "${config[id]}"
+    
     print_success "$stack_type stack LXC created successfully!"
 }
 
