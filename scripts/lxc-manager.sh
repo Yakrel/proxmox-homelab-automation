@@ -83,6 +83,7 @@ HN="${config[hostname]}"
 BRG="vmbr0"
 APT_CACHER_IP="none"
 DISABLEIP6="yes"
+IPV6_METHOD="none"
 PW='none'
 SSH="no"
 SSH_AUTHORIZED_KEY=""
