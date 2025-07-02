@@ -48,11 +48,9 @@ trap 'cleanup_and_exit 0' EXIT
 echo "Setting up temporary directory at $TEMP_DIR"
 
 # Create proper directory structure to match GitHub repo
-mkdir -p "$TEMP_DIR/scripts/automation"
-mkdir -p "$TEMP_DIR/scripts/utils"
-mkdir -p "$TEMP_DIR/scripts/core"
-mkdir -p "$TEMP_DIR/scripts/network"
-mkdir -p "$TEMP_DIR/scripts/maintenance"
+mkdir -p "$TEMP_DIR/scripts"
+mkdir -p "$TEMP_DIR/proxmox-helpers"
+mkdir -p "$TEMP_DIR/docker/development"
 
 # Function to download script file (always fresh)
 download_script() {
@@ -191,33 +189,33 @@ post_install_menu() {
                 bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/microcode.sh)"
                 ;;
             3)
-                if download_script "docker/core/optimize_zfs.sh"; then
+                if download_script "proxmox-helpers/optimize_zfs.sh"; then
                     echo "Starting ZFS performance optimization..."
-                    bash "$TEMP_DIR/docker/core/optimize_zfs.sh"
+                    bash "$TEMP_DIR/proxmox-helpers/optimize_zfs.sh"
                 fi
                 ;;
             4)
-                if download_script "docker/core/install_security.sh"; then
+                if download_script "proxmox-helpers/install_security.sh"; then
                     echo "Starting security installation..."
-                    bash "$TEMP_DIR/docker/core/install_security.sh"
+                    bash "$TEMP_DIR/proxmox-helpers/install_security.sh"
                 fi
                 ;;
             5)
-                if download_script "docker/core/install_storage.sh"; then
+                if download_script "proxmox-helpers/install_storage.sh"; then
                     echo "Starting storage installation..."
-                    bash "$TEMP_DIR/docker/core/install_storage.sh"
+                    bash "$TEMP_DIR/proxmox-helpers/install_storage.sh"
                 fi
                 ;;
             6)
-                if download_script "docker/core/setup_bonding.sh"; then
+                if download_script "proxmox-helpers/setup_bonding.sh"; then
                     echo "Starting network bonding setup..."
-                    bash "$TEMP_DIR/docker/core/setup_bonding.sh"
+                    bash "$TEMP_DIR/proxmox-helpers/setup_bonding.sh"
                 fi
                 ;;
             7)
-                if download_script "docker/core/configure_timezone.sh"; then
+                if download_script "proxmox-helpers/configure_timezone.sh"; then
                     echo "Starting timezone configuration..."
-                    bash "$TEMP_DIR/docker/core/configure_timezone.sh"
+                    bash "$TEMP_DIR/proxmox-helpers/configure_timezone.sh"
                 fi
                 ;;
             8)

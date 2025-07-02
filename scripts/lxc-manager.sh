@@ -58,17 +58,43 @@ create_lxc() {
     
     print_info "Using ${config[template]} template for container creation..."
     
-    # Use appropriate community script and export variables
+    # Create config file for community script
+    local config_dir="/opt/community-scripts"
+    mkdir -p "$config_dir"
+    
+    local config_file
     local script_url
+    
     if [[ "${config[template]}" == "alpine" ]]; then
+        config_file="$config_dir/alpine-docker.conf"
         script_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/alpine-docker.sh"
-        export_alpine_docker_variables "${config[id]}" "${config[hostname]}" "${config[ip]}" "${config[cores]}" "${config[memory]}" "${config[disk]}"
+        
+        print_info "Generating config file at $config_file..."
+        cat > "$config_file" <<EOF
+var_ctid: ${config[id]}
+var_hostname: ${config[hostname]}
+var_net: ${config[ip]}
+var_cpu: ${config[cores]}
+var_ram: ${config[memory]}
+var_disk: ${config[disk]}
+var_bridge: vmbr0
+var_gate: 192.168.1.1
+var_os: alpine
+var_unprivileged: 1
+var_tags: homelab-stack;alpine;docker
+var_timezone: Europe/Istanbul
+var_disableip6: yes
+var_ssh: no
+var_verbose: no
+SILENT: 1
+EOF
     else
-        script_url="https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/ubuntu.sh"
-        export_ubuntu_variables "${config[id]}" "${config[hostname]}" "${config[ip]}" "${config[cores]}" "${config[memory]}" "${config[disk]}"
+        # For now, we only support alpine with config file
+        print_error "Ubuntu templates are not yet configured to use config files."
+        return 1
     fi
     
-    print_info "Running community script with exported variables: $script_url"
+    print_info "Running community script with config file: $script_url"
     bash -c "$(curl -fsSL $script_url)"
     
     # Add datapool mount
