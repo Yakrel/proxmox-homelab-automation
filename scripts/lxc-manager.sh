@@ -10,6 +10,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source central configuration
 if [ -f "$SCRIPT_DIR/../config.sh" ]; then
     source "$SCRIPT_DIR/../config.sh"
+elif [ -f "$(dirname "$SCRIPT_DIR")/config.sh" ]; then
+    source "$(dirname "$SCRIPT_DIR")/config.sh"
 else
     echo "ERROR: config.sh not found!" >&2
     exit 1
