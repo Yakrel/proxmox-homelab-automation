@@ -1,132 +1,46 @@
 #!/bin/bash
 
-# Enable exit on error for consistent error handling
-set -e
+# Proxmox Homelab Automation - Bootstrapper
+# This script downloads and runs the latest version of the automation suite.
 
-# Title
+set -e # Exit immediately if a command exits with a non-zero status.
+
+# --- Configuration ---
+REPO_URL="https://github.com/Yakrel/proxmox-homelab-automation"
+TMP_DIR=$(mktemp -d /tmp/proxmox-automation.XXXXXX)
+
+# --- Cleanup Function ---
+# Ensures the temporary directory is removed on exit, interrupt, or termination.
+cleanup() {
+    echo "Cleaning up temporary files..."
+    rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT INT TERM
+
+# --- Main Logic ---
 echo "======================================================"
 echo "Proxmox Homelab Automation - Setup Tool"
 echo "======================================================"
+echo "Downloading the latest version from GitHub..."
 
-# Root check
-if [ "$(id -u)" -ne 0 ]; then
-   echo "ERROR: This script must be run as root"
-   exit 1
+# Download the latest version of the repository as a tarball and extract it
+# -f: Fail silently on server errors
+# -s: Silent mode
+# -S: Show error message if it fails
+# -L: Follow redirects
+# -C "$TMP_DIR": Change directory to the temp dir before extracting
+# --strip-components=1: Remove the top-level directory from the tarball
+if ! curl -fsSL "${REPO_URL}/archive/main.tar.gz" | tar -xz -C "$TMP_DIR" --strip-components=1; then
+    echo "ERROR: Failed to download or extract the repository." >&2
+    exit 1
 fi
 
-# Cleanup function (simplified as no repo to clean)
-cleanup_and_exit() {
-    local exit_code=${1:-0}
-    echo ""
-    echo "======================================================"
-    if [ $exit_code -eq 0 ]; then
-        echo "Operation completed!"
-    else
-        echo "Operation interrupted or failed!"
-    fi
-    echo "Setup tool finished."
-    echo "======================================================"
-    exit $exit_code
-}
+echo "Download complete. Launching the main script..."
+echo ""
 
-# Set up signal handlers for graceful exit
-trap 'cleanup_and_exit 1' INT TERM
-trap 'cleanup_and_exit 0' EXIT
+# Change to the temporary directory and execute the main script
+cd "$TMP_DIR"
+bash "scripts/main.sh"
 
-# --- Main Menu ---
-# Main deployment menu
-main_deployment_menu() {
-    while true; do
-        echo ""
-        echo "Please select the operation you want to perform:"
-        echo "1) Deploy Proxy Stack (LXC 100 - Cloudflare Tunnels)"
-        echo "2) Deploy Media Stack (LXC 101 - Sonarr, Radarr, Jellyfin)"
-        echo "3) Deploy Files Stack (LXC 102 - JDownloader, MeTube, Palmr)"
-        echo "4) Deploy Webtools Stack (LXC 103 - Homepage, Firefox)"
-        echo "5) Deploy Monitoring Stack (LXC 104 - Grafana, Prometheus)"
-        echo "6) Deploy Development Stack (LXC 150 - Ubuntu + Claude Code)"
-        echo "7) Post-Install Setup (Recommended after fresh Proxmox install)"
-        echo "8) System Maintenance (Security Status)"
-        echo "9) Exit"
-        echo ""
-
-        read -p "Your choice (1-9): " auto_choice
-
-        case $auto_choice in
-            1) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/lxc-manager.sh)" full proxy ;;
-            2) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/lxc-manager.sh)" full media ;;
-            3) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/lxc-manager.sh)" full files ;;
-            4) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/lxc-manager.sh)" full webtools ;;
-            5) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/lxc-manager.sh)" full monitoring ;;
-            6) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/lxc-manager.sh)" full development ;;
-            7) post_install_menu ;;
-            8) system_maintenance_menu ;;
-            9) echo "Exiting..."; return 0 ;;
-            *) echo "Invalid choice!" ;;
-        esac
-    done
-}
-
-# Function for Post-Install Setup submenu
-post_install_menu() {
-    while true; do
-        echo ""
-        echo "======================================================"
-        echo "Post-Install Setup Menu"
-        echo "======================================================"
-        echo "⚠️  Run these once after fresh Proxmox installation"
-        echo ""
-        echo "1) Helper Scripts Post-Install (PVE optimization)"
-        echo "2) Microcode Update (CPU microcode)"
-        echo "3) ZFS Performance Optimization"
-        echo "4) Security Setup (Fail2Ban)"
-        echo "5) Storage Setup (Samba, Sanoid)"
-        echo "6) Network Bonding Setup"
-        echo "7) Timezone Configuration (Turkey)"
-        echo "8) Auto-Update Setup (Cron for LXCs)"
-        echo "9) Back to Main Menu"
-        echo ""
-
-        read -p "Your choice (1-9): " post_choice
-
-        case $post_choice in
-            1) bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/post-pve-install.sh)" ;;
-            2) bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/microcode.sh)" ;;
-            3) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/proxmox-helpers/optimize_zfs.sh)" ;;
-            4) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/proxmox-helpers/install_security.sh)" ;;
-            5) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/proxmox-helpers/install_storage.sh)" ;;
-            6) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/proxmox-helpers/setup_bonding.sh)" ;;
-            7) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/proxmox-helpers/configure_timezone.sh)" ;;
-            8) bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/cron-update-lxcs.sh)" ;;
-            9) return 0 ;;
-            *) echo "Invalid choice!" ;;
-        esac
-    done
-}
-
-# Function for System Maintenance submenu
-system_maintenance_menu() {
-    while true; do
-        echo ""
-        echo "======================================================"
-        echo "System Maintenance Menu"
-        echo "======================================================"
-        echo "1) Security Status Check (Fail2ban)"
-        echo "2) Back to Main Menu"
-        echo ""
-
-        read -p "Your choice (1-2): " maint_choice
-
-        case $maint_choice in
-            1) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/maintenance/security_monitor.sh)" ;;
-            2) return 0 ;;
-            *) echo "Invalid choice!" ;;
-        esac
-    done
-}
-
-# Execute main menu
-main_deployment_menu
-
-# Normal exit - cleanup will be handled by EXIT trap
+# The cleanup trap will handle directory removal automatically on exit.
 exit 0
