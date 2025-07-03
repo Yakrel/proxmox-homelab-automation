@@ -10,15 +10,11 @@ echo "======================================================"
 
 # Root check
 if [ "$(id -u)" -ne 0 ]; then
-   echo "ERROR: This script must be run as root" 
+   echo "ERROR: This script must be run as root"
    exit 1
 fi
 
-# --- Git and Repository Setup ---
-REPO_URL="https://github.com/Yakrel/proxmox-homelab-automation.git"
-REPO_DIR="/opt/proxmox-homelab-automation"
-
-# Cleanup function
+# Cleanup function (simplified as no repo to clean)
 cleanup_and_exit() {
     local exit_code=${1:-0}
     echo ""
@@ -28,7 +24,6 @@ cleanup_and_exit() {
     else
         echo "Operation interrupted or failed!"
     fi
-    # Note: We are not cleaning up the repo dir by default so it can be reused.
     echo "Setup tool finished."
     echo "======================================================"
     exit $exit_code
@@ -38,33 +33,7 @@ cleanup_and_exit() {
 trap 'cleanup_and_exit 1' INT TERM
 trap 'cleanup_and_exit 0' EXIT
 
-# --- Prerequisite Check ---
-echo "Checking for git..."
-if ! command -v git &> /dev/null; then
-    echo "git could not be found. Installing..."
-    apt-get update
-    apt-get install -y git
-fi
-echo "git is installed."
-
-# --- Repository Management ---
-if [ -d "$REPO_DIR" ]; then
-    echo "Existing repository found at $REPO_DIR."
-    read -p "Do you want to pull the latest changes? (y/N): " pull_choice
-    if [[ "${pull_choice,,}" =~ ^(y|yes)$ ]]; then
-        echo "Pulling latest changes..."
-        cd "$REPO_DIR"
-        git pull
-    fi
-else
-    echo "Cloning repository to $REPO_DIR..."
-    git clone "$REPO_URL" "$REPO_DIR"
-fi
-
 # --- Main Menu ---
-# All scripts will now be executed from the cloned repository directory
-cd "$REPO_DIR"
-
 # Main deployment menu
 main_deployment_menu() {
     while true; do
@@ -80,16 +49,16 @@ main_deployment_menu() {
         echo "8) System Maintenance (Security Status)"
         echo "9) Exit"
         echo ""
-        
+
         read -p "Your choice (1-9): " auto_choice
-        
+
         case $auto_choice in
-            1) bash ./scripts/lxc-manager.sh full proxy ;;
-            2) bash ./scripts/lxc-manager.sh full media ;;
-            3) bash ./scripts/lxc-manager.sh full files ;;
-            4) bash ./scripts/lxc-manager.sh full webtools ;;
-            5) bash ./scripts/lxc-manager.sh full monitoring ;;
-            6) bash ./scripts/lxc-manager.sh full development ;;
+            1) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/lxc-manager.sh)" full proxy ;;
+            2) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/lxc-manager.sh)" full media ;;
+            3) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/lxc-manager.sh)" full files ;;
+            4) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/lxc-manager.sh)" full webtools ;;
+            5) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/lxc-manager.sh)" full monitoring ;;
+            6) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/lxc-manager.sh)" full development ;;
             7) post_install_menu ;;
             8) system_maintenance_menu ;;
             9) echo "Exiting..."; return 0 ;;
@@ -117,17 +86,17 @@ post_install_menu() {
         echo "8) Auto-Update Setup (Cron for LXCs)"
         echo "9) Back to Main Menu"
         echo ""
-        
+
         read -p "Your choice (1-9): " post_choice
-        
+
         case $post_choice in
             1) bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/post-pve-install.sh)" ;;
             2) bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/microcode.sh)" ;;
-            3) bash ./proxmox-helpers/optimize_zfs.sh ;;
-            4) bash ./proxmox-helpers/install_security.sh ;;
-            5) bash ./proxmox-helpers/install_storage.sh ;;
-            6) bash ./proxmox-helpers/setup_bonding.sh ;;
-            7) bash ./proxmox-helpers/configure_timezone.sh ;;
+            3) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/proxmox-helpers/optimize_zfs.sh)" ;;
+            4) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/proxmox-helpers/install_security.sh)" ;;
+            5) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/proxmox-helpers/install_storage.sh)" ;;
+            6) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/proxmox-helpers/setup_bonding.sh)" ;;
+            7) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/proxmox-helpers/configure_timezone.sh)" ;;
             8) bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/cron-update-lxcs.sh)" ;;
             9) return 0 ;;
             *) echo "Invalid choice!" ;;
@@ -145,11 +114,11 @@ system_maintenance_menu() {
         echo "1) Security Status Check (Fail2ban)"
         echo "2) Back to Main Menu"
         echo ""
-        
+
         read -p "Your choice (1-2): " maint_choice
-        
+
         case $maint_choice in
-            1) bash ./scripts/maintenance/security_monitor.sh ;;
+            1) bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/scripts/maintenance/security_monitor.sh)" ;;
             2) return 0 ;;
             *) echo "Invalid choice!" ;;
         esac
