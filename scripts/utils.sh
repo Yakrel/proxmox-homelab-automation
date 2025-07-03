@@ -218,19 +218,14 @@ get_stack_lxc_id() {
     esac
 }
 
-# Disable MOTD in LXC container
+# Disable MOTD in LXC container using .hushlogin
 disable_motd() {
     local lxc_id=$1
     
-    print_info "Disabling MOTD for LXC $lxc_id"
+    print_info "Disabling MOTD for LXC $lxc_id using .hushlogin"
     
-    # Empty MOTD file and remove all community script welcome messages
-    pct exec "$lxc_id" -- bash -c '
-        > /etc/motd
-        > /etc/issue
-        rm -f /etc/profile.d/community-scripts.sh
-        rm -f /etc/profile.d/00_lxc-details.sh
-    ' 2>/dev/null || true
+    # Create .hushlogin file in the container's root directory
+    pct exec "$lxc_id" -- touch /root/.hushlogin 2>/dev/null || true
     
     return 0
 }

@@ -38,92 +38,66 @@ check_proxmox_environment() {
     fi
 }
 
-# Create LXC container
+# Create LXC container using local build scripts
 create_lxc() {
     local stack_type="$1"
     
-    print_info "Creating $stack_type stack LXC container..."
+    print_info "Creating $stack_type stack LXC container using local scripts..."
     
-    # Validate stack type
     if ! validate_stack_type "$stack_type"; then
         return 1
     fi
     
-    # Get stack specifications
     local specs
     specs=$(get_stack_specs "$stack_type")
     
     declare -A config
     parse_stack_specs "$specs" config
     
-    # Display configuration
     show_stack_info "$stack_type"
     
-    # Check if container already exists
     if pct status "${config[id]}" >/dev/null 2>&1; then
         print_warning "LXC ${config[id]} already exists. Skipping creation."
         return 0
     fi
     
-    print_info "Using ${config[template]} template for container creation..."
-    
-    # Create config file for community script
-    local config_dir="/opt/community-scripts"
-    mkdir -p "$config_dir"
-    
-    local config_file
-    local script_url
+    # Source the local build function library
+    source "$SCRIPT_DIR/lib/build.func"
 
+    # Set variables required by build.func
+    APP="${config[hostname]}"
+    var_os="${config[template]}"
+    var_version="3.21" # Or get from config if needed
+    var_disk="${config[disk]}"
+    var_cpu="${config[cores]}"
+    var_ram="${config[memory]}"
+    var_unprivileged="1"
+    var_tags="homelab-automation,${stack_type}"
+    CT_ID="${config[id]}"
+    HN="${config[hostname]}"
+    NET="${config[ip]}"
+    GATE=",gw=${LXC_GATEWAY}"
+    NS="-nameserver=${LXC_NAMESERVER}"
+    PW=""
+    SSH="no"
+    ENABLE_FUSE="no"
+    ENABLE_TUN="no"
+    VERBOSE="no"
+    
+    # Set the NSAPP variable, which is used to find the install script
     if [[ "${config[template]}" == "alpine" ]]; then
-        config_file="$config_dir/alpine-docker.conf"
-        script_url="$COMMUNITY_SCRIPTS_URL/ct/alpine-docker.sh"
+        NSAPP="alpine-docker"
     elif [[ "${config[template]}" == "ubuntu" ]]; then
-        config_file="$config_dir/ubuntu.conf"
-        script_url="$COMMUNITY_SCRIPTS_URL/ct/ubuntu.sh"
+        NSAPP="ubuntu-docker"
     else
-        print_error "Unsupported template: ${config[template]}"
+        print_error "Unsupported template for local build: ${config[template]}"
         return 1
     fi
+    var_install="${NSAPP}-install"
 
-    # Force regenerate config file every time
-    rm -f "$config_file"
-    print_info "Generating config file at $config_file..."
-    cat > "$config_file" <<EOF
-# ${config[template]}-docker Configuration File
-# Generated on $(date)
+    # Call the main build function from our local script
+    build_container
 
-CT_ID="${config[id]}"
-CT_TYPE="1"
-DISK_SIZE="${config[disk]}"
-CORE_COUNT="${config[cores]}"
-RAM_SIZE="${config[memory]}"
-HN="${config[hostname]}"
-BRG="$LXC_BRIDGE"
-APT_CACHER_IP="none"
-DISABLEIP6="yes"
-IPV6_METHOD="none"
-PW='none'
-SSH="no"
-SSH_AUTHORIZED_KEY=""
-VERBOSE="no"
-TAGS=""
-VLAN="none"
-MTU="1500"
-GATE="$LXC_GATEWAY"
-SD="none"
-MAC="none"
-NS="$LXC_NAMESERVER"
-NET="${config[ip]}"
-FUSE="no"
-ENABLE_FUSE="no"
-ENABLE_TUN="no"
-SKIP_NETWORK_CHECK="yes"
-SILENT="1"
-EOF
-    
-    print_info "Running community script with config file: $script_url"
-    bash -c "$(curl -fsSL $script_url)" -s
-    
     # Add datapool mount
     print_info "Adding datapool mount..."
     pct set "${config[id]}" -mp0 /datapool,mp=/datapool,acl=1
