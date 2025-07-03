@@ -67,21 +67,17 @@ create_lxc() {
     # Set variables required by build.func
     APP="${config[hostname]}"
     var_os="${config[template]}"
-    var_version="3.21" # Or get from config if needed
+    var_version="" # Let community script use latest version
     var_disk="${config[disk]}"
     var_cpu="${config[cores]}"
     var_ram="${config[memory]}"
     var_unprivileged="1"
-    var_tags="homelab-automation,${stack_type}"
+    var_tags=""
     CT_ID="${config[id]}"
     HN="${config[hostname]}"
     NET="${config[ip]}"
     GATE=",gw=${LXC_GATEWAY}"
     NS="-nameserver=${LXC_NAMESERVER}"
-    PW=""
-    SSH="no"
-    ENABLE_FUSE="no"
-    ENABLE_TUN="no"
     VERBOSE="no"
     
     # Set the NSAPP variable, which is used to find the install script
