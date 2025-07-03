@@ -14,20 +14,13 @@ if [ "$(id -u)" -ne 0 ]; then
    exit 1
 fi
 
-# Repository URL
-REPO_URL="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main"
-TEMP_DIR=$(mktemp -d)
+# --- Git and Repository Setup ---
+REPO_URL="https://github.com/Yakrel/proxmox-homelab-automation.git"
+REPO_DIR="/opt/proxmox-homelab-automation"
 
 # Cleanup function
 cleanup_and_exit() {
     local exit_code=${1:-0}
-    
-    # Prevent multiple cleanup calls
-    if [ "${CLEANUP_DONE:-}" = "true" ]; then
-        exit $exit_code
-    fi
-    CLEANUP_DONE=true
-    
     echo ""
     echo "======================================================"
     if [ $exit_code -eq 0 ]; then
@@ -35,8 +28,8 @@ cleanup_and_exit() {
     else
         echo "Operation interrupted or failed!"
     fi
-    echo "Cleaning up temporary files..."
-    rm -rf "$TEMP_DIR" 2>/dev/null || true
+    # Note: We are not cleaning up the repo dir by default so it can be reused.
+    echo "Setup tool finished."
     echo "======================================================"
     exit $exit_code
 }
@@ -45,42 +38,32 @@ cleanup_and_exit() {
 trap 'cleanup_and_exit 1' INT TERM
 trap 'cleanup_and_exit 0' EXIT
 
-echo "Setting up temporary directory at $TEMP_DIR"
+# --- Prerequisite Check ---
+echo "Checking for git..."
+if ! command -v git &> /dev/null; then
+    echo "git could not be found. Installing..."
+    apt-get update
+    apt-get install -y git
+fi
+echo "git is installed."
 
-# Create proper directory structure to match GitHub repo
-mkdir -p "$TEMP_DIR/scripts"
-mkdir -p "$TEMP_DIR/proxmox-helpers"
-mkdir -p "$TEMP_DIR/docker/development"
-
-# Function to download script file (always fresh)
-download_script() {
-    script_path=$1
-    script_name=$(basename "$script_path")
-    echo "Downloading latest $script_name..."
-    
-    # Create full path in temp directory to match repo structure
-    local target_path="$TEMP_DIR/$script_path"
-    local target_dir=$(dirname "$target_path")
-    
-    # Ensure target directory exists
-    mkdir -p "$target_dir"
-    
-    # Remove existing file to ensure fresh download
-    [ -f "$target_path" ] && rm -f "$target_path"
-    
-    wget -q -O "$target_path" "$REPO_URL/$script_path"
-    
-    if [ $? -ne 0 ]; then
-        echo "ERROR: Failed to download $script_name from $REPO_URL/$script_path"
-        return 1
+# --- Repository Management ---
+if [ -d "$REPO_DIR" ]; then
+    echo "Existing repository found at $REPO_DIR."
+    read -p "Do you want to pull the latest changes? (y/N): " pull_choice
+    if [[ "${pull_choice,,}" =~ ^(y|yes)$ ]]; then
+        echo "Pulling latest changes..."
+        cd "$REPO_DIR"
+        git pull
     fi
-    
-    # Convert Windows line endings to Unix
-    sed -i 's/\r$//' "$target_path" 2>/dev/null || true
-    
-    chmod +x "$target_path"
-    return 0
-}
+else
+    echo "Cloning repository to $REPO_DIR..."
+    git clone "$REPO_URL" "$REPO_DIR"
+fi
+
+# --- Main Menu ---
+# All scripts will now be executed from the cloned repository directory
+cd "$REPO_DIR"
 
 # Main deployment menu
 main_deployment_menu() {
@@ -101,58 +84,16 @@ main_deployment_menu() {
         read -p "Your choice (1-9): " auto_choice
         
         case $auto_choice in
-            1)
-                echo "Deploying Proxy stack..."
-                if download_script "config.sh" && download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/utils.sh"; then
-                    bash "$TEMP_DIR/scripts/lxc-manager.sh" full proxy
-                fi
-                ;;
-            2)
-                echo "Deploying Media stack..."
-                if download_script "config.sh" && download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh" && download_script "scripts/utils.sh"; then
-                    bash "$TEMP_DIR/scripts/lxc-manager.sh" full media
-                fi
-                ;;
-            3)
-                echo "Deploying Files stack..."
-                if download_script "config.sh" && download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh" && download_script "scripts/utils.sh"; then
-                    bash "$TEMP_DIR/scripts/lxc-manager.sh" full files
-                fi
-                ;;
-            4)
-                echo "Deploying Webtools stack..."
-                if download_script "config.sh" && download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh" && download_script "scripts/utils.sh"; then
-                    bash "$TEMP_DIR/scripts/lxc-manager.sh" full webtools
-                fi
-                ;;
-            5)
-                echo "Deploying Monitoring stack..."
-                if download_script "config.sh" && download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh" && download_script "scripts/utils.sh"; then
-                    bash "$TEMP_DIR/scripts/lxc-manager.sh" full monitoring
-                fi
-                ;;
-            6)
-                echo "Starting automated Development stack deployment..."
-                if download_script "config.sh" && download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh" && download_script "scripts/utils.sh"; then
-                    bash "$TEMP_DIR/scripts/lxc-manager.sh" full development
-                fi
-                ;;
-            7)
-                # Post-Install Setup submenu
-                post_install_menu
-                ;;
-            8)
-                # System Maintenance submenu
-                system_maintenance_menu
-                ;;
-            9)
-                # Exit
-                echo "Exiting..."
-                return 0
-                ;;
-            *)
-                echo "Invalid choice!"
-                ;;
+            1) bash ./scripts/lxc-manager.sh full proxy ;;
+            2) bash ./scripts/lxc-manager.sh full media ;;
+            3) bash ./scripts/lxc-manager.sh full files ;;
+            4) bash ./scripts/lxc-manager.sh full webtools ;;
+            5) bash ./scripts/lxc-manager.sh full monitoring ;;
+            6) bash ./scripts/lxc-manager.sh full development ;;
+            7) post_install_menu ;;
+            8) system_maintenance_menu ;;
+            9) echo "Exiting..."; return 0 ;;
+            *) echo "Invalid choice!" ;;
         esac
     done
 }
@@ -180,54 +121,16 @@ post_install_menu() {
         read -p "Your choice (1-9): " post_choice
         
         case $post_choice in
-            1)
-                echo "Running Helper Scripts Post-Install..."
-                bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/post-pve-install.sh)"
-                ;;
-            2)
-                echo "Running Microcode Update..."
-                bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/microcode.sh)"
-                ;;
-            3)
-                if download_script "proxmox-helpers/optimize_zfs.sh"; then
-                    echo "Starting ZFS performance optimization..."
-                    bash "$TEMP_DIR/proxmox-helpers/optimize_zfs.sh"
-                fi
-                ;;
-            4)
-                if download_script "proxmox-helpers/install_security.sh"; then
-                    echo "Starting security installation..."
-                    bash "$TEMP_DIR/proxmox-helpers/install_security.sh"
-                fi
-                ;;
-            5)
-                if download_script "proxmox-helpers/install_storage.sh"; then
-                    echo "Starting storage installation..."
-                    bash "$TEMP_DIR/proxmox-helpers/install_storage.sh"
-                fi
-                ;;
-            6)
-                if download_script "proxmox-helpers/setup_bonding.sh"; then
-                    echo "Starting network bonding setup..."
-                    bash "$TEMP_DIR/proxmox-helpers/setup_bonding.sh"
-                fi
-                ;;
-            7)
-                if download_script "proxmox-helpers/configure_timezone.sh"; then
-                    echo "Starting timezone configuration..."
-                    bash "$TEMP_DIR/proxmox-helpers/configure_timezone.sh"
-                fi
-                ;;
-            8)
-                echo "Setting up Auto-Update for LXCs..."
-                bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/cron-update-lxcs.sh)"
-                ;;
-            9)
-                return 0
-                ;;
-            *)
-                echo "Invalid choice!"
-                ;;
+            1) bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/post-pve-install.sh)" ;;
+            2) bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/microcode.sh)" ;;
+            3) bash ./proxmox-helpers/optimize_zfs.sh ;;
+            4) bash ./proxmox-helpers/install_security.sh ;;
+            5) bash ./proxmox-helpers/install_storage.sh ;;
+            6) bash ./proxmox-helpers/setup_bonding.sh ;;
+            7) bash ./proxmox-helpers/configure_timezone.sh ;;
+            8) bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/cron-update-lxcs.sh)" ;;
+            9) return 0 ;;
+            *) echo "Invalid choice!" ;;
         esac
     done
 }
@@ -246,18 +149,9 @@ system_maintenance_menu() {
         read -p "Your choice (1-2): " maint_choice
         
         case $maint_choice in
-            1)
-                if download_script "scripts/maintenance/security_monitor.sh"; then
-                    echo "Checking security status..."
-                    bash "$TEMP_DIR/scripts/maintenance/security_monitor.sh"
-                fi
-                ;;
-            2)
-                return 0
-                ;;
-            *)
-                echo "Invalid choice!"
-                ;;
+            1) bash ./scripts/maintenance/security_monitor.sh ;;
+            2) return 0 ;;
+            *) echo "Invalid choice!" ;;
         esac
     done
 }
