@@ -133,8 +133,8 @@ main_deployment_menu() {
                 ;;
             6)
                 echo "Starting automated Development stack deployment..."
-                if download_script "docker/development/setup.sh" && download_script "scripts/utils/common.sh"; then
-                    bash "$TEMP_DIR/docker/development/setup.sh" development
+                if download_script "scripts/stack-config.sh" && download_script "scripts/lxc-manager.sh" && download_script "scripts/deploy-stack.sh" && download_script "scripts/utils.sh"; then
+                    bash "$TEMP_DIR/scripts/lxc-manager.sh" full development
                 fi
                 ;;
             7)

@@ -403,8 +403,8 @@ if [ -z "$LXC_ID" ]; then
 fi
 
 # Check if LXC exists and has existing stack
-if pct status "$LXC_ID" &>/dev/null && pct exec "$LXC_ID" -- test -d "/opt/$STACK_TYPE-stack"; then
-    update_existing_stack "$LXC_ID" "/opt/$STACK_TYPE-stack" "$STACK_TYPE"
+if pct status "$LXC_ID" &>/dev/null && pct exec "$LXC_ID" -- test -d "/opt/$STACK_TYPE"; then
+    update_existing_stack "$LXC_ID" "/opt/$STACK_TYPE" "$STACK_TYPE"
 else
     deploy_complete_stack "$STACK_TYPE" "$LXC_ID"
 fi
