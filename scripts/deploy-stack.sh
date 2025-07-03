@@ -123,29 +123,44 @@ setup_env_file() {
     local env_example_content
     env_example_content=$(curl -sL "$GITHUB_REPO_URL/docker/$stack_type/.env.example")
 
-    # 2. Create a string of variables to pass to the LXC
-    local extra_vars=""
-    [ -n "$jdownloader_password" ] && extra_vars+="JDOWNLOADER_VNC_PASSWORD=$jdownloader_password\n"
-    [ -n "$palmr_key" ] && extra_vars+="PALMR_ENCRYPTION_KEY=$palmr_key\n"
-    [ -n "$cloudflared_token" ] && extra_vars+="CLOUDFLARED_TOKEN=$cloudflared_token\n"
-    [ -n "$firefox_password" ] && extra_vars+="FIREFOX_VNC_PASSWORD=$firefox_password\n"
-
-    # 3. Push the updated utils.sh script to the LXC
+    # 2. Push the updated utils.sh script to the LXC
     pct push "$lxc_id" "$SCRIPT_DIR/utils.sh" "/tmp/utils.sh" -perms 755
 
-    # 4. Execute the create_stack_env_file function inside the LXC
-    if pct exec "$lxc_id" -- bash -c "
+    # 3. Execute the create_stack_env_file function inside the LXC
+    if ! pct exec "$lxc_id" -- bash -c "
         source /tmp/utils.sh
-        # Append extra vars to the example content before processing
-        env_example_content=\$(echo -e \"\$1\n\$2\")
-        create_stack_env_file '$stack_dir/.env' '$stack_type' \"\$env_example_content\"
-    " -- "$env_example_content" "$extra_vars"; then
-        print_info ".env file updated successfully"
-        return 0
-    else
-        print_error "Environment file creation failed"
+        create_stack_env_file '$stack_dir/.env' '$stack_type' \"$env_example_content\"
+    " -- "$env_example_content"; then
+        print_error "Initial .env file creation failed"
         return 1
     fi
+
+    # 4. Directly update the .env file with secrets using sed
+    local update_commands=""
+    if [ -n "$jdownloader_password" ]; then
+        update_commands+="sed -i 's|^JDOWNLOADER_VNC_PASSWORD=.*|JDOWNLOADER_VNC_PASSWORD=$jdownloader_password|' '$stack_dir/.env';"
+    fi
+    if [ -n "$palmr_key" ]; then
+        update_commands+="sed -i 's|^PALMR_ENCRYPTION_KEY=.*|PALMR_ENCRYPTION_KEY=$palmr_key|' '$stack_dir/.env';"
+    fi
+    if [ -n "$cloudflared_token" ]; then
+        update_commands+="sed -i 's|^CLOUDFLARED_TOKEN=.*|CLOUDFLARED_TOKEN=$cloudflared_token|' '$stack_dir/.env';"
+    fi
+    if [ -n "$firefox_password" ]; then
+        update_commands+="sed -i 's|^FIREFOX_VNC_PASSWORD=.*|FIREFOX_VNC_PASSWORD=$firefox_password|' '$stack_dir/.env';"
+    fi
+
+    if [ -n "$update_commands" ]; then
+        if pct exec "$lxc_id" -- bash -c "$update_commands"; then
+            print_info ".env file updated with secrets successfully"
+            return 0
+        else
+            print_error "Failed to update .env file with secrets"
+            return 1
+        fi
+    fi
+
+    return 0
 }
 
 # Function to deploy Homepage dashboard configuration
