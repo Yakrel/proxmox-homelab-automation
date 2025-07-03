@@ -36,14 +36,6 @@ trap 'cleanup_and_exit 0' EXIT
 # --- Main Menu ---
 # Main deployment menu
 main_deployment_menu() {
-    # Fetch and source the config.sh file from the repository
-    if [ ! -f "config.sh" ]; then
-        echo "Downloading config.sh..."
-        if ! curl -fsSL "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/config.sh" -o "config.sh"; then
-            echo "ERROR: Failed to download config.sh"
-            exit 1
-        fi
-    fi
     source "config.sh"
 
     while true; do
@@ -63,12 +55,12 @@ main_deployment_menu() {
         read -p "Your choice (1-9): " auto_choice
 
         case $auto_choice in
-            1) bash "lxc-manager.sh" full proxy ;;
-            2) bash "lxc-manager.sh" full media ;;
-            3) bash "lxc-manager.sh" full files ;;
-            4) bash "lxc-manager.sh" full webtools ;;
-            5) bash "lxc-manager.sh" full monitoring ;;
-            6) bash "lxc-manager.sh" full development ;;
+            1) bash "scripts/lxc-manager.sh" full proxy ;;
+            2) bash "scripts/lxc-manager.sh" full media ;;
+            3) bash "scripts/lxc-manager.sh" full files ;;
+            4) bash "scripts/lxc-manager.sh" full webtools ;;
+            5) bash "scripts/lxc-manager.sh" full monitoring ;;
+            6) bash "scripts/lxc-manager.sh" full development ;;
             7) post_install_menu ;;
             8) system_maintenance_menu ;;
             9) echo "Exiting..."; return 0 ;;
@@ -102,11 +94,11 @@ post_install_menu() {
         case $post_choice in
             1) bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/post-pve-install.sh)" ;;
             2) bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/microcode.sh)" ;;
-            3) bash "../proxmox-helpers/optimize_zfs.sh" ;;
-            4) bash "../proxmox-helpers/install_security.sh" ;;
-            5) bash "../proxmox-helpers/install_storage.sh" ;;
-            6) bash "../proxmox-helpers/setup_bonding.sh" ;;
-            7) bash "../proxmox-helpers/configure_timezone.sh" ;;
+            3) bash "proxmox-helpers/optimize_zfs.sh" ;;
+            4) bash "proxmox-helpers/install_security.sh" ;;
+            5) bash "proxmox-helpers/install_storage.sh" ;;
+            6) bash "proxmox-helpers/setup_bonding.sh" ;;
+            7) bash "proxmox-helpers/configure_timezone.sh" ;;
             8) bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/tools/pve/cron-update-lxcs.sh)" ;;
             9) return 0 ;;
             *) echo "Invalid choice!" ;;
@@ -128,7 +120,7 @@ system_maintenance_menu() {
         read -p "Your choice (1-2): " maint_choice
 
         case $maint_choice in
-            1) bash "maintenance/security_monitor.sh" ;;
+            1) bash "scripts/maintenance/security_monitor.sh" ;;
             2) return 0 ;;
             *) echo "Invalid choice!" ;;
         esac
