@@ -345,6 +345,9 @@ deploy_complete_stack() {
         fi
     fi
     
+    # Ensure MOTD is disabled before starting services
+    disable_motd "$lxc_id"
+    
     # Deploy with docker compose (Alpine Docker template uses V2 syntax)
     print_long_operation "🚀 Starting services..."
     # Push config.sh to LXC for environment variables

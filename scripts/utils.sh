@@ -224,11 +224,12 @@ disable_motd() {
     
     print_info "Disabling MOTD for LXC $lxc_id"
     
-    # Empty MOTD file and remove welcome message
+    # Empty MOTD file and remove all community script welcome messages
     pct exec "$lxc_id" -- bash -c '
         > /etc/motd
         > /etc/issue
         rm -f /etc/profile.d/community-scripts.sh
+        rm -f /etc/profile.d/00_lxc-details.sh
     ' 2>/dev/null || true
     
     return 0
