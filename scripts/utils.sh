@@ -174,8 +174,8 @@ create_stack_env_file() {
         cp "$target_file" "$temp_env"
     fi
 
-    # Read the .env.example content line by line
-    echo "$env_example_content" | while IFS= read -r line || [[ -n "$line" ]]; do
+    # Read the .env.example content line by line using process substitution to avoid subshell
+    while IFS= read -r line || [[ -n "$line" ]]; do
         # Skip comments and empty lines
         if [[ "$line" =~ ^[[:space:]]*# ]] || [[ -z "$line" ]]; then
             continue
@@ -188,7 +188,7 @@ create_stack_env_file() {
         if ! grep -q "^${var_name}=" "$temp_env"; then
             echo "$line" >> "$temp_env"
         fi
-    done
+    done < <(echo "$env_example_content")
 
     # Overwrite the original .env file with the updated content
     mv "$temp_env" "$target_file"
