@@ -1,38 +1,3 @@
-#!/bin/bash
-
-# Enable exit on error for consistent error handling
-set -e
-
-# Title
-echo "======================================================"
-echo "Proxmox Homelab Automation - Setup Tool"
-echo "======================================================"
-
-# Root check
-if [ "$(id -u)" -ne 0 ]; then
-   echo "ERROR: This script must be run as root"
-   exit 1
-fi
-
-# Cleanup function (simplified as no repo to clean)
-cleanup_and_exit() {
-    local exit_code=${1:-0}
-    echo ""
-    echo "======================================================"
-    if [ $exit_code -eq 0 ]; then
-        echo "Operation completed!"
-    else
-        echo "Operation interrupted or failed!"
-    fi
-    echo "Setup tool finished."
-    echo "======================================================"
-    exit $exit_code
-}
-
-# Set up signal handlers for graceful exit
-trap 'cleanup_and_exit 1' INT TERM
-trap 'cleanup_and_exit 0' EXIT
-
 # --- Main Menu ---
 # Main deployment menu
 main_deployment_menu() {

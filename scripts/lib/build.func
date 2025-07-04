@@ -1182,7 +1182,7 @@ EOF'
   fi
   msg_ok "Customized LXC Container"
 
-  lxc-attach -n "$CTID" -- bash -c "$(cat scripts/install/"$var_install".sh)" $?
+  lxc-attach -n "$CTID" -- bash -c "$(cat "$var_install_path")" $?
 }
 
 # This function sets the description of the container.

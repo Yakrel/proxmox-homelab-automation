@@ -91,6 +91,14 @@ create_lxc() {
     fi
     var_install="${NSAPP}-install"
 
+    # Set the absolute path for the installation script
+    INSTALL_SCRIPT_PATH="$SCRIPT_DIR/install/${var_install}.sh"
+    if [[ ! -f "$INSTALL_SCRIPT_PATH" ]]; then
+        print_error "Installation script not found at: $INSTALL_SCRIPT_PATH"
+        return 1
+    fi
+    var_install_path="$INSTALL_SCRIPT_PATH"
+
     # Call the main build function from our local script
     build_container
 

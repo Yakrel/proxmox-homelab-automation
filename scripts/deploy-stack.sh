@@ -53,38 +53,42 @@ DOCKER_COMPOSE_CMD="docker compose"
 
 
 
-# Function to download files from GitHub
-download_stack_files() {
+# Function to copy files from local repository
+copy_stack_files() {
     local stack_type=$1
     local target_dir=$2
-    
+    local source_base_dir
+    source_base_dir=$(dirname "$SCRIPT_DIR")
+
     # Create target directory if it doesn't exist
     mkdir -p "$target_dir"
-    
-    # Download docker-compose.yml
-    wget -q -O "$target_dir/docker-compose.yml" "$GITHUB_REPO_URL/docker/$stack_type/docker-compose.yml"
-    
-    if [ $? -ne 0 ]; then
-        print_error "Failed to download docker-compose.yml for $stack_type"
+
+    # Define source directory
+    local source_dir="$source_base_dir/docker/$stack_type"
+
+    # Check if source directory exists
+    if [ ! -d "$source_dir" ]; then
+        print_error "Source directory not found: $source_dir"
         return 1
     fi
-    
-    # Download additional config files for monitoring stack
-    if [ "$stack_type" = "monitoring" ]; then
-        # Download template files for dynamic configuration
-        wget -q -O "$target_dir/prometheus.yml.template" "$GITHUB_REPO_URL/docker/monitoring/prometheus.yml.template" 2>/dev/null || true
-        wget -q -O "$target_dir/alertmanager.yml.template" "$GITHUB_REPO_URL/docker/monitoring/alertmanager.yml.template" 2>/dev/null || true
-        wget -q -O "$target_dir/alerts.yml" "$GITHUB_REPO_URL/docker/monitoring/alerts.yml" 2>/dev/null || true
-        
-        # Fallback to static files if templates don't exist
-        if [ ! -f "$target_dir/prometheus.yml.template" ]; then
-            wget -q -O "$target_dir/prometheus.yml" "$GITHUB_REPO_URL/docker/monitoring/prometheus.yml" 2>/dev/null || true
-        fi
-        if [ ! -f "$target_dir/alertmanager.yml.template" ]; then
-            wget -q -O "$target_dir/alertmanager.yml" "$GITHUB_REPO_URL/docker/monitoring/alertmanager.yml" 2>/dev/null || true
-        fi
+
+    # Copy docker-compose.yml
+    if [ -f "$source_dir/docker-compose.yml" ]; then
+        cp "$source_dir/docker-compose.yml" "$target_dir/docker-compose.yml"
+    else
+        print_error "docker-compose.yml not found for $stack_type in $source_dir"
+        return 1
     fi
-    
+
+    # Copy additional config files for monitoring stack
+    if [ "$stack_type" = "monitoring" ]; then
+        cp "$source_dir/prometheus.yml" "$target_dir/prometheus.yml" 2>/dev/null || true
+        cp "$source_dir/alertmanager.yml" "$target_dir/alertmanager.yml" 2>/dev/null || true
+        cp "$source_dir/alerts.yml" "$target_dir/alerts.yml" 2>/dev/null || true
+        cp "$source_dir/grafana-provisioning-datasources.yml" "$target_dir/grafana-provisioning-datasources.yml" 2>/dev/null || true
+        cp "$source_dir/grafana-provisioning-dashboards.yml" "$target_dir/grafana-provisioning-dashboards.yml" 2>/dev/null || true
+    fi
+
     return 0
 }
 
@@ -116,12 +120,19 @@ setup_env_file() {
     local palmr_key=$5
     local cloudflared_token=$6
     local firefox_password=$7
+    local source_base_dir
+    source_base_dir=$(dirname "$SCRIPT_DIR")
 
     print_info "Setting up .env file for $stack_type stack..."
 
-    # 1. Get the content of the .env.example file from the repository
+    # 1. Get the content of the .env.example file from the local repository
+    local env_example_path="$source_base_dir/docker/$stack_type/.env.example"
+    if [ ! -f "$env_example_path" ]; then
+        print_error ".env.example file not found at $env_example_path"
+        return 1
+    fi
     local env_example_content
-    env_example_content=$(curl -sL "$GITHUB_REPO_URL/docker/$stack_type/.env.example")
+    env_example_content=$(cat "$env_example_path")
 
     # 2. Push the updated utils.sh script to the LXC
     pct push "$lxc_id" "$SCRIPT_DIR/utils.sh" "/tmp/utils.sh" -perms 755
@@ -166,29 +177,34 @@ setup_env_file() {
 # Function to deploy Homepage dashboard configuration
 deploy_homepage_configs() {
     local lxc_id=$1
+    local source_base_dir
+    source_base_dir=$(dirname "$SCRIPT_DIR")
     
     print_info "Deploying Homepage configuration..."
     
     # Create homepage config directory
     pct exec "$lxc_id" -- mkdir -p /datapool/config/homepage 2>/dev/null
     
-    # Download and deploy each config file
+    # Define source directory for homepage configs
+    local source_config_dir="$source_base_dir/config/homepage"
+
+    # Deploy each config file
     local config_files=("bookmarks.yaml" "docker.yaml" "services.yaml" "settings.yaml" "widgets.yaml")
     local essential_files=("settings.yaml" "widgets.yaml" "services.yaml")
     local deployed_files=()
     
     for config_file in "${config_files[@]}"; do
-        local temp_file="$TEMP_DIR/$config_file"
+        local source_file="$source_config_dir/$config_file"
         local target_path="/datapool/config/homepage/$config_file"
         
-        if wget -q -O "$temp_file" "$GITHUB_REPO_URL/config/homepage/$config_file"; then
-            if pct push "$lxc_id" "$temp_file" "$target_path" >/dev/null 2>&1; then
+        if [ -f "$source_file" ]; then
+            if pct push "$lxc_id" "$source_file" "$target_path" >/dev/null 2>&1; then
                 deployed_files+=("$config_file")
             else
                 print_warning "Failed to push $config_file to LXC."
             fi
         else
-            print_warning "Failed to download $config_file from repository."
+            print_warning "Config file not found: $source_file"
         fi
     done
     
@@ -238,9 +254,9 @@ update_existing_stack() {
     
     print_long_operation "🔄 Updating $stack_type stack in LXC $lxc_id..."
     
-    # Download latest compose files from GitHub
-    print_long_operation "📥 Downloading latest compose files..."
-    download_stack_files "$stack_type" "$TEMP_DIR/$stack_type"
+    # Copy latest compose files from local repository
+    print_long_operation "📥 Copying latest compose files..."
+    copy_stack_files "$stack_type" "$TEMP_DIR/$stack_type"
     
     # Update compose files in LXC
     pct push "$lxc_id" "$TEMP_DIR/$stack_type/docker-compose.yml" "$stack_dir/docker-compose.yml"
@@ -282,8 +298,8 @@ deploy_complete_stack() {
     # Create directory structure inside LXC
     pct exec "$lxc_id" -- mkdir -p "$target_dir"
     
-    # Download stack files to temp directory
-    download_stack_files "$stack_type" "$TEMP_DIR/$stack_type"
+    # Copy stack files to temp directory
+    copy_stack_files "$stack_type" "$TEMP_DIR/$stack_type"
     
     # Copy files to LXC
     pct push "$lxc_id" "$TEMP_DIR/$stack_type/docker-compose.yml" "$target_dir/docker-compose.yml"
