@@ -51,6 +51,7 @@ failregex = pvedaemon\[.*authentication failure; rhost=<HOST> user=.* msg=.*
 ignoreregex =
 journalmatch = _SYSTEMD_UNIT=pvedaemon.service
 EOT
+if ! grep -q "\[proxmox\]" /etc/fail2ban/jail.local; then
 cat >> /etc/fail2ban/jail.local << EOT
 
 [proxmox]
@@ -62,6 +63,7 @@ maxretry = 3
 findtime = 2d
 bantime = 1h
 EOT
+fi
 systemctl restart fail2ban
 echo "✓ Fail2ban installed and configured for Proxmox."
 fail2ban-client status proxmox
