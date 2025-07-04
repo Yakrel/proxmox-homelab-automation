@@ -1,303 +1,76 @@
 #!/bin/bash
 
-# Unified LXC Management Script
-# Handles creation, deployment, and management of all LXC stacks
+# This script is responsible for creating a new LXC container using dynamic templates.
 
 set -e
 
-# Source configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Source central configuration
-if [ -f "$SCRIPT_DIR/../config.sh" ]; then
-    source "$SCRIPT_DIR/../config.sh"
-elif [ -f "$(dirname "$SCRIPT_DIR")/config.sh" ]; then
-    source "$(dirname "$SCRIPT_DIR")/config.sh"
-else
-    echo "ERROR: config.sh not found!" >&2
-    exit 1
-fi
-source "$SCRIPT_DIR/stack-config.sh"
-source "$SCRIPT_DIR/utils.sh"
+# --- Arguments and Setup ---
+STACK_NAME=$1
+WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 
-# Print functions
+source "$WORK_DIR/scripts/stack-config.sh"
+
+# --- Helper Functions ---
 print_info() { echo -e "\033[36m[INFO]\033[0m $1"; }
 print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
 print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 
-# Check if running on Proxmox
-check_proxmox_environment() {
-    if ! command -v pct >/dev/null 2>&1; then
-        print_error "This script must be run on a Proxmox VE host"
-        exit 1
-    fi
-    
-    if [ "$(id -u)" -ne 0 ]; then
-        print_error "This script must be run as root"
-        exit 1
-    fi
-}
+# --- LXC Creation Logic ---
 
-# Create LXC container using local build scripts
-create_lxc() {
-    local stack_type="$1"
-    
-    print_info "Creating $stack_type stack LXC container using local scripts..."
-    
-    if ! validate_stack_type "$stack_type"; then
-        return 1
-    fi
-    
-    local specs
-    specs=$(get_stack_specs "$stack_type")
-    
-    declare -A config
-    parse_stack_specs "$specs" config
-    
-    show_stack_info "$stack_type"
-    
-    if pct status "${config[id]}" >/dev/null 2>&1; then
-        print_warning "LXC ${config[id]} already exists. Skipping creation."
-        return 0
-    fi
-    
-    # Source the local build function library
-    source "$SCRIPT_DIR/lib/build.func"
+get_stack_config "$STACK_NAME"
 
-    # Set variables required by build.func
-    APP="${config[hostname]}"
-    var_os="${config[template]}"
-    var_version="" # Let community script use latest version
-    var_disk="${config[disk]}"
-    var_cpu="${config[cores]}"
-    var_ram="${config[memory]}"
-    var_unprivileged="1"
-    var_tags=""
-    CT_ID="${config[id]}"
-    HN="${config[hostname]}"
-    NET="${config[ip]}"
-    GATE=",gw=${LXC_GATEWAY}"
-    NS="-nameserver=${LXC_NAMESERVER}"
-    VERBOSE="no"
-    
-    # Set the NSAPP variable, which is used to find the install script
-    if [[ "${config[template]}" == "alpine" ]]; then
-        NSAPP="alpine-docker"
-    elif [[ "${config[template]}" == "ubuntu" ]]; then
-        NSAPP="ubuntu-docker"
-    else
-        print_error "Unsupported template for local build: ${config[template]}"
-        return 1
-    fi
-    var_install="${NSAPP}-install"
+print_info "Finding the latest template for type '$CT_TEMPLATE_TYPE'...";
+pveam update > /dev/null
 
-    # Set the absolute path for the installation script
-    INSTALL_SCRIPT_PATH="$SCRIPT_DIR/install/${var_install}.sh"
-    if [[ ! -f "$INSTALL_SCRIPT_PATH" ]]; then
-        print_error "Installation script not found at: $INSTALL_SCRIPT_PATH"
-        return 1
-    fi
-    var_install_path="$INSTALL_SCRIPT_PATH"
+# Dynamically find the latest template filename
+LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" --section system | grep "$CT_TEMPLATE_TYPE" | sort -V | tail -n 1 | awk '{print $1}')
 
-    # Call the main build function from our local script
-    build_container
-
-    # Add datapool mount
-    print_info "Adding datapool mount..."
-    pct set "${config[id]}" -mp0 /datapool,mp=/datapool,acl=1
-    
-    # Wait for container to be ready
-    print_info "Waiting for container to be ready..."
-    sleep 5
-    
-    # Start container if not running
-    if ! pct status "${config[id]}" | grep -q "running"; then
-        print_info "Starting container..."
-        pct start "${config[id]}"
-        sleep 10
+if [ -z "$LATEST_TEMPLATE" ]; then
+    print_warning "No local template found for '$CT_TEMPLATE_TYPE'. Downloading the latest version...";
+    # The download name is usually the type itself, e.g., 'alpine-linux' or 'ubuntu'
+    local download_name="$CT_TEMPLATE_TYPE-linux"
+    if [ "$CT_TEMPLATE_TYPE" == "ubuntu" ]; then
+        download_name="ubuntu"
     fi
-    
-    # Disable MOTD
-    disable_motd "${config[id]}"
-    
-    print_success "$stack_type stack LXC created successfully!"
-}
-
-# Deploy stack services
-deploy_stack() {
-    local stack_type="$1"
-    
-    print_info "Deploying $stack_type stack services..."
-    
-    # Validate stack type
-    if ! validate_stack_type "$stack_type"; then
-        return 1
-    fi
-    
-    # Get stack specifications
-    local specs
-    specs=$(get_stack_specs "$stack_type")
-    
-    declare -A config
-    parse_stack_specs "$specs" config
-    
-    # Check if container exists and is running
-    if ! pct status "${config[id]}" | grep -q "running"; then
-        print_error "Container ${config[id]} is not running. Please create it first."
-        return 1
-    fi
-    
-    # Call the deploy-stack.sh script
-    local deploy_script="$SCRIPT_DIR/deploy-stack.sh"
-    if [[ -f "$deploy_script" ]]; then
-        bash "$deploy_script" "$stack_type"
-    else
-        print_error "Deploy script not found: $deploy_script"
-        return 1
-    fi
-    
-    print_success "$stack_type stack deployed successfully!"
-}
-
-# Full deployment (create + deploy)
-full_deploy() {
-    local stack_type="$1"
-    
-    print_info "Starting full deployment of $stack_type stack..."
-    
-    # Create LXC
-    if create_lxc "$stack_type"; then
-        # Deploy services
-        deploy_stack "$stack_type"
-    else
-        print_error "Failed to create LXC for $stack_type stack"
-        return 1
-    fi
-}
-
-# Show container status
-show_status() {
-    local stack_type="$1"
-    
-    if ! validate_stack_type "$stack_type"; then
-        return 1
-    fi
-    
-    local specs
-    specs=$(get_stack_specs "$stack_type")
-    
-    declare -A config
-    parse_stack_specs "$specs" config
-    
-    print_info "Status for $stack_type stack (LXC ${config[id]}):"
-    
-    if pct status "${config[id]}" >/dev/null 2>&1; then
-        pct status "${config[id]}"
-        
-        # Show resource usage if running
-        if pct status "${config[id]}" | grep -q "running"; then
-            echo ""
-            print_info "Resource usage:"
-            pct exec "${config[id]}" -- free -h 2>/dev/null || true
-            pct exec "${config[id]}" -- df -h / 2>/dev/null || true
-        fi
-    else
-        print_warning "Container ${config[id]} does not exist"
-    fi
-}
-
-# List all stacks
-list_stacks() {
-    print_info "Available stacks:"
-    echo ""
-    
-    for stack_type in $(get_available_stacks); do
-        local specs
-        specs=$(get_stack_specs "$stack_type")
-        
-        declare -A config
-        parse_stack_specs "$specs" config
-        
-        local status="Not Created"
-        if pct status "${config[id]}" >/dev/null 2>&1; then
-            status=$(pct status "${config[id]}" | awk '{print $2}')
-        fi
-        
-        printf "  %-12s | LXC %-3s | %-8s | %s cores, %sGB RAM\n" \
-            "$stack_type" "${config[id]}" "$status" "${config[cores]}" "$((${config[memory]}/1024))"
-    done
-}
-
-# Main function
-main() {
-    local action="$1"
-    local stack_type="$2"
-    
-    # Check environment
-    check_proxmox_environment
-    
-    case "$action" in
-        "create")
-            if [[ -z "$stack_type" ]]; then
-                print_error "Usage: $0 create <stack_type>"
-                echo "Available stacks: $(get_available_stacks)"
-                exit 1
-            fi
-            create_lxc "$stack_type"
-            ;;
-        "deploy")
-            if [[ -z "$stack_type" ]]; then
-                print_error "Usage: $0 deploy <stack_type>"
-                echo "Available stacks: $(get_available_stacks)"
-                exit 1
-            fi
-            deploy_stack "$stack_type"
-            ;;
-        "full")
-            if [[ -z "$stack_type" ]]; then
-                print_error "Usage: $0 full <stack_type>"
-                echo "Available stacks: $(get_available_stacks)"
-                exit 1
-            fi
-            full_deploy "$stack_type"
-            ;;
-        "status")
-            if [[ -z "$stack_type" ]]; then
-                print_error "Usage: $0 status <stack_type>"
-                echo "Available stacks: $(get_available_stacks)"
-                exit 1
-            fi
-            show_status "$stack_type"
-            ;;
-        "list")
-            list_stacks
-            ;;
-        "info")
-            if [[ -z "$stack_type" ]]; then
-                print_error "Usage: $0 info <stack_type>"
-                echo "Available stacks: $(get_available_stacks)"
-                exit 1
-            fi
-            show_stack_info "$stack_type"
-            ;;
-        *)
-            echo "Usage: $0 {create|deploy|full|status|list|info} [stack_type]"
-            echo ""
-            echo "Commands:"
-            echo "  create <stack>  - Create LXC container only"
-            echo "  deploy <stack>  - Deploy services to existing container"
-            echo "  full <stack>    - Create container and deploy services"
-            echo "  status <stack>  - Show container status"
-            echo "  list           - List all available stacks"
-            echo "  info <stack>   - Show stack configuration"
-            echo ""
-            echo "Available stacks: $(get_available_stacks)"
-            exit 1
-            ;;
-    esac
-}
-
-# Run main function if script is executed directly
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    main "$@"
+    pveam download "$STORAGE_POOL" "$download_name"
+    # Re-run the find command after download
+    LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" --section system | grep "$CT_TEMPLATE_TYPE" | sort -V | tail -n 1 | awk '{print $1}')
+    print_success "Downloaded: $LATEST_TEMPLATE"
+else
+    print_info "Found latest available template: $LATEST_TEMPLATE"
 fi
+
+print_info "Creating LXC container $CT_ID ($CT_HOSTNAME) using $LATEST_TEMPLATE...";
+
+pct create "$CT_ID" "$STORAGE_POOL:vztmpl/$LATEST_TEMPLATE" \
+    --hostname "$CT_HOSTNAME" \
+    --storage "$STORAGE_POOL" \
+    --cores "$CT_CORES" \
+    --memory "$CT_RAM_MB" \
+    --swap 0 \
+    --net0 name=eth0,bridge="$CT_BRIDGE",ip="$CT_IP_CIDR",gw="$CT_GATEWAY_IP" \
+    --onboot 1 \
+    --unprivileged 1
+
+print_info "Mounting datapool with ACL support...";
+pct set "$CT_ID" -mp0 /datapool,mp=/datapool,acl=1
+
+print_info "Starting container...";
+pct start "$CT_ID"
+
+sleep 10 # Wait for container to boot and network to be ready
+
+print_info "Installing Docker and essential tools inside the container...";
+if [[ "$CT_TEMPLATE_TYPE" == "alpine" ]]; then
+    pct exec "$CT_ID" -- apk update
+    pct exec "$CT_ID" -- apk add --no-cache docker docker-compose
+    pct exec "$CT_ID" -- rc-update add docker boot
+    pct exec "$CT_ID" -- service docker start
+elif [[ "$CT_TEMPLATE_TYPE" == "ubuntu" ]]; then
+    pct exec "$CT_ID" -- apt-get update
+    pct exec "$CT_ID" -- apt-get install -y docker.io docker-compose
+    pct exec "$CT_ID" -- systemctl enable --now docker
+fi
+
+print_success "LXC container for [$STACK_NAME] created and ready."

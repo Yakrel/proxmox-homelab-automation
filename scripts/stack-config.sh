@@ -1,98 +1,38 @@
 #!/bin/bash
 
-# Proxmox Homelab Stack Configurations
-# Single source of truth for all LXC specifications
+# This script defines the specifications for each LXC stack.
+# It uses a template type (e.g., 'alpine', 'ubuntu') instead of a hardcoded filename.
 
-# Stack resource specifications
-get_stack_specs() {
-    local stack_type="$1"
-    
-    case "$stack_type" in
+get_stack_config() {
+    local stack=$1
+    case $stack in
         "proxy")
-            echo "id=100 hostname=lxc-proxy-01 ip=192.168.1.100/24 cores=2 memory=2048 disk=20 template=alpine"
+            CT_ID="100"; CT_HOSTNAME="proxy"; CT_CORES="2"; CT_RAM_MB="2048"; CT_IP_CIDR="192.168.1.100/24"; CT_GATEWAY_IP="192.168.1.1"; CT_BRIDGE="vmbr0"; STORAGE_POOL="datapool";
+            CT_TEMPLATE_TYPE="alpine"
             ;;
         "media")
-            echo "id=101 hostname=lxc-media-01 ip=192.168.1.101/24 cores=4 memory=10240 disk=20 template=alpine"
+            CT_ID="101"; CT_HOSTNAME="media"; CT_CORES="4"; CT_RAM_MB="10240"; CT_IP_CIDR="192.168.1.101/24"; CT_GATEWAY_IP="192.168.1.1"; CT_BRIDGE="vmbr0"; STORAGE_POOL="datapool";
+            CT_TEMPLATE_TYPE="alpine"
             ;;
         "files")
-            echo "id=102 hostname=lxc-files-01 ip=192.168.1.102/24 cores=2 memory=3072 disk=20 template=alpine"
+            CT_ID="102"; CT_HOSTNAME="files"; CT_CORES="2"; CT_RAM_MB="3072"; CT_IP_CIDR="192.168.1.102/24"; CT_GATEWAY_IP="192.168.1.1"; CT_BRIDGE="vmbr0"; STORAGE_POOL="datapool";
+            CT_TEMPLATE_TYPE="alpine"
             ;;
         "webtools")
-            echo "id=103 hostname=lxc-webtools-01 ip=192.168.1.103/24 cores=2 memory=6144 disk=20 template=alpine"
+            CT_ID="103"; CT_HOSTNAME="webtools"; CT_CORES="2"; CT_RAM_MB="6144"; CT_IP_CIDR="192.168.1.103/24"; CT_GATEWAY_IP="192.168.1.1"; CT_BRIDGE="vmbr0"; STORAGE_POOL="datapool";
+            CT_TEMPLATE_TYPE="alpine"
             ;;
         "monitoring")
-            echo "id=104 hostname=lxc-monitoring-01 ip=192.168.1.104/24 cores=4 memory=6144 disk=20 template=alpine"
-            ;;
-        "content")
-            echo "id=105 hostname=lxc-content-01 ip=192.168.1.105/24 cores=4 memory=8192 disk=20 template=alpine"
+            CT_ID="104"; CT_HOSTNAME="monitoring"; CT_CORES="4"; CT_RAM_MB="6144"; CT_IP_CIDR="192.168.1.104/24"; CT_GATEWAY_IP="192.168.1.1"; CT_BRIDGE="vmbr0"; STORAGE_POOL="datapool";
+            CT_TEMPLATE_TYPE="alpine"
             ;;
         "development")
-            echo "id=150 hostname=lxc-development-01 ip=192.168.1.150/24 cores=4 memory=8192 disk=20 template=ubuntu"
+            CT_ID="150"; CT_HOSTNAME="development"; CT_CORES="4"; CT_RAM_MB="8192"; CT_IP_CIDR="192.168.1.150/24"; CT_GATEWAY_IP="192.168.1.1"; CT_BRIDGE="vmbr0"; STORAGE_POOL="datapool";
+            CT_TEMPLATE_TYPE="ubuntu"
             ;;
         *)
-            echo "ERROR: Unknown stack type: $stack_type" >&2
-            return 1
+            echo -e "\033[31m[ERROR]\033[0m Unknown stack: $stack" >&2
+            exit 1
             ;;
     esac
-}
-
-# Get all available stack types
-get_available_stacks() {
-    echo "proxy media files webtools monitoring content development"
-}
-
-# Parse stack specification into individual variables
-parse_stack_specs() {
-    local specs="$1"
-    local -n result_ref="$2"
-    
-    # Clear the associative array
-    for key in "${!result_ref[@]}"; do
-        unset result_ref["$key"]
-    done
-    
-    # Parse key=value pairs
-    local IFS=' '
-    for pair in $specs; do
-        local key="${pair%%=*}"
-        local value="${pair#*=}"
-        result_ref["$key"]="$value"
-    done
-}
-
-# Validate stack type
-validate_stack_type() {
-    local stack_type="$1"
-    local available_stacks
-    available_stacks=$(get_available_stacks)
-    
-    if [[ " $available_stacks " =~ " $stack_type " ]]; then
-        return 0
-    else
-        echo "ERROR: Invalid stack type: $stack_type" >&2
-        echo "Available stacks: $available_stacks" >&2
-        return 1
-    fi
-}
-
-# Display stack information
-show_stack_info() {
-    local stack_type="$1"
-    
-    if ! validate_stack_type "$stack_type"; then
-        return 1
-    fi
-    
-    local specs
-    specs=$(get_stack_specs "$stack_type")
-    
-    declare -A config
-    parse_stack_specs "$specs" config
-    
-    echo "Stack Type: $stack_type"
-    echo "  LXC ID: ${config[id]}"
-    echo "  Hostname: ${config[hostname]}"
-    echo "  IP Address: ${config[ip]}"
-    echo "  Resources: ${config[cores]} cores, $((${config[memory]}/1024))GB RAM, ${config[disk]}GB disk"
-    echo "  Template: ${config[template]}"
 }

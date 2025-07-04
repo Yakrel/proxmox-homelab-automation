@@ -4,26 +4,32 @@ This repository contains a collection of automation tools designed to customize 
 
 ## Quick Setup
 
+To get started, simply run the following command on your Proxmox VE host. This will download and execute the latest version of the installer, which provides an interactive menu.
+
 ```bash
-bash -c "$(wget -qO - https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/setup.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)"
 ```
 
-From the menu you can choose:
-- **Options 1-6**: Deploy individual stacks (proxy, media, files, webtools, monitoring, development)
-- **Options 7-8**: Security setup, storage setup, system maintenance
-
+From the interactive menu, you can choose to:
+- **Deploy specific LXC stacks**: Select from pre-defined stacks like Proxy, Media, Files, Webtools, Monitoring, and Development.
+- **Run Proxmox Helper Scripts**: Access various utility scripts for system configuration and maintenance.
 
 ## Deployment Approach
 
-This project uses 7 specialized LXC containers with unified management:
-- **Unified LXC Management**: Single configuration source with consistent resource allocation
-- **Community Script Integration**: Uses proven community Alpine Docker and Ubuntu scripts for reliable container creation
-- **Smart Environment Management**: Preserves existing API keys and passwords when re-running scripts
-- **Stack-based Architecture**: 7 separate stacks for better resource management and isolation
-- **Individual Stack Deployment**: Deploy each stack separately for better control
-- **Interactive Configuration**: Automated password and configuration setup
-- **Idempotent Scripts**: All scripts can be safely run multiple times for updates and maintenance
-- Docker stacks include their own watchtower for automatic updates
+This project employs a robust and flexible deployment strategy for 7 specialized LXC containers, focusing on automation, idempotency, and a clean Proxmox host environment:
+
+- **Single Command Execution**: The entire automation is initiated with a single `curl | bash` command, requiring no prior `git` installation or repository cloning on the Proxmox host.
+- **Clean Host Environment**: All operations are performed within a temporary directory on the Proxmox host, ensuring no permanent files are left behind after execution.
+- **Unified LXC Management**: Each LXC stack is defined with consistent resource allocation (CPU, RAM, Disk) and network configurations.
+- **Dynamic Template Selection**: LXC containers are created using the **latest available Alpine Linux or Ubuntu LTS templates** on your Proxmox host, ensuring up-to-date base systems without hardcoded versions.
+- **Intelligent .env Management**: 
+    - On first deployment, the installer interactively prompts for necessary passwords (e.g., JDownloader VNC, Firefox VNC) and creates the `.env` file within the LXC.
+    - On subsequent deployments (updates), the `.env` file is intelligently merged: new variables from the `.env.example` are added, while existing user-defined values (like passwords) are preserved.
+- **Direct Repository Integration**: `docker-compose.yml` files and `.env.example` templates for each stack are fetched directly from this GitHub repository at runtime, ensuring you always deploy the latest configurations.
+- **Idempotent Scripts**: All scripts are designed to be safely run multiple times. They will check for existing resources (LXC containers, configurations) and only perform actions if necessary, making updates and maintenance straightforward.
+- **Unprivileged LXC with ACL Support**: All LXC containers are created as unprivileged for enhanced security. The `/datapool/config` directory on the Proxmox host is automatically created and configured with `101000:101000` ownership and ACL support, ensuring seamless read/write access for Docker containers within the LXCs.
+- **Automated Docker Installation**: Docker and Docker Compose are automatically installed inside the newly created LXC containers.
+- **Swap Disabled**: LXC containers are configured with `swap=0` for optimized performance and stability, especially on ZFS-backed Proxmox hosts.
 
 ## System Overview
 
@@ -163,7 +169,6 @@ To ensure proper hardlinks and atomic moves, the following folder structure is u
 The monitoring stack provides comprehensive system and application monitoring using Prometheus, Grafana, and Alertmanager.
 
 **📖 Detailed Setup**: For complete setup instructions including Proxmox user creation, environment configuration, and troubleshooting, see [docker/monitoring/README-MONITORING.md](docker/monitoring/README-MONITORING.md).
-
 
 
 ## License
