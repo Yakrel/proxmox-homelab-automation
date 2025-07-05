@@ -23,26 +23,14 @@ set -e
 if [ "$(id -u)" -ne 0 ]; then echo "ERROR: Must be run as root"; exit 1; fi
 echo "Configuring timezone to Europe/Istanbul..."
 timedatectl set-timezone Europe/Istanbul
-echo "Configuring NTP servers for Turkey..."
-cat > /etc/chrony/chrony.conf << EOT
-pool tr.pool.ntp.org iburst
-server 0.tr.pool.ntp.org iburst
-server 1.tr.pool.ntp.org iburst
-server 2.tr.pool.ntp.org iburst
-pool 0.pool.ntp.org iburst
-driftfile /var/lib/chrony/chrony.drift
-makestep 1.0 3
-rtcsync
-leapsectz right/UTC
-logdir /var/log/chrony
-EOT
-systemctl restart chronyd
-echo "✓ Timezone and NTP configuration completed!"
+echo "✓ Timezone configuration completed!"
 EOF
 
     cat <<'EOF' > "$WORK_DIR/scripts/proxmox-helpers/install_security.sh"
 #!/bin/bash
 set -e
+if [ "$(id -u)" -ne 0 ]; then echo "ERROR: Must be run as root"; exit 1; fi
+print_info "Installing and configuring Fail2ban for Proxmox..."
 apt update && apt install -y fail2ban
 cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
 cat > /etc/fail2ban/filter.d/proxmox.conf << EOT
@@ -51,7 +39,7 @@ failregex = pvedaemon\[.*authentication failure; rhost=<HOST> user=.* msg=.*
 ignoreregex =
 journalmatch = _SYSTEMD_UNIT=pvedaemon.service
 EOT
-if ! grep -q "\[proxmox\]" /etc/fail2ban/jail.local; then
+if ! grep -q "^\[proxmox\]" /etc/fail2ban/jail.local; then
 cat >> /etc/fail2ban/jail.local << EOT
 
 [proxmox]
@@ -65,7 +53,7 @@ bantime = 1h
 EOT
 fi
 systemctl restart fail2ban
-echo "✓ Fail2ban installed and configured for Proxmox."
+print_success "✓ Fail2ban installed and configured for Proxmox."
 fail2ban-client status proxmox
 EOF
 
@@ -73,11 +61,12 @@ EOF
 #!/bin/bash
 set -e
 if [ "$(id -u)" -ne 0 ]; then echo "ERROR: Must be run as root"; exit 1; fi
+print_info "Installing storage tools (Samba, Sanoid)..."
 apt update && apt install -y samba sanoid
 read -p "Enter Samba username: " samba_username
 useradd -r -s /bin/false "$samba_username" 2>/dev/null || true
 usermod -a -G root "$samba_username"
-if ! grep -q "\[datapool\]" /etc/samba/smb.conf; then
+if ! grep -q "^\[datapool\]" /etc/samba/smb.conf; then
 cat >> /etc/samba/smb.conf << EOT
 
 [datapool]
@@ -87,8 +76,10 @@ cat >> /etc/samba/smb.conf << EOT
    valid users = $samba_username
 EOT
 fi
+read -s -p "Enter Samba password for $samba_username: " samba_password
+echo
 (echo "$samba_password"; echo "$samba_password") | smbpasswd -a -s "$samba_username"
-echo "✓ Samba configured."
+print_success "✓ Samba configured."
 mkdir -p /etc/sanoid
 cat > /etc/sanoid/sanoid.conf << EOT
 [template_system]
@@ -109,22 +100,23 @@ use_template = data
 recursive = yes
 EOT
 systemctl enable --now sanoid.timer
-echo "✓ Sanoid configured for ZFS snapshots."
+print_success "✓ Sanoid configured for ZFS snapshots."
 EOF
 
     cat <<'EOF' > "$WORK_DIR/scripts/proxmox-helpers/optimize_zfs.sh"
 #!/bin/bash
 set -e
 if [ "$(id -u)" -ne 0 ]; then echo "ERROR: Must be run as root"; exit 1; fi
-if ! command -v zfs >/dev/null 2>&1; then echo "ERROR: ZFS not found"; exit 1; fi
-read -p "Optimize ZFS? (atime, sync, ARC=50% RAM) (y/N): " confirm
-if [[ ! $confirm =~ ^[Yy]$ ]]; then echo "Cancelled."; exit 0; fi
+if ! command -v zfs >/dev/null 2>&1; then echo "ERROR: ZFS not found. Aborting."; exit 1; fi
+read -p "Do you want to apply ZFS optimizations? (atime=off, sync=disabled, ARC=50% RAM) (y/N): " confirm
+if [[ ! $confirm =~ ^[Yy]$ ]]; then echo "Operation cancelled."; exit 0; fi
+print_info "Applying ZFS optimizations..."
 zfs set atime=off rpool
 zfs set sync=disabled datapool
 arc_max_bytes=$(( $(free -g | awk 'NR==2{print $2}') / 2 * 1024 * 1024 * 1024 ))
 echo "options zfs zfs_arc_max=${arc_max_bytes}" > /etc/modprobe.d/zfs.conf
 update-initramfs -u -k all >/dev/null 2>&1
-echo "✓ ZFS optimization applied. Reboot required for ARC changes."
+print_success "✓ ZFS optimization applied. A reboot is required for ARC changes to take effect."
 EOF
 
     cat <<'EOF' > "$WORK_DIR/scripts/proxmox-helpers/setup_bonding.sh"
@@ -144,18 +136,20 @@ EOF
 
 # --- Helper Menu Loop ---
 
+unpack_helper_scripts
+
 while true; do
     clear
-    echo "======================================"
+    echo "======================================="
     echo " Proxmox Helper Scripts"
-    echo "======================================"
+    echo "======================================="
     echo
     echo "1) Configure Timezone (Europe/Istanbul)"
-    echo "2) Install Security (Fail2ban)"
-    echo "3) Install Storage (Samba + Sanoid)"
+    echo "2) Install Security Tools (Fail2ban)"
+    echo "3) Configure Storage (Samba + Sanoid)"
     echo "4) Optimize ZFS Performance"
     echo "5) Setup Network Bonding (Interactive)"
-    echo "--------------------------------------"
+    echo "---------------------------------------"
     echo "b) Back to Main Menu"
     echo "q) Quit"
     echo
