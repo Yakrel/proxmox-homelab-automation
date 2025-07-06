@@ -64,12 +64,12 @@ sleep 10 # Wait for container to boot and network to be ready
 print_info "Installing Docker and essential tools inside the container...";
 if [[ "$CT_TEMPLATE_TYPE" == "alpine" ]]; then
     pct exec "$CT_ID" -- apk update
-    pct exec "$CT_ID" -- apk add --no-cache docker docker-compose
+    pct exec "$CT_ID" -- apk add --no-cache docker docker-cli-compose
     pct exec "$CT_ID" -- rc-update add docker boot
     pct exec "$CT_ID" -- service docker start
 elif [[ "$CT_TEMPLATE_TYPE" == "ubuntu" ]]; then
     pct exec "$CT_ID" -- apt-get update
-    pct exec "$CT_ID" -- apt-get install -y docker.io docker-compose
+    pct exec "$CT_ID" -- apt-get install -y docker.io docker-compose-plugin
     pct exec "$CT_ID" -- systemctl enable --now docker
 fi
 

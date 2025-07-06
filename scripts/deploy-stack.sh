@@ -108,7 +108,7 @@ deploy_compose() {
     # Push and deploy
     pct push "$CT_ID" "$temp_compose" "/root/docker-compose.yml"
     print_info "Starting docker-compose up -d..."
-    pct exec "$CT_ID" -- docker-compose -f /root/docker-compose.yml up -d
+    pct exec "$CT_ID" -- docker compose -f /root/docker-compose.yml up -d
     print_success "Docker Compose stack for [$STACK_NAME] is deploying in the background."
 }
 
