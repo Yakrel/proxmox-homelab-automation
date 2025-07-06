@@ -61,24 +61,15 @@ Before you begin, ensure you have the following:
 
 ## Getting Started
 
-### 1. Clone the Repository
+### Quick Start
 
-First, clone this repository to your local machine or directly onto your Proxmox host.
-
-```bash
-git clone https://github.com/your-username/proxmox-homelab-automation.git
-cd proxmox-homelab-automation
-```
-
-### 2. Run the Installer
-
-The `installer.sh` script will guide you through the initial setup. It is designed to be run on the Proxmox host.
+Run this command on your Proxmox host to start the setup:
 
 ```bash
-bash installer.sh
+bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
 ```
 
-This script will help you configure the necessary settings for the LXC containers that will be created.
+This will download and run the installer script that will guide you through the initial setup and LXC container configuration.
 
 ## Service Stacks
 
