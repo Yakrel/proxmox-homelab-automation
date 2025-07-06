@@ -76,10 +76,13 @@ configure_env() {
         while IFS= read -r line || [[ -n "$line" ]]; do
             var_name=$(echo "$line" | cut -d '=' -f 1)
             var_value=$(echo "$line" | cut -d '=' -f 2-)
-            if [[ -z "$var_value" ]]; then
+            if [[ -z "$var_value" && "$var_name" != *"_COMMENT" ]]; then
                 if [[ "$var_name" == "PALMR_ENCRYPTION_KEY" ]]; then
                     user_input=$(head /dev/urandom | tr -dc A-Za-z0-9_ | head -c 32)
                     print_info "  -> Generated random key for PALMR_ENCRYPTION_KEY"
+                elif [[ "$var_name" == "JDOWNLOADER_VNC_PASSWORD" ]]; then
+                    user_input=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 12)
+                    print_info "  -> Generated random password for JDOWNLOADER_VNC_PASSWORD"
                 else
                     read -p "Please enter value for $var_name: " user_input </dev/tty
                 fi
