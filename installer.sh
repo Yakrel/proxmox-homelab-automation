@@ -62,6 +62,8 @@ for script_path in "${SCRIPTS_TO_DOWNLOAD[@]}"; do
         print_error "Failed to download $script_path. Please check the URL and repository structure."
         exit 1
     fi
+    # Convert line endings to Unix format (LF)
+    sed -i 's/\r$//' "$script_path"
     chmod +x "$script_path"
 done
 
