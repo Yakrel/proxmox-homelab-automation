@@ -22,8 +22,11 @@ print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 prepare_host() {
     print_info "(1/4) Preparing Proxmox host..."
     mkdir -p /datapool/config
-    chown -R 101000:101000 /datapool/config
-    print_success "Host prepared: /datapool/config ownership set to 101000."
+    if chown -R 101000:101000 /datapool/config 2>/dev/null; then
+        print_success "Host prepared: /datapool/config ownership set to 101000."
+    else
+        print_warning "Could not set ownership to 101000:101000, proceeding anyway."
+    fi
 }
 
 # --- Step 2: LXC Creation ---
@@ -54,53 +57,70 @@ configure_env() {
         return
     fi
 
-    # Check if .env already exists in the container
+    # Always prompt for password variables and create/update .env file
+    print_info "Processing .env file configuration..."
+    local temp_current_env="$WORK_DIR/.env.current"
+    local new_env_content=""
+    
+    # Get existing .env if it exists
     if pct exec "$CT_ID" -- test -f "$env_path"; then
-        print_info ".env file exists. Merging new variables..."
-        local temp_current_env="$WORK_DIR/.env.current"
+        print_info ".env file exists. Will update with new values..."
         pct pull "$CT_ID" "$env_path" "$temp_current_env"
-        
-        # Merge logic
-        while IFS= read -r line || [[ -n "$line" ]]; do
-            var_name=$(echo "$line" | cut -d '=' -f 1)
-            if ! grep -q "^$var_name=" "$temp_current_env"; then
-                echo "$line" >> "$temp_current_env"
-                print_info "  -> Added new variable: $var_name"
-            fi
-        done < "$temp_env_example"
-        pct push "$CT_ID" "$temp_current_env" "$env_path"
-        print_success "Merge complete."
     else
         print_info ".env file does not exist. Creating from scratch..."
-        local new_env_content=""
-        while IFS= read -r line || [[ -n "$line" ]]; do
-            var_name=$(echo "$line" | cut -d '=' -f 1)
-            var_value=$(echo "$line" | cut -d '=' -f 2-)
-            if [[ -z "$var_value" && "$var_name" != *"_COMMENT" ]]; then
-                if [[ "$var_name" == "PALMR_ENCRYPTION_KEY" ]]; then
+        touch "$temp_current_env"
+    fi
+    
+    # Process each variable from .env.example
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Skip empty lines and comments
+        if [[ -z "$line" ]] || [[ "$line" == \#* ]]; then
+            new_env_content+="$line\n"
+            continue
+        fi
+        
+        var_name=$(echo "$line" | cut -d '=' -f 1)
+        var_value=$(echo "$line" | cut -d '=' -f 2-)
+        
+        # Skip comment lines
+        if [[ "$var_name" == *"_COMMENT" ]]; then
+            new_env_content+="$line\n"
+            continue
+        fi
+        
+        # Handle variables that need values
+        if [[ -z "$var_value" ]]; then
+            if [[ "$var_name" == "PALMR_ENCRYPTION_KEY" ]]; then
+                # Check if already exists and has value
+                existing_value=$(grep "^$var_name=" "$temp_current_env" 2>/dev/null | cut -d '=' -f 2-)
+                if [[ -n "$existing_value" ]]; then
+                    user_input="$existing_value"
+                    print_info "  -> Using existing PALMR_ENCRYPTION_KEY"
+                else
                     user_input=$(head /dev/urandom | tr -dc A-Za-z0-9_ | head -c 32)
                     print_info "  -> Generated random key for PALMR_ENCRYPTION_KEY"
-                elif [[ "$var_name" == "GRAFANA_ADMIN_PASSWORD" ]]; then
-                    read -p "Please enter value for $var_name: " user_input </dev/tty
-                elif [[ "$var_name" == "JDOWNLOADER_VNC_PASSWORD" ]]; then
-                    read -p "Please enter value for $var_name: " user_input </dev/tty
-                elif [[ "$var_name" == "CLOUDFLARED_TOKEN" ]]; then
-                    read -p "Please enter value for $var_name: " user_input </dev/tty
-                elif [[ "$var_name" == "FIREFOX_VNC_PASSWORD" ]]; then
-                    read -p "Please enter value for $var_name: " user_input </dev/tty
-                else
-                    read -p "Please enter value for $var_name: " user_input </dev/tty
                 fi
-                new_env_content+="$var_name=$user_input\n"
+            elif [[ "$var_name" == "GRAFANA_ADMIN_PASSWORD" ]] || [[ "$var_name" == "JDOWNLOADER_VNC_PASSWORD" ]] || [[ "$var_name" == "FIREFOX_VNC_PASSWORD" ]]; then
+                # Always prompt for password variables
+                read -p "Please enter value for $var_name: " user_input </dev/tty
+                print_info "  -> Updated $var_name"
+            elif [[ "$var_name" == "CLOUDFLARED_TOKEN" ]]; then
+                read -p "Please enter value for $var_name: " user_input </dev/tty
+                print_info "  -> Updated $var_name"
             else
-                new_env_content+="$line\n"
+                read -p "Please enter value for $var_name: " user_input </dev/tty
+                print_info "  -> Updated $var_name"
             fi
-        done < "$temp_env_example"
-        # Push the new .env file
-        echo -e "$new_env_content" > "$WORK_DIR/.env.new"
-        pct push "$CT_ID" "$WORK_DIR/.env.new" "$env_path"
-        print_success "New .env file created and configured."
-    fi
+            new_env_content+="$var_name=$user_input\n"
+        else
+            new_env_content+="$line\n"
+        fi
+    done < "$temp_env_example"
+    
+    # Push the new .env file
+    echo -e "$new_env_content" > "$WORK_DIR/.env.new"
+    pct push "$CT_ID" "$WORK_DIR/.env.new" "$env_path"
+    print_success "Environment file configured successfully."
 }
 
 # --- Step 4: Docker Compose Deployment ---
