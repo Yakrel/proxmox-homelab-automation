@@ -66,6 +66,13 @@ configure_env() {
     if pct exec "$CT_ID" -- test -f "$env_path"; then
         print_info ".env file exists. Will update with new values..."
         pct pull "$CT_ID" "$env_path" "$temp_current_env"
+        
+        # Backup existing .env file
+        if pct exec "$CT_ID" -- cp "$env_path" "$env_path.backup" 2>/dev/null; then
+            print_info "  -> Backup created: $env_path.backup"
+        else
+            print_warning "  -> Could not create backup, proceeding anyway..."
+        fi
     else
         print_info ".env file does not exist. Creating from scratch..."
         touch "$temp_current_env"
