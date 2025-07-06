@@ -80,9 +80,14 @@ configure_env() {
                 if [[ "$var_name" == "PALMR_ENCRYPTION_KEY" ]]; then
                     user_input=$(head /dev/urandom | tr -dc A-Za-z0-9_ | head -c 32)
                     print_info "  -> Generated random key for PALMR_ENCRYPTION_KEY"
+                elif [[ "$var_name" == "GRAFANA_ADMIN_PASSWORD" ]]; then
+                    read -p "Please enter value for $var_name: " user_input </dev/tty
                 elif [[ "$var_name" == "JDOWNLOADER_VNC_PASSWORD" ]]; then
-                    user_input=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 12)
-                    print_info "  -> Generated random password for JDOWNLOADER_VNC_PASSWORD"
+                    read -p "Please enter value for $var_name: " user_input </dev/tty
+                elif [[ "$var_name" == "CLOUDFLARED_TOKEN" ]]; then
+                    read -p "Please enter value for $var_name: " user_input </dev/tty
+                elif [[ "$var_name" == "FIREFOX_VNC_PASSWORD" ]]; then
+                    read -p "Please enter value for $var_name: " user_input </dev/tty
                 else
                     read -p "Please enter value for $var_name: " user_input </dev/tty
                 fi
