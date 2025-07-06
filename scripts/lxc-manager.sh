@@ -24,18 +24,18 @@ print_info "Finding the latest template for type '$CT_TEMPLATE_TYPE'...";
 pveam update > /dev/null
 
 # Dynamically find the latest template filename
-LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" --section system | grep "$CT_TEMPLATE_TYPE" | sort -V | tail -n 1 | awk '{print $1}')
+LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | grep "$CT_TEMPLATE_TYPE" | sort -V | tail -n 1 | awk '{print $1}')
 
 if [ -z "$LATEST_TEMPLATE" ]; then
     print_warning "No local template found for '$CT_TEMPLATE_TYPE'. Downloading the latest version...";
     # The download name is usually the type itself, e.g., 'alpine-linux' or 'ubuntu'
-    local download_name="$CT_TEMPLATE_TYPE-linux"
+    download_name="$CT_TEMPLATE_TYPE-linux"
     if [ "$CT_TEMPLATE_TYPE" == "ubuntu" ]; then
         download_name="ubuntu"
     fi
     pveam download "$STORAGE_POOL" "$download_name"
     # Re-run the find command after download
-    LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" --section system | grep "$CT_TEMPLATE_TYPE" | sort -V | tail -n 1 | awk '{print $1}')
+    LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | grep "$CT_TEMPLATE_TYPE" | sort -V | tail -n 1 | awk '{print $1}')
     print_success "Downloaded: $LATEST_TEMPLATE"
 else
     print_info "Found latest available template: $LATEST_TEMPLATE"
@@ -43,7 +43,7 @@ fi
 
 print_info "Creating LXC container $CT_ID ($CT_HOSTNAME) using $LATEST_TEMPLATE...";
 
-pct create "$CT_ID" "$STORAGE_POOL:vztmpl/$LATEST_TEMPLATE" \
+pct create "$CT_ID" "$LATEST_TEMPLATE" \
     --hostname "$CT_HOSTNAME" \
     --storage "$STORAGE_POOL" \
     --cores "$CT_CORES" \
