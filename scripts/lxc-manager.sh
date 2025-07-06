@@ -48,10 +48,7 @@ pct create "$CT_ID" "$LATEST_TEMPLATE" \
     --storage "$STORAGE_POOL" \
     --cores "$CT_CORES" \
     --memory "$CT_RAM_MB" \
-    --swap 0 \
-    --net0 name=eth0,bridge="$CT_BRIDGE",ip="$CT_IP_CIDR",gw="$CT_GATEWAY_IP" \
-    --onboot 1 \
-    --unprivileged 1
+    --swap 0     --features keyctl=1,nesting=1     --net0 name=eth0,bridge="$CT_BRIDGE",ip="$CT_IP_CIDR",gw="$CT_GATEWAY_IP"     --onboot 1     --unprivileged 1
 
 print_info "Mounting datapool with ACL support...";
 pct set "$CT_ID" -mp0 /datapool,mp=/datapool,acl=1
@@ -67,10 +64,39 @@ if [[ "$CT_TEMPLATE_TYPE" == "alpine" ]]; then
     pct exec "$CT_ID" -- apk add --no-cache docker docker-cli-compose
     pct exec "$CT_ID" -- rc-update add docker boot
     pct exec "$CT_ID" -- service docker start
+# Autologin configuration
+print_info "Configuring autologin for root user..."
+pct exec "$CT_ID" -- passwd -d root # Delete root password
+pct exec "$CT_ID" -- apk add --no-cache util-linux # Install util-linux for agetty
+pct exec "$CT_ID" -- sh -c 'mkdir -p /etc/local.d'
+pct exec "$CT_ID" -- sh -c 'cat <<EOF >/etc/local.d/autologin.start
+#!/bin/sh
+sed -i '\''s|^tty1::respawn:.*|tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux|'\'' /etc/inittab
+kill -HUP 1
+EOF'
+pct exec "$CT_ID" -- sh -c 'chmod +x /etc/local.d/autologin.start'
+pct exec "$CT_ID" -- rc-update add local # Add to runlevel
+pct exec "$CT_ID" -- sh -c '/etc/local.d/autologin.start' # Apply immediately
+pct exec "$CT_ID" -- touch /root/.hushlogin # Prevent MOTD on login
+print_success "Autologin configured."
 elif [[ "$CT_TEMPLATE_TYPE" == "ubuntu" ]]; then
     pct exec "$CT_ID" -- apt-get update
     pct exec "$CT_ID" -- apt-get install -y docker.io docker-compose-plugin
     pct exec "$CT_ID" -- systemctl enable --now docker
+# Autologin configuration for Ubuntu
+print_info "Configuring autologin for root user..."
+pct exec "$CT_ID" -- passwd -d root # Delete root password
+pct exec "$CT_ID" -- apt-get install -y util-linux # Install util-linux for agetty
+pct exec "$CT_ID" -- sh -c 'mkdir -p /etc/systemd/system/getty@tty1.service.d'
+pct exec "$CT_ID" -- sh -c 'cat <<EOF >/etc/systemd/system/getty@tty1.service.d/autologin.conf
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin root --noclear %I \$TERM
+EOF'
+pct exec "$CT_ID" -- systemctl daemon-reload
+pct exec "$CT_ID" -- systemctl restart getty@tty1.service
+pct exec "$CT_ID" -- touch /root/.hushlogin # Prevent MOTD on login
+print_success "Autologin configured."
 fi
 
 print_success "LXC container for [$STACK_NAME] created and ready."
