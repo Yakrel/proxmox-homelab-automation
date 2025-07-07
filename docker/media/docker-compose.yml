@@ -7,8 +7,8 @@ services:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
     environment:
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -35,8 +35,8 @@ services:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
     environment:
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -57,8 +57,8 @@ services:
     image: lscr.io/linuxserver/bazarr:latest
     container_name: bazarr
     environment:
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -79,8 +79,8 @@ services:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
     environment:
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -103,8 +103,8 @@ services:
     depends_on:
       - jellyfin
     environment:
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -124,8 +124,8 @@ services:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
     environment:
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
       - WEBUI_PORT=8080
@@ -155,8 +155,8 @@ services:
     image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
     environment:
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -180,8 +180,8 @@ services:
       - LOG_HTML=false
       - CAPTCHA_SOLVER=flaresolverr
       - TZ=Europe/Istanbul
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
       - UMASK=002
     ports:
       - "8191:8191"
@@ -198,8 +198,8 @@ services:
     image: recyclarr/recyclarr:latest
     container_name: recyclarr
     environment:
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
     volumes:
@@ -248,8 +248,8 @@ services:
       - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 8,14,20,2 * * *
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
       - UMASK=002
     restart: unless-stopped
     networks:
@@ -264,8 +264,8 @@ services:
     image: ghcr.io/cleanuparr/cleanuparr:latest
     container_name: cleanuperr
     environment:
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
       - QUEUECLEANER__ENABLED=true

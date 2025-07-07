@@ -26,9 +26,9 @@ services:
       - '--web.enable-admin-api'
     environment:
       - TZ=${TZ:-Europe/Istanbul}
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
-    user: "${HOMELAB_PUID:-1000}:${HOMELAB_PGID:-1000}"
+      - PUID=1000
+      - PGID=1000
+    
     networks:
       - monitoring-net
     logging:
@@ -54,9 +54,9 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
       - GF_SECURITY_ALLOW_EMBEDDING=true
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
-    user: "${HOMELAB_PUID:-1000}:${HOMELAB_PGID:-1000}"
+      - PUID=1000
+      - PGID=1000
+    
     networks:
       - monitoring-net
     depends_on:
@@ -84,8 +84,8 @@ services:
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     environment:
       - TZ=${TZ:-Europe/Istanbul}
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
     networks:
       - monitoring-net
     logging:
@@ -110,8 +110,8 @@ services:
       - '--web.external-url=http://localhost:9093'
     environment:
       - TZ=${TZ:-Europe/Istanbul}
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
     networks:
       - monitoring-net
     logging:
@@ -132,8 +132,8 @@ services:
       - PVE_PASSWORD=${PVE_PASSWORD:-change_me}
       - PVE_URL=${PVE_URL:-https://192.168.1.10:8006}
       - PVE_VERIFY_SSL=${PVE_VERIFY_SSL:-false}
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
     networks:
       - monitoring-net
     logging:
@@ -151,8 +151,8 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 8,14,20,2 * * *
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
       - UMASK=002
     restart: unless-stopped
     networks:

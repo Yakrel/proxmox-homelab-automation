@@ -49,6 +49,7 @@ configure_env() {
     local env_path="/root/.env"
     local example_env_url="$REPO_BASE_URL/docker/$STACK_NAME/.env.example"
     local temp_env_example="$WORK_DIR/.env.example"
+    local temp_current_env="$WORK_DIR/.env.current"
 
     # Fetch the latest .env.example
     curl -sSL "$example_env_url" -o "$temp_env_example"
@@ -57,68 +58,48 @@ configure_env() {
         return
     fi
 
-    # Always prompt for password variables and create/update .env file
-    print_info "Processing .env file configuration..."
-    local temp_current_env="$WORK_DIR/.env.current"
-    local new_env_content=""
-    
-    # Get existing .env if it exists
+    # Get existing .env if it exists, to check for existing values
     if pct exec "$CT_ID" -- test -f "$env_path"; then
-        print_info ".env file exists. Will update with new values..."
         pct pull "$CT_ID" "$env_path" "$temp_current_env"
-        
-        # Backup existing .env file
-        if pct exec "$CT_ID" -- cp "$env_path" "$env_path.backup" 2>/dev/null; then
-            print_info "  -> Backup created: $env_path.backup"
-        else
-            print_warning "  -> Could not create backup, proceeding anyway..."
-        fi
     else
-        print_info ".env file does not exist. Creating from scratch..."
-        touch "$temp_current_env"
+        touch "$temp_current_env" # Create an empty file if it doesn't exist
     fi
+
+    print_info "Processing .env file configuration..."
+    local new_env_content=""
     
     # Process each variable from .env.example
     while IFS= read -r line || [[ -n "$line" ]]; do
-        # Skip empty lines and comments
+        # Preserve comments and empty lines
         if [[ -z "$line" ]] || [[ "$line" == \#* ]]; then
             new_env_content+="$line\n"
             continue
         fi
         
         var_name=$(echo "$line" | cut -d '=' -f 1)
-        var_value=$(echo "$line" | cut -d '=' -f 2-)
         
-        # Skip comment lines
-        if [[ "$var_name" == *"_COMMENT" ]]; then
-            new_env_content+="$line\n"
-            continue
-        fi
+        # --- Special Handling Logic ---
         
-        # Handle variables that need values
-        if [[ -z "$var_value" ]]; then
-            if [[ "$var_name" == "PALMR_ENCRYPTION_KEY" ]]; then
-                # Check if already exists and has value
-                existing_value=$(grep "^$var_name=" "$temp_current_env" 2>/dev/null | cut -d '=' -f 2-)
-                if [[ -n "$existing_value" ]]; then
-                    user_input="$existing_value"
-                    print_info "  -> Using existing PALMR_ENCRYPTION_KEY"
-                else
-                    user_input=$(head /dev/urandom | tr -dc A-Za-z0-9_ | head -c 32)
-                    print_info "  -> Generated random key for PALMR_ENCRYPTION_KEY"
-                fi
-            elif [[ "$var_name" == "GRAFANA_ADMIN_PASSWORD" ]] || [[ "$var_name" == "JDOWNLOADER_VNC_PASSWORD" ]] || [[ "$var_name" == "FIREFOX_VNC_PASSWORD" ]]; then
-                # Always prompt for password variables
-                read -p "Please enter value for $var_name: " user_input </dev/tty
-                print_info "  -> Updated $var_name"
-            elif [[ "$var_name" == "CLOUDFLARED_TOKEN" ]]; then
-                read -p "Please enter value for $var_name: " user_input </dev/tty
-                print_info "  -> Updated $var_name"
-            else
-                read -p "Please enter value for $var_name: " user_input </dev/tty
-                print_info "  -> Updated $var_name"
-            fi
+        # 1. Prompt for specific passwords
+        if [[ "$var_name" == "JDOWNLOADER_VNC_PASSWORD" ]] || [[ "$var_name" == "FIREFOX_VNC_PASSWORD" ]]; then
+            read -p "Please enter value for $var_name: " user_input </dev/tty
             new_env_content+="$var_name=$user_input\n"
+            print_info "  -> Set $var_name from user input."
+            
+        # 2. Generate Palmr encryption key only if it doesn't exist
+        elif [[ "$var_name" == "PALMR_ENCRYPTION_KEY" ]]; then
+            # Check if the key already exists and has a value in the current .env
+            existing_key=$(grep "^$var_name=" "$temp_current_env" | cut -d '=' -f 2-)
+            if [[ -n "$existing_key" ]]; then
+                new_env_content+="$var_name=$existing_key\n"
+                print_info "  -> Kept existing $var_name."
+            else
+                local generated_key=$(openssl rand -base64 32)
+                new_env_content+="$var_name=$generated_key\n"
+                print_info "  -> Generated new $var_name."
+            fi
+
+        # 3. For all other variables, copy the line as is
         else
             new_env_content+="$line\n"
         fi
@@ -126,6 +107,16 @@ configure_env() {
     
     # Push the new .env file
     echo -e "$new_env_content" > "$WORK_DIR/.env.new"
+    
+    # Backup existing .env file before pushing the new one
+    if pct exec "$CT_ID" -- test -f "$env_path"; then
+        if pct exec "$CT_ID" -- cp "$env_path" "$env_path.backup" 2>/dev/null; then
+            print_info "  -> Backup created: $env_path.backup"
+        else
+            print_warning "  -> Could not create backup, proceeding anyway..."
+        fi
+    fi
+    
     pct push "$CT_ID" "$WORK_DIR/.env.new" "$env_path"
     print_success "Environment file configured successfully."
 }

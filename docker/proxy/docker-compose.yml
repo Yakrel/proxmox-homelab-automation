@@ -10,8 +10,8 @@ services:
     command: tunnel --protocol http2 run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARED_TOKEN:?Cloudflare tunnel token must be defined}
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
       - /datapool/config/cloudflared:/etc/cloudflared:ro
@@ -58,8 +58,8 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 8,14,20,2 * * *
-      - PUID=${HOMELAB_PUID:-1000}
-      - PGID=${HOMELAB_PGID:-1000}
+      - PUID=1000
+      - PGID=1000
       - UMASK=002
     restart: unless-stopped
     networks:
