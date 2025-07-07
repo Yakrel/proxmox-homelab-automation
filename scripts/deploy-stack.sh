@@ -158,8 +158,16 @@ deploy_compose() {
 
 prepare_host
 create_lxc
-configure_env
-deploy_compose
+
+# --- Stack-Specific Deployment ---
+
+if [[ "$STACK_NAME" == "development" ]]; then
+    print_info "Development environment setup is complete. No Docker deployment needed."
+else
+    # Proceed with standard Docker-based deployment
+    configure_env
+    deploy_compose
+fi
 
 print_success "
 -------------------------------------------------

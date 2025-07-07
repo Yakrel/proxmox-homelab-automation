@@ -58,45 +58,84 @@ pct start "$CT_ID"
 
 sleep 10 # Wait for container to boot and network to be ready
 
-print_info "Installing Docker and essential tools inside the container...";
-if [[ "$CT_TEMPLATE_TYPE" == "alpine" ]]; then
-    pct exec "$CT_ID" -- apk update
-    pct exec "$CT_ID" -- apk add --no-cache docker docker-cli-compose
-    pct exec "$CT_ID" -- rc-update add docker boot
-    pct exec "$CT_ID" -- service docker start
-# Autologin configuration
-print_info "Configuring autologin for root user..."
-pct exec "$CT_ID" -- passwd -d root # Delete root password
-pct exec "$CT_ID" -- apk add --no-cache util-linux # Install util-linux for agetty
-pct exec "$CT_ID" -- sh -c 'mkdir -p /etc/local.d'
-pct exec "$CT_ID" -- sh -c 'cat <<EOF >/etc/local.d/autologin.start
-#!/bin/sh
-sed -i '\''s|^tty1::respawn:.*|tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux|'\'' /etc/inittab
-kill -HUP 1
-EOF'
-pct exec "$CT_ID" -- sh -c 'chmod +x /etc/local.d/autologin.start'
-pct exec "$CT_ID" -- rc-update add local # Add to runlevel
-pct exec "$CT_ID" -- sh -c '/etc/local.d/autologin.start' # Apply immediately
-pct exec "$CT_ID" -- touch /root/.hushlogin # Prevent MOTD on login
-print_success "Autologin configured."
-elif [[ "$CT_TEMPLATE_TYPE" == "ubuntu" ]]; then
+# --- Stack-Specific Provisioning ---
+
+if [[ "$STACK_NAME" == "development" ]]; then
+    # --- Development Environment Setup ---
+    print_info "Provisioning LXC for [development] environment...";
     pct exec "$CT_ID" -- apt-get update
-    pct exec "$CT_ID" -- apt-get install -y docker.io docker-compose-plugin
-    pct exec "$CT_ID" -- systemctl enable --now docker
-# Autologin configuration for Ubuntu
-print_info "Configuring autologin for root user..."
-pct exec "$CT_ID" -- passwd -d root # Delete root password
-pct exec "$CT_ID" -- apt-get install -y util-linux # Install util-linux for agetty
-pct exec "$CT_ID" -- sh -c 'mkdir -p /etc/systemd/system/getty@tty1.service.d'
-pct exec "$CT_ID" -- sh -c 'cat <<EOF >/etc/systemd/system/getty@tty1.service.d/autologin.conf
+
+    print_info "Installing Git and cURL..."
+    pct exec "$CT_ID" -- apt-get install -y git curl
+    print_success "Git and cURL installed."
+
+    print_info "Setting up NodeJS v20 (LTS) repository via NodeSource..."
+    pct exec "$CT_ID" -- bash -c "curl -fsSL https://deb.nodesource.com/setup_20.x | bash -"
+    print_info "Installing NodeJS v20..."
+    pct exec "$CT_ID" -- apt-get install -y nodejs
+    print_success "NodeJS v20 (LTS) installed successfully."
+
+    print_info "Installing global CLI tools: Gemini and Claude Code..."
+    pct exec "$CT_ID" -- npm install -g @google/gemini-cli @anthropic-ai/claude-code
+    print_success "Global CLI tools installed."
+
+    # Autologin configuration for Ubuntu
+    print_info "Configuring autologin for root user..."
+    pct exec "$CT_ID" -- passwd -d root # Delete root password
+    pct exec "$CT_ID" -- apt-get install -y util-linux # Install util-linux for agetty
+    pct exec "$CT_ID" -- sh -c 'mkdir -p /etc/systemd/system/getty@tty1.service.d'
+    pct exec "$CT_ID" -- sh -c 'cat <<EOF >/etc/systemd/system/getty@tty1.service.d/autologin.conf
 [Service]
 ExecStart=
 ExecStart=-/sbin/agetty --autologin root --noclear %I \$TERM
 EOF'
-pct exec "$CT_ID" -- systemctl daemon-reload
-pct exec "$CT_ID" -- systemctl restart getty@tty1.service
-pct exec "$CT_ID" -- touch /root/.hushlogin # Prevent MOTD on login
-print_success "Autologin configured."
+    pct exec "$CT_ID" -- systemctl daemon-reload
+    pct exec "$CT_ID" -- systemctl restart getty@tty1.service
+    pct exec "$CT_ID" -- touch /root/.hushlogin # Prevent MOTD on login
+    print_success "Autologin configured."
+
+else
+    # --- Standard Docker-based Setup ---
+    print_info "Installing Docker and essential tools inside the container...";
+    if [[ "$CT_TEMPLATE_TYPE" == "alpine" ]]; then
+        pct exec "$CT_ID" -- apk update
+        pct exec "$CT_ID" -- apk add --no-cache docker docker-cli-compose
+        pct exec "$CT_ID" -- rc-update add docker boot
+        pct exec "$CT_ID" -- service docker start
+        # Autologin configuration
+        print_info "Configuring autologin for root user..."
+        pct exec "$CT_ID" -- passwd -d root # Delete root password
+        pct exec "$CT_ID" -- apk add --no-cache util-linux # Install util-linux for agetty
+        pct exec "$CT_ID" -- sh -c 'mkdir -p /etc/local.d'
+        pct exec "$CT_ID" -- sh -c 'cat <<EOF >/etc/local.d/autologin.start
+#!/bin/sh
+sed -i '\''s|^tty1::respawn:.*|tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux|'\'' /etc/inittab
+kill -HUP 1
+EOF'
+        pct exec "$CT_ID" -- sh -c 'chmod +x /etc/local.d/autologin.start'
+        pct exec "$CT_ID" -- rc-update add local # Add to runlevel
+        pct exec "$CT_ID" -- sh -c '/etc/local.d/autologin.start' # Apply immediately
+        pct exec "$CT_ID" -- touch /root/.hushlogin # Prevent MOTD on login
+        print_success "Autologin configured."
+    elif [[ "$CT_TEMPLATE_TYPE" == "ubuntu" ]]; then
+        pct exec "$CT_ID" -- apt-get update
+        pct exec "$CT_ID" -- apt-get install -y docker.io docker-compose-plugin
+        pct exec "$CT_ID" -- systemctl enable --now docker
+        # Autologin configuration for Ubuntu
+        print_info "Configuring autologin for root user..."
+        pct exec "$CT_ID" -- passwd -d root # Delete root password
+        pct exec "$CT_ID" -- apt-get install -y util-linux # Install util-linux for agetty
+        pct exec "$CT_ID" -- sh -c 'mkdir -p /etc/systemd/system/getty@tty1.service.d'
+        pct exec "$CT_ID" -- sh -c 'cat <<EOF >/etc/systemd/system/getty@tty1.service.d/autologin.conf
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin root --noclear %I \$TERM
+EOF'
+        pct exec "$CT_ID" -- systemctl daemon-reload
+        pct exec "$CT_ID" -- systemctl restart getty@tty1.service
+        pct exec "$CT_ID" -- touch /root/.hushlogin # Prevent MOTD on login
+        print_success "Autologin configured."
+    fi
 fi
 
 print_success "LXC container for [$STACK_NAME] created and ready."

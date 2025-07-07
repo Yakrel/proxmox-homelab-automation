@@ -47,3 +47,6 @@ setting.local.json
 
 # Gemini AI files
 .gemini/
+# Node.js dependency files
+package.json
+package-lock.json
