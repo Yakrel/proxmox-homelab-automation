@@ -28,16 +28,7 @@ prepare_host() {
         print_warning "Could not set ownership to 101000:101000, proceeding anyway."
     fi
 
-    # --- TEMPORARY WORKAROUND for Palmr ---
-    # The kyantech/palmr:latest image ignores PUID/PGID and defaults to 1001.
-    # This chown ensures the container can write to its config volume.
-    # See GitHub issue: https://github.com/kyantech/Palmr/issues/126
-    if [ "$STACK_NAME" == "files" ]; then
-        print_info "Applying temporary ownership fix for Palmr..."
-        mkdir -p /datapool/config/palmr
-        chown -R 101001:101001 /datapool/config/palmr
-        print_success "Set ownership of /datapool/config/palmr to 101001."
-    fi
+    
 }
 
 # --- Step 2: LXC Creation ---

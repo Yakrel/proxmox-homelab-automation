@@ -55,11 +55,8 @@ services:
     image: kyantech/palmr:latest
     container_name: palmr
     environment:
-      # TEMPORARY WORKAROUND: PUID/PGID are set to 1001 because the current
-      # image ignores these variables and defaults to 1001.
-      # See GitHub Issue: https://github.com/kyantech/Palmr/issues/126
-      - PUID=1001
-      - PGID=1001
+      - PALMR_UID=1000
+      - PALMR_GID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
       - ENABLE_S3=false
