@@ -134,7 +134,7 @@ configure_homepage_config() {
         local target_config_dir="/datapool/config/homepage"
 
         # Ensure the target directory exists in the LXC
-        pct exec "$CT_ID" -- /usr/bin/mkdir -p "$target_config_dir"
+        pct exec "$CT_ID" -- mkdir -p "$target_config_dir"
 
         print_info "  -> Downloading and pushing homepage config files..."
 
