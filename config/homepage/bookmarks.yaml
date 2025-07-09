@@ -1,17 +1,7 @@
 # bookmarks.yaml
 
-- Social:
+- Project:
     - GitHub:
         icon: fab fa-github
-        href: "https://github.com/"
-        description: "Code hosting"
-    - Reddit:
-        icon: fab fa-reddit
-        href: "https://www.reddit.com/"
-        description: "The front page of the internet"
-
-- News:
-    - Hacker News:
-        icon: fab fa-hacker-news
-        href: "https://news.ycombinator.com/"
-        description: "Technology news"
+        href: "https://github.com/Yakrel/proxmox-homelab-automation"
+        description: "Proxmox Homelab Automation Repository"

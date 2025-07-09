@@ -5,6 +5,7 @@
     cpu: true
     memory: true
     disk: /
+    - disk: /datapool
 
 - search:
     provider: "duckduckgo"
