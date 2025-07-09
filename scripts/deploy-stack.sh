@@ -131,23 +131,38 @@ configure_homepage_config() {
     get_stack_config "$STACK_NAME"
 
     if [[ "$STACK_NAME" == "webtools" ]]; then
-        local homepage_config_dir="$WORK_DIR/config/homepage"
         local target_config_dir="/datapool/config/homepage"
 
         # Ensure the target directory exists in the LXC
-        pct exec "$CT_ID" -- mkdir -p "$target_config_dir"
+        pct exec "$CT_ID" -- /usr/bin/mkdir -p "$target_config_dir"
 
-        # Push the config files
-        print_info "  -> Pushing homepage config files to $target_config_dir..."
-        # Use rsync for idempotent and efficient copying
-        # First, ensure rsync is installed in the LXC
-        if ! pct exec "$CT_ID" -- command -v rsync >/dev/null; then
-            print_info "  -> rsync not found in LXC, installing..."
-            pct exec "$CT_ID" -- apt-get update && pct exec "$CT_ID" -- apt-get install -y rsync
-        fi
-        
-        # Use tar and untar for pushing directories, as pct push doesn't support directories directly
-        tar -C "$WORK_DIR/config" -cf - homepage | pct exec "$CT_ID" -- tar -C "/datapool/config" -xf -
+        print_info "  -> Downloading and pushing homepage config files..."
+
+        local homepage_config_files=(
+            "bookmarks.yaml"
+            "docker.yaml"
+            "services.yaml"
+            "settings.yaml"
+            "widgets.yaml"
+        )
+
+        for config_file in "${homepage_config_files[@]}"; do
+            local remote_url="$REPO_BASE_URL/config/homepage/$config_file"
+            local temp_file="$WORK_DIR/$config_file" # Use WORK_DIR (temp dir) for download
+
+            print_info "    -> Downloading $config_file"
+            curl -sSL "$remote_url" -o "$temp_file"
+            if [ ! -s "$temp_file" ]; then
+                print_error "Failed to download $config_file from $remote_url. Skipping."
+                continue
+            fi
+
+            print_info "    -> Pushing $config_file to LXC"
+            pct push "$CT_ID" "$temp_file" "$target_config_dir/$config_file"
+            # Clean up the temporary downloaded file
+            rm "$temp_file"
+        done
+
         print_success "Homepage config files configured successfully."
     else
         print_info "(4/5) No Homepage config to configure for stack [$STACK_NAME]. Skipping."
