@@ -19,7 +19,7 @@ services:
       - /datapool/config/jdownloader2:/config
       - /datapool:/datapool
     ports:
-      - "5801:5800"
+      - "5800:5800"
     networks:
       - files-net
     restart: unless-stopped

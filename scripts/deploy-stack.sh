@@ -83,7 +83,7 @@ configure_env() {
         # --- Special Handling Logic ---
         
         # 1. Prompt for specific passwords
-        if [[ "$var_name" == "JDOWNLOADER_VNC_PASSWORD" ]] || [[ "$var_name" == "FIREFOX_VNC_PASSWORD" ]]; then
+        if [[ "$var_name" == "JDOWNLOADER_VNC_PASSWORD" ]] || [[ "$var_name" == "FIREFOX_VNC_PASSWORD" ]] || [[ "$var_name" == "CLOUDFLARED_TOKEN" ]]; then
             read -p "Please enter value for $var_name: " user_input </dev/tty
             new_env_content+="$var_name=$user_input\n"
             print_info "  -> Set $var_name from user input."
