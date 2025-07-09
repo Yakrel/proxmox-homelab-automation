@@ -124,10 +124,40 @@ configure_env() {
     print_success "Environment file configured successfully."
 }
 
-# --- Step 4: Docker Compose Deployment ---
+# --- Step 4: Configure Homepage Config (if applicable) ---
+
+configure_homepage_config() {
+    print_info "(4/5) Configuring Homepage config files for [$STACK_NAME]..."
+    get_stack_config "$STACK_NAME"
+
+    if [[ "$STACK_NAME" == "webtools" ]]; then
+        local homepage_config_dir="$WORK_DIR/config/homepage"
+        local target_config_dir="/datapool/config/homepage"
+
+        # Ensure the target directory exists in the LXC
+        pct exec "$CT_ID" -- mkdir -p "$target_config_dir"
+
+        # Push the config files
+        print_info "  -> Pushing homepage config files to $target_config_dir..."
+        # Use rsync for idempotent and efficient copying
+        # First, ensure rsync is installed in the LXC
+        if ! pct exec "$CT_ID" -- command -v rsync >/dev/null; then
+            print_info "  -> rsync not found in LXC, installing..."
+            pct exec "$CT_ID" -- apt-get update && pct exec "$CT_ID" -- apt-get install -y rsync
+        fi
+        
+        # Use tar and untar for pushing directories, as pct push doesn't support directories directly
+        tar -C "$WORK_DIR/config" -cf - homepage | pct exec "$CT_ID" -- tar -C "/datapool/config" -xf -
+        print_success "Homepage config files configured successfully."
+    else
+        print_info "(4/5) No Homepage config to configure for stack [$STACK_NAME]. Skipping."
+    fi
+}
+
+# --- Step 5: Docker Compose Deployment ---
 
 deploy_compose() {
-    print_info "(4/4) Deploying Docker Compose stack for [$STACK_NAME]..."
+    print_info "(5/5) Deploying Docker Compose stack for [$STACK_NAME]..."
     get_stack_config "$STACK_NAME"
     local compose_url="$REPO_BASE_URL/docker/$STACK_NAME/docker-compose.yml"
     local temp_compose="$WORK_DIR/docker-compose.yml"
@@ -158,6 +188,7 @@ if [[ "$STACK_NAME" == "development" ]]; then
 else
     # Proceed with standard Docker-based deployment
     configure_env
+    configure_homepage_config
     deploy_compose
 fi
 
