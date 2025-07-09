@@ -1,6 +1,4 @@
-# settings.yaml
-
-title: My Homelab
+title: My Homelab Dashboard
 background:
   image: https://images.unsplash.com/photo-1604147706283-d7119b5b822c
   blur: sm
@@ -9,37 +7,43 @@ background:
   opacity: 80
 
 layout:
-  "My Services":
-    icon: fas fa-server
+  "Media Services":
+    icon: fas fa-film
     items:
-      - "Media":
-          items:
-            - Sonarr
-            - Radarr
-            - Bazarr
-            - Jellyfin
-            - Jellyseerr
-            - qBittorrent
-            - Prowlarr
-      - "Tools":
-          items:
-            - Homepage
-            - Firefox
-            - JDownloader
-            - "MeTube"
-            - Palmr
-      - "Monitoring":
-          items:
-            - Grafana
-            - Prometheus
-            - Alertmanager
-  "My Bookmarks":
+      - Sonarr
+      - Radarr
+      - Bazarr
+      - Jellyfin
+      - Jellyseerr
+      - qBittorrent
+      - Prowlarr
+
+  "Download Tools":
+    icon: fas fa-download
+    items:
+      - JDownloader2
+      - MeTube
+      - Palmr
+
+  "Web Tools":
+    icon: fas fa-globe
+    items:
+      - Homepage
+      - Firefox
+
+  "Monitoring":
+    icon: fas fa-chart-line
+    items:
+      - Grafana
+      - Prometheus
+
+  "Bookmarks":
     icon: fas fa-bookmark
     items:
       - "Social":
           items:
-            - "GitHub"
-            - "Reddit"
+            - GitHub
+            - Reddit
       - "News":
           items:
-            - "Hacker News"
+            - Hacker News
