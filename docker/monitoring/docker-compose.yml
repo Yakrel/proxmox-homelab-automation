@@ -14,8 +14,8 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - /datapool/config/monitoring/prometheus:/etc/prometheus:ro
-      - /datapool/config/monitoring/prometheus/data:/prometheus
+      - /datapool/config/prometheus:/etc/prometheus:ro
+      - /datapool/config/prometheus/data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -44,13 +44,13 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - grafana-data:/var/lib/grafana
-      - /datapool/config/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - /datapool/config/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - /datapool/config/grafana/data:/var/lib/grafana
+      - /datapool/config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - /datapool/config/grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
       - TZ=${TZ:-Europe/Istanbul}
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-change_me}
+      - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
       - GF_SECURITY_ALLOW_EMBEDDING=true
@@ -81,33 +81,7 @@ services:
       - '--path.procfs=/host/proc'
       - '--path.rootfs=/rootfs'
       - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
-      - PUID=1000
-      - PGID=1000
-    networks:
-      - monitoring-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-
-  alertmanager:
-    image: prom/alertmanager:latest
-    container_name: alertmanager
-    restart: unless-stopped
-    ports:
-      - "9093:9093"
-    volumes:
-      - /datapool/config/monitoring/alertmanager:/etc/alertmanager:ro
-      - /datapool/config/monitoring/alertmanager/data:/alertmanager
-    command:
-      - '--config.file=/etc/alertmanager/alertmanager.yml'
-      - '--storage.path=/alertmanager'
-      - '--web.external-url=http://localhost:9093'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($|/)'
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PUID=1000
@@ -128,10 +102,10 @@ services:
       - "9221:9221"
     environment:
       - TZ=${TZ:-Europe/Istanbul}
-      - PVE_USER=${PVE_USER:-monitoring@pve}
-      - PVE_PASSWORD=${PVE_PASSWORD:-change_me}
-      - PVE_URL=${PVE_URL:-https://192.168.1.10:8006}
-      - PVE_VERIFY_SSL=${PVE_VERIFY_SSL:-false}
+      - PVE_USER=${PVE_USER}
+      - PVE_PASSWORD=${PVE_PASSWORD}
+      - PVE_URL=${PVE_URL}
+      - PVE_VERIFY_SSL=${PVE_VERIFY_SSL}
       - PUID=1000
       - PGID=1000
     networks:

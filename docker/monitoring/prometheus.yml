@@ -1,13 +1,3 @@
-# Prometheus Configuration for Proxmox Homelab Monitoring
-# 
-# IMPORTANT: Update the IP addresses below to match your network configuration
-# Default IPs assume 192.168.1.x network with LXC IDs as last octet
-# Proxy LXC (100): 192.168.1.100
-# Media LXC (101): 192.168.1.101  
-# Files LXC (102): 192.168.1.102
-# Webtools LXC (103): 192.168.1.103
-# Monitoring LXC (104): 192.168.1.104 (this container)
-
 global:
   scrape_interval: 15s
   evaluation_interval: 15s

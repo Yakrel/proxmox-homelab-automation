@@ -14,33 +14,34 @@ source "$WORK_DIR/scripts/stack-config.sh"
 
 while true; do
     clear
-    echo "======================================="
-    echo " Proxmox Homelab - Stack Deployment"
-    echo "======================================="
+    echo "==============================================="
+    echo "      Proxmox Homelab - Stack Deployment"
+    echo "==============================================="
     echo
-    echo "1) Deploy [proxy]     Stack (LXC 100)"
-    echo "2) Deploy [media]     Stack (LXC 101)"
-    echo "3) Deploy [files]     Stack (LXC 102)"
-    echo "4) Deploy [webtools]  Stack (LXC 103)"
-    echo "5) Deploy [monitoring]Stack (LXC 104)"
-    echo "6) Deploy [development]Stack (LXC 150)"
-    echo "---------------------------------------"
-    echo "h) Run Proxmox Helper Scripts..."
-    echo "---------------------------------------"
-    echo "q) Quit"
+    echo "   1) Deploy [proxy]      Stack (LXC 100)"
+    echo "   2) Deploy [media]      Stack (LXC 101)"
+    echo "   3) Deploy [files]      Stack (LXC 102)"
+    echo "   4) Deploy [webtools]   Stack (LXC 103)"
+    echo "   5) Deploy [monitoring] Stack (LXC 104)"
+    echo "   6) Deploy [development]Stack (LXC 150)"
     echo
-    read -p "Enter your choice: " choice
+    echo "-----------------------------------------------"
+    echo "   h) Run Proxmox Helper Scripts..."
+    echo "-----------------------------------------------"
+    echo "   q) Quit"
+    echo
+    read -p "   Enter your choice: " choice
 
     case $choice in
-        1) bash "$WORK_DIR/scripts/deploy-stack.sh" "proxy" ;;
-        2) bash "$WORK_DIR/scripts/deploy-stack.sh" "media" ;;
-        3) bash "$WORK_DIR/scripts/deploy-stack.sh" "files" ;;
-        4) bash "$WORK_DIR/scripts/deploy-stack.sh" "webtools" ;;
-        5) bash "$WORK_DIR/scripts/deploy-stack.sh" "monitoring" ;;
-        6) bash "$WORK_DIR/scripts/deploy-stack.sh" "development" ;;
-        h) bash "$WORK_DIR/scripts/helper-menu.sh" ;;
+        1) bash "$WORK_DIR/scripts/deploy-stack.sh" "proxy" ; break ;;
+        2) bash "$WORK_DIR/scripts/deploy-stack.sh" "media" ; break ;;
+        3) bash "$WORK_DIR/scripts/deploy-stack.sh" "files" ; break ;;
+        4) bash "$WORK_DIR/scripts/deploy-stack.sh" "webtools" ; break ;;
+        5) bash "$WORK_DIR/scripts/deploy-stack.sh" "monitoring" ; break ;;
+        6) bash "$WORK_DIR/scripts/deploy-stack.sh" "development" ; break ;;
+        h) bash "$WORK_DIR/scripts/helper-menu.sh" ; break ;;
         q|Q) echo "Exiting."; exit 0 ;;
-        *) echo "Invalid choice. Please try again." ;;
+        *) echo "Invalid choice. Please try again." ; sleep 2 ;;
     esac
     echo
     read -p "Press Enter to return to the menu..."
