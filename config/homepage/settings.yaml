@@ -40,10 +40,6 @@ layout:
   "Bookmarks":
     icon: fas fa-bookmark
     items:
-      - "Social":
+      - "Project":
           items:
             - GitHub
-            - Reddit
-      - "News":
-          items:
-            - Hacker News
