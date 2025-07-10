@@ -31,9 +31,9 @@ if [ -z "$LATEST_TEMPLATE" ]; then
     # Dynamically find the latest available template name from pveam available
     # This assumes the template type is in the second column and we need to strip the date/arch suffix
     if [[ "$CT_TEMPLATE_TYPE" == "ubuntu" ]]; then
-        DOWNLOAD_TEMPLATE_NAME=$(pveam available | grep "system" | grep "ubuntu" | grep ".04-standard" | sort -V | tail -n 1 | awk '{print $2}' | sed 's/_.*//')
+        DOWNLOAD_TEMPLATE_NAME=$(pveam available | grep "system" | grep "ubuntu" | grep ".04-standard" | sort -V | tail -n 1 | awk '{print $2}')
     else
-        DOWNLOAD_TEMPLATE_NAME=$(pveam available | grep "system" | grep "$CT_TEMPLATE_TYPE" | sort -V | tail -n 1 | awk '{print $2}' | sed 's/_.*//')
+        DOWNLOAD_TEMPLATE_NAME=$(pveam available | grep "system" | grep "$CT_TEMPLATE_TYPE" | sort -V | tail -n 1 | awk '{print $2}')
     fi
 
     if [ -z "$DOWNLOAD_TEMPLATE_NAME" ]; then
