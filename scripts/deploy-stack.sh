@@ -22,6 +22,7 @@ print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 prepare_host() {
     print_info "(1/4) Preparing Proxmox host..."
     mkdir -p /datapool/config
+    mkdir -p /datapool/config/palmr/uploads
     if chown -R 101000:101000 /datapool/config 2>/dev/null; then
         print_success "Host prepared: /datapool/config ownership set to 101000."
     else

@@ -64,7 +64,7 @@ services:
       - APP_URL=https://palmr.byetgin.com
     volumes:
       - /datapool/config/palmr:/app/server
-      - /datapool/files:/app/uploads
+      - /datapool/config/palmr/uploads:/app/uploads
     ports:
       - "5487:5487"
       - "3333:3333"
