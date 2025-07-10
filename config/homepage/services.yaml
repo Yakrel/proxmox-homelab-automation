@@ -1,9 +1,9 @@
 # Homepage Services Configuration
 # This file defines all your homelab services and their widgets
 
-- name: Media Services
-  icon: fas fa-film
-  items:
+- Media Services:
+    icon: fas fa-film
+    items:
     - Sonarr:
         icon: sonarr.png
         href: http://192.168.1.101:8989
@@ -68,9 +68,9 @@
           url: http://192.168.1.101:6767
           key: "{{HOMEPAGE_VAR_BAZARR_API_KEY}}"
 
-- name: Download Tools
-  icon: fas fa-download
-  items:
+- Download Tools:
+    icon: fas fa-download
+    items:
     - JDownloader2:
         icon: jdownloader.png
         href: http://192.168.1.102:5801
@@ -86,9 +86,9 @@
         href: http://192.168.1.102:8090
         description: File Manager
 
-- name: Web Tools
-  icon: fas fa-globe
-  items:
+- Web Tools:
+    icon: fas fa-globe
+    items:
     - Homepage:
         icon: homepage.png
         href: http://192.168.1.103:3000
@@ -99,9 +99,9 @@
         href: http://192.168.1.103:5800
         description: Remote Browser
 
-- name: Monitoring Tools
-  icon: fas fa-chart-line
-  items:
+- Monitoring Tools:
+    icon: fas fa-chart-line
+    items:
     - Grafana:
         icon: grafana.png
         href: http://192.168.1.104:3000

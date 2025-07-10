@@ -2,8 +2,9 @@
     label: "System"
     cpu: true
     memory: true
-    disk: /
-    - disk: /datapool
+    disk:
+      - /
+      - /datapool
 
 - search:
     provider: "duckduckgo"
