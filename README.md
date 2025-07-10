@@ -2,6 +2,16 @@
 
 This repository contains a collection of scripts and configurations to automate the setup of a personal homelab environment on Proxmox VE. The architecture is based on creating separate LXC containers for different service stacks, each managed by Docker Compose.
 
+## Quick Start
+
+Run this command on your Proxmox host to start the setup:
+
+```bash
+bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
+```
+
+This will download and run the installer script that will guide you through the initial setup and LXC container configuration.
+
 ## Architecture Overview
 
 The philosophy of this project is to isolate different categories of services into their own lightweight Proxmox LXC containers. Each container runs a specific stack of services using Docker and Docker Compose. This approach offers several advantages:
@@ -12,44 +22,6 @@ The philosophy of this project is to isolate different categories of services in
 
 The main management is done via the `main-menu.sh` script, which provides an interactive menu to manage the deployment and configuration of these stacks.
 
-## Directory Structure
-
-```
-.
-├── .gitignore
-├── installer.sh
-├── README.md
-├── config/
-│   └── homepage/
-│       ├── bookmarks.yaml
-│       ├── docker.yaml
-│       ├── services.yaml
-│       ├── settings.yaml
-│       └── widgets.yaml
-├── docker/
-│   ├── files/
-│   │   ├── .env.example
-│   │   └── docker-compose.yml
-│   ├── media/
-│   │   ├── .env.example
-│   │   └── docker-compose.yml
-│   ├── monitoring/
-│   │   ├── .env.example
-│   │   └── docker-compose.yml
-│   ├── proxy/
-│   │   ├── .env.example
-│   │   └── docker-compose.yml
-│   └── webtools/
-│       ├── .env.example
-│       └── docker-compose.yml
-└── scripts/
-    ├── deploy-stack.sh
-    ├── helper-menu.sh
-    ├── lxc-manager.sh
-    ├── main-menu.sh
-    └── stack-config.sh
-```
-
 ## Prerequisites
 
 Before you begin, ensure you have the following:
@@ -58,18 +30,6 @@ Before you begin, ensure you have the following:
 - A prepared LXC template (e.g., Debian or Ubuntu) with basic tools like `curl` and `git` installed.
 - Your Proxmox host and the new LXC containers should be on the same network.
 - A local DNS server (like Pi-hole or AdGuard Home) is recommended for easy service access via hostnames.
-
-## Getting Started
-
-### Quick Start
-
-Run this command on your Proxmox host to start the setup:
-
-```bash
-bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
-```
-
-This will download and run the installer script that will guide you through the initial setup and LXC container configuration.
 
 ## Service Stacks
 
@@ -85,38 +45,67 @@ For each stack you want to deploy (e.g., `monitoring`, `media`):
 
 ### Available Stacks
 
-#### Monitoring Stack
+#### Proxy Stack
 
--   **Directory:** `docker/monitoring/`
+-   **Directory:** `docker/proxy/`
+-   **LXC Configuration:** 2 Cores, 2048MB RAM
 -   **Services:**
-    -   **Prometheus:** For metrics collection.
-    -   **Grafana:** For visualizing metrics with pre-configured dashboards.
-    -   **Alertmanager:** For handling alerts.
-    -   **Node Exporter:** For exporting host metrics.
--   **Default Credentials:**
-    -   **Grafana:** `admin:grafana` (it is highly recommended to change this).
--   **Ports:**
-    -   Grafana: `3000`
-    -   Prometheus: `9090`
+    -   Cloudflared
+    -   Node Exporter
+    -   Watchtower
 
 #### Media Stack
 
 -   **Directory:** `docker/media/`
--   **Services:** *[List of services to be added, e.g., Plex, Sonarr, Radarr]*
--   **Configuration:** Details about `.env` variables for media paths, etc.
+-   **LXC Configuration:** 4 Cores, 10240MB RAM
+-   **Services:**
+    -   Sonarr
+    -   Radarr
+    -   Bazarr
+    -   Jellyfin
+    -   Jellyseerr
+    -   qBittorrent
+    -   Prowlarr
+    -   FlareSolverr
+    -   Recyclarr
+    -   Node Exporter
+    -   Watchtower
+    -   Cleanuparr
 
-#### Proxy Stack
+#### Files Stack
 
--   **Directory:** `docker/proxy/`
--   **Services:** *[e.g., Nginx Proxy Manager, Traefik]*
--   **Configuration:** Details about domain configuration and network settings.
+-   **Directory:** `docker/files/`
+-   **LXC Configuration:** 2 Cores, 3072MB RAM
+-   **Services:**
+    -   JDownloader 2
+    -   MeTube
+    -   Palmr
+    -   Node Exporter
+    -   Watchtower
 
-#### Other Stacks
+#### Webtools Stack
 
--   `docker/files/`
--   `docker/webtools/`
+-   **Directory:** `docker/webtools/`
+-   **LXC Configuration:** 2 Cores, 6144MB RAM
+-   **Services:**
+    -   Homepage
+    -   Firefox
+    -   Node Exporter
+    -   Watchtower
+    -   Code-Server
+    -   Portainer
+    -   Uptime Kuma
 
-*(These sections should be filled out with details similar to the Monitoring stack.)*
+#### Monitoring Stack
+
+-   **Directory:** `docker/monitoring/`
+-   **LXC Configuration:** 4 Cores, 6144MB RAM
+-   **Services:**
+    -   Prometheus
+    -   Grafana
+    -   Node Exporter
+    -   Prometheus PVE Exporter
+    -   Watchtower
 
 ## Usage
 
@@ -130,12 +119,3 @@ To start the menu, run:
 ```bash
 bash scripts/main-menu.sh
 ```
-
-## Homepage Configuration
-
-The `config/homepage` directory contains the configuration for a [Homepage dashboard](https://gethomepage.dev/). This allows you to have a central, browser-based dashboard to access all your homelab services. The configuration files are:
-
--   `services.yaml`: Defines the services to be displayed.
--   `bookmarks.yaml`: For your favorite links.
--   `settings.yaml`: General settings for the homepage.
--   `widgets.yaml`: To display dynamic information (e.g., system stats).
