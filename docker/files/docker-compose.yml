@@ -39,9 +39,9 @@ services:
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/metube:/config
-      - /datapool:/datapool
+      - /datapool/media/youtube:/downloads
     ports:
-      - "8082:8081"
+      - "8081:8081"
     networks:
       - files-net
     restart: unless-stopped
