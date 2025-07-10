@@ -28,12 +28,19 @@ LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | grep "$CT_TEMPLATE_TYPE" | sort -
 
 if [ -z "$LATEST_TEMPLATE" ]; then
     print_warning "No local template found for '$CT_TEMPLATE_TYPE'. Downloading the latest version...";
-    # The download name is usually the type itself, e.g., 'alpine-linux' or 'ubuntu'
-    download_name="$CT_TEMPLATE_TYPE-linux"
-    if [ "$CT_TEMPLATE_TYPE" == "ubuntu" ]; then
-        download_name="ubuntu"
+    # Dynamically find the latest available template name from pveam available
+    # This assumes the template type is in the second column and we need to strip the date/arch suffix
+    if [[ "$CT_TEMPLATE_TYPE" == "ubuntu" ]]; then
+        DOWNLOAD_TEMPLATE_NAME=$(pveam available | grep "system" | grep "ubuntu" | grep ".04-standard" | sort -V | tail -n 1 | awk '{print $2}' | sed 's/_.*//')
+    else
+        DOWNLOAD_TEMPLATE_NAME=$(pveam available | grep "system" | grep "$CT_TEMPLATE_TYPE" | sort -V | tail -n 1 | awk '{print $2}' | sed 's/_.*//')
     fi
-    pveam download "$STORAGE_POOL" "$download_name"
+
+    if [ -z "$DOWNLOAD_TEMPLATE_NAME" ]; then
+        print_error "Could not find an available template for '$CT_TEMPLATE_TYPE'. Please check 'pveam available' output."
+        exit 1
+    fi
+    pveam download "$STORAGE_POOL" "$DOWNLOAD_TEMPLATE_NAME"
     # Re-run the find command after download
     LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | grep "$CT_TEMPLATE_TYPE" | sort -V | tail -n 1 | awk '{print $1}')
     print_success "Downloaded: $LATEST_TEMPLATE"
