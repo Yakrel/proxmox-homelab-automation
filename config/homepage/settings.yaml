@@ -7,39 +7,39 @@ background:
   opacity: 80
 
 layout:
-  "Media Services":
-    icon: fas fa-film
-    items:
-      - Sonarr
-      - Radarr
-      - Bazarr
-      - Jellyfin
-      - Jellyseerr
-      - qBittorrent
-      - Prowlarr
+  - Media Services:
+      icon: fas fa-film
+      items:
+        - Sonarr
+        - Radarr
+        - Bazarr
+        - Jellyfin
+        - Jellyseerr
+        - qBittorrent
+        - Prowlarr
 
-  "Download Tools":
-    icon: fas fa-download
-    items:
-      - JDownloader2
-      - MeTube
-      - Palmr
+  - Download Tools:
+      icon: fas fa-download
+      items:
+        - JDownloader2
+        - MeTube
+        - Palmr
 
-  "Web Tools":
-    icon: fas fa-globe
-    items:
-      - Homepage
-      - Firefox
+  - Web Tools:
+      icon: fas fa-globe
+      items:
+        - Homepage
+        - Firefox
 
-  "Monitoring":
-    icon: fas fa-chart-line
-    items:
-      - Grafana
-      - Prometheus
+  - Monitoring Tools:
+      icon: fas fa-chart-line
+      items:
+        - Grafana
+        - Prometheus
 
-  "Bookmarks":
-    icon: fas fa-bookmark
-    items:
-      - "Project":
-          items:
-            - GitHub
+  - Bookmarks:
+      icon: fas fa-bookmark
+      items:
+        - Project:
+            items:
+              - GitHub

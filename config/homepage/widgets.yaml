@@ -1,5 +1,3 @@
-# widgets.yaml
-
 - resources:
     label: "System"
     cpu: true
