@@ -1,121 +1,208 @@
-# Homepage Services Configuration
-# This file defines all your homelab services and their widgets
+Media Stack (LXC 101):
+  - Sonarr:
+      icon: sonarr.png
+      href: http://192.168.1.101:8989
+      description: TV Series Management & Automation
+      server: docker-socket-proxy
+      container: sonarr
+      widget:
+        type: sonarr
+        url: http://192.168.1.101:8989
+        key: "{{HOMEPAGE_VAR_SONARR_API_KEY}}"
 
-- Media Services:
-    icon: fas fa-film
-    items:
-    - Sonarr:
-        icon: sonarr.png
-        href: http://192.168.1.101:8989
-        description: TV Series Management
-        widget:
-          type: sonarr
-          url: http://192.168.1.101:8989
-          key: "{{HOMEPAGE_VAR_SONARR_API_KEY}}"
+  - Radarr:
+      icon: radarr.png
+      href: http://192.168.1.101:7878
+      description: Movie Management & Automation
+      server: docker-socket-proxy
+      container: radarr
+      widget:
+        type: radarr
+        url: http://192.168.1.101:7878
+        key: "{{HOMEPAGE_VAR_RADARR_API_KEY}}"
 
-    - Radarr:
-        icon: radarr.png
-        href: http://192.168.1.101:7878
-        description: Movie Management
-        widget:
-          type: radarr
-          url: http://192.168.1.101:7878
-          key: "{{HOMEPAGE_VAR_RADARR_API_KEY}}"
+  - Jellyfin:
+      icon: jellyfin.png
+      href: http://192.168.1.101:8096
+      description: Media Streaming Server
+      server: docker-socket-proxy
+      container: jellyfin
+      widget:
+        type: jellyfin
+        url: http://192.168.1.101:8096
+        key: "{{HOMEPAGE_VAR_JELLYFIN_API_KEY}}"
 
-    - Jellyfin:
-        icon: jellyfin.png
-        href: http://192.168.1.101:8096
-        description: Media Server
-        widget:
-          type: jellyfin
-          url: http://192.168.1.101:8096
-          key: "{{HOMEPAGE_VAR_JELLYFIN_API_KEY}}"
+  - qBittorrent:
+      icon: qbittorrent.png
+      href: http://192.168.1.101:8080
+      description: Torrent Download Client
+      server: docker-socket-proxy
+      container: qbittorrent
+      widget:
+        type: qbittorrent
+        url: http://192.168.1.101:8080
+        username: "{{HOMEPAGE_VAR_QB_USERNAME}}"
+        password: "{{HOMEPAGE_VAR_QB_PASSWORD}}"
 
-    - qBittorrent:
-        icon: qbittorrent.png
-        href: http://192.168.1.101:8080
-        description: Torrent Client
-        widget:
-          type: qbittorrent
-          url: http://192.168.1.101:8080
-          username: "{{HOMEPAGE_VAR_QB_USERNAME}}"
-          password: "{{HOMEPAGE_VAR_QB_PASSWORD}}"
+  - Jellyseerr:
+      icon: jellyseerr.png
+      href: http://192.168.1.101:5055
+      description: Media Request Management
+      server: docker-socket-proxy
+      container: jellyseerr
+      widget:
+        type: jellyseerr
+        url: http://192.168.1.101:5055
+        key: "{{HOMEPAGE_VAR_JELLYSEERR_API_KEY}}"
 
-    - Prowlarr:
-        icon: prowlarr.png
-        href: http://192.168.1.101:9696
-        description: Indexer Manager
-        widget:
-          type: prowlarr
-          url: http://192.168.1.101:9696
-          key: "{{HOMEPAGE_VAR_PROWLARR_API_KEY}}"
+  - Prowlarr:
+      icon: prowlarr.png
+      href: http://192.168.1.101:9696
+      description: Indexer Manager
+      server: docker-socket-proxy
+      container: prowlarr
+      widget:
+        type: prowlarr
+        url: http://192.168.1.101:9696
+        key: "{{HOMEPAGE_VAR_PROWLARR_API_KEY}}"
 
-    - Jellyseerr:
-        icon: jellyseerr.png
-        href: http://192.168.1.101:5055
-        description: Request Management
-        widget:
-          type: jellyseerr
-          url: http://192.168.1.101:5055
-          key: "{{HOMEPAGE_VAR_JELLYSEERR_API_KEY}}"
+  - Bazarr:
+      icon: bazarr.png
+      href: http://192.168.1.101:6767
+      description: Subtitle Management
+      server: docker-socket-proxy
+      container: bazarr
+      widget:
+        type: bazarr
+        url: http://192.168.1.101:6767
+        key: "{{HOMEPAGE_VAR_BAZARR_API_KEY}}"
 
-    - Bazarr:
-        icon: bazarr.png
-        href: http://192.168.1.101:6767
-        description: Subtitle Management
-        widget:
-          type: bazarr
-          url: http://192.168.1.101:6767
-          key: "{{HOMEPAGE_VAR_BAZARR_API_KEY}}"
+  - FlareSolverr:
+      icon: flaresolverr.png
+      href: http://192.168.1.101:8191
+      description: Cloudflare Bypass Proxy
+      server: docker-socket-proxy
+      container: flaresolverr
 
-- Download Tools:
-    icon: fas fa-download
-    items:
-    - JDownloader2:
-        icon: jdownloader.png
-        href: http://192.168.1.102:5801
-        description: Download Manager
+File Management (LXC 102):
+  - JDownloader2:
+      icon: jdownloader.png
+      href: http://192.168.1.102:5801
+      description: Universal Download Manager
+      server: docker-socket-proxy
+      container: jdownloader2
 
-    - MeTube:
-        icon: metube.png
-        href: http://192.168.1.102:8081
-        description: YouTube Downloader
+  - MeTube:
+      icon: metube.png
+      href: http://192.168.1.102:8081
+      description: YouTube & Video Downloader
+      server: docker-socket-proxy
+      container: metube
 
-    - Palmr:
-        icon: palmr.png
-        href: http://192.168.1.102:8090
-        description: File Manager
+  - Palmr:
+      icon: palmr.png
+      href: http://192.168.1.102:8090
+      description: Advanced File Manager
+      server: docker-socket-proxy
+      container: palmr
 
-- Web Tools:
-    icon: fas fa-globe
-    items:
-    - Homepage:
-        icon: homepage.png
-        href: http://192.168.1.103:3000
-        description: Your Homelab Dashboard
+Web Tools (LXC 103):
+  - Homepage:
+      icon: homepage.png
+      href: http://192.168.1.103:3000
+      description: Homelab Dashboard (You Are Here)
+      server: docker-socket-proxy
+      container: homepage
 
-    - Firefox:
-        icon: firefox.png
-        href: http://192.168.1.103:5800
-        description: Remote Browser
+  - Firefox:
+      icon: firefox.png
+      href: http://192.168.1.103:5800
+      description: Remote Web Browser
+      server: docker-socket-proxy
+      container: firefox
 
-- Monitoring Tools:
-    icon: fas fa-chart-line
-    items:
-    - Grafana:
-        icon: grafana.png
-        href: http://192.168.1.104:3000
-        description: Metrics Dashboard
-        widget:
-          type: grafana
-          url: http://192.168.1.104:3000
-          username: "{{HOMEPAGE_VAR_GRAFANA_USERNAME}}"
-          password: "{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}"
+  - Code Server:
+      icon: vscode.png
+      href: http://192.168.1.103:8443
+      description: VS Code in Browser
+      server: docker-socket-proxy
+      container: code-server
 
-    - Prometheus:
-        icon: prometheus.png
-        href: http://192.168.1.104:9090
-        description: Metrics Collection
-        widget:
-          type: prometheus
-          url: http://192.168.1.104:9090
+  - Portainer:
+      icon: portainer.png
+      href: http://192.168.1.103:9000
+      description: Docker Container Management
+      server: docker-socket-proxy
+      container: portainer
+      widget:
+        type: portainer
+        url: http://192.168.1.103:9000
+        env: 1
+        key: "{{HOMEPAGE_VAR_PORTAINER_API_KEY}}"
+
+  - Uptime Kuma:
+      icon: uptime-kuma.png
+      href: http://192.168.1.103:3001
+      description: Service Monitoring
+      server: docker-socket-proxy
+      container: uptime-kuma
+      widget:
+        type: uptimekuma
+        url: http://192.168.1.103:3001
+        slug: homelab
+
+Monitoring (LXC 104):
+  - Grafana:
+      icon: grafana.png
+      href: http://192.168.1.104:3000
+      description: Metrics Visualization Dashboard
+      server: docker-socket-proxy
+      container: grafana
+      widget:
+        type: grafana
+        url: http://192.168.1.104:3000
+        username: "{{HOMEPAGE_VAR_GRAFANA_USERNAME}}"
+        password: "{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}"
+
+  - Prometheus:
+      icon: prometheus.png
+      href: http://192.168.1.104:9090
+      description: Metrics Collection & Storage
+      server: docker-socket-proxy
+      container: prometheus
+      widget:
+        type: prometheus
+        url: http://192.168.1.104:9090
+
+  - Node Exporter:
+      icon: prometheus.png
+      href: http://192.168.1.104:9100
+      description: System Metrics Exporter
+      server: docker-socket-proxy
+      container: node-exporter
+
+Proxy Services (LXC 100):
+  - Cloudflared:
+      icon: cloudflare-zero-trust.png
+      href: https://dash.cloudflare.com
+      description: Cloudflare Tunnel
+      server: docker-socket-proxy
+      container: cloudflared
+
+  - Watchtower:
+      icon: watchtower.png
+      href: http://192.168.1.100:8080
+      description: Automatic Container Updates
+      server: docker-socket-proxy
+      container: watchtower
+
+Development (LXC 150):
+  - System Info:
+      icon: mdi-information-outline
+      href: http://192.168.1.150:22
+      description: Ubuntu Development Environment
+      
+  - Development Tools:
+      icon: mdi-dev-to
+      href: http://192.168.1.150:22
+      description: Node.js, NPM, Git, AI Tools

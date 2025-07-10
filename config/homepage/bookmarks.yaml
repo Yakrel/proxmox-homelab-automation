@@ -1,5 +1,74 @@
-- Project:
+- Proxmox Management:
+    - Proxmox VE:
+        - icon: proxmox.png
+          href: https://192.168.1.100:8006
+          description: Proxmox Virtual Environment
+          
+    - Proxmox Backup:
+        - icon: proxmox.png
+          href: https://192.168.1.100:8007
+          description: Proxmox Backup Server
+          
+- Network & Infrastructure:
+    - Router Admin:
+        - icon: router.png
+          href: http://192.168.1.1
+          description: Network Router Management
+          
+    - Network Switch:
+        - icon: switch.png
+          href: http://192.168.1.2
+          description: Managed Switch Interface
+          
+    - Pi-hole:
+        - icon: pi-hole.png
+          href: http://192.168.1.3/admin
+          description: DNS Ad Blocker
+          
+- Development Resources:
     - GitHub:
-        icon: fab fa-github
-        href: "https://github.com/Yakrel/proxmox-homelab-automation"
-        description: "Proxmox Homelab Automation Repository"
+        - icon: github.png
+          href: https://github.com/username/proxmox-homelab-automation
+          description: Project Repository
+          
+    - Docker Hub:
+        - icon: docker.png
+          href: https://hub.docker.com
+          description: Container Registry
+          
+    - Proxmox Documentation:
+        - icon: proxmox.png
+          href: https://pve.proxmox.com/pve-docs/
+          description: Official Proxmox Docs
+          
+- Homelab Resources:
+    - r/homelab:
+        - icon: reddit.png
+          href: https://reddit.com/r/homelab
+          description: Homelab Community
+          
+    - Self-Hosted:
+        - icon: awesome.png
+          href: https://github.com/awesome-selfhosted/awesome-selfhosted
+          description: Self-Hosted Services List
+          
+    - Linuxserver.io:
+        - icon: linuxserver.png
+          href: https://linuxserver.io
+          description: Quality Container Images
+          
+- Monitoring & Alerting:
+    - Prometheus Targets:
+        - icon: prometheus.png
+          href: http://192.168.1.104:9090/targets
+          description: Prometheus Targets Status
+          
+    - Grafana Dashboards:
+        - icon: grafana.png
+          href: http://192.168.1.104:3000/dashboards
+          description: Available Dashboards
+          
+    - Service Status:
+        - icon: uptime-kuma.png
+          href: http://192.168.1.103:3001/status/homelab
+          description: Public Status Page

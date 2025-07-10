@@ -1,45 +1,66 @@
-title: My Homelab Dashboard
+title: 🏠 Proxmox Homelab Dashboard
+favicon: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/proxmox.png
+
+theme: dark
+color: slate
+
+target: _blank
+base: http://192.168.1.103:3000
+
+headerStyle: boxed
+hideVersion: true
+
 background:
-  image: https://images.unsplash.com/photo-1604147706283-d7119b5b822c
+  image: https://images.unsplash.com/photo-1518709268805-4e9042af2176
   blur: sm
   saturate: 50
-  brightness: 50
-  opacity: 80
+  brightness: 30
+  opacity: 90
 
 layout:
-  - Media Services:
-      icon: fas fa-film
-      items:
-        - Sonarr
-        - Radarr
-        - Bazarr
-        - Jellyfin
-        - Jellyseerr
-        - qBittorrent
-        - Prowlarr
+  Media Stack (LXC 101):
+    style: row
+    columns: 4
+    icon: mdi-movie-open
+    
+  File Management (LXC 102):
+    style: row
+    columns: 3
+    icon: mdi-folder-multiple
+    
+  Web Tools (LXC 103):
+    style: row
+    columns: 4
+    icon: mdi-web
+    
+  Monitoring (LXC 104):
+    style: row
+    columns: 3
+    icon: mdi-monitor-dashboard
+    
+  Proxy Services (LXC 100):
+    style: row
+    columns: 2
+    icon: mdi-lan-connect
+    
+  Development (LXC 150):
+    style: row
+    columns: 2
+    icon: mdi-code-tags
 
-  - Download Tools:
-      icon: fas fa-download
-      items:
-        - JDownloader2
-        - MeTube
-        - Palmr
+providers:
+  longhorn:
+    url: http://192.168.1.104:9090
+    
+  prometheus:
+    url: http://192.168.1.104:9090
+    
+  grafana:
+    url: http://192.168.1.104:3000
+    username: "{{HOMEPAGE_VAR_GRAFANA_USERNAME}}"
+    password: "{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}"
 
-  - Web Tools:
-      icon: fas fa-globe
-      items:
-        - Homepage
-        - Firefox
-
-  - Monitoring Tools:
-      icon: fas fa-chart-line
-      items:
-        - Grafana
-        - Prometheus
-
-  - Bookmarks:
-      icon: fas fa-bookmark
-      items:
-        - Project:
-            items:
-              - GitHub
+quicklaunch:
+  searchDescriptions: true
+  hideInternetSearch: false
+  hideVisitURL: false

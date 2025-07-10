@@ -1,7 +1,12 @@
 - resources:
-    label: "System"
+    label: "Proxmox Host Resources"
+    expanded: true
     cpu: true
     memory: true
+    cputemp: true
+    uptime: true
+    units: metric
+    refresh: 3000
     disk:
       - /
       - /datapool
@@ -9,9 +14,58 @@
 - search:
     provider: "duckduckgo"
     target: "_blank"
+    focus: false
 
 - datetime:
     text_size: "xl"
     format:
       timeStyle: "short"
-      dateStyle: "long"
+      dateStyle: "full"
+      hour12: false
+
+- openmeteo:
+    label: "Istanbul Weather"
+    latitude: 41.0082
+    longitude: 28.9784
+    units: metric
+    cache: 5
+
+- unifi:
+    url: http://192.168.1.1:8443
+    username: "{{HOMEPAGE_VAR_UNIFI_USERNAME}}"
+    password: "{{HOMEPAGE_VAR_UNIFI_PASSWORD}}"
+    site: default
+
+- glances:
+    url: http://192.168.1.103:61208
+    username: "{{HOMEPAGE_VAR_GLANCES_USERNAME}}"
+    password: "{{HOMEPAGE_VAR_GLANCES_PASSWORD}}"
+    version: 4
+    metric: cpu
+
+- diskstation:
+    label: "Storage Overview"
+    expanded: true
+    disks:
+      - name: "Root Filesystem"
+        path: "/"
+        warning: 80
+        critical: 90
+      - name: "Data Pool"
+        path: "/datapool"
+        warning: 85
+        critical: 95
+
+- prometheus:
+    url: http://192.168.1.104:9090
+    query: "up"
+    label: "Services Status"
+
+- grafana:
+    url: http://192.168.1.104:3000
+    username: "{{HOMEPAGE_VAR_GRAFANA_USERNAME}}"
+    password: "{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}"
+    
+- longhorn:
+    url: http://192.168.1.104:9090
+    label: "Storage Health"

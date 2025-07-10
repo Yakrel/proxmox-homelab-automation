@@ -1,4 +1,2 @@
-# docker.yaml
-
-my-docker:
+docker-socket-proxy:
   socket: /var/run/docker.sock
