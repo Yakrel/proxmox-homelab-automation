@@ -42,21 +42,82 @@ unban_ip() {
     echo "======================================="
     echo
 
-    read -p "Enter Jail name (e.g., sshd, proxmox): " jail_name
-    read -p "Enter IP address to unban: " ip_address
+    local jails=$(fail2ban-client status | grep "Jail list:" | sed -E 's/.*Jail list:\s*//' | sed 's/,//g')
+    local banned_ips_array=()
+    local ip_jail_map=()
+    local counter=1
 
-    if [ -z "$jail_name" ] || [ -z "$ip_address" ]; then
-        echo "[ERROR] Jail name and IP address cannot be empty."
-        return 1
+    if [ -z "$jails" ]; then
+        echo "No active Fail2ban jails found."
+        return 0
     fi
 
-    echo "[INFO] Attempting to unban $ip_address from $jail_name..."
-    fail2ban-client set "$jail_name" unbanip "$ip_address"
-    if [ $? -eq 0 ]; then
-        echo "[OK] Successfully unbanned $ip_address from $jail_name."
+    echo "Currently Banned IPs:"
+    echo "---------------------"
+    for jail in $jails; do
+        local banned_for_jail=$(fail2ban-client status "$jail" | grep "Currently banned:" | sed -E 's/.*Currently banned:\s*//')
+        if [ -n "$banned_for_jail" ]; then
+            for ip in $banned_for_jail; do
+                echo "  $counter) $ip (Jail: $jail)"
+                banned_ips_array+=("$ip")
+                ip_jail_map+=("$jail")
+                counter=$((counter + 1))
+            done
+        fi
+    done
+
+    if [ ${#banned_ips_array[@]} -eq 0 ]; then
+        echo "No IPs currently banned across all jails."
+        echo
+        return 0
+    fi
+
+    echo
+    read -p "Enter the number of the IP to unban (or 'q' to cancel): " choice
+
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#banned_ips_array[@]}" ]; then
+        local selected_ip="${banned_ips_array[$((choice - 1))]}"
+        local selected_jail="${ip_jail_map[$((choice - 1))]}"
+        echo "[INFO] Attempting to unban $selected_ip from $selected_jail..."
+        fail2ban-client set "$selected_jail" unbanip "$selected_ip"
+        if [ $? -eq 0 ]; then
+            echo "[OK] Successfully unbanned $selected_ip from $selected_jail."
+        else
+            echo "[ERROR] Failed to unban $selected_ip from $selected_jail. Check logs."
+        fi
+    elif [[ "$choice" == "q" || "$choice" == "Q" ]]; then
+        echo "[INFO] Unban operation cancelled."
     else
-        echo "[ERROR] Failed to unban $ip_address from $jail_name. Check jail name and IP."
+        echo "[ERROR] Invalid choice. Please enter a valid number or 'q'."
     fi
+    echo
+}
+
+show_statistics() {
+    echo "======================================="
+    echo "      Fail2ban Statistics"
+    echo "======================================="
+    echo
+
+    local jails=$(fail2ban-client status | grep "Jail list:" | sed -E 's/.*Jail list:\s*//' | sed 's/,//g')
+
+    if [ -z "$jails" ]; then
+        echo "No active Fail2ban jails found."
+        return 0
+    fi
+
+    echo "Overall Fail2ban Statistics:"
+    echo "----------------------------"
+    fail2ban-client status
+    echo
+
+    echo "Jail-specific Statistics:"
+    echo "-------------------------"
+    for jail in $jails; do
+        echo "Jail: $jail"
+        fail2ban-client status "$jail"
+        echo
+    done
     echo
 }
 
@@ -70,6 +131,7 @@ while true; do
     echo
     echo "   1) List Jails and Banned IPs"
     echo "   2) Unban an IP Address"
+    echo "   3) Show Statistics"
     echo "---------------------------------------"
     echo "   b) Back to Main Menu"
     echo "   q) Quit"
@@ -79,6 +141,7 @@ while true; do
     case $choice in
         1) list_jails_and_bans; press_enter_to_continue ;;
         2) unban_ip; press_enter_to_continue ;;
+        3) show_statistics; press_enter_to_continue ;;
         b|B) break ;;
         q|Q) echo "Exiting."; exit 0 ;;
         *) echo "[ERROR] Invalid choice. Please try again."; sleep 2 ;;

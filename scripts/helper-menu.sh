@@ -68,7 +68,7 @@ enabled = true
 port = https,http,8006
 filter = proxmox
 backend = systemd
-maxretry = 3
+maxretry = 5
 findtime = 2d
 bantime = 1h
 EOT
@@ -202,10 +202,15 @@ run_optimize_zfs() {
 
     echo "[INFO] Writing ZFS ARC memory limit configuration..."
     arc_max_bytes=$(( $(free -g | awk 'NR==2{print $2}') / 2 * 1024 * 1024 * 1024 ))
-    mkdir -p /etc/modprobe.d
-    cat > /etc/modprobe.d/99-zfs-homelab.conf << EOT
-options zfs zfs_arc_max=${arc_max_bytes}
-EOT
+    mod_config="/etc/modprobe.d/zfs.conf"
+
+    if grep -q "zfs_arc_max" "$mod_config"; then
+        echo "[INFO] Updating existing zfs_arc_max entry in $mod_config..."
+        sed -i -e "s/^\s*options zfs zfs_arc_max=[0-9]*/options zfs zfs_arc_max=${arc_max_bytes}/g" "$mod_config"
+    else
+        echo "[INFO] Adding new zfs_arc_max entry to $mod_config..."
+        echo "options zfs zfs_arc_max=${arc_max_bytes}" >> "$mod_config"
+    fi
 
     echo "[INFO] Updating initramfs..."
     update-initramfs -u -k all >/dev/null
