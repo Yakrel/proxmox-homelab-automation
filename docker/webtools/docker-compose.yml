@@ -1,0 +1,108 @@
+networks:
+  webtools-net:
+    driver: bridge
+
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+       - /datapool/config/homepage:/app/config:rw
+       - /var/run/docker.sock:/var/run/docker.sock:ro
+       - /datapool:/datapool:ro # Added for datapool access
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=1000
+      - PGID=1000
+      - HOMEPAGE_ALLOWED_HOSTS=192.168.1.103:3000,192.168.1.103,localhost,0.0.0.0
+      - HOMEPAGE_VAR_SONARR_API_KEY=${HOMEPAGE_VAR_SONARR_API_KEY}
+      - HOMEPAGE_VAR_RADARR_API_KEY=${HOMEPAGE_VAR_RADARR_API_KEY}
+      - HOMEPAGE_VAR_PROWLARR_API_KEY=${HOMEPAGE_VAR_PROWLARR_API_KEY}
+      - HOMEPAGE_VAR_BAZARR_API_KEY=${HOMEPAGE_VAR_BAZARR_API_KEY}
+      - HOMEPAGE_VAR_JELLYFIN_API_KEY=${HOMEPAGE_VAR_JELLYFIN_API_KEY}
+      - HOMEPAGE_VAR_JELLYSEERR_API_KEY=${HOMEPAGE_VAR_JELLYSEERR_API_KEY}
+      - HOMEPAGE_VAR_QB_USERNAME=${HOMEPAGE_VAR_QB_USERNAME}
+      - HOMEPAGE_VAR_QB_PASSWORD=${HOMEPAGE_VAR_QB_PASSWORD}
+      - HOMEPAGE_VAR_GRAFANA_USERNAME=${HOMEPAGE_VAR_GRAFANA_USERNAME}
+      - HOMEPAGE_VAR_GRAFANA_PASSWORD=${HOMEPAGE_VAR_GRAFANA_PASSWORD}
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  firefox:
+    image: jlesage/firefox:latest
+    container_name: firefox
+    restart: unless-stopped
+    ports:
+      - "5800:5800"
+      - "5900:5900"
+    volumes:
+      - /datapool/config/firefox:/config:rw
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - VNC_PASSWORD=${FIREFOX_VNC_PASSWORD:?Firefox VNC password must be defined}
+      - PUID=1000
+      - PGID=1000
+      - KEEP_APP_RUNNING=1
+      - DISPLAY_WIDTH=1920
+      - DISPLAY_HEIGHT=1080
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  node-exporter-webtools:
+    image: prom/node-exporter:latest
+    container_name: node-exporter-webtools
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower-webtools:
+    image: containrrr/watchtower:latest
+    container_name: watchtower-webtools
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 8,14,20,2 * * *
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+    restart: unless-stopped
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

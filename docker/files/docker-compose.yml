@@ -1,0 +1,124 @@
+networks:
+  files-net:
+    driver: bridge
+
+services:
+  jdownloader2:
+    image: jlesage/jdownloader-2:latest
+    container_name: jdownloader2
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+      - KEEP_APP_RUNNING=1
+      - DISPLAY_WIDTH=1280
+      - DISPLAY_HEIGHT=768
+      - VNC_PASSWORD=${JDOWNLOADER_VNC_PASSWORD:?JDownloader VNC password must be defined}
+    volumes:
+      - /datapool/config/jdownloader2:/config
+      - /datapool:/datapool
+    ports:
+      - "5800:5800"
+    networks:
+      - files-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  metube:
+    image: ghcr.io/alexta69/metube:latest
+    container_name: metube
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/metube:/config
+      - /datapool/media/youtube:/downloads
+    ports:
+      - "8081:8081"
+    networks:
+      - files-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  palmr:
+    image: kyantech/palmr:latest
+    container_name: palmr
+    environment:
+      - PALMR_UID=1000
+      - PALMR_GID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+      - ENABLE_S3=false
+      - ENCRYPTION_KEY=${PALMR_ENCRYPTION_KEY:?Palmr encryption key must be defined (min 32 chars)}
+      - APP_URL=https://palmr.byetgin.com
+    volumes:
+      - /datapool/config/palmr:/app/server
+      - /datapool/config/palmr/uploads:/app/uploads
+    ports:
+      - "5487:5487"
+      - "3333:3333"
+    networks:
+      - files-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  node-exporter-files:
+    image: prom/node-exporter:latest
+    container_name: node-exporter-files
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+    networks:
+      - files-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower-files:
+    image: containrrr/watchtower:latest
+    container_name: watchtower-files
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 8,14,20,2 * * *
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+    restart: unless-stopped
+    networks:
+      - files-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

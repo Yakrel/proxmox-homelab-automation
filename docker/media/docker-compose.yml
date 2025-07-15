@@ -1,0 +1,310 @@
+networks:
+  media-net:
+    driver: bridge
+
+services:
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/sonarr:/config
+      - /datapool:/datapool
+    ports:
+      - "8989:8989"
+    networks:
+      - media-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8989/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/radarr:/config
+      - /datapool:/datapool
+    ports:
+      - "7878:7878"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/bazarr:/config
+      - /datapool:/datapool
+    ports:
+      - "6767:6767"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/jellyfin:/config
+      - /datapool:/datapool
+    ports:
+      - "8096:8096"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    depends_on:
+      - jellyfin
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/jellyseerr:/app/config
+    ports:
+      - "5055:5055"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+      - WEBUI_PORT=8080
+    volumes:
+      - /datapool/config/qbittorrent:/config
+      - /datapool:/datapool
+    ports:
+      - "8080:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+    networks:
+      - media-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v2/app/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/prowlarr:/config
+    ports:
+      - "9696:9696"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - LOG_LEVEL=info
+      - LOG_HTML=false
+      - CAPTCHA_SOLVER=flaresolverr
+      - TZ=Europe/Istanbul
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+    ports:
+      - "8191:8191"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  recyclarr:
+    image: recyclarr/recyclarr:latest
+    container_name: recyclarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/recyclarr:/config
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+
+  node-exporter-media:
+    image: prom/node-exporter:latest
+    container_name: node-exporter-media
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    environment:
+      - TZ=Europe/Istanbul
+    networks:
+      - media-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower-media:
+    image: containrrr/watchtower:latest
+    container_name: watchtower-media
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=Europe/Istanbul
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 8,14,20,2 * * *
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+    restart: unless-stopped
+    networks:
+      - media-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  cleanuperr:
+    image: ghcr.io/cleanuparr/cleanuparr:latest
+    container_name: cleanuperr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+      - QUEUECLEANER__ENABLED=true
+      - QUEUECLEANER__RUNSEQUENTIALLY=true
+      - QUEUECLEANER__IMPORT_FAILED_MAX_STRIKES=5
+      - QUEUECLEANER__STALLED_MAX_STRIKES=12
+      - SONARR__ENABLED=true
+      - SONARR__INSTANCES__0__URL=http://sonarr:8989
+      - SONARR__ENABLED=true
+      - SONARR__INSTANCES__0__URL=http://sonarr:8989
+      - SONARR__IMPORT_FAILED_MAX_STRIKES=8
+      - SONARR__SEARCHTYPE=Episode
+      - RADARR__ENABLED=true
+      - RADARR__INSTANCES__0__URL=http://radarr:7878
+      - RADARR__IMPORT_FAILED_MAX_STRIKES=8
+      - RADARR__SEARCHTYPE=Movie
+      - DOWNLOAD_CLIENT=qBittorrent
+      - QBITTORRENT__ENABLED=true
+      - QBITTORRENT__URL=http://qbittorrent:8080
+      - CONTENTBLOCKER__ENABLED=true
+      - CONTENTBLOCKER__BLACKLIST__ENABLED=true
+      - CONTENTBLOCKER__BLACKLIST__PATH=https://raw.githubusercontent.com/flmorg/cleanuperr/refs/heads/main/blacklist
+      - SCHEDULES__QUEUECLEANER=0 */20 * * * *
+      - SCHEDULES__CONTENTBLOCKER=0 0 */12 * * *
+    volumes:
+      - /datapool/config/cleanuperr:/config
+      - /datapool:/datapool
+    ports:
+      - "11011:11011"
+    networks:
+      - media-net
+    restart: unless-stopped
+    depends_on:
+      - sonarr
+      - radarr
+      - qbittorrent
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+

@@ -1,0 +1,6 @@
+
+---
+# docker.yaml
+# https://gethomepage.dev/latest/configs/docker/
+bubby:
+  socket: /var/run/docker.sock
