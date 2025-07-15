@@ -109,6 +109,8 @@ services:
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/jellyseerr:/app/config
+    dns:
+      - 8.8.8.8
     ports:
       - "5055:5055"
     networks:
@@ -263,6 +265,8 @@ services:
   cleanuperr:
     image: ghcr.io/cleanuparr/cleanuparr:latest
     container_name: cleanuperr
+    # NOTE: The environment variables below might be based on an older version of Cleanuparr (formerly Cleanuperr).
+    # It's recommended to verify their validity with the latest Cleanuparr documentation or Discord channel.
     environment:
       - PUID=1000
       - PGID=1000
@@ -272,8 +276,6 @@ services:
       - QUEUECLEANER__RUNSEQUENTIALLY=true
       - QUEUECLEANER__IMPORT_FAILED_MAX_STRIKES=5
       - QUEUECLEANER__STALLED_MAX_STRIKES=12
-      - SONARR__ENABLED=true
-      - SONARR__INSTANCES__0__URL=http://sonarr:8989
       - SONARR__ENABLED=true
       - SONARR__INSTANCES__0__URL=http://sonarr:8989
       - SONARR__IMPORT_FAILED_MAX_STRIKES=8
