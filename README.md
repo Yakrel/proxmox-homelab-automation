@@ -22,6 +22,10 @@ The philosophy of this project is to isolate different categories of services in
 
 The main management is done via the `main-menu.sh` script, which provides an interactive menu to manage the deployment and configuration of these stacks.
 
+## Idempotency & GitOps Philosophy
+
+This project is designed with idempotency and GitOps principles in mind. This means that running the scripts multiple times will always lead to the same desired state, without causing unintended side effects. Configurations are treated as code, allowing for consistent and repeatable deployments across your homelab environment.
+
 ## Prerequisites
 
 Before you begin, ensure you have the following:
@@ -107,15 +111,4 @@ For each stack you want to deploy (e.g., `monitoring`, `media`):
     -   Prometheus PVE Exporter
     -   Watchtower
 
-## Usage
 
-The main interaction with this project is through the `scripts/main-menu.sh`. This script provides a user-friendly interface to:
-
--   Deploy a new service stack to a new LXC container.
--   Update an existing stack.
--   Manage configurations.
-
-To start the menu, run:
-```bash
-bash scripts/main-menu.sh
-```

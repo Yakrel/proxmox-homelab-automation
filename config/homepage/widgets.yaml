@@ -15,14 +15,7 @@
     uptime: true
 
 - search:
-    provider: duckduckgo
+    provider: google
     target: _blank
 
-- openweathermap:
-    cache: 5
-    format:
-      maximumFractionDigits: 0
-    latitude: "{{HOMEPAGE_VAR_WEATHER_LAT}}" # Lütfen .env dosyanızda tanımlayın
-    longitude: "{{HOMEPAGE_VAR_WEATHER_LONG}}" # Lütfen .env dosyanızda tanımlayın
-    provider: openweathermap
-    units: metric
+
