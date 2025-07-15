@@ -272,26 +272,8 @@ services:
       - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
-      - QUEUECLEANER__ENABLED=true
-      - QUEUECLEANER__RUNSEQUENTIALLY=true
-      - QUEUECLEANER__IMPORT_FAILED_MAX_STRIKES=5
-      - QUEUECLEANER__STALLED_MAX_STRIKES=12
-      - SONARR__ENABLED=true
-      - SONARR__INSTANCES__0__URL=http://sonarr:8989
-      - SONARR__IMPORT_FAILED_MAX_STRIKES=8
-      - SONARR__SEARCHTYPE=Episode
-      - RADARR__ENABLED=true
-      - RADARR__INSTANCES__0__URL=http://radarr:7878
-      - RADARR__IMPORT_FAILED_MAX_STRIKES=8
-      - RADARR__SEARCHTYPE=Movie
-      - DOWNLOAD_CLIENT=qBittorrent
-      - QBITTORRENT__ENABLED=true
-      - QBITTORRENT__URL=http://qbittorrent:8080
-      - CONTENTBLOCKER__ENABLED=true
-      - CONTENTBLOCKER__BLACKLIST__ENABLED=true
-      - CONTENTBLOCKER__BLACKLIST__PATH=https://raw.githubusercontent.com/flmorg/cleanuperr/refs/heads/main/blacklist
-      - SCHEDULES__QUEUECLEANER=0 */20 * * * *
-      - SCHEDULES__CONTENTBLOCKER=0 0 */12 * * *
+      - PORT=11011
+      - BASE_PATH=
     volumes:
       - /datapool/config/cleanuperr:/config
       - /datapool:/datapool
