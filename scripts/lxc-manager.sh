@@ -63,7 +63,8 @@ if [ -z "$LATEST_TEMPLATE" ]; then
     # Dynamically find the latest available template name from pveam available
     # This assumes the template type is in the second column and we need to strip the date/arch suffix
     if [[ "$CT_TEMPLATE_TYPE" == "ubuntu" ]]; then
-        DOWNLOAD_TEMPLATE_NAME_FULL=$(pveam available | grep "system" | grep "ubuntu" | grep ".04-standard" | sort -V | tail -n 1 | awk '{print $2}')
+        # Filter for Ubuntu LTS versions only (even years ending in .04)
+        DOWNLOAD_TEMPLATE_NAME_FULL=$(pveam available | grep "system" | grep "ubuntu" | grep -E "\b(1[6-9]|[2-9][02468])\.04-standard" | sort -V | tail -n 1 | awk '{print $2}')
     else
         DOWNLOAD_TEMPLATE_NAME_FULL=$(pveam available | grep "system" | grep "$CT_TEMPLATE_TYPE" | sort -V | tail -n 1 | awk '{print $2}')
     fi
