@@ -37,15 +37,7 @@ Before you begin, ensure you have the following:
 
 ## Service Stacks
 
-This project is divided into several service stacks, each with its own `docker-compose.yml` and configuration. Before deploying a stack, you must configure its corresponding `.env` file.
-
-### How to Configure a Stack
-
-For each stack you want to deploy (e.g., `monitoring`, `media`):
-
-1.  Navigate to the stack's directory (e.g., `cd docker/monitoring`).
-2.  Copy the example environment file: `cp .env.example .env`.
-3.  Edit the `.env` file with your specific values (domain names, paths, credentials, etc.).
+This project is divided into several service stacks, each with its own `docker-compose.yml` and configuration. The deployment scripts will guide you through configuring the necessary environment variables for each stack.
 
 ### Available Stacks
 

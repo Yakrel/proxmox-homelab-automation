@@ -100,28 +100,34 @@ pct set "$CT_ID" -mp0 /datapool,mp=/datapool,acl=1
 print_info "Starting container...";
 pct start "$CT_ID"
 
-sleep 10 # Wait for container to boot and network to be ready
+print_info "Waiting for container to be ready...";
+max_wait=60
+interval=3
+elapsed=0
+until pct exec "$CT_ID" -- hostname >/dev/null 2>&1; do
+    if [ "$elapsed" -ge "$max_wait" ]; then
+        print_error "Container failed to start within $max_wait seconds."
+        exit 1
+    fi
+    sleep "$interval"
+    elapsed=$((elapsed + interval))
+done
+print_success "Container is ready."
 
 # --- Stack-Specific Provisioning ---
 
 if [[ "$STACK_NAME" == "development" ]]; then
     # --- Development Environment Setup ---
     print_info "Provisioning LXC for [development] environment...";
-    pct exec "$CT_ID" -- apt-get update
+
+    # Generate and set the locale to avoid warnings
+    print_info "Generating en_US.UTF-8 locale to prevent package configuration errors..."
+    pct exec "$CT_ID" -- bash -c "export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y locales && locale-gen en_US.UTF-8 && update-locale LANG=en_US.UTF-8"
+    print_success "Locale configured successfully."
 
     print_info "Installing Git and cURL..."
     pct exec "$CT_ID" -- apt-get install -y git curl
     print_success "Git and cURL installed."
-
-    print_info "Setting up NodeJS v20 (LTS) repository via NodeSource..."
-    pct exec "$CT_ID" -- bash -c "curl -fsSL https://deb.nodesource.com/setup_20.x | bash -"
-    print_info "Installing NodeJS v20..."
-    pct exec "$CT_ID" -- apt-get install -y nodejs
-    print_success "NodeJS v20 (LTS) installed successfully."
-
-    print_info "Installing global CLI tools: Gemini and Claude Code..."
-    pct exec "$CT_ID" -- npm install -g @google/gemini-cli @anthropic-ai/claude-code
-    print_success "Global CLI tools installed."
 
     # Autologin configuration for Ubuntu
     print_info "Configuring autologin for root user..."

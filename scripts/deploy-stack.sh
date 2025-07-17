@@ -9,6 +9,9 @@ STACK_NAME=$1
 WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 REPO_BASE_URL="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main"
 
+# Global variables for monitoring setup
+PVE_MONITORING_PASSWORD=""
+
 # --- Helper Functions ---
 print_info() { echo -e "\033[36m[INFO]\033[0m $1"; }
 print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
@@ -55,6 +58,56 @@ prepare_host() {
     else
         print_warning "Could not set ownership to 101000:101000, proceeding anyway."
     fi
+}
+
+# --- Step 1.1: Proxmox User Management (for monitoring stack) ---
+
+setup_proxmox_monitoring_user() {
+    print_info "(1.1/5) Setting up Proxmox monitoring user..."
+    
+    local PVE_MONITORING_USER="pve-exporter@pve"
+    local PVE_MONITORING_ROLE="PVEAuditor"
+    
+    # Check if user already exists
+    if pveum user list | grep -q "$PVE_MONITORING_USER"; then
+        print_info "  -> Proxmox user '$PVE_MONITORING_USER' already exists."
+    else
+        print_info "  -> Creating Proxmox user '$PVE_MONITORING_USER'..."
+        pveum user add "$PVE_MONITORING_USER" --comment "Monitoring user for PVE Exporter"
+        print_success "  -> User '$PVE_MONITORING_USER' created."
+    fi
+    
+    # Prompt for password (will be used in .env configuration)
+    if [ -z "$PVE_MONITORING_PASSWORD" ]; then
+        echo
+        print_info "Please set a password for the Proxmox monitoring user ($PVE_MONITORING_USER):"
+        while true; do
+            read -s -p "Enter password: " PVE_MONITORING_PASSWORD
+            echo " [Password entered]"  # Visual feedback
+            read -s -p "Confirm password: " PVE_MONITORING_PASSWORD_CONFIRM
+            echo " [Password confirmed]"  # Visual feedback
+            
+            if [[ "$PVE_MONITORING_PASSWORD" == "$PVE_MONITORING_PASSWORD_CONFIRM" ]]; then
+                if [[ ${#PVE_MONITORING_PASSWORD} -lt 8 ]]; then
+                    print_warning "Password must be at least 8 characters long. Please try again."
+                    continue
+                fi
+                break
+            else
+                print_warning "Passwords do not match. Please try again."
+            fi
+        done
+    fi
+    
+    # Set user password (idempotent - will update if password changed)
+    print_info "  -> Setting password for user '$PVE_MONITORING_USER'..."
+    echo "$PVE_MONITORING_PASSWORD" | pveum passwd "$PVE_MONITORING_USER"
+    
+    # Assign role (idempotent - no error if already assigned)
+    print_info "  -> Assigning role '$PVE_MONITORING_ROLE' to user '$PVE_MONITORING_USER'..."
+    pveum aclmod / -user "$PVE_MONITORING_USER" -role "$PVE_MONITORING_ROLE" 2>/dev/null || true
+    
+    print_success "Proxmox monitoring user setup complete."
 }
 
 # --- Step 2: LXC Creation ---
@@ -115,11 +168,7 @@ configure_env() {
         if [[ "$var_name" == "JDOWNLOADER_VNC_PASSWORD" ]] || \
            [[ "$var_name" == "FIREFOX_VNC_PASSWORD" ]] || \
            [[ "$var_name" == "CLOUDFLARED_TOKEN" ]] || \
-           [[ "$var_name" == "GF_SECURITY_ADMIN_PASSWORD" ]] || \
-           [[ "$var_name" == "PVE_PASSWORD" ]] || \
-           [[ "$var_name" == "PVE_USER" ]] || \
-           [[ "$var_name" == "PVE_URL" ]] || \
-           [[ "$var_name" == "PVE_VERIFY_SSL" ]]; then
+           [[ "$var_name" == "GF_SECURITY_ADMIN_PASSWORD" ]]; then
             if [[ -n "$existing_value" ]]; then
                 new_env_content+="$var_name=$existing_value\n"
                 print_info "  -> Kept existing $var_name."
@@ -127,6 +176,35 @@ configure_env() {
                 read -p "Please enter value for $var_name: " user_input </dev/tty
                 new_env_content+="$var_name=$user_input\n"
                 print_info "  -> Set $var_name from user input."
+            fi
+        
+        # 1.1. Auto-configure PVE monitoring credentials (monitoring stack only)
+        elif [[ "$var_name" == "PVE_USER" ]] && [[ "$STACK_NAME" == "monitoring" ]]; then
+            new_env_content+="$var_name=pve-exporter@pve\n"
+            print_info "  -> Set $var_name to 'pve-exporter@pve'."
+        
+        elif [[ "$var_name" == "PVE_PASSWORD" ]] && [[ "$STACK_NAME" == "monitoring" ]]; then
+            # Always use the password set during the Proxmox user setup step
+            # to ensure the .env file is in sync with the actual user password.
+            new_env_content+="$var_name=$PVE_MONITORING_PASSWORD\n"
+            print_info "  -> Set $var_name from Proxmox user setup (ensuring sync)."
+        
+        elif [[ "$var_name" == "PVE_URL" ]] && [[ "$STACK_NAME" == "monitoring" ]]; then
+            if [[ -n "$existing_value" ]]; then
+                new_env_content+="$var_name=$existing_value\n"
+                print_info "  -> Kept existing $var_name."
+            else
+                new_env_content+="$var_name=https://192.168.1.10:8006\n"
+                print_info "  -> Set $var_name to default Proxmox URL."
+            fi
+        
+        elif [[ "$var_name" == "PVE_VERIFY_SSL" ]] && [[ "$STACK_NAME" == "monitoring" ]]; then
+            if [[ -n "$existing_value" ]]; then
+                new_env_content+="$var_name=$existing_value\n"
+                print_info "  -> Kept existing $var_name."
+            else
+                new_env_content+="$var_name=false\n"
+                print_info "  -> Set $var_name to 'false' for lab environment."
             fi
         
         # 2. Generate Palmr encryption key if empty
@@ -276,13 +354,18 @@ deploy_compose() {
 
 # --- Main Execution ---
 
+# For monitoring stack, setup Proxmox user first
+if [[ "$STACK_NAME" == "monitoring" ]]; then
+    setup_proxmox_monitoring_user
+fi
+
 prepare_host
 create_lxc
 
 # --- Stack-Specific Deployment ---
 
 if [[ "$STACK_NAME" == "development" ]]; then
-    print_info "Development environment setup is complete. No Docker deployment needed."
+    : # Do nothing, setup is handled by lxc-manager.sh
 else
     # Proceed with standard Docker-based deployment
     configure_env
@@ -298,8 +381,6 @@ else
     deploy_compose
 fi
 
-print_success "
--------------------------------------------------
+print_success "-------------------------------------------------
 Deployment for stack [$STACK_NAME] initiated successfully!
--------------------------------------------------
-"
+-------------------------------------------------"

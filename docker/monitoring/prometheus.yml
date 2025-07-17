@@ -20,7 +20,7 @@ scrape_configs:
   # Node Exporter - Monitoring LXC (104)
   - job_name: 'node-exporter-monitoring'
     static_configs:
-      - targets: ['node-exporter:9100']
+      - targets: ['node-exporter-monitoring:9100']
         labels:
           instance: 'monitoring-lxc-104'
 

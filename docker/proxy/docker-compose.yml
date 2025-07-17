@@ -48,9 +48,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  watchtower:
+  watchtower-proxy:
     image: containrrr/watchtower:latest
-    container_name: watchtower
+    container_name: watchtower-proxy
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:

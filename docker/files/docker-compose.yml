@@ -17,7 +17,7 @@ services:
       - VNC_PASSWORD=${JDOWNLOADER_VNC_PASSWORD:?JDownloader VNC password must be defined}
     volumes:
       - /datapool/config/jdownloader2:/config
-      - /datapool:/datapool
+      - /datapool/torrents/other:/output
     ports:
       - "5800:5800"
     networks:

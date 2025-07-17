@@ -67,9 +67,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  node-exporter:
+  node-exporter-monitoring:
     image: prom/node-exporter:latest
-    container_name: node-exporter
+    container_name: node-exporter-monitoring
     restart: unless-stopped
     ports:
       - "9100:9100"
@@ -104,8 +104,7 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
       - PVE_USER=${PVE_USER}
       - PVE_PASSWORD=${PVE_PASSWORD}
-      - PVE_HOST=192.168.1.10
-      - PVE_PORT=8006
+      - PVE_URL=${PVE_URL}
       - PVE_VERIFY_SSL=${PVE_VERIFY_SSL}
       - PUID=1000
       - PGID=1000
