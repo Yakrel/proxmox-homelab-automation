@@ -113,72 +113,70 @@ recursive = yes
 EOT
     systemctl enable --now sanoid.timer >/dev/null 2>&1
 
-    # --- Samba User Configuration (Idempotent) ---
-    echo "[INFO] Configuring Samba user..."
-    read -p "Enter Samba username to manage: " samba_username
-    if ! id "$samba_username" &>/dev/null; then
-        echo "[INFO] Creating new system user '$samba_username'..."
-        useradd -r -s /bin/false "$samba_username"
-    fi
-
-    read -s -p "Enter new Samba password for $samba_username: " samba_password
-    echo
-    if [ -n "$samba_password" ]; then
-        (echo "$samba_password"; echo "$samba_password") | smbpasswd -a -s "$samba_username" >/dev/null
-    fi
-
-    # --- Modular Samba Configuration (Idempotent - Replace & Define) ---
-    echo "[INFO] Applying modular Samba configuration for [datapool]..."
+    # --- Idempotent Samba Configuration ---
+    
+    # 1. Enforce the desired state for the main smb.conf file.
+    # This guarantees the 'include' directive is present and correct.
+    echo "[INFO] Enforcing desired state for main Samba config..."
     local smb_conf="/etc/samba/smb.conf"
-    local conf_d_dir="/etc/samba/conf.d"
-    local share_conf_file="$conf_d_dir/datapool.conf"
-
-    # 1. Define and write the desired state for the main smb.conf
-    echo "[INFO] Writing desired state for main Samba config ($smb_conf)..."
     cat > "$smb_conf" << EOF
 # --- Base Samba Configuration (Managed by Automation) ---
 [global]
-    # Basic server settings
     workgroup = WORKGROUP
     server role = standalone server
     security = user
-
-    # Logging
     log file = /var/log/samba/log.%m
     max log size = 1000
-
-    # Performance
     socket options = TCP_NODELAY IPTOS_LOWDELAY
     read raw = yes
     write raw = yes
     strict locking = no
 
 # --- Share Definitions ---
-# Include the specific share configuration file.
-# Samba does NOT support wildcard includes like *.conf.
+# Modular configuration for shares.
 include = /etc/samba/conf.d/datapool.conf
 EOF
 
-    # 2. Create the conf.d directory
+    # 2. Ensure the share configuration directory exists.
+    local conf_d_dir="/etc/samba/conf.d"
     mkdir -p "$conf_d_dir"
 
-    # 3. Create/overwrite the desired state for the datapool share
-    echo "[INFO] Writing desired state to $share_conf_file..."
+    # 3. Get user info and ensure the system user exists.
+    echo "[INFO] Configuring Samba user and share..."
+    read -p "Enter Samba username to manage: " samba_username
+    if ! id "$samba_username" &>/dev/null; then
+        echo "[INFO] Creating new system user '$samba_username'..."
+        useradd -r -s /bin/false "$samba_username"
+    fi
+    
+    read -s -p "Enter new Samba password for $samba_username: " samba_password
+    echo
+
+    # 4. Idempotently manage the Samba database user.
+    if [ -n "$samba_password" ]; then
+        # First, attempt to add the user. The '-a' flag is for adding.
+        # If the user already exists, this command will fail.
+        if (echo "$samba_password"; echo "$samba_password") | smbpasswd -a -s "$samba_username" >/dev/null 2>&1; then
+            echo "[INFO] Added new user '$samba_username' to Samba."
+        else
+            # If adding failed, assume the user exists and just update the password.
+            echo "[INFO] User '$samba_username' already exists. Updating password..."
+            (echo "$samba_password"; echo "$samba_password") | smbpasswd -s "$samba_username" >/dev/null
+        fi
+    fi
+
+    # 5. Enforce the desired state for the share configuration file.
+    local share_conf_file="$conf_d_dir/datapool.conf"
+    echo "[INFO] Writing desired state for share to $share_conf_file..."
     cat > "$share_conf_file" << EOF
 # --- Datapool Share Definition (Managed by Automation) ---
 [datapool]
     path = /datapool
     browseable = yes
     read only = no
-
-    # Grant access ONLY to the specified user
     valid users = $samba_username
-    
-    # Force all file operations to be done as root for full, seamless access
     force user = root
     force group = root
-    
-    # Sensible defaults for security and permissions
     create mask = 0664
     directory mask = 0775
     guest ok = no
