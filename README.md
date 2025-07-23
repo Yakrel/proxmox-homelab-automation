@@ -98,4 +98,13 @@ This project is divided into several service stacks, each with its own `docker-c
     -   Prometheus PVE Exporter
     -   Watchtower
 
+## Grafana Dashboards
+
+After deploying the monitoring stack, you can import pre-configured dashboards into Grafana. Go to `Dashboards -> New -> Import` and use the following IDs:
+
+-   **Proxmox VE Overview:** `10347`
+    -   Provides a high-level overview of your Proxmox host and all guest VMs/LXCs.
+-   **Node Exporter Full:** `1860`
+    -   Provides detailed metrics for individual Linux systems (your LXC containers). Use the dropdown at the top to switch between different instances.
+
 
