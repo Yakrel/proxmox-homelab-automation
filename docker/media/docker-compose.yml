@@ -265,8 +265,6 @@ services:
   cleanuperr:
     image: ghcr.io/cleanuparr/cleanuparr:latest
     container_name: cleanuperr
-    # NOTE: The environment variables below might be based on an older version of Cleanuparr (formerly Cleanuperr).
-    # It's recommended to verify their validity with the latest Cleanuparr documentation or Discord channel.
     environment:
       - PUID=1000
       - PGID=1000
