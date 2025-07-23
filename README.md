@@ -31,9 +31,7 @@ This project is designed with idempotency and GitOps principles in mind. This me
 Before you begin, ensure you have the following:
 
 - A working Proxmox VE installation.
-- A prepared LXC template (e.g., Debian or Ubuntu) with basic tools like `curl` and `git` installed.
 - Your Proxmox host and the new LXC containers should be on the same network.
-- A local DNS server (like Pi-hole or AdGuard Home) is recommended for easy service access via hostnames.
 
 ## Service Stacks
 
@@ -88,9 +86,6 @@ This project is divided into several service stacks, each with its own `docker-c
     -   Firefox
     -   Node Exporter
     -   Watchtower
-    -   Code-Server
-    -   Portainer
-    -   Uptime Kuma
 
 #### Monitoring Stack
 

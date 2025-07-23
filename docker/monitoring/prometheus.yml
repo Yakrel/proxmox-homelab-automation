@@ -57,15 +57,15 @@ scrape_configs:
   # Proxmox VE Exporter
   - job_name: 'proxmox'
     static_configs:
-      - targets: ['prometheus-pve-exporter:9221']
+      - targets:
+        - '192.168.1.10' # Your Proxmox IP
     metrics_path: /pve
     params:
-      cluster: ['1']
-      node: ['1']
+      module: [default]
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
       - source_labels: [__param_target]
         target_label: instance
       - target_label: __address__
-        replacement: prometheus-pve-exporter:9221
+        replacement: prometheus-pve-exporter:9221 # The exporter's address

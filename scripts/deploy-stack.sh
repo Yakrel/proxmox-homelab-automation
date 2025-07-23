@@ -101,7 +101,7 @@ setup_proxmox_monitoring_user() {
     
     # Set user password (idempotent - will update if password changed)
     print_info "  -> Setting password for user '$PVE_MONITORING_USER'..."
-    echo "$PVE_MONITORING_PASSWORD" | pveum passwd "$PVE_MONITORING_USER"
+    (echo "$PVE_MONITORING_PASSWORD"; echo "$PVE_MONITORING_PASSWORD") | pveum passwd "$PVE_MONITORING_USER"
     
     # Assign role (idempotent - no error if already assigned)
     print_info "  -> Assigning role '$PVE_MONITORING_ROLE' to user '$PVE_MONITORING_USER'..."
@@ -305,7 +305,6 @@ configure_stack_configs() {
 
         local monitoring_config_files=(
             "prometheus.yml:$prometheus_config_dir"
-            "alertmanager.yml:$prometheus_config_dir"
             "alerts.yml:$prometheus_config_dir"
             "grafana-provisioning-dashboards.yml:$grafana_provisioning_dir"
             "grafana-provisioning-datasources.yml:$grafana_provisioning_dir"

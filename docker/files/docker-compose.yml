@@ -61,7 +61,7 @@ services:
       - TZ=Europe/Istanbul
       - ENABLE_S3=false
       - ENCRYPTION_KEY=${PALMR_ENCRYPTION_KEY:?Palmr encryption key must be defined (min 32 chars)}
-      - APP_URL=https://palmr.byetgin.com
+      - APP_URL=${PALMR_APP_URL:?Palmr App URL must be defined}
     volumes:
       - /datapool/config/palmr:/app/server
       - /datapool/config/palmr/uploads:/app/uploads
