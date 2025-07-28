@@ -2,6 +2,20 @@
 
 This repository contains a collection of scripts and configurations to automate the setup of a personal homelab environment on Proxmox VE. The architecture is based on creating separate LXC containers for different service stacks, each managed by Docker Compose.
 
+## ⚠️ Project Philosophy & Disclaimer
+
+This repository documents my personal homelab setup, tailored specifically to my own hardware and network configuration. It is shared publicly to showcase my approach to infrastructure-as-code, automation, and GitOps principles.
+
+**Please be aware that this is not a universal, one-click deployment solution.**
+
+By design, many values such as IP addresses, container IDs, and specific paths are hard-coded for my own convenience and rapid, repeatable deployments. If you wish to adapt this project for your own use, you should be prepared to:
+
+*   Thoroughly review all scripts and configuration files.
+*   Replace hard-coded values with your own environment's settings.
+*   Adjust resource allocations (CPU, RAM) to match your hardware.
+
+Feel free to fork this repository and use it as an inspiration or a template for your own homelab automation journey!
+
 ## Quick Start
 
 Run this command on your Proxmox host to start the setup:
@@ -106,5 +120,3 @@ After deploying the monitoring stack, you can import pre-configured dashboards i
     -   Provides a high-level overview of your Proxmox host and all guest VMs/LXCs.
 -   **Node Exporter Full:** `1860`
     -   Provides detailed metrics for individual Linux systems (your LXC containers). Use the dropdown at the top to switch between different instances.
-
-
