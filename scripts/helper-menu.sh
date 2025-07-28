@@ -317,7 +317,7 @@ while true; do
         4) run_optimize_zfs; press_enter_to_continue ;;
         5) run_setup_bonding; press_enter_to_continue ;;
         6) bash "$WORK_DIR/scripts/fail2ban-manager.sh"; press_enter_to_continue ;;
-        b|B) break ;;
+        b|B) exec bash "$WORK_DIR/scripts/main-menu.sh" ;;
         q|Q) echo "Exiting."; exit 0 ;;
         *) echo "[ERROR] Invalid choice. Please try again."; sleep 2 ;;
     esac
