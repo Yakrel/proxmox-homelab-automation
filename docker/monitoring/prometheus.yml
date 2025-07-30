@@ -17,40 +17,17 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Node Exporter - Monitoring LXC (104)
-  - job_name: 'node-exporter-monitoring'
+  # cAdvisor for container metrics
+  - job_name: 'cadvisor'
     static_configs:
-      - targets: ['node-exporter-monitoring:9100']
+      - targets:
+        - 'cadvisor-monitoring:8082' # Monitoring LXC
+        - '192.168.1.100:8082'      # Proxy LXC
+        - '192.168.1.101:8082'      # Media LXC
+        - '192.168.1.102:8082'      # Files LXC
+        - '192.168.1.103:8082'      # Webtools LXC
         labels:
-          instance: 'monitoring-lxc-104'
-
-  # Node Exporter - Proxy LXC (100)
-  - job_name: 'node-exporter-proxy'
-    static_configs:
-      - targets: ['192.168.1.100:9100']
-        labels:
-          instance: 'proxy-lxc-100'
-
-  # Node Exporter - Media LXC (101)
-  - job_name: 'node-exporter-media'
-    static_configs:
-      - targets: ['192.168.1.101:9100']
-        labels:
-          instance: 'media-lxc-101'
-
-  # Node Exporter - Files LXC (102)
-  - job_name: 'node-exporter-files'
-    static_configs:
-      - targets: ['192.168.1.102:9100']
-        labels:
-          instance: 'files-lxc-102'
-
-  # Node Exporter - Webtools LXC (103)
-  - job_name: 'node-exporter-webtools'
-    static_configs:
-      - targets: ['192.168.1.103:9100']
-        labels:
-          instance: 'webtools-lxc-103'
+          instance: 'cadvisor'
 
   
 

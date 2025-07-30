@@ -61,23 +61,21 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  node-exporter-webtools:
-    image: prom/node-exporter:latest
-    container_name: node-exporter-webtools
-    restart: unless-stopped
+  cadvisor-webtools:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor-webtools
+    privileged: true
     ports:
-      - "9100:9100"
+      - "8082:8080"
     volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
       - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.rootfs=/rootfs'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    restart: unless-stopped
     networks:
       - webtools-net
     logging:
