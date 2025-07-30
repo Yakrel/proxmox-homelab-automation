@@ -26,8 +26,27 @@ scrape_configs:
         - '192.168.1.101:8082'      # Media LXC
         - '192.168.1.102:8082'      # Files LXC
         - '192.168.1.103:8082'      # Webtools LXC
-        labels:
-          instance: 'cadvisor'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: 'cadvisor-monitoring:8082'
+        target_label: instance
+        replacement: 'monitoring-lxc-104'
+      - source_labels: [__address__]
+        regex: '192.168.1.100:8082'
+        target_label: instance
+        replacement: 'proxy-lxc-100'
+      - source_labels: [__address__]
+        regex: '192.168.1.101:8082'
+        target_label: instance
+        replacement: 'media-lxc-101'
+      - source_labels: [__address__]
+        regex: '192.168.1.102:8082'
+        target_label: instance
+        replacement: 'files-lxc-102'
+      - source_labels: [__address__]
+        regex: '192.168.1.103:8082'
+        target_label: instance
+        replacement: 'webtools-lxc-103'
 
   
 
