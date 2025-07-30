@@ -68,7 +68,7 @@ services:
         max-file: "3"
 
   cadvisor-monitoring:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
     container_name: cadvisor-monitoring
     privileged: true
     ports:

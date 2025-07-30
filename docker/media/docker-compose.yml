@@ -217,7 +217,7 @@ services:
 
 
   cadvisor-media:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
     container_name: cadvisor-media
     privileged: true
     ports:

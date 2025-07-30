@@ -62,7 +62,7 @@ services:
         max-file: "3"
 
   cadvisor-webtools:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
     container_name: cadvisor-webtools
     privileged: true
     ports:
