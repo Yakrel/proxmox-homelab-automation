@@ -1,3 +1,6 @@
+include:
+  - ../common/compose.yml
+
 networks:
   webtools-net:
     driver: bridge
@@ -61,46 +64,17 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  cadvisor-webtools:
-    image: gcr.io/cadvisor/cadvisor:v0.52.1
+  cadvisor:
+    extends:
+      service: cadvisor
     container_name: cadvisor-webtools
-    privileged: true
-    ports:
-      - "8082:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    devices:
-      - /dev/kmsg
-    restart: unless-stopped
     networks:
       - webtools-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-  watchtower-webtools:
-    image: containrrr/watchtower:latest
+  watchtower:
+    extends:
+      service: watchtower
     container_name: watchtower-webtools
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_SCHEDULE=0 0 8,14,20,2 * * *
-      - PUID=1000
-      - PGID=1000
-      - UMASK=002
-    restart: unless-stopped
+    command: ["--schedule", "0 0 8,14,20,2 * * *"]
     networks:
       - webtools-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
