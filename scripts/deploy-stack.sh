@@ -51,8 +51,15 @@ get_stack_config() {
 
 prepare_host() {
     print_info "(1/5) Preparing Proxmox host..."
-    mkdir -p /datapool/config
+    
+    # Create all necessary directories at once
+    mkdir -p /datapool/config/prometheus
+    mkdir -p /datapool/config/grafana/provisioning
+    mkdir -p /datapool/config/loki/data 
+    mkdir -p /datapool/config/promtail
+    mkdir -p /datapool/config/homepage
     mkdir -p /datapool/config/palmr/uploads
+    
     if chown -R 101000:101000 /datapool/config 2>/dev/null; then
         print_success "Host prepared: /datapool/config ownership set to 101000."
     else
@@ -255,9 +262,6 @@ configure_homepage_config() {
     if [[ "$STACK_NAME" == "webtools" ]]; then
         local target_config_dir="/datapool/config/homepage"
 
-        # Ensure the target directory exists in the LXC
-        pct exec "$CT_ID" -- mkdir -p "$target_config_dir"
-
         print_info "  -> Downloading and pushing homepage config files..."
 
         local homepage_config_files=(
@@ -296,10 +300,7 @@ configure_stack_configs() {
     if [[ "$STACK_NAME" == "monitoring" ]]; then
         local prometheus_config_dir="/datapool/config/prometheus"
         local grafana_provisioning_dir="/datapool/config/grafana/provisioning"
-
-        # Ensure target directories exist in the LXC
-        pct exec "$CT_ID" -- mkdir -p "$prometheus_config_dir"
-        pct exec "$CT_ID" -- mkdir -p "$grafana_provisioning_dir"
+        local loki_config_dir="/datapool/config/loki"
 
         print_info "  -> Downloading and pushing monitoring config files..."
 
@@ -323,10 +324,44 @@ configure_stack_configs() {
             rm "$temp_file"
         done
 
+        # Download and push Loki config
+        local loki_config_url="$REPO_BASE_URL/config/loki/loki.yml"
+        local temp_loki_file="$WORK_DIR/loki.yml"
+        
+        print_info "    -> Downloading loki.yml"
+        curl -sSL "$loki_config_url" -o "$temp_loki_file"
+        
+        print_info "    -> Pushing loki.yml to LXC ($loki_config_dir)"
+        pct push "$CT_ID" "$temp_loki_file" "$loki_config_dir/loki.yml"
+        rm "$temp_loki_file"
+
         print_success "Monitoring config files configured successfully."
     else
         print_info "(4.1/5) No stack-specific config to configure for stack [$STACK_NAME]. Skipping."
     fi
+}
+
+# --- Step 4.2: Configure Promtail Config (for all stacks) ---
+
+configure_promtail_config() {
+    print_info "(4.2/5) Configuring Promtail config for [$STACK_NAME]..."
+    get_stack_config "$STACK_NAME"
+    
+    local promtail_config_dir="/datapool/config/promtail"
+    local promtail_config_url="$REPO_BASE_URL/config/promtail/promtail.yml"
+    local temp_promtail_file="$WORK_DIR/promtail.yml"
+    
+    print_info "  -> Downloading promtail.yml template"
+    curl -sSL "$promtail_config_url" -o "$temp_promtail_file"
+    
+    # Replace host label with the actual hostname
+    sed -i "s/REPLACE_HOST_LABEL/$CT_HOSTNAME/g" "$temp_promtail_file"
+    
+    print_info "  -> Pushing customized promtail.yml to LXC ($promtail_config_dir)"
+    pct push "$CT_ID" "$temp_promtail_file" "$promtail_config_dir/promtail.yml"
+    rm "$temp_promtail_file"
+    
+    print_success "Promtail config configured successfully for $CT_HOSTNAME."
 }
 
 # --- Step 5: Docker Compose Deployment ---
@@ -376,6 +411,9 @@ else
     if [[ "$STACK_NAME" == "monitoring" ]]; then
         configure_stack_configs
     fi
+
+    # Configure Promtail for all stacks
+    configure_promtail_config
 
     deploy_compose
 fi

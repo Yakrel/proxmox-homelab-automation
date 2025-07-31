@@ -87,6 +87,13 @@ services:
     networks:
       - files-net
 
+  promtail:
+    extends:
+      service: promtail
+    container_name: promtail-files
+    networks:
+      - files-net
+
   watchtower:
     extends:
       service: watchtower

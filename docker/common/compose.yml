@@ -38,3 +38,23 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  promtail:
+    image: grafana/promtail:latest
+    restart: unless-stopped
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - /datapool/config/promtail:/etc/promtail:ro
+    command: -config.file=/etc/promtail/promtail.yml
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=1000
+      - PGID=1000
+    ports:
+      - "9080:9080"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

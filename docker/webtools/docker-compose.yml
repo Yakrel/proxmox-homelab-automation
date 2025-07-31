@@ -71,6 +71,13 @@ services:
     networks:
       - webtools-net
 
+  promtail:
+    extends:
+      service: promtail
+    container_name: promtail-webtools
+    networks:
+      - webtools-net
+
   watchtower:
     extends:
       service: watchtower
