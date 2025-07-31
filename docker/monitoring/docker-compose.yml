@@ -1,3 +1,6 @@
+include:
+  - ../common/compose.yml
+
 networks:
   monitoring-net:
     driver: bridge
@@ -67,32 +70,12 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  node-exporter-monitoring:
-    image: prom/node-exporter:latest
-    container_name: node-exporter-monitoring
-    restart: unless-stopped
-    ports:
-      - "9100:9100"
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.rootfs=/rootfs'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($|/)'
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
-      - PUID=1000
-      - PGID=1000
+  cadvisor:
+    extends:
+      service: cadvisor
+    container_name: cadvisor-monitoring
     networks:
       - monitoring-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   prometheus-pve-exporter:
     image: prompve/prometheus-pve-exporter:latest
@@ -116,23 +99,10 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  watchtower-monitoring:
-    image: containrrr/watchtower:latest
+  watchtower:
+    extends:
+      service: watchtower
     container_name: watchtower-monitoring
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_SCHEDULE=0 0 8,14,20,2 * * *
-      - PUID=1000
-      - PGID=1000
-      - UMASK=002
-    restart: unless-stopped
+    command: ["--schedule", "0 0 8,14,20,2 * * *"]
     networks:
       - monitoring-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"

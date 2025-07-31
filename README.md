@@ -59,7 +59,7 @@ This project is divided into several service stacks, each with its own `docker-c
 -   **LXC Configuration:** 2 Cores, 2048MB RAM
 -   **Services:**
     -   Cloudflared
-    -   Node Exporter
+    -   cAdvisor
     -   Watchtower
 
 #### Media Stack
@@ -76,7 +76,7 @@ This project is divided into several service stacks, each with its own `docker-c
     -   Prowlarr
     -   FlareSolverr
     -   Recyclarr
-    -   Node Exporter
+    -   cAdvisor
     -   Watchtower
     -   Cleanuparr
 
@@ -88,7 +88,7 @@ This project is divided into several service stacks, each with its own `docker-c
     -   JDownloader 2
     -   MeTube
     -   Palmr
-    -   Node Exporter
+    -   cAdvisor
     -   Watchtower
 
 #### Webtools Stack
@@ -98,7 +98,7 @@ This project is divided into several service stacks, each with its own `docker-c
 -   **Services:**
     -   Homepage
     -   Firefox
-    -   Node Exporter
+    -   cAdvisor
     -   Watchtower
 
 #### Monitoring Stack
@@ -108,7 +108,7 @@ This project is divided into several service stacks, each with its own `docker-c
 -   **Services:**
     -   Prometheus
     -   Grafana
-    -   Node Exporter
+    -   cAdvisor
     -   Prometheus PVE Exporter
     -   Watchtower
 
@@ -118,5 +118,5 @@ After deploying the monitoring stack, you can import pre-configured dashboards i
 
 -   **Proxmox VE Overview:** `10347`
     -   Provides a high-level overview of your Proxmox host and all guest VMs/LXCs.
--   **Node Exporter Full:** `1860`
-    -   Provides detailed metrics for individual Linux systems (your LXC containers). Use the dropdown at the top to switch between different instances.
+-   **cAdvisor Exporter:** `13979`
+    -   Provides detailed container-level metrics for each LXC. Use the dropdown at the top to switch between different instances.
