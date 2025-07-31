@@ -225,6 +225,13 @@ services:
     networks:
       - media-net
 
+  promtail:
+    extends:
+      service: promtail
+    container_name: promtail-media
+    networks:
+      - media-net
+
   watchtower:
     extends:
       service: watchtower

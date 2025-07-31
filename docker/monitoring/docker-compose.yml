@@ -64,6 +64,30 @@ services:
       - monitoring-net
     depends_on:
       - prometheus
+      - loki
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - /datapool/config/loki:/etc/loki:ro
+      - /datapool/config/loki/data:/loki/data
+    command: -config.file=/etc/loki/loki.yml
+    user: "1000:1000"
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=1000
+      - PGID=1000
+    networks:
+      - monitoring-net
     logging:
       driver: "json-file"
       options:
@@ -76,6 +100,15 @@ services:
     container_name: cadvisor-monitoring
     networks:
       - monitoring-net
+
+  promtail:
+    extends:
+      service: promtail
+    container_name: promtail-monitoring
+    networks:
+      - monitoring-net
+    depends_on:
+      - loki
 
   prometheus-pve-exporter:
     image: prompve/prometheus-pve-exporter:latest

@@ -32,6 +32,13 @@ services:
     networks:
       - proxy-net
 
+  promtail:
+    extends:
+      service: promtail
+    container_name: promtail-proxy
+    networks:
+      - proxy-net
+
   watchtower:
     extends:
       service: watchtower
