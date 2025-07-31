@@ -13,7 +13,7 @@ services:
     ports:
       - "3100:3100"
     volumes:
-      - ./loki-config.yml:/etc/loki/config.yml
+      - /root/loki-config.yml:/etc/loki/config.yml
       - /datapool/config/loki:/loki
     networks:
       - logging-net
