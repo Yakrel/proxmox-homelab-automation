@@ -321,8 +321,8 @@ configure_stack_configs() {
             )
         elif [[ "$STACK_NAME" == "logging" ]]; then
             config_files=(
-                "loki-config.yml:/root"
-                "promtail-config.yml:/root"
+                "loki-config.yml:/datapool/config/logging"
+                "promtail-config.yml:/datapool/config/logging"
             )
         fi
 
