@@ -37,6 +37,9 @@ get_stack_config() {
         "monitoring")
             CT_ID="104"; CT_HOSTNAME="lxc-monitoring-01";
             ;;
+        "logging")
+            CT_ID="105"; CT_HOSTNAME="lxc-logging-01";
+            ;;
         "development")
             CT_ID="150"; CT_HOSTNAME="lxc-development-01";
             ;;
@@ -293,24 +296,37 @@ configure_stack_configs() {
     print_info "(4.1/5) Configuring stack-specific config files for [$STACK_NAME]..."
     get_stack_config "$STACK_NAME"
 
-    if [[ "$STACK_NAME" == "monitoring" ]]; then
-        local prometheus_config_dir="/datapool/config/prometheus"
+    if [[ "$STACK_NAME" == "monitoring" ]] || [[ "$STACK_NAME" == "logging" ]]; then
+        local config_dir="/datapool/config/$STACK_NAME"
+        if [[ "$STACK_NAME" == "monitoring" ]]; then
+            config_dir="/datapool/config/prometheus"
+        fi
         local grafana_provisioning_dir="/datapool/config/grafana/provisioning"
 
         # Ensure target directories exist in the LXC
-        pct exec "$CT_ID" -- mkdir -p "$prometheus_config_dir"
-        pct exec "$CT_ID" -- mkdir -p "$grafana_provisioning_dir"
+        pct exec "$CT_ID" -- mkdir -p "$config_dir"
+        if [[ "$STACK_NAME" == "monitoring" ]]; then
+            pct exec "$CT_ID" -- mkdir -p "$grafana_provisioning_dir"
+        fi
 
-        print_info "  -> Downloading and pushing monitoring config files..."
+        print_info "  -> Downloading and pushing $STACK_NAME config files..."
 
-        local monitoring_config_files=(
-            "prometheus.yml:$prometheus_config_dir"
-            "alerts.yml:$prometheus_config_dir"
-            "grafana-provisioning-dashboards.yml:$grafana_provisioning_dir"
-            "grafana-provisioning-datasources.yml:$grafana_provisioning_dir"
-        )
+        local config_files=()
+        if [[ "$STACK_NAME" == "monitoring" ]]; then
+            config_files=(
+                "prometheus.yml:$config_dir"
+                "alerts.yml:$config_dir"
+                "grafana-provisioning-dashboards.yml:$grafana_provisioning_dir"
+                "grafana-provisioning-datasources.yml:$grafana_provisioning_dir"
+            )
+        elif [[ "$STACK_NAME" == "logging" ]]; then
+            config_files=(
+                "loki-config.yml:/root"
+                "promtail-config.yml:/root"
+            )
+        fi
 
-        for config_entry in "${monitoring_config_files[@]}"; do
+        for config_entry in "${config_files[@]}"; do
             IFS=':' read -r config_file target_dir <<< "$config_entry"
             local remote_url="$REPO_BASE_URL/docker/$STACK_NAME/$config_file"
             local temp_file="$WORK_DIR/$config_file"
@@ -323,7 +339,7 @@ configure_stack_configs() {
             rm "$temp_file"
         done
 
-        print_success "Monitoring config files configured successfully."
+        print_success "$STACK_NAME config files configured successfully."
     else
         print_info "(4.1/5) No stack-specific config to configure for stack [$STACK_NAME]. Skipping."
     fi
@@ -373,7 +389,7 @@ else
         configure_homepage_config
     fi
 
-    if [[ "$STACK_NAME" == "monitoring" ]]; then
+    if [[ "$STACK_NAME" == "monitoring" ]] || [[ "$STACK_NAME" == "logging" ]]; then
         configure_stack_configs
     fi
 

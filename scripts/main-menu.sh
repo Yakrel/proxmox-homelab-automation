@@ -22,7 +22,8 @@ while true; do
     echo "   3) Deploy [files]      Stack (LXC 102)"
     echo "   4) Deploy [webtools]   Stack (LXC 103)"
     echo "   5) Deploy [monitoring] Stack (LXC 104)"
-    echo "   6) Deploy [development]Stack (LXC 150)"
+    echo "   6) Deploy [logging]    Stack (LXC 105)"
+    echo "   7) Deploy [development]Stack (LXC 150)"
     echo
     echo "-----------------------------------------------"
     echo "   h) Run Proxmox Helper Scripts..."
@@ -37,7 +38,8 @@ while true; do
         3) bash "$WORK_DIR/scripts/deploy-stack.sh" "files" ; break ;;
         4) bash "$WORK_DIR/scripts/deploy-stack.sh" "webtools" ; break ;;
         5) bash "$WORK_DIR/scripts/deploy-stack.sh" "monitoring" ; break ;;
-        6) bash "$WORK_DIR/scripts/deploy-stack.sh" "development" ; break ;;
+        6) bash "$WORK_DIR/scripts/deploy-stack.sh" "logging" ; break ;;
+        7) bash "$WORK_DIR/scripts/deploy-stack.sh" "development" ; break ;;
         h) bash "$WORK_DIR/scripts/helper-menu.sh" ; break ;;
         q|Q) echo "Exiting."; exit 0 ;;
         *) echo "Invalid choice. Please try again." ; sleep 2 ;;

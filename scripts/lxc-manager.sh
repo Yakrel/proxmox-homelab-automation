@@ -37,6 +37,10 @@ get_stack_config() {
             CT_ID="104"; CT_HOSTNAME="lxc-monitoring-01"; CT_CORES="4"; CT_RAM_MB="6144"; CT_IP_CIDR="192.168.1.104/24"; CT_GATEWAY_IP="192.168.1.1"; CT_BRIDGE="vmbr0"; STORAGE_POOL="datapool"; CT_DISK_GB="20";
             CT_TEMPLATE_TYPE="alpine"
             ;;
+        "logging")
+            CT_ID="105"; CT_HOSTNAME="lxc-logging-01"; CT_CORES="4"; CT_RAM_MB="4096"; CT_IP_CIDR="192.168.1.105/24"; CT_GATEWAY_IP="192.168.1.1"; CT_BRIDGE="vmbr0"; STORAGE_POOL="datapool"; CT_DISK_GB="20";
+            CT_TEMPLATE_TYPE="alpine"
+            ;;
         "development")
             CT_ID="150"; CT_HOSTNAME="lxc-development-01"; CT_CORES="4"; CT_RAM_MB="8192"; CT_IP_CIDR="192.168.1.150/24"; CT_GATEWAY_IP="192.168.1.1"; CT_BRIDGE="vmbr0"; STORAGE_POOL="datapool"; CT_DISK_GB="20";
             CT_TEMPLATE_TYPE="ubuntu"

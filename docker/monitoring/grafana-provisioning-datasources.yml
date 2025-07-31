@@ -11,3 +11,11 @@ datasources:
       timeInterval: 15s
       queryTimeout: 60s
       httpMethod: POST
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://192.168.1.105:3100
+    editable: true
+    jsonData:
+      maxLines: 1000
