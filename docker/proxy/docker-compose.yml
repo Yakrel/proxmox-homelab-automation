@@ -1,5 +1,4 @@
-include:
-  - ../common/compose.yml
+
 
 networks:
   proxy-net:
@@ -27,23 +26,22 @@ services:
 
   cadvisor:
     extends:
-      service: cadvisor
+      service: common-cadvisor
     container_name: cadvisor-proxy
     networks:
       - proxy-net
 
   promtail:
     extends:
-      service: promtail
+      service: common-promtail
     container_name: promtail-proxy
     networks:
       - proxy-net
 
   watchtower:
     extends:
-      service: watchtower
+      service: common-watchtower
     container_name: watchtower-proxy
     command: ["--schedule", "0 0 8,14,20,2 * * *"]
     networks:
       - proxy-net
-        

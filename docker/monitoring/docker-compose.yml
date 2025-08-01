@@ -1,5 +1,4 @@
-include:
-  - ../common/compose.yml
+
 
 networks:
   monitoring-net:
@@ -96,14 +95,14 @@ services:
 
   cadvisor:
     extends:
-      service: cadvisor
+      service: common-cadvisor
     container_name: cadvisor-monitoring
     networks:
       - monitoring-net
 
   promtail:
     extends:
-      service: promtail
+      service: common-promtail
     container_name: promtail-monitoring
     networks:
       - monitoring-net
@@ -134,7 +133,7 @@ services:
 
   watchtower:
     extends:
-      service: watchtower
+      service: common-watchtower
     container_name: watchtower-monitoring
     command: ["--schedule", "0 0 8,14,20,2 * * *"]
     networks:
