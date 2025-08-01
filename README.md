@@ -120,3 +120,5 @@ After deploying the monitoring stack, you can import pre-configured dashboards i
     -   Provides a high-level overview of your Proxmox host and all guest VMs/LXCs.
 -   **cAdvisor Exporter:** `13979`
     -   Provides detailed container-level metrics for each LXC. Use the dropdown at the top to switch between different instances.
+-   **Loki & Promtail:** `12423`
+    -   Offers a comprehensive overview of the Loki logging system and the Promtail agent's performance.
