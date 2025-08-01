@@ -60,6 +60,10 @@ prepare_host() {
     mkdir -p /datapool/config/homepage
     mkdir -p /datapool/config/palmr/uploads
     
+    # Set ownership to 101000. This is intentional and crucial.
+    # It maps the Proxmox host UID to the container's UID for user 1000.
+    # This allows Docker containers running as PUID/PGID=1000 inside the LXC
+    # to have the correct permissions on the mounted /datapool/config volume.
     if chown -R 101000:101000 /datapool/config 2>/dev/null; then
         print_success "Host prepared: /datapool/config ownership set to 101000."
     else
