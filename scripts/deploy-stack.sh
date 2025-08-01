@@ -179,7 +179,8 @@ configure_env() {
         if [[ "$var_name" == "JDOWNLOADER_VNC_PASSWORD" ]] || \
            [[ "$var_name" == "FIREFOX_VNC_PASSWORD" ]] || \
            [[ "$var_name" == "CLOUDFLARED_TOKEN" ]] || \
-           [[ "$var_name" == "GF_SECURITY_ADMIN_PASSWORD" ]]; then
+           [[ "$var_name" == "GF_SECURITY_ADMIN_PASSWORD" ]] || \
+           [[ "$var_name" == "PALMR_APP_URL" ]]; then
             if [[ -n "$existing_value" ]]; then
                 new_env_content+="$var_name=$existing_value\n"
                 print_info "  -> Kept existing $var_name."
@@ -376,23 +377,16 @@ deploy_compose() {
     local compose_url="$REPO_BASE_URL/docker/$STACK_NAME/docker-compose.yml"
     local temp_compose="$WORK_DIR/docker-compose.yml"
 
-    # Fetch the latest docker-compose.yml and common.yml
+    # Fetch and push docker-compose.yml to LXC
     curl -sSL "$compose_url" -o "$temp_compose"
-    curl -sSL "$REPO_BASE_URL/docker/common/compose.yml" -o "$WORK_DIR/common.yml"
-    if [ ! -s "$temp_compose" ]; then
-        print_error "Failed to download docker-compose.yml for stack [$STACK_NAME]."
-        exit 1
-    fi
-
-    # Push both files and deploy
     pct push "$CT_ID" "$temp_compose" "/root/docker-compose.yml"
-    pct push "$CT_ID" "$WORK_DIR/common.yml" "/root/common.yml"
+    rm "$temp_compose"
 
     print_info "Pruning unused Docker objects..."
     pct exec "$CT_ID" -- docker system prune -af
 
     print_info "Starting docker-compose up -d..."
-    if ! pct exec "$CT_ID" -- docker compose -f /root/docker-compose.yml -f /root/common.yml up -d; then
+    if ! pct exec "$CT_ID" -- docker compose -f /root/docker-compose.yml up -d; then
         print_error "Docker Compose deployment failed. Please check the output above."
         exit 1
     fi
