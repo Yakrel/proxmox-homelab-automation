@@ -1,7 +1,7 @@
 # This file is not meant to be run directly.
 # It contains common service definitions to be included and extended by other stacks.
 services:
-  cadvisor:
+  common-cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.52.1
     privileged: true
     devices:
@@ -21,7 +21,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  watchtower:
+  common-watchtower:
     image: containrrr/watchtower:latest
     restart: unless-stopped
     volumes:
@@ -39,7 +39,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  promtail:
+  common-promtail:
     image: grafana/promtail:latest
     restart: unless-stopped
     volumes:

@@ -65,3 +65,13 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: prometheus-pve-exporter:9221 # The exporter's address
+
+  # Loki for log aggregation
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+
+  # Promtail for log shipping
+  - job_name: 'promtail'
+    static_configs:
+      - targets: ['promtail-monitoring:9080']
