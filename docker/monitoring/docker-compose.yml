@@ -94,20 +94,52 @@ services:
         max-file: "3"
 
   cadvisor:
-    extends:
-      service: common-cadvisor
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
     container_name: cadvisor-monitoring
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    ports:
+      - "8082:8080"
+    restart: unless-stopped
     networks:
       - monitoring-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   promtail:
-    extends:
-      service: common-promtail
+    image: grafana/promtail:latest
     container_name: promtail-monitoring
+    restart: unless-stopped
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - /datapool/config/promtail:/etc/promtail:ro
+    command: -config.file=/etc/promtail/promtail.yml
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=1000
+      - PGID=1000
+    ports:
+      - "9080:9080"
     networks:
       - monitoring-net
     depends_on:
       - loki
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   prometheus-pve-exporter:
     image: prompve/prometheus-pve-exporter:latest
@@ -132,9 +164,22 @@ services:
         max-file: "3"
 
   watchtower:
-    extends:
-      service: common-watchtower
+    image: containrrr/watchtower:latest
     container_name: watchtower-monitoring
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - WATCHTOWER_CLEANUP=true
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
     command: ["--schedule", "0 0 8,14,20,2 * * *"]
     networks:
       - monitoring-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
