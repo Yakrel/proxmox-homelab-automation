@@ -21,14 +21,14 @@ scrape_configs:
   - job_name: 'cadvisor'
     static_configs:
       - targets:
-        - 'cadvisor-monitoring:8080' # Monitoring LXC
-        - '192.168.1.100:8082'      # Proxy LXC
-        - '192.168.1.101:8082'      # Media LXC
-        - '192.168.1.102:8082'      # Files LXC
-        - '192.168.1.103:8082'      # Webtools LXC
+        - 'cadvisor:8080'             # Monitoring LXC (by service name)
+        - '192.168.1.100:8082'      # Proxy LXC (by IP)
+        - '192.168.1.101:8082'      # Media LXC (by IP)
+        - '192.168.1.102:8082'      # Files LXC (by IP)
+        - '192.168.1.103:8082'      # Webtools LXC (by IP)
     relabel_configs:
       - source_labels: [__address__]
-        regex: 'cadvisor-monitoring:8082'
+        regex: 'cadvisor:8080'
         target_label: instance
         replacement: 'monitoring-lxc-104'
       - source_labels: [__address__]
