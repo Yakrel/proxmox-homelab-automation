@@ -144,14 +144,31 @@ EOF'
     pct exec "$CT_ID" -- touch /root/.hushlogin # Prevent MOTD on login
     print_success "Autologin configured."
 
+    print_info "Disabling and removing SSH server..."
+    pct exec "$CT_ID" -- systemctl stop sshd || true # Stop if running
+    pct exec "$CT_ID" -- systemctl disable sshd || true # Disable if enabled
+    pct exec "$CT_ID" -- apt-get remove --purge openssh-server -y || true # Remove package
+    print_success "SSH server removed."
+
 else
     # --- Standard Docker-based Setup ---
     print_info "Installing Docker and essential tools inside the container...";
     if [[ "$CT_TEMPLATE_TYPE" == "alpine" ]]; then
-        pct exec "$CT_ID" -- apk update
-        pct exec "$CT_ID" -- apk add --no-cache docker docker-cli-compose
-        pct exec "$CT_ID" -- rc-update add docker boot
-        pct exec "$CT_ID" -- service docker start
+        # Provision the container with a single exec command for efficiency.
+        pct exec "$CT_ID" -- sh -c '
+            set -e
+            echo "[INFO] Updating package lists..."
+            apk update
+
+            echo "[INFO] Installing Docker and Docker Compose..."
+            apk add --no-cache docker docker-cli-compose
+
+            echo "[INFO] Enabling and starting Docker service..."
+            rc-update add docker boot
+            service docker start
+
+            echo "[SUCCESS] Core system provisioning complete."
+        '
         # Autologin configuration
         print_info "Configuring autologin for root user..."
         pct exec "$CT_ID" -- passwd -d root # Delete root password
@@ -167,24 +184,13 @@ EOF'
         pct exec "$CT_ID" -- sh -c '/etc/local.d/autologin.start' # Apply immediately
         pct exec "$CT_ID" -- touch /root/.hushlogin # Prevent MOTD on login
         print_success "Autologin configured."
-    elif [[ "$CT_TEMPLATE_TYPE" == "ubuntu" ]]; then
-        pct exec "$CT_ID" -- apt-get update
-        pct exec "$CT_ID" -- apt-get install -y docker.io docker-compose-plugin
-        pct exec "$CT_ID" -- systemctl enable --now docker
-        # Autologin configuration for Ubuntu
-        print_info "Configuring autologin for root user..."
-        pct exec "$CT_ID" -- passwd -d root # Delete root password
-        pct exec "$CT_ID" -- apt-get install -y util-linux # Install util-linux for agetty
-        pct exec "$CT_ID" -- sh -c 'mkdir -p /etc/systemd/system/getty@tty1.service.d'
-        pct exec "$CT_ID" -- sh -c 'cat <<EOF >/etc/systemd/system/getty@tty1.service.d/autologin.conf
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin root --noclear %I \$TERM
-EOF'
-        pct exec "$CT_ID" -- systemctl daemon-reload
-        pct exec "$CT_ID" -- systemctl restart getty@tty1.service
-        pct exec "$CT_ID" -- touch /root/.hushlogin # Prevent MOTD on login
-        print_success "Autologin configured."
+
+        print_info "Disabling and removing SSH server..."
+        pct exec "$CT_ID" -- rc-service sshd stop || true # Stop if running
+        pct exec "$CT_ID" -- rc-update del sshd default || true # Disable if enabled
+        pct exec "$CT_ID" -- apk del openssh || true # Remove package
+        print_success "SSH server removed."
+
     fi
 fi
 
