@@ -51,74 +51,78 @@ Before you begin, ensure you have the following:
 
 This project is divided into several service stacks, each with its own `docker-compose.yml` and configuration. The deployment scripts will guide you through configuring the necessary environment variables for each stack.
 
-### Available Stacks
+### Available Stacks (Alpine-based)
+
+All LXC containers use Alpine for minimal footprint; only the "development" container includes Node.js (npm). Other stacks contain only Docker Engine + Compose plugin (and Docker daemon metrics). Root console autologin is enabled and SSH server removed (lab convenience assumption).
 
 #### Proxy Stack
 
--   **Directory:** `docker/proxy/`
--   **LXC Configuration:** 2 Cores, 2048MB RAM
--   **Services:**
-    -   Cloudflared
-    -   cAdvisor
-    -   Watchtower
+- **Directory:** `docker/proxy/`
+- **LXC Configuration:** 2 Cores, 2048MB RAM
+- **Services:**
+    - Cloudflared
+    - Watchtower
 
 #### Media Stack
 
--   **Directory:** `docker/media/`
--   **LXC Configuration:** 4 Cores, 10240MB RAM
--   **Services:**
-    -   Sonarr
-    -   Radarr
-    -   Bazarr
-    -   Jellyfin
-    -   Jellyseerr
-    -   qBittorrent
-    -   Prowlarr
-    -   FlareSolverr
-    -   Recyclarr
-    -   cAdvisor
-    -   Watchtower
-    -   Cleanuparr
+- **Directory:** `docker/media/`
+- **LXC Configuration:** 6 Cores, 10240MB RAM
+- **Services:**
+    - Sonarr
+    - Radarr
+    - Bazarr
+    - Jellyfin
+    - Jellyseerr
+    - qBittorrent
+    - Prowlarr
+    - FlareSolverr
+    - Recyclarr
+    - Watchtower
+    - Cleanuparr
 
 #### Files Stack
 
--   **Directory:** `docker/files/`
--   **LXC Configuration:** 2 Cores, 3072MB RAM
--   **Services:**
-    -   JDownloader 2
-    -   MeTube
-    -   Palmr
-    -   cAdvisor
-    -   Watchtower
+- **Directory:** `docker/files/`
+- **LXC Configuration:** 2 Cores, 3072MB RAM
+- **Services:**
+    - JDownloader 2
+    - MeTube
+    - Palmr
+    - Watchtower
 
 #### Webtools Stack
 
--   **Directory:** `docker/webtools/`
--   **LXC Configuration:** 2 Cores, 6144MB RAM
--   **Services:**
-    -   Homepage
-    -   Firefox
-    -   cAdvisor
-    -   Watchtower
+- **Directory:** `docker/webtools/`
+- **LXC Configuration:** 2 Cores, 6144MB RAM
+- **Services:**
+    - Homepage
+    - Firefox
+    - Watchtower
 
 #### Monitoring Stack
 
--   **Directory:** `docker/monitoring/`
--   **LXC Configuration:** 4 Cores, 6144MB RAM
--   **Services:**
-    -   Prometheus
-    -   Grafana
-    -   cAdvisor
-    -   Prometheus PVE Exporter
-    -   Watchtower
+- **Directory:** `docker/monitoring/`
+- **LXC Configuration:** 4 Cores, 6144MB RAM
+- **Services:**
+    - Prometheus
+    - Grafana
+    - Prometheus PVE Exporter
+    - Loki
+    - Promtail
+    - Watchtower
 
-## Grafana Dashboards
+#### Development Stack
 
-After deploying the monitoring stack, you can import pre-configured dashboards into Grafana. Go to `Dashboards -> New -> Import` and use the following IDs:
+- **Directory:** (created on demand)
+- **LXC Configuration:** 4 Cores, 6144MB RAM
+- **Contents:** Node.js + npm (for development purposes, e.g., Gemini CLI); Docker is not installed.
 
--   **Proxmox VE Overview:** `10347`
-    -   Provides a high-level overview of your Proxmox host and all guest VMs/LXCs.
--   **cAdvisor Exporter:** `13979`
-    -   Provides detailed container-level metrics for each LXC. Use the dropdown at the top to switch between different instances.
--   **Loki & Promtail:** `12423`
-    -   Offers a comprehensive overview of the Loki logging system and the Promtail agent's performance.
+## Metrics & Dashboards
+
+Container metrics are collected via Docker Engine daemon metrics (`metrics-addr: 0.0.0.0:9323`) instead of cAdvisor. The Prometheus `docker_engine` job scrapes each LXC's Docker daemon. This provides core cgroup CPU / memory / I/O counters; per-layer filesystem details from cAdvisor are intentionally omitted for lower overhead.
+
+Suggested Grafana dashboards:
+
+- **Proxmox VE Overview:** `10347` – High-level view of host and guests.
+- **Docker Engine Basic Panels:** Build simple panels with: `rate(container_cpu_usage_seconds_total[5m])`, `container_memory_usage_bytes`, network RX/TX counters.
+- **Loki & Promtail Overview:** `12423` – Log pipeline health.
