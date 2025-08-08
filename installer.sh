@@ -51,9 +51,14 @@ SCRIPTS_TO_DOWNLOAD=(
     "scripts/main-menu.sh"
     "scripts/lxc-manager.sh"
     "scripts/deploy-stack.sh"
-    
+    "scripts/lib-stack-config.sh"
     "scripts/helper-menu.sh"
     "scripts/fail2ban-manager.sh"
+)
+
+# Additional required files
+OTHER_FILES=(
+    "stacks.yml"
 )
 
 for script_path in "${SCRIPTS_TO_DOWNLOAD[@]}"; do
@@ -66,6 +71,18 @@ for script_path in "${SCRIPTS_TO_DOWNLOAD[@]}"; do
     # Convert line endings to Unix format (LF)
     sed -i 's/\r$//' "$script_path"
     chmod +x "$script_path"
+done
+
+# Download other required files
+for file_path in "${OTHER_FILES[@]}"; do
+    print_info " -> Downloading $file_path"
+    curl -sSL "$REPO_BASE_URL/$file_path" -o "$file_path"
+    if [ ! -s "$file_path" ]; then
+        print_error "Failed to download $file_path. Please check the URL and repository structure."
+        exit 1
+    fi
+    # Convert line endings to Unix format (LF)
+    sed -i 's/\r$//' "$file_path"
 done
 
 print_success "All scripts downloaded successfully."

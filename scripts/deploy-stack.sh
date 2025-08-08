@@ -365,16 +365,19 @@ configure_promtail_config() {
     local promtail_config_dir="/datapool/config/promtail"
     local promtail_config_url="$REPO_BASE_URL/config/promtail/promtail.yml"
     local temp_promtail_file="$WORK_DIR/promtail.yml"
+    local temp_env_file="$WORK_DIR/promtail.env"
     
     print_info "  -> Downloading promtail.yml template"
     curl -sSL "$promtail_config_url" -o "$temp_promtail_file"
     
-    # Replace host label with the actual hostname
-    sed -i "s/REPLACE_HOST_LABEL/$CT_HOSTNAME/g" "$temp_promtail_file"
-    
-    print_info "  -> Pushing customized promtail.yml to LXC ($promtail_config_dir)"
+    # Prepare promtail environment (HOST_LABEL + LOKI_URL with default)
+    : "${LOKI_URL_OVERRIDE:=}" # allow caller to export before script if desired
+    echo "HOST_LABEL=$CT_HOSTNAME" > "$temp_env_file"
+    echo "LOKI_URL=${LOKI_URL_OVERRIDE:-http://192.168.1.104:3100/loki/api/v1/push}" >> "$temp_env_file"
+    print_info "  -> Pushing promtail.yml and env to LXC ($promtail_config_dir)"
     pct push "$CT_ID" "$temp_promtail_file" "$promtail_config_dir/promtail.yml"
-    rm "$temp_promtail_file"
+    pct push "$CT_ID" "$temp_env_file" "$promtail_config_dir/promtail.env"
+    rm "$temp_promtail_file" "$temp_env_file"
     
     print_success "Promtail config configured successfully for $CT_HOSTNAME."
 }
