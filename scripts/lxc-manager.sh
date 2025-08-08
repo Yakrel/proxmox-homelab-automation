@@ -117,7 +117,7 @@ print_info "Provisioning inside container (stack: $STACK_NAME)..."
 
 pct exec "$CT_ID" -- sh -c "set -e
 apk update
-if [ '$STACK_NAME' = 'development' ]; then
+if [ "$STACK_NAME" = 'development' ]; then
         # Development: NO Docker; only what is needed for Gemini CLI & autologin.
         apk add --no-cache util-linux nodejs npm git curl
         npm config set fund false >/dev/null 2>&1 || true
