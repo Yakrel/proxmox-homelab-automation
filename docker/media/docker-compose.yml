@@ -217,28 +217,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.52.1
-    container_name: cadvisor-media
-    privileged: true
-    devices:
-      - /dev/kmsg
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    ports:
-      - "8082:8080"
-    restart: unless-stopped
-    networks:
-      - media-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   promtail:
     image: grafana/promtail:latest
