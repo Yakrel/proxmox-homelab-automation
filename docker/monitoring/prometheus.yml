@@ -17,36 +17,41 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # cAdvisor for container metrics
-  - job_name: 'cadvisor'
+  # Docker Engine daemon metrics (each LXC exposes 9323)
+  - job_name: 'docker_engine'
     static_configs:
       - targets:
-        - 'cadvisor:8080'             # Monitoring LXC (by service name)
-        - '192.168.1.100:8082'      # Proxy LXC (by IP)
-        - '192.168.1.101:8082'      # Media LXC (by IP)
-        - '192.168.1.102:8082'      # Files LXC (by IP)
-        - '192.168.1.103:8082'      # Webtools LXC (by IP)
+        - '192.168.1.100:9323'
+        - '192.168.1.101:9323'
+        - '192.168.1.102:9323'
+        - '192.168.1.103:9323'
+        - '192.168.1.104:9323'
+        - '192.168.1.150:9323'
     relabel_configs:
       - source_labels: [__address__]
-        regex: 'cadvisor:8080'
-        target_label: instance
-        replacement: 'monitoring-lxc-104'
-      - source_labels: [__address__]
-        regex: '192.168.1.100:8082'
+        regex: '192.168.1.100:9323'
         target_label: instance
         replacement: 'proxy-lxc-100'
       - source_labels: [__address__]
-        regex: '192.168.1.101:8082'
+        regex: '192.168.1.101:9323'
         target_label: instance
         replacement: 'media-lxc-101'
       - source_labels: [__address__]
-        regex: '192.168.1.102:8082'
+        regex: '192.168.1.102:9323'
         target_label: instance
         replacement: 'files-lxc-102'
       - source_labels: [__address__]
-        regex: '192.168.1.103:8082'
+        regex: '192.168.1.103:9323'
         target_label: instance
         replacement: 'webtools-lxc-103'
+      - source_labels: [__address__]
+        regex: '192.168.1.104:9323'
+        target_label: instance
+        replacement: 'monitoring-lxc-104'
+      - source_labels: [__address__]
+        regex: '192.168.1.150:9323'
+        target_label: instance
+        replacement: 'development-lxc-150'
 
   
 
