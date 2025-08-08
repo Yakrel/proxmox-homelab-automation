@@ -134,7 +134,7 @@ cat > /etc/docker/daemon.json <<EOFDOCKER
     \"experimental\": true
 }
 EOFDOCKER
-if [ '$STACK_NAME' != 'development' ]; then
+if [ "$STACK_NAME" != 'development' ]; then
     service docker start || rc-service docker start || true
 fi
 passwd -d root || true
