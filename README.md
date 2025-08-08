@@ -126,3 +126,37 @@ Suggested Grafana dashboards:
 - **Proxmox VE Overview:** `10347` – High-level view of host and guests.
 - **Docker Engine Basic Panels:** Build simple panels with: `rate(container_cpu_usage_seconds_total[5m])`, `container_memory_usage_bytes`, network RX/TX counters.
 - **Loki & Promtail Overview:** `12423` – Log pipeline health.
+
+## Unified Stack Configuration (stacks.yml)
+
+All LXC ve kaynak tanımları artık kök dizindeki `stacks.yml` dosyasından okunur. Scriptler (ör. `lxc-manager.sh`, `deploy-stack.sh`) bu dosyayı `yq` aracılığıyla parse eder. Artık legacy hard-coded case blokları kaldırıldı; yeni bir stack eklemek için yalnızca `stacks.yml` altına giriş eklemek yeterlidir.
+
+Örnek giriş:
+```yaml
+stacks:
+    media:
+        id: 101
+        hostname: lxc-media-01
+        ip: 192.168.1.101/24
+        cores: 6
+        memory: 10240
+        disk: 20
+```
+
+`yq` sistemde yoksa script otomatik indirmeyi deneyecektir; başarısız olursa işlem durur.
+
+## Promtail Parametreleştirme
+
+`config/promtail/promtail.yml` artık değişken yer tutucuları kullanır:
+- `${HOST_LABEL}` LXC hostname (deploy sırasında otomatik oluşturulan `promtail.env` ile set edilir).
+- `${LOKI_URL}` Loki endpoint (opsiyonel override: ortam değişkeni `LOKI_URL_OVERRIDE` export edilirse deploy anında eklenir).
+
+Her stack’in `docker-compose.yml` içindeki promtail servisi `env_file: /datapool/config/promtail/promtail.env` satırı ile bu değerleri alır. Böylece loki adresi veya host etiketi yeniden şablon düzenlemesi yapmadan değiştirilebilir.
+
+## Environment (.env) Oluşturma İyileştirmesi
+
+`.env` dosyası artık satır satır manuel string birleştirme yerine birleştirici bir yardımcı ile üretilir. Özel değişkenler (şifre vb.) interaktif kalırken mevcut değerler korunur. Palmr encryption key yoksa otomatik üretilir.
+
+## Geçiş Notu
+
+Eski scriptler içindeki gömülü stack tanımları kaldırıldığı için eski çalışma şeklini sürdürmek istiyorsanız önceki commitlere dönmeniz gerekir. Yeni model tek kaynak (single source of truth) yaklaşımı sunar ve drift riskini azaltır.

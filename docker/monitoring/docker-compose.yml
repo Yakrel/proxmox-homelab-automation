@@ -103,6 +103,8 @@ services:
       - /var/log:/var/log:ro
       - /datapool/config/promtail:/etc/promtail:ro
     command: -config.file=/etc/promtail/promtail.yml
+    env_file:
+      - /datapool/config/promtail/promtail.env
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PUID=1000

@@ -6,7 +6,7 @@ positions:
   filename: /tmp/positions.yaml
 
 clients:
-  - url: http://192.168.1.104:3100/loki/api/v1/push
+  - url: ${LOKI_URL}
 
 scrape_configs:
   - job_name: containers
@@ -16,7 +16,7 @@ scrape_configs:
         labels:
           job: containerlogs
           __path__: /var/lib/docker/containers/*/*-json.log
-          host: "REPLACE_HOST_LABEL"
+          host: "${HOST_LABEL}"
 
     pipeline_stages:
       - json:
@@ -47,7 +47,7 @@ scrape_configs:
         labels:
           job: systemlogs
           __path__: /var/log/syslog
-          host: "REPLACE_HOST_LABEL"
+          host: "${HOST_LABEL}"
 
     pipeline_stages:
       - regex:
