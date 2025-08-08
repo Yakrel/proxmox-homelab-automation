@@ -1,0 +1,46 @@
+# Unified stack configuration (initial version)
+# Future: add per-stack flags like features: [promtail, watchtower]
+
+stacks:
+  proxy:
+    id: 100
+    hostname: lxc-proxy-01
+    ip: 192.168.1.100/24
+    cores: 2
+    memory: 2048
+    disk: 10
+  media:
+    id: 101
+    hostname: lxc-media-01
+    ip: 192.168.1.101/24
+    cores: 6
+    memory: 10240
+    disk: 20
+  files:
+    id: 102
+    hostname: lxc-files-01
+    ip: 192.168.1.102/24
+    cores: 2
+    memory: 3072
+    disk: 15
+  webtools:
+    id: 103
+    hostname: lxc-webtools-01
+    ip: 192.168.1.103/24
+    cores: 2
+    memory: 6144
+    disk: 15
+  monitoring:
+    id: 104
+    hostname: lxc-monitoring-01
+    ip: 192.168.1.104/24
+    cores: 4
+    memory: 6144
+    disk: 15
+  development:
+    id: 150
+    hostname: lxc-development-01
+    ip: 192.168.1.150/24
+    cores: 4
+    memory: 6144
+    disk: 15
