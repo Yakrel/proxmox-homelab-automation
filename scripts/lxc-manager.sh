@@ -64,75 +64,15 @@ get_stack_config() {
             CT_DISK_GB=15
             CT_IP_CIDR="$CT_IP_CIDR_BASE.103/24"
 get_stack_config() {
-    if load_from_yaml; then
-        :
-    else
-        # Fallback legacy hardcoded definitions (yq not installed or file missing)
-        case "$1" in
-            proxy)       CT_ID=100; CT_HOSTNAME="lxc-proxy-01";       CT_CORES=2; CT_RAM_MB=2048;  CT_DISK_GB=10 ;;
-            media)       CT_ID=101; CT_HOSTNAME="lxc-media-01";       CT_CORES=6; CT_RAM_MB=10240; CT_DISK_GB=20 ;;
-            files)       CT_ID=102; CT_HOSTNAME="lxc-files-01";       CT_CORES=2; CT_RAM_MB=3072;  CT_DISK_GB=15 ;;
-            webtools)    CT_ID=103; CT_HOSTNAME="lxc-webtools-01";    CT_CORES=2; CT_RAM_MB=6144;  CT_DISK_GB=15 ;;
-            monitoring)  CT_ID=104; CT_HOSTNAME="lxc-monitoring-01";  CT_CORES=4; CT_RAM_MB=6144;  CT_DISK_GB=15 ;;
-            development) CT_ID=150; CT_HOSTNAME="lxc-development-01"; CT_CORES=4; CT_RAM_MB=6144;  CT_DISK_GB=15 ;;
-            *) print_error "Unknown stack: $1"; exit 1 ;;
-        esac
-        CT_IP_CIDR_BASE="192.168.1"; CT_GATEWAY_IP="192.168.1.1"; CT_BRIDGE="vmbr0"; STORAGE_POOL="datapool"
-        case "$1" in
-            proxy) CT_IP_CIDR="$CT_IP_CIDR_BASE.100/24" ;;
-            media) CT_IP_CIDR="$CT_IP_CIDR_BASE.101/24" ;;
-            files) CT_IP_CIDR="$CT_IP_CIDR_BASE.102/24" ;;
-            webtools) CT_IP_CIDR="$CT_IP_CIDR_BASE.103/24" ;;
-            monitoring) CT_IP_CIDR="$CT_IP_CIDR_BASE.104/24" ;;
-            development) CT_IP_CIDR="$CT_IP_CIDR_BASE.150/24" ;;
-        esac
+    STACK_NAME=$1
+
+    # Source shared config loader
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if ! source "$SCRIPT_DIR/lib-stack-config.sh" 2>/dev/null; then
+        print_error "Failed to load lib-stack-config.sh"; exit 1
     fi
-    # Defaults for networking/storage if not set by YAML
-    : "${CT_GATEWAY_IP:=192.168.1.1}" "${CT_BRIDGE:=vmbr0}" "${STORAGE_POOL:=datapool}"
-}
-            ;;
-        monitoring)
-            CT_ID=104
-            CT_HOSTNAME="lxc-monitoring-01"
-            CT_CORES=4
-            CT_RAM_MB=6144
-            CT_DISK_GB=15
-            CT_IP_CIDR="$CT_IP_CIDR_BASE.104/24"
-            ;;
-        development)
-            CT_ID=150
-            CT_HOSTNAME="lxc-development-01"
-            CT_CORES=4
-            CT_RAM_MB=6144
-            CT_DISK_GB=15
-            CT_IP_CIDR="$CT_IP_CIDR_BASE.150/24"
-            ;;
-        *)
-            print_error "Unknown stack: $1"
-            exit 1
-            ;;
-    esac
-}
 
-get_stack_config "$STACK_NAME"
-
-print_info "Locating latest Alpine template (local cache)..."
-pveam update > /dev/null || true
-LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/alpine-.*-default/ {print $1}' | sort -V | tail -n 1)
-if [ -z "$LATEST_TEMPLATE" ]; then
-    print_warning "No local Alpine template; downloading..."
-    DOWNLOAD_TEMPLATE=$(pveam available | awk '/^system\s+alpine-[0-9]+-default/ {print $2}' | sort -V | tail -n 1)
-    [ -z "$DOWNLOAD_TEMPLATE" ] && print_error "Could not determine latest Alpine template" && exit 1
-    pveam download "$STORAGE_POOL" "$DOWNLOAD_TEMPLATE"
-    LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/alpine-.*-default/ {print $1}' | sort -V | tail -n 1)
-    print_success "Downloaded template: $LATEST_TEMPLATE"
-else
-    print_info "Using template: $LATEST_TEMPLATE"
-fi
-
-print_info "Creating LXC ($CT_ID) $CT_HOSTNAME ..."
-pct create "$CT_ID" "$LATEST_TEMPLATE" \
-    --hostname "$CT_HOSTNAME" \
+    load_stack_config "$STACK_NAME" || { print_error "Could not resolve stack config for $STACK_NAME"; exit 1; }
     --storage "$STORAGE_POOL" \
     --cores $CT_CORES \
     --memory $CT_RAM_MB \

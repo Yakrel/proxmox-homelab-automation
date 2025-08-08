@@ -9,6 +9,12 @@ STACK_NAME=$1
 WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 REPO_BASE_URL="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main"
 
+# Source unified stack config
+if ! source "$WORK_DIR/scripts/lib-stack-config.sh" 2>/dev/null; then
+    print_error "Failed to load lib-stack-config.sh"; exit 1
+fi
+load_stack_config "$STACK_NAME" || { print_error "Unknown stack: $STACK_NAME"; exit 1; }
+
 # Global variables for monitoring setup
 PVE_MONITORING_PASSWORD=""
 
@@ -18,33 +24,37 @@ print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
 print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 
-# --- Hardcoded Stack Configuration ---
-get_stack_config() {
-    local stack=$1
-    case $stack in
-        "proxy")
-            CT_ID="100"; CT_HOSTNAME="lxc-proxy-01";
-            ;;
-        "media")
-            CT_ID="101"; CT_HOSTNAME="lxc-media-01";
-            ;;
-        "files")
-            CT_ID="102"; CT_HOSTNAME="lxc-files-01";
-            ;;
-        "webtools")
-            CT_ID="103"; CT_HOSTNAME="lxc-webtools-01";
-            ;;
-        "monitoring")
-            CT_ID="104"; CT_HOSTNAME="lxc-monitoring-01";
-            ;;
-        "development")
-            CT_ID="150"; CT_HOSTNAME="lxc-development-01";
-            ;;
-        *)
-            print_error "Unknown stack: $stack" >&2
-            exit 1
-            ;;
-    esac
+### write_env helper: merges existing + new key/values safely (basic implementation)
+write_env_file() {
+        local target=$1; shift
+        declare -A kv
+        # read existing
+        if [ -f "$target" ]; then
+                while IFS= read -r line; do
+                        [[ -z "$line" || "$line" =~ ^# ]] && continue
+                        key=${line%%=*}
+                        val=${line#*=}
+                        kv[$key]="$val"
+                done <"$target"
+        fi
+        # accept pairs key=value passed as args
+        while (( "$#" )); do
+                local pair=$1; shift
+                key=${pair%%=*}
+                val=${pair#*=}
+                kv[$key]="$val"
+        done
+        {
+            for k in "${!kv[@]}"; do
+                v=${kv[$k]}
+                if [[ $v =~ [[:space:]#"\\] ]]; then
+                    esc=${v//"/\"}
+                    printf '%s="%s"\n' "$k" "$esc"
+                else
+                    printf '%s=%s\n' "$k" "$v"
+                fi
+            done | sort
+        } >"$target.tmp" && mv "$target.tmp" "$target"
 }
 
 # --- Step 1: Host Preparation ---
@@ -125,7 +135,7 @@ setup_proxmox_monitoring_user() {
 
 create_lxc() {
     print_info "(2/5) Handing over to LXC Manager..."
-    get_stack_config "$STACK_NAME"
+    # stack vars already loaded
     if pct status "$CT_ID" >/dev/null 2>&1; then
         print_warning "LXC container $CT_ID ($CT_HOSTNAME) already exists. Skipping creation."
     else
@@ -137,7 +147,7 @@ create_lxc() {
 
 configure_env() {
     print_info "(3/5) Configuring .env file for [$STACK_NAME]..."
-    get_stack_config "$STACK_NAME"
+    # stack vars already loaded
     local env_path="/root/.env"
     local example_env_url="$REPO_BASE_URL/docker/$STACK_NAME/.env.example"
     local temp_env_example="$WORK_DIR/.env.example"
@@ -262,7 +272,7 @@ configure_env() {
 
 configure_homepage_config() {
     print_info "(4/5) Configuring Homepage config files for [$STACK_NAME]..."
-    get_stack_config "$STACK_NAME"
+    # stack vars already loaded
 
     if [[ "$STACK_NAME" == "webtools" ]]; then
         local target_config_dir="/datapool/config/homepage"
@@ -300,7 +310,7 @@ configure_homepage_config() {
 
 configure_stack_configs() {
     print_info "(4.1/5) Configuring stack-specific config files for [$STACK_NAME]..."
-    get_stack_config "$STACK_NAME"
+    # stack vars already loaded
 
     if [[ "$STACK_NAME" == "monitoring" ]]; then
         local prometheus_config_dir="/datapool/config/prometheus"
@@ -350,7 +360,7 @@ configure_stack_configs() {
 
 configure_promtail_config() {
     print_info "(4.2/5) Configuring Promtail config for [$STACK_NAME]..."
-    get_stack_config "$STACK_NAME"
+    # stack vars already loaded
     
     local promtail_config_dir="/datapool/config/promtail"
     local promtail_config_url="$REPO_BASE_URL/config/promtail/promtail.yml"
@@ -371,60 +381,57 @@ configure_promtail_config() {
 
 # --- Step 5: Docker Compose Deployment ---
 
-deploy_compose() {
-    print_info "(5/5) Deploying Docker Compose stack for [$STACK_NAME]..."
-    get_stack_config "$STACK_NAME"
-    local compose_url="$REPO_BASE_URL/docker/$STACK_NAME/docker-compose.yml"
-    local temp_compose="$WORK_DIR/docker-compose.yml"
-
-    # Fetch and push docker-compose.yml to LXC
-    curl -sSL "$compose_url" -o "$temp_compose"
-    pct push "$CT_ID" "$temp_compose" "/root/docker-compose.yml"
-    rm "$temp_compose"
-
-    print_info "Pruning unused Docker objects..."
-    pct exec "$CT_ID" -- docker system prune -af
-
-    print_info "Starting docker-compose up -d..."
-    if ! pct exec "$CT_ID" -- docker compose -f /root/docker-compose.yml up -d; then
-        print_error "Docker Compose deployment failed. Please check the output above."
-        exit 1
+configure_env() {
+    print_info "(3/5) Configuring .env file for [$STACK_NAME]..."
+    local env_path="/root/.env"
+    local example_env_url="$REPO_BASE_URL/docker/$STACK_NAME/.env.example"
+    local temp_example="$WORK_DIR/.env.example"
+    local temp_existing="$WORK_DIR/.env.current"
+    curl -sSL "$example_env_url" -o "$temp_example" || true
+    if [ ! -s "$temp_example" ]; then
+        print_warning "No .env.example for stack [$STACK_NAME], skipping."
+        return 0
     fi
-    print_success "Docker Compose stack for [$STACK_NAME] is deploying in the background."
+    if pct exec "$CT_ID" -- test -f "$env_path"; then
+        pct pull "$CT_ID" "$env_path" "$temp_existing" || true
+    else
+        : >"$temp_existing"
+    fi
+    declare -A newPairs
+    while IFS= read -r line || [ -n "$line" ]; do
+        [[ -z "$line" || "$line" =~ ^# ]] && continue
+        key=${line%%=*}; def=${line#*=}
+        existing=$(grep -E "^$key=" "$temp_existing" | sed -e "s/^$key=//" || true)
+        case "$key" in
+            JDOWNLOADER_VNC_PASSWORD|FIREFOX_VNC_PASSWORD|CLOUDFLARED_TOKEN|GF_SECURITY_ADMIN_PASSWORD|PALMR_APP_URL)
+                if [ -n "$existing" ]; then
+                    newPairs[$key]="$existing"; print_info "  -> Kept existing $key";
+                else
+                    read -p "Enter value for $key: " input </dev/tty
+                    newPairs[$key]="$input"; print_info "  -> Set $key from input";
+                fi ;;
+            PVE_USER)
+                if [ "$STACK_NAME" = monitoring ]; then newPairs[$key]="pve-exporter@pve"; else newPairs[$key]="${existing:-$def}"; fi ;;
+            PVE_PASSWORD)
+                if [ "$STACK_NAME" = monitoring ]; then newPairs[$key]="$PVE_MONITORING_PASSWORD"; else newPairs[$key]="${existing:-$def}"; fi ;;
+            PVE_URL)
+                if [ "$STACK_NAME" = monitoring ]; then newPairs[$key]="${existing:-https://192.168.1.10:8006}"; else newPairs[$key]="${existing:-$def}"; fi ;;
+            PVE_VERIFY_SSL)
+                if [ "$STACK_NAME" = monitoring ]; then newPairs[$key]="${existing:-false}"; else newPairs[$key]="${existing:-$def}"; fi ;;
+            PALMR_ENCRYPTION_KEY)
+                if [ -n "$existing" ]; then newPairs[$key]="$existing"; else newPairs[$key]="$(openssl rand -base64 32)"; fi ;;
+            *)
+                newPairs[$key]="${existing:-$def}" ;;
+        esac
+    done < "$temp_example"
+    # build key=value args
+    args=()
+    for k in "${!newPairs[@]}"; do args+=("$k=${newPairs[$k]}"); done
+    printf '' > "$WORK_DIR/.env.new"
+    write_env_file "$WORK_DIR/.env.new" "${args[@]}"
+    if pct exec "$CT_ID" -- test -f "$env_path"; then
+        pct exec "$CT_ID" -- cp "$env_path" "$env_path.backup" 2>/dev/null || true
+    fi
+    pct push "$CT_ID" "$WORK_DIR/.env.new" "$env_path"
+    print_success ".env updated."
 }
-
-# --- Main Execution ---
-
-# For monitoring stack, setup Proxmox user first
-if [[ "$STACK_NAME" == "monitoring" ]]; then
-    setup_proxmox_monitoring_user
-fi
-
-prepare_host
-create_lxc
-
-# --- Stack-Specific Deployment ---
-
-if [[ "$STACK_NAME" == "development" ]]; then
-    : # Do nothing, setup is handled by lxc-manager.sh
-else
-    # Proceed with standard Docker-based deployment
-    configure_env
-
-    if [[ "$STACK_NAME" == "webtools" ]]; then
-        configure_homepage_config
-    fi
-
-    if [[ "$STACK_NAME" == "monitoring" ]]; then
-        configure_stack_configs
-    fi
-
-    # Configure Promtail for all stacks
-    configure_promtail_config
-
-    deploy_compose
-fi
-
-print_success "-------------------------------------------------
-Deployment for stack [$STACK_NAME] initiated successfully!
--------------------------------------------------"
