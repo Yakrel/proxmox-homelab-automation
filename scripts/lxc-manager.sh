@@ -11,23 +11,60 @@ print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 
 get_stack_config() {
-    case "$1" in
-        proxy)       CT_ID=100; CT_HOSTNAME="lxc-proxy-01";       CT_CORES=2; CT_RAM_MB=2048;  CT_DISK_GB=10 ;;
-    media)       CT_ID=101; CT_HOSTNAME="lxc-media-01";       CT_CORES=6; CT_RAM_MB=10240; CT_DISK_GB=20 ;;
-        files)       CT_ID=102; CT_HOSTNAME="lxc-files-01";       CT_CORES=2; CT_RAM_MB=3072;  CT_DISK_GB=15 ;;
-        webtools)    CT_ID=103; CT_HOSTNAME="lxc-webtools-01";    CT_CORES=2; CT_RAM_MB=6144;  CT_DISK_GB=15 ;;
-        monitoring)  CT_ID=104; CT_HOSTNAME="lxc-monitoring-01";  CT_CORES=4; CT_RAM_MB=6144;  CT_DISK_GB=15 ;;
-        development) CT_ID=150; CT_HOSTNAME="lxc-development-01"; CT_CORES=4; CT_RAM_MB=6144;  CT_DISK_GB=15 ;;
-        *) print_error "Unknown stack: $1"; exit 1 ;;
-    esac
     CT_IP_CIDR_BASE="192.168.1"; CT_GATEWAY_IP="192.168.1.1"; CT_BRIDGE="vmbr0"; STORAGE_POOL="datapool"
     case "$1" in
-        proxy) CT_IP_CIDR="$CT_IP_CIDR_BASE.100/24" ;;
-        media) CT_IP_CIDR="$CT_IP_CIDR_BASE.101/24" ;;
-        files) CT_IP_CIDR="$CT_IP_CIDR_BASE.102/24" ;;
-        webtools) CT_IP_CIDR="$CT_IP_CIDR_BASE.103/24" ;;
-        monitoring) CT_IP_CIDR="$CT_IP_CIDR_BASE.104/24" ;;
-        development) CT_IP_CIDR="$CT_IP_CIDR_BASE.150/24" ;;
+        proxy)
+            CT_ID=100
+            CT_HOSTNAME="lxc-proxy-01"
+            CT_CORES=2
+            CT_RAM_MB=2048
+            CT_DISK_GB=10
+            CT_IP_CIDR="$CT_IP_CIDR_BASE.100/24"
+            ;;
+        media)
+            CT_ID=101
+            CT_HOSTNAME="lxc-media-01"
+            CT_CORES=6
+            CT_RAM_MB=10240
+            CT_DISK_GB=20
+            CT_IP_CIDR="$CT_IP_CIDR_BASE.101/24"
+            ;;
+        files)
+            CT_ID=102
+            CT_HOSTNAME="lxc-files-01"
+            CT_CORES=2
+            CT_RAM_MB=3072
+            CT_DISK_GB=15
+            CT_IP_CIDR="$CT_IP_CIDR_BASE.102/24"
+            ;;
+        webtools)
+            CT_ID=103
+            CT_HOSTNAME="lxc-webtools-01"
+            CT_CORES=2
+            CT_RAM_MB=6144
+            CT_DISK_GB=15
+            CT_IP_CIDR="$CT_IP_CIDR_BASE.103/24"
+            ;;
+        monitoring)
+            CT_ID=104
+            CT_HOSTNAME="lxc-monitoring-01"
+            CT_CORES=4
+            CT_RAM_MB=6144
+            CT_DISK_GB=15
+            CT_IP_CIDR="$CT_IP_CIDR_BASE.104/24"
+            ;;
+        development)
+            CT_ID=150
+            CT_HOSTNAME="lxc-development-01"
+            CT_CORES=4
+            CT_RAM_MB=6144
+            CT_DISK_GB=15
+            CT_IP_CIDR="$CT_IP_CIDR_BASE.150/24"
+            ;;
+        *)
+            print_error "Unknown stack: $1"
+            exit 1
+            ;;
     esac
 }
 
