@@ -115,7 +115,7 @@ All LXC containers use Alpine for minimal footprint; only the "development" cont
 
 - **Directory:** (created on demand)
 - **LXC Configuration:** 4 Cores, 6144MB RAM
-- **Contents:** Node.js + npm (Gemini CLI vb. geliştirme amaçlı); Docker kurulu değildir.
+- **Contents:** Node.js + npm (for development purposes, e.g., Gemini CLI); Docker is not installed.
 
 ## Metrics & Dashboards
 
