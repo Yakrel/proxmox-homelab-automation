@@ -39,6 +39,23 @@ The main management is done via the `main-menu.sh` script, which provides an int
 ## Idempotency & GitOps Philosophy
 
 This project is designed with idempotency and GitOps principles in mind. This means that running the scripts multiple times will always lead to the same desired state, without causing unintended side effects. Configurations are treated as code, allowing for consistent and repeatable deployments across your homelab environment.
+## Secrets: .env encryption workflow
+
+This repo stores only encrypted .env files (.env.enc) for each stack. Use the interactive helper on Windows to manage them:
+
+- Location: `scripts/encrypt-env.ps1`
+- Modes: Encrypt (.env -> .env.enc) and Decrypt (.env.enc -> .env.dec)
+- OpenSSL is required. If openssl.exe is installed but not on PATH, a quick fix for the current session:
+    - PowerShell: `$env:Path += ';C:\Program Files\OpenSSL-Win64\bin'`
+
+Typical flow:
+1. Edit plaintext `docker/<stack>/.env` locally (gitignored).
+2. Run the helper and choose Encrypt to generate `docker/<stack>/.env.enc`.
+3. Commit/push only the `.env.enc` files.
+4. On Proxmox deploy, the script will prompt for the passphrase and decrypt into the container.
+
+Validation (optional): Choose Decrypt to write `.env.dec` files for inspection. Use strong passphrases; encryption uses AES-256-CBC with PBKDF2.
+
 
 ## Prerequisites
 
