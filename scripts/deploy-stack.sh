@@ -12,6 +12,63 @@ REPO_BASE_URL="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automati
 
 # Global variables for monitoring setup
 PVE_MONITORING_PASSWORD=""
+ENV_ENC_NAME=".env.enc"    # Encrypted env filename expected in repo per stack
+ENV_DECRYPTED_PATH=""
+ENV_PASSPHRASE_CACHE=""
+
+prompt_env_passphrase() {
+    local pass
+    while true; do
+        read -s -p "Enter .env decryption passphrase: " pass </dev/tty || true
+        echo
+        if [ -z "$pass" ]; then
+            print_warning "Passphrase cannot be empty."
+        else
+            echo "$pass"
+            return 0
+        fi
+    done
+}
+
+decrypt_repo_env_to_temp() {
+    # Downloads encrypted .env.enc from repo for the stack and decrypts it to a temp file.
+    # Expects OpenSSL available on host (present by default on Proxmox).
+    local stack="$1"
+    local enc_url="$REPO_BASE_URL/docker/$stack/$ENV_ENC_NAME"
+    local enc_tmp="$WORK_DIR/$ENV_ENC_NAME"
+    ENV_DECRYPTED_PATH="$WORK_DIR/.env.new"
+
+    print_info "  -> Downloading encrypted env ($ENV_ENC_NAME) for [$stack] from repo..."
+    mkdir -p "$WORK_DIR/docker/$stack"
+    curl -sSL "$enc_url" -o "$enc_tmp"
+    if [ ! -s "$enc_tmp" ]; then
+        print_error "Encrypted env not found for stack [$stack] at $enc_url"
+        return 1
+    fi
+
+    # Ask passphrase and try to decrypt; allow up to 3 attempts
+    local attempts=0
+    while [ $attempts -lt 3 ]; do
+        attempts=$((attempts+1))
+        local pass
+        if [ -n "$ENV_PASSPHRASE_CACHE" ]; then
+            pass="$ENV_PASSPHRASE_CACHE"
+        else
+            pass=$(prompt_env_passphrase)
+            ENV_PASSPHRASE_CACHE="$pass"
+        fi
+        if printf "%s" "$pass" | openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" 2>/dev/null; then
+            print_success ".env decrypted successfully."
+            rm -f "$enc_tmp"
+            return 0
+        else
+            print_warning "Decryption failed (attempt $attempts/3)."
+        fi
+    done
+    rm -f "$enc_tmp" "$ENV_DECRYPTED_PATH" 2>/dev/null || true
+    print_error "Failed to decrypt .env after 3 attempts."
+    return 1
+}
 
 # --- Helper Functions ---
 print_info() { echo -e "\033[36m[INFO]\033[0m $1"; }
@@ -146,136 +203,14 @@ configure_env() {
     print_info "(3/5) Configuring .env file for [$STACK_NAME]..."
     get_stack_config "$STACK_NAME"
     local env_path="/root/.env"
-    local example_env_url="$REPO_BASE_URL/docker/$STACK_NAME/.env.example"
-    local temp_env_example="$WORK_DIR/.env.example"
-    local temp_current_env="$WORK_DIR/.env.current"
-    local repo_env_path="$WORK_DIR/docker/$STACK_NAME/.env"
-    local repo_env_enc_path="$WORK_DIR/docker/$STACK_NAME/.env"
 
-    # 0) Try to fetch repo .env (optionally encrypted via sops). If available, decrypt and push directly.
-    mkdir -p "$WORK_DIR/docker/$STACK_NAME"
-    curl -sSL "$REPO_BASE_URL/docker/$STACK_NAME/.env" -o "$repo_env_path" || true
-    if [ -s "$repo_env_path" ]; then
-        if grep -q 'sops:' "$repo_env_path" 2>/dev/null; then
-            print_info "  -> Detected sops-encrypted .env; attempting decrypt (requires sops on host)."
-            if command -v sops >/dev/null 2>&1; then
-                sops -d "$repo_env_path" > "$WORK_DIR/.env.new"
-                pct push "$CT_ID" "$WORK_DIR/.env.new" "$env_path"
-                print_success ".env deployed from encrypted repo file."
-                return
-            else
-                print_warning "sops not found on host; falling back to .env.example workflow."
-            fi
-        else
-            print_info "  -> Using repo-provided .env (plaintext)."
-            pct push "$CT_ID" "$repo_env_path" "$env_path"
-            print_success ".env deployed from repo file."
-            return
-        fi
-    fi
-
-    # 1) Fetch the latest .env.example
-    curl -sSL "$example_env_url" -o "$temp_env_example"
-    if [ ! -s "$temp_env_example" ]; then
-        print_warning "No .env.example found for stack [$STACK_NAME]. Skipping .env configuration."
-        return
-    fi
-
-    # Get existing .env if it exists, to check for existing values
-    if pct exec "$CT_ID" -- test -f "$env_path"; then
-        pct pull "$CT_ID" "$env_path" "$temp_current_env"
+    # Decrypt if not already decrypted
+    if [ -z "$ENV_DECRYPTED_PATH" ] || [ ! -s "$ENV_DECRYPTED_PATH" ]; then
+        decrypt_repo_env_to_temp "$STACK_NAME" || { print_error "Cannot proceed without encrypted .env for [$STACK_NAME]."; exit 1; }
     else
-        touch "$temp_current_env" # Create an empty file if it doesn't exist
+        print_info "  -> Using previously decrypted .env from $ENV_DECRYPTED_PATH"
     fi
 
-    print_info "Processing .env file configuration..."
-    local new_env_content=""
-    
-    # Process each variable from .env.example
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        # Preserve comments and empty lines
-        if [[ -z "$line" ]] || [[ "$line" == \#* ]]; then
-            new_env_content+="$line\n"
-            continue
-        fi
-        
-        var_name=$(echo "$line" | cut -d '=' -f 1)
-        
-        # Check if the variable already exists and has a value in the current .env
-        existing_value=$(grep "^$var_name=" "$temp_current_env" | cut -d '=' -f 2-)
-
-        # --- Special Handling Logic ---
-        
-        # 1. Prompt for specific passwords/values if empty
-        if [[ "$var_name" == "JDOWNLOADER_VNC_PASSWORD" ]] || \
-           [[ "$var_name" == "FIREFOX_VNC_PASSWORD" ]] || \
-           [[ "$var_name" == "CLOUDFLARED_TOKEN" ]] || \
-           [[ "$var_name" == "GF_SECURITY_ADMIN_PASSWORD" ]] || \
-           [[ "$var_name" == "PALMR_APP_URL" ]]; then
-            if [[ -n "$existing_value" ]]; then
-                new_env_content+="$var_name=$existing_value\n"
-                print_info "  -> Kept existing $var_name."
-            else
-                read -p "Please enter value for $var_name: " user_input </dev/tty
-                new_env_content+="$var_name=$user_input\n"
-                print_info "  -> Set $var_name from user input."
-            fi
-        
-        # 1.1. Auto-configure PVE monitoring credentials (monitoring stack only)
-        elif [[ "$var_name" == "PVE_USER" ]] && [[ "$STACK_NAME" == "monitoring" ]]; then
-            new_env_content+="$var_name=pve-exporter@pve\n"
-            print_info "  -> Set $var_name to 'pve-exporter@pve'."
-        
-        elif [[ "$var_name" == "PVE_PASSWORD" ]] && [[ "$STACK_NAME" == "monitoring" ]]; then
-            # Always use the password set during the Proxmox user setup step
-            # to ensure the .env file is in sync with the actual user password.
-            new_env_content+="$var_name=$PVE_MONITORING_PASSWORD\n"
-            print_info "  -> Set $var_name from Proxmox user setup (ensuring sync)."
-        
-        elif [[ "$var_name" == "PVE_URL" ]] && [[ "$STACK_NAME" == "monitoring" ]]; then
-            if [[ -n "$existing_value" ]]; then
-                new_env_content+="$var_name=$existing_value\n"
-                print_info "  -> Kept existing $var_name."
-            else
-                new_env_content+="$var_name=https://192.168.1.10:8006\n"
-                print_info "  -> Set $var_name to default Proxmox URL."
-            fi
-        
-        elif [[ "$var_name" == "PVE_VERIFY_SSL" ]] && [[ "$STACK_NAME" == "monitoring" ]]; then
-            if [[ -n "$existing_value" ]]; then
-                new_env_content+="$var_name=$existing_value\n"
-                print_info "  -> Kept existing $var_name."
-            else
-                new_env_content+="$var_name=false\n"
-                print_info "  -> Set $var_name to 'false' for lab environment."
-            fi
-        
-        # 2. Generate Palmr encryption key if empty
-        elif [[ "$var_name" == "PALMR_ENCRYPTION_KEY" ]]; then
-            if [[ -n "$existing_value" ]]; then
-                new_env_content+="$var_name=$existing_value\n"
-                print_info "  -> Kept existing $var_name."
-            else
-                local generated_key=$(openssl rand -base64 32)
-                new_env_content+="$var_name=$generated_key\n"
-                print_info "  -> Generated new $var_name."
-            fi
-
-        # 3. For all other variables, preserve existing value or use .env.example
-        else
-            if [[ -n "$existing_value" ]]; then
-                new_env_content+="$var_name=$existing_value\n"
-                print_info "  -> Kept existing $var_name."
-            else
-                new_env_content+="$line\n" # Copy from .env.example (which might be empty)
-                print_info "  -> Added $var_name from .env.example (new or empty)."
-            fi
-        fi
-    done < "$temp_env_example"
-    
-    # 2) Push the new .env file
-    echo -e "$new_env_content" > "$WORK_DIR/.env.new"
-    
     # Backup existing .env file before pushing the new one
     if pct exec "$CT_ID" -- test -f "$env_path"; then
         if pct exec "$CT_ID" -- cp "$env_path" "$env_path.backup" 2>/dev/null; then
@@ -284,8 +219,8 @@ configure_env() {
             print_warning "  -> Could not create backup, proceeding anyway..."
         fi
     fi
-    
-    pct push "$CT_ID" "$WORK_DIR/.env.new" "$env_path"
+
+    pct push "$CT_ID" "$ENV_DECRYPTED_PATH" "$env_path"
     print_success "Environment file configured successfully."
 }
 
@@ -435,8 +370,14 @@ deploy_compose() {
 
 # --- Main Execution ---
 
-# For monitoring stack, setup Proxmox user first
+# For monitoring stack, decrypt .env first to fetch PVE_PASSWORD, then setup Proxmox user
 if [[ "$STACK_NAME" == "monitoring" ]]; then
+    # Ensure .env is decrypted locally to read PVE_PASSWORD
+    decrypt_repo_env_to_temp "$STACK_NAME" || { print_error "Cannot decrypt env for monitoring."; exit 1; }
+    if [ -s "$ENV_DECRYPTED_PATH" ]; then
+        # shellcheck disable=SC1090
+        PVE_MONITORING_PASSWORD=$(grep '^PVE_PASSWORD=' "$ENV_DECRYPTED_PATH" | cut -d '=' -f 2-)
+    fi
     setup_proxmox_monitoring_user
 fi
 
