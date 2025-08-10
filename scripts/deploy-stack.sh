@@ -57,6 +57,7 @@ prepare_host() {
     mkdir -p /datapool/config/grafana/provisioning
     mkdir -p /datapool/config/loki/data 
     mkdir -p /datapool/config/promtail
+    mkdir -p /datapool/config/promtail/positions
     mkdir -p /datapool/config/homepage
     mkdir -p /datapool/config/palmr/uploads
     
@@ -68,6 +69,11 @@ prepare_host() {
         print_success "Host prepared: /datapool/config ownership set to 101000."
     else
         print_warning "Could not set ownership to 101000:101000, proceeding anyway."
+    fi
+
+    # Place stacks.yaml for YAML-driven config (optional)
+    if [ -f "$WORK_DIR/../stacks.yaml" ]; then
+        cp -f "$WORK_DIR/../stacks.yaml" /root/stacks.yaml || true
     fi
 }
 
@@ -142,8 +148,32 @@ configure_env() {
     local example_env_url="$REPO_BASE_URL/docker/$STACK_NAME/.env.example"
     local temp_env_example="$WORK_DIR/.env.example"
     local temp_current_env="$WORK_DIR/.env.current"
+    local repo_env_path="$WORK_DIR/docker/$STACK_NAME/.env"
+    local repo_env_enc_path="$WORK_DIR/docker/$STACK_NAME/.env"
 
-    # Fetch the latest .env.example
+    # 0) Try to fetch repo .env (optionally encrypted via sops). If available, decrypt and push directly.
+    mkdir -p "$WORK_DIR/docker/$STACK_NAME"
+    curl -sSL "$REPO_BASE_URL/docker/$STACK_NAME/.env" -o "$repo_env_path" || true
+    if [ -s "$repo_env_path" ]; then
+        if grep -q 'sops:' "$repo_env_path" 2>/dev/null; then
+            print_info "  -> Detected sops-encrypted .env; attempting decrypt (requires sops on host)."
+            if command -v sops >/dev/null 2>&1; then
+                sops -d "$repo_env_path" > "$WORK_DIR/.env.new"
+                pct push "$CT_ID" "$WORK_DIR/.env.new" "$env_path"
+                print_success ".env deployed from encrypted repo file."
+                return
+            else
+                print_warning "sops not found on host; falling back to .env.example workflow."
+            fi
+        else
+            print_info "  -> Using repo-provided .env (plaintext)."
+            pct push "$CT_ID" "$repo_env_path" "$env_path"
+            print_success ".env deployed from repo file."
+            return
+        fi
+    fi
+
+    # 1) Fetch the latest .env.example
     curl -sSL "$example_env_url" -o "$temp_env_example"
     if [ ! -s "$temp_env_example" ]; then
         print_warning "No .env.example found for stack [$STACK_NAME]. Skipping .env configuration."
@@ -242,7 +272,7 @@ configure_env() {
         fi
     done < "$temp_env_example"
     
-    # Push the new .env file
+    # 2) Push the new .env file
     echo -e "$new_env_content" > "$WORK_DIR/.env.new"
     
     # Backup existing .env file before pushing the new one

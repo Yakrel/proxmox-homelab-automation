@@ -4,6 +4,7 @@
 set -e
 
 STACK_NAME=$1
+STACKS_FILE="/root/stacks.yaml"
 
 print_info() { echo -e "\033[36m[INFO]\033[0m $1"; }
 print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
@@ -11,6 +12,26 @@ print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 
 get_stack_config() {
+    # Try YAML source of truth first if available inside host root. Fallback to hardcoded values.
+    if command -v yq >/dev/null 2>&1 && [ -f "$STACKS_FILE" ]; then
+        CT_ID=$(yq -r ".stacks.$1.ct_id" "$STACKS_FILE")
+        CT_HOSTNAME=$(yq -r ".stacks.$1.hostname" "$STACKS_FILE")
+        CT_CORES=$(yq -r ".stacks.$1.cpu_cores" "$STACKS_FILE")
+        CT_RAM_MB=$(yq -r ".stacks.$1.memory_mb" "$STACKS_FILE")
+        CT_DISK_GB=$(yq -r ".stacks.$1.disk_gb" "$STACKS_FILE")
+        CT_IP_CIDR_BASE=$(yq -r ".network.ip_base" "$STACKS_FILE" | awk -F. '{print $1"."$2"."$3}')
+        CT_GATEWAY_IP=$(yq -r ".network.gateway" "$STACKS_FILE")
+        CT_BRIDGE=$(yq -r ".network.bridge" "$STACKS_FILE")
+        STORAGE_POOL=$(yq -r ".storage.pool" "$STACKS_FILE")
+        ip_octet=$(yq -r ".stacks.$1.ip_octet" "$STACKS_FILE")
+        CT_IP_CIDR="$CT_IP_CIDR_BASE.$ip_octet/24"
+        if [ "$CT_ID" = "null" ] || [ -z "$CT_ID" ]; then
+            print_warning "YAML lookup failed or incomplete; falling back to defaults."
+        else
+            return
+        fi
+    fi
+
     CT_IP_CIDR_BASE="192.168.1"; CT_GATEWAY_IP="192.168.1.1"; CT_BRIDGE="vmbr0"; STORAGE_POOL="datapool"
     case "$1" in
         proxy)
