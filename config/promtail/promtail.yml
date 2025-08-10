@@ -46,7 +46,7 @@ scrape_configs:
           - localhost
         labels:
           job: systemlogs
-          __path__: /var/log/syslog
+          __path__: /var/log/messages
           host: "REPLACE_HOST_LABEL"
 
     pipeline_stages:

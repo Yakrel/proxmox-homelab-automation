@@ -55,6 +55,11 @@ This project is divided into several service stacks, each with its own `docker-c
 
 All LXC containers use Alpine for minimal footprint; only the "development" container includes Node.js (npm). Other stacks contain only Docker Engine + Compose plugin (and Docker daemon metrics). Root console autologin is enabled and SSH server removed (lab convenience assumption).
 
+Notes:
+- Alertmanager service is not used; Prometheus alertmanager block was removed.
+- Promtail system logs are tailed from /var/log/messages (Alpine).
+- Watchtower schedules use a 7-field cron format (with seconds).
+
 #### Proxy Stack
 
 - **Directory:** `docker/proxy/`
