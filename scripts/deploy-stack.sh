@@ -389,7 +389,7 @@ configure_promtail_config() {
     print_info "  -> Downloading promtail.yml template"
     curl -sSL "$promtail_config_url" -o "$temp_promtail_file"
     
-    # Replace host label with the actual hostname
+    # Replace host label with the actual hostname (used in labels and positions filename)
     sed -i "s/REPLACE_HOST_LABEL/$CT_HOSTNAME/g" "$temp_promtail_file"
     
     print_info "  -> Pushing customized promtail.yml to LXC ($promtail_config_dir)"
