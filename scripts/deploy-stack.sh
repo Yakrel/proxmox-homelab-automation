@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # This script orchestrates the full deployment of a specific stack.
@@ -359,7 +360,7 @@ configure_stack_configs() {
             rm "$temp_file"
         done
 
-        # Download and push Loki config
+                # Download and push Loki config
         local loki_config_url="$REPO_BASE_URL/config/loki/loki.yml"
         local temp_loki_file="$WORK_DIR/loki.yml"
         
@@ -369,6 +370,15 @@ configure_stack_configs() {
         print_info "    -> Pushing loki.yml to LXC ($loki_config_dir)"
         pct push "$CT_ID" "$temp_loki_file" "$loki_config_dir/loki.yml"
         rm "$temp_loki_file"
+
+    # Download and push Prometheus main config
+    local prom_config_url="$REPO_BASE_URL/docker/$STACK_NAME/prometheus.yml"
+    local temp_prom_file="$WORK_DIR/prometheus.yml"
+    print_info "    -> Downloading prometheus.yml"
+    curl -sSL "$prom_config_url" -o "$temp_prom_file"
+    print_info "    -> Pushing prometheus.yml to LXC ($prometheus_config_dir)"
+    pct push "$CT_ID" "$temp_prom_file" "$prometheus_config_dir/prometheus.yml"
+    rm -f "$temp_prom_file"
 
         print_success "Monitoring config files configured successfully."
     else
