@@ -88,13 +88,9 @@ get_stack_config() {
     local stack=$1
     local stacks_file="/root/stacks.yaml"
     
-    # Auto-install yq if not present
-    if ! command -v yq >/dev/null 2>&1; then
-        print_info "Installing yq (YAML processor)..."
-        wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
-        chmod +x /usr/bin/yq
-        print_success "yq installed successfully."
-    fi
+    # Install yq via apt (idempotent; safe if already installed)
+    apt-get update -y >/dev/null 2>&1 || true
+    apt-get install -y yq >/dev/null 2>&1 || true
     
     if [ ! -f "$stacks_file" ]; then
         print_error "Stacks file not found: $stacks_file. Ensure stacks.yaml is placed there."

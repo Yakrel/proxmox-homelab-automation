@@ -2,7 +2,6 @@
 # This is a scaffold to begin consolidating repeated values. Not yet wired.
 
 network:
-  base_cidr: 192.168.1.0/24
   gateway: 192.168.1.1
   bridge: vmbr0
   ip_base: 192.168.1 # used to form static IPs like 192.168.1.<octet>

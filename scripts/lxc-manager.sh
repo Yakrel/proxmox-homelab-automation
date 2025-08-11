@@ -12,13 +12,9 @@ print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 
 get_stack_config() {
-    # Auto-install yq if not present
-    if ! command -v yq >/dev/null 2>&1; then
-        print_info "Installing yq (YAML processor)..."
-        wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
-        chmod +x /usr/bin/yq
-        print_success "yq installed successfully."
-    fi
+    # Install yq via apt (idempotent; safe if already installed)
+    apt-get update -y >/dev/null 2>&1 || true
+    apt-get install -y yq >/dev/null 2>&1 || true
     
     if [ ! -f "$STACKS_FILE" ]; then
         print_error "Stacks file not found: $STACKS_FILE. Ensure stacks.yaml is placed there."
