@@ -20,27 +20,32 @@ scrape_configs:
         - '192.168.1.102:9323'
         - '192.168.1.103:9323'
         - '192.168.1.104:9323'
+        - '192.168.1.150:9323'
     relabel_configs:
       - source_labels: [__address__]
         regex: '192.168.1.100:9323'
         target_label: instance
-  replacement: 'lxc-proxy-01'
+        replacement: 'lxc-proxy-01'
       - source_labels: [__address__]
         regex: '192.168.1.101:9323'
         target_label: instance
-  replacement: 'lxc-media-01'
+        replacement: 'lxc-media-01'
       - source_labels: [__address__]
         regex: '192.168.1.102:9323'
         target_label: instance
-  replacement: 'lxc-files-01'
+        replacement: 'lxc-files-01'
       - source_labels: [__address__]
         regex: '192.168.1.103:9323'
         target_label: instance
-  replacement: 'lxc-webtools-01'
+        replacement: 'lxc-webtools-01'
       - source_labels: [__address__]
         regex: '192.168.1.104:9323'
         target_label: instance
-  replacement: 'lxc-monitoring-01'
+        replacement: 'lxc-monitoring-01'
+      - source_labels: [__address__]
+        regex: '192.168.1.150:9323'
+        target_label: instance
+        replacement: 'lxc-development-01'
 
   
 
