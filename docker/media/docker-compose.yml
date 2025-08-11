@@ -254,7 +254,7 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
-  command: ["--schedule", "0 0 2,8,14,20 * *"]
+    command: ["--schedule", "0 0 2,8,14,20 * * *"]
     networks:
       - media-net
     logging:

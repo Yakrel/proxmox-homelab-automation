@@ -57,13 +57,20 @@ decrypt_repo_env_to_temp() {
             pass=$(prompt_env_passphrase)
             ENV_PASSPHRASE_CACHE="$pass"
         fi
-    if openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" 2>/dev/null <<< "$pass"; then
+        
+        # Use a temporary file to securely pass the passphrase to openssl
+        local passfile
+        passfile=$(mktemp)
+        chmod 600 "$passfile"
+        printf '%s' "$pass" > "$passfile"
+        if openssl enc -d -aes-256-cbc -pbkdf2 -pass file:"$passfile" -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" 2>/dev/null; then
             print_success ".env decrypted successfully."
-            rm -f "$enc_tmp"
+            rm -f "$enc_tmp" "$passfile"
             return 0
         else
             print_warning "Decryption failed (attempt $attempts/3)."
         fi
+        rm -f "$passfile"
     done
     rm -f "$enc_tmp" "$ENV_DECRYPTED_PATH" 2>/dev/null || true
     print_error "Failed to decrypt .env after 3 attempts."
