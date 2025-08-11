@@ -24,7 +24,7 @@ prompt_env_passphrase() {
         if [ -z "$pass" ]; then
             print_warning "Passphrase cannot be empty."
         else
-            echo "$pass"
+            printf '%s' "$pass"  # Secure output without newline
             return 0
         fi
     done
@@ -83,33 +83,30 @@ print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
 print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 
-# --- Hardcoded Stack Configuration ---
+# --- Stack Configuration (YAML-driven only) ---
 get_stack_config() {
     local stack=$1
-    case $stack in
-        "proxy")
-            CT_ID="100"; CT_HOSTNAME="lxc-proxy-01";
-            ;;
-        "media")
-            CT_ID="101"; CT_HOSTNAME="lxc-media-01";
-            ;;
-        "files")
-            CT_ID="102"; CT_HOSTNAME="lxc-files-01";
-            ;;
-        "webtools")
-            CT_ID="103"; CT_HOSTNAME="lxc-webtools-01";
-            ;;
-        "monitoring")
-            CT_ID="104"; CT_HOSTNAME="lxc-monitoring-01";
-            ;;
-        "development")
-            CT_ID="150"; CT_HOSTNAME="lxc-development-01";
-            ;;
-        *)
-            print_error "Unknown stack: $stack" >&2
-            exit 1
-            ;;
-    esac
+    local stacks_file="/root/stacks.yaml"
+    
+    # Auto-install yq if not present
+    if ! command -v yq >/dev/null 2>&1; then
+        print_info "Installing yq (YAML processor)..."
+        wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+        chmod +x /usr/bin/yq
+        print_success "yq installed successfully."
+    fi
+    
+    if [ ! -f "$stacks_file" ]; then
+        print_error "Stacks file not found: $stacks_file. Ensure stacks.yaml is placed there."
+        exit 1
+    fi
+    
+    CT_ID=$(yq -r ".stacks.$stack.ct_id" "$stacks_file")
+    CT_HOSTNAME=$(yq -r ".stacks.$stack.hostname" "$stacks_file")
+    if [ -z "$CT_ID" ] || [ "$CT_ID" = "null" ]; then
+        print_error "Stack '$stack' not found or incomplete in $stacks_file"
+        exit 1
+    fi
 }
 
 # --- Step 1: Host Preparation ---
