@@ -58,19 +58,14 @@ decrypt_repo_env_to_temp() {
             ENV_PASSPHRASE_CACHE="$pass"
         fi
         
-        # Use a temporary file to securely pass the passphrase to openssl
-        local passfile
-        passfile=$(mktemp)
-        chmod 600 "$passfile"
-        printf '%s' "$pass" > "$passfile"
-        if openssl enc -d -aes-256-cbc -pbkdf2 -pass file:"$passfile" -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" 2>/dev/null; then
+    # Pass the passphrase to openssl via stdin to avoid writing it to disk
+    if printf '%s' "$pass" | openssl enc -d -aes-256-cbc -pbkdf2 -pass fd:0 -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" 2>/dev/null; then
             print_success ".env decrypted successfully."
-            rm -f "$enc_tmp" "$passfile"
+            rm -f "$enc_tmp"
             return 0
         else
             print_warning "Decryption failed (attempt $attempts/3)."
         fi
-        rm -f "$passfile"
     done
     rm -f "$enc_tmp" "$ENV_DECRYPTED_PATH" 2>/dev/null || true
     print_error "Failed to decrypt .env after 3 attempts."
@@ -88,9 +83,11 @@ get_stack_config() {
     local stack=$1
     local stacks_file="/root/stacks.yaml"
     
-    # Install yq via apt (idempotent; safe if already installed)
-    apt-get update -y >/dev/null 2>&1 || true
-    apt-get install -y yq >/dev/null 2>&1 || true
+    # Ensure yq is installed only if missing (faster, less network usage)
+    if ! command -v yq >/dev/null 2>&1; then
+        apt-get update -y >/dev/null 2>&1 || true
+        apt-get install -y yq >/dev/null 2>&1 || true
+    fi
     
     if [ ! -f "$stacks_file" ]; then
         print_error "Stacks file not found: $stacks_file. Ensure stacks.yaml is placed there."
@@ -110,14 +107,17 @@ get_stack_config() {
 prepare_host() {
     print_info "(1/5) Preparing Proxmox host..."
     
-    # Create all necessary directories at once
-    mkdir -p /datapool/config/prometheus
-    mkdir -p /datapool/config/grafana/provisioning
-    mkdir -p /datapool/config/loki/data 
-    mkdir -p /datapool/config/promtail
-    mkdir -p /datapool/config/promtail/positions
-    mkdir -p /datapool/config/homepage
-    mkdir -p /datapool/config/palmr/uploads
+    # Create all necessary directories (consolidated)
+    local -a dirs=(
+        /datapool/config/prometheus
+        /datapool/config/grafana/provisioning
+        /datapool/config/loki/data
+        /datapool/config/promtail
+        /datapool/config/promtail/positions
+        /datapool/config/homepage
+        /datapool/config/palmr/uploads
+    )
+    mkdir -p "${dirs[@]}"
     
     # Set ownership to 101000. This is intentional and crucial.
     # It maps the Proxmox host UID to the container's UID for user 1000.

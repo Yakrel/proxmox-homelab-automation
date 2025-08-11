@@ -12,9 +12,11 @@ print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 
 get_stack_config() {
-    # Install yq via apt (idempotent; safe if already installed)
-    apt-get update -y >/dev/null 2>&1 || true
-    apt-get install -y yq >/dev/null 2>&1 || true
+    # Ensure yq is installed only if missing (faster, less network usage)
+    if ! command -v yq >/dev/null 2>&1; then
+        apt-get update -y >/dev/null 2>&1 || true
+        apt-get install -y yq >/dev/null 2>&1 || true
+    fi
     
     if [ ! -f "$STACKS_FILE" ]; then
         print_error "Stacks file not found: $STACKS_FILE. Ensure stacks.yaml is placed there."
