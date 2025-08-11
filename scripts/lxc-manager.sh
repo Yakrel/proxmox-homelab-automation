@@ -25,7 +25,7 @@ get_stack_config() {
     CT_CORES=$(yq -r ".stacks.$1.cpu_cores" "$STACKS_FILE")
     CT_RAM_MB=$(yq -r ".stacks.$1.memory_mb" "$STACKS_FILE")
     CT_DISK_GB=$(yq -r ".stacks.$1.disk_gb" "$STACKS_FILE")
-    CT_IP_CIDR_BASE=$(yq -r ".network.ip_base" "$STACKS_FILE" | awk -F. '{print $1"."$2"."$3}')
+    CT_IP_CIDR_BASE=$(yq -r ".network.ip_base" "$STACKS_FILE")
     CT_GATEWAY_IP=$(yq -r ".network.gateway" "$STACKS_FILE")
     CT_BRIDGE=$(yq -r ".network.bridge" "$STACKS_FILE")
     STORAGE_POOL=$(yq -r ".storage.pool" "$STACKS_FILE")

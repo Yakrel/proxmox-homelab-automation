@@ -57,7 +57,7 @@ decrypt_repo_env_to_temp() {
             pass=$(prompt_env_passphrase)
             ENV_PASSPHRASE_CACHE="$pass"
         fi
-        if printf "%s" "$pass" | openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" 2>/dev/null; then
+    if openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" 2>/dev/null <<< "$pass"; then
             print_success ".env decrypted successfully."
             rm -f "$enc_tmp"
             return 0
@@ -282,7 +282,7 @@ configure_stack_configs() {
             "grafana-provisioning-datasources.yml:$grafana_provisioning_dir"
         )
 
-        for config_entry in "${monitoring_config_files[@]}"; do
+    for config_entry in "${monitoring_config_files[@]}"; do
             IFS=':' read -r config_file target_dir <<< "$config_entry"
             local remote_url="$REPO_BASE_URL/docker/$STACK_NAME/$config_file"
             local temp_file="$WORK_DIR/$config_file"
@@ -306,14 +306,6 @@ configure_stack_configs() {
         pct push "$CT_ID" "$temp_loki_file" "$loki_config_dir/loki.yml"
         rm "$temp_loki_file"
 
-    # Download and push Prometheus main config
-    local prom_config_url="$REPO_BASE_URL/docker/$STACK_NAME/prometheus.yml"
-    local temp_prom_file="$WORK_DIR/prometheus.yml"
-    print_info "    -> Downloading prometheus.yml"
-    curl -sSL "$prom_config_url" -o "$temp_prom_file"
-    print_info "    -> Pushing prometheus.yml to LXC ($prometheus_config_dir)"
-    pct push "$CT_ID" "$temp_prom_file" "$prometheus_config_dir/prometheus.yml"
-    rm -f "$temp_prom_file"
 
         print_success "Monitoring config files configured successfully."
     else
