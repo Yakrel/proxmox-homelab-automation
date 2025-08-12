@@ -1,0 +1,54 @@
+# Central source of truth for LXC stacks (IDs, hostnames, IPs, resources)
+# This is a scaffold to begin consolidating repeated values. Not yet wired.
+
+network:
+  gateway: 192.168.1.1
+  bridge: vmbr0
+  ip_base: 192.168.1 # used to form static IPs like 192.168.1.<octet>
+
+storage:
+  pool: datapool
+
+stacks:
+  proxy:
+    ct_id: 100
+    hostname: lxc-proxy-01
+    ip_octet: 100
+    cpu_cores: 2
+    memory_mb: 2048
+    disk_gb: 10
+  media:
+    ct_id: 101
+    hostname: lxc-media-01
+    ip_octet: 101
+    cpu_cores: 6
+    memory_mb: 10240
+    disk_gb: 20
+  files:
+    ct_id: 102
+    hostname: lxc-files-01
+    ip_octet: 102
+    cpu_cores: 2
+    memory_mb: 3072
+    disk_gb: 15
+  webtools:
+    ct_id: 103
+    hostname: lxc-webtools-01
+    ip_octet: 103
+    cpu_cores: 2
+    memory_mb: 6144
+    disk_gb: 15
+  monitoring:
+    ct_id: 104
+    hostname: lxc-monitoring-01
+    ip_octet: 104
+    cpu_cores: 4
+    memory_mb: 6144
+    disk_gb: 15
+  development:
+    ct_id: 150
+    hostname: lxc-development-01
+    ip_octet: 150
+    cpu_cores: 4
+    memory_mb: 6144
+    disk_gb: 15

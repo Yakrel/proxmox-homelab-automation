@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # This script orchestrates the full deployment of a specific stack.
@@ -11,6 +12,65 @@ REPO_BASE_URL="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automati
 
 # Global variables for monitoring setup
 PVE_MONITORING_PASSWORD=""
+ENV_ENC_NAME=".env.enc"    # Encrypted env filename expected in repo per stack
+ENV_DECRYPTED_PATH=""
+ENV_PASSPHRASE_CACHE=""
+
+prompt_env_passphrase() {
+    local pass
+    while true; do
+        read -s -p "Enter .env decryption passphrase: " pass </dev/tty || true
+        echo
+        if [ -z "$pass" ]; then
+            print_warning "Passphrase cannot be empty."
+        else
+            printf '%s' "$pass"  # Secure output without newline
+            return 0
+        fi
+    done
+}
+
+decrypt_repo_env_to_temp() {
+    # Downloads encrypted .env.enc from repo for the stack and decrypts it to a temp file.
+    # Expects OpenSSL available on host (present by default on Proxmox).
+    local stack="$1"
+    local enc_url="$REPO_BASE_URL/docker/$stack/$ENV_ENC_NAME"
+    local enc_tmp="$WORK_DIR/$ENV_ENC_NAME"
+    ENV_DECRYPTED_PATH="$WORK_DIR/.env.new"
+
+    print_info "  -> Downloading encrypted env ($ENV_ENC_NAME) for [$stack] from repo..."
+    mkdir -p "$WORK_DIR/docker/$stack"
+    curl -sSL "$enc_url" -o "$enc_tmp"
+    if [ ! -s "$enc_tmp" ]; then
+        print_error "Encrypted env not found for stack [$stack] at $enc_url"
+        return 1
+    fi
+
+    # Ask passphrase and try to decrypt; allow up to 3 attempts
+    local attempts=0
+    while [ $attempts -lt 3 ]; do
+        attempts=$((attempts+1))
+        local pass
+        if [ -n "$ENV_PASSPHRASE_CACHE" ]; then
+            pass="$ENV_PASSPHRASE_CACHE"
+        else
+            pass=$(prompt_env_passphrase)
+            ENV_PASSPHRASE_CACHE="$pass"
+        fi
+        
+    # Pass the passphrase to openssl via stdin to avoid writing it to disk
+    if printf '%s' "$pass" | openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" 2>/dev/null; then
+            print_success ".env decrypted successfully."
+            rm -f "$enc_tmp"
+            return 0
+        else
+            print_warning "Decryption failed (attempt $attempts/3)."
+        fi
+    done
+    rm -f "$enc_tmp" "$ENV_DECRYPTED_PATH" 2>/dev/null || true
+    print_error "Failed to decrypt .env after 3 attempts."
+    return 1
+}
 
 # --- Helper Functions ---
 print_info() { echo -e "\033[36m[INFO]\033[0m $1"; }
@@ -18,33 +78,28 @@ print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
 print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 
-# --- Hardcoded Stack Configuration ---
+# --- Stack Configuration (YAML-driven only) ---
 get_stack_config() {
     local stack=$1
-    case $stack in
-        "proxy")
-            CT_ID="100"; CT_HOSTNAME="lxc-proxy-01";
-            ;;
-        "media")
-            CT_ID="101"; CT_HOSTNAME="lxc-media-01";
-            ;;
-        "files")
-            CT_ID="102"; CT_HOSTNAME="lxc-files-01";
-            ;;
-        "webtools")
-            CT_ID="103"; CT_HOSTNAME="lxc-webtools-01";
-            ;;
-        "monitoring")
-            CT_ID="104"; CT_HOSTNAME="lxc-monitoring-01";
-            ;;
-        "development")
-            CT_ID="150"; CT_HOSTNAME="lxc-development-01";
-            ;;
-        *)
-            print_error "Unknown stack: $stack" >&2
-            exit 1
-            ;;
-    esac
+    local stacks_file="/root/stacks.yaml"
+    
+    # Ensure yq is installed only if missing (faster, less network usage)
+    if ! command -v yq >/dev/null 2>&1; then
+        apt-get update -y >/dev/null 2>&1 || true
+        apt-get install -y yq >/dev/null 2>&1 || true
+    fi
+    
+    if [ ! -f "$stacks_file" ]; then
+        print_error "Stacks file not found: $stacks_file. Ensure stacks.yaml is placed there."
+        exit 1
+    fi
+    
+    CT_ID=$(yq -r ".stacks.$stack.ct_id" "$stacks_file")
+    CT_HOSTNAME=$(yq -r ".stacks.$stack.hostname" "$stacks_file")
+    if [ -z "$CT_ID" ] || [ "$CT_ID" = "null" ]; then
+        print_error "Stack '$stack' not found or incomplete in $stacks_file"
+        exit 1
+    fi
 }
 
 # --- Step 1: Host Preparation ---
@@ -52,13 +107,17 @@ get_stack_config() {
 prepare_host() {
     print_info "(1/5) Preparing Proxmox host..."
     
-    # Create all necessary directories at once
-    mkdir -p /datapool/config/prometheus
-    mkdir -p /datapool/config/grafana/provisioning
-    mkdir -p /datapool/config/loki/data 
-    mkdir -p /datapool/config/promtail
-    mkdir -p /datapool/config/homepage
-    mkdir -p /datapool/config/palmr/uploads
+    # Create all necessary directories (consolidated)
+    local -a dirs=(
+        /datapool/config/prometheus
+        /datapool/config/grafana/provisioning
+        /datapool/config/loki/data
+        /datapool/config/promtail
+        /datapool/config/promtail/positions
+        /datapool/config/homepage
+        /datapool/config/palmr/uploads
+    )
+    mkdir -p "${dirs[@]}"
     
     # Set ownership to 101000. This is intentional and crucial.
     # It maps the Proxmox host UID to the container's UID for user 1000.
@@ -68,6 +127,11 @@ prepare_host() {
         print_success "Host prepared: /datapool/config ownership set to 101000."
     else
         print_warning "Could not set ownership to 101000:101000, proceeding anyway."
+    fi
+
+    # Place stacks.yaml for YAML-driven config (optional)
+    if [ -f "$WORK_DIR/../stacks.yaml" ]; then
+        cp -f "$WORK_DIR/../stacks.yaml" /root/stacks.yaml || true
     fi
 }
 
@@ -139,112 +203,14 @@ configure_env() {
     print_info "(3/5) Configuring .env file for [$STACK_NAME]..."
     get_stack_config "$STACK_NAME"
     local env_path="/root/.env"
-    local example_env_url="$REPO_BASE_URL/docker/$STACK_NAME/.env.example"
-    local temp_env_example="$WORK_DIR/.env.example"
-    local temp_current_env="$WORK_DIR/.env.current"
 
-    # Fetch the latest .env.example
-    curl -sSL "$example_env_url" -o "$temp_env_example"
-    if [ ! -s "$temp_env_example" ]; then
-        print_warning "No .env.example found for stack [$STACK_NAME]. Skipping .env configuration."
-        return
-    fi
-
-    # Get existing .env if it exists, to check for existing values
-    if pct exec "$CT_ID" -- test -f "$env_path"; then
-        pct pull "$CT_ID" "$env_path" "$temp_current_env"
+    # Decrypt if not already decrypted
+    if [ -z "$ENV_DECRYPTED_PATH" ] || [ ! -s "$ENV_DECRYPTED_PATH" ]; then
+        decrypt_repo_env_to_temp "$STACK_NAME" || { print_error "Cannot proceed without encrypted .env for [$STACK_NAME]."; exit 1; }
     else
-        touch "$temp_current_env" # Create an empty file if it doesn't exist
+        print_info "  -> Using previously decrypted .env from $ENV_DECRYPTED_PATH"
     fi
 
-    print_info "Processing .env file configuration..."
-    local new_env_content=""
-    
-    # Process each variable from .env.example
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        # Preserve comments and empty lines
-        if [[ -z "$line" ]] || [[ "$line" == \#* ]]; then
-            new_env_content+="$line\n"
-            continue
-        fi
-        
-        var_name=$(echo "$line" | cut -d '=' -f 1)
-        
-        # Check if the variable already exists and has a value in the current .env
-        existing_value=$(grep "^$var_name=" "$temp_current_env" | cut -d '=' -f 2-)
-
-        # --- Special Handling Logic ---
-        
-        # 1. Prompt for specific passwords/values if empty
-        if [[ "$var_name" == "JDOWNLOADER_VNC_PASSWORD" ]] || \
-           [[ "$var_name" == "FIREFOX_VNC_PASSWORD" ]] || \
-           [[ "$var_name" == "CLOUDFLARED_TOKEN" ]] || \
-           [[ "$var_name" == "GF_SECURITY_ADMIN_PASSWORD" ]] || \
-           [[ "$var_name" == "PALMR_APP_URL" ]]; then
-            if [[ -n "$existing_value" ]]; then
-                new_env_content+="$var_name=$existing_value\n"
-                print_info "  -> Kept existing $var_name."
-            else
-                read -p "Please enter value for $var_name: " user_input </dev/tty
-                new_env_content+="$var_name=$user_input\n"
-                print_info "  -> Set $var_name from user input."
-            fi
-        
-        # 1.1. Auto-configure PVE monitoring credentials (monitoring stack only)
-        elif [[ "$var_name" == "PVE_USER" ]] && [[ "$STACK_NAME" == "monitoring" ]]; then
-            new_env_content+="$var_name=pve-exporter@pve\n"
-            print_info "  -> Set $var_name to 'pve-exporter@pve'."
-        
-        elif [[ "$var_name" == "PVE_PASSWORD" ]] && [[ "$STACK_NAME" == "monitoring" ]]; then
-            # Always use the password set during the Proxmox user setup step
-            # to ensure the .env file is in sync with the actual user password.
-            new_env_content+="$var_name=$PVE_MONITORING_PASSWORD\n"
-            print_info "  -> Set $var_name from Proxmox user setup (ensuring sync)."
-        
-        elif [[ "$var_name" == "PVE_URL" ]] && [[ "$STACK_NAME" == "monitoring" ]]; then
-            if [[ -n "$existing_value" ]]; then
-                new_env_content+="$var_name=$existing_value\n"
-                print_info "  -> Kept existing $var_name."
-            else
-                new_env_content+="$var_name=https://192.168.1.10:8006\n"
-                print_info "  -> Set $var_name to default Proxmox URL."
-            fi
-        
-        elif [[ "$var_name" == "PVE_VERIFY_SSL" ]] && [[ "$STACK_NAME" == "monitoring" ]]; then
-            if [[ -n "$existing_value" ]]; then
-                new_env_content+="$var_name=$existing_value\n"
-                print_info "  -> Kept existing $var_name."
-            else
-                new_env_content+="$var_name=false\n"
-                print_info "  -> Set $var_name to 'false' for lab environment."
-            fi
-        
-        # 2. Generate Palmr encryption key if empty
-        elif [[ "$var_name" == "PALMR_ENCRYPTION_KEY" ]]; then
-            if [[ -n "$existing_value" ]]; then
-                new_env_content+="$var_name=$existing_value\n"
-                print_info "  -> Kept existing $var_name."
-            else
-                local generated_key=$(openssl rand -base64 32)
-                new_env_content+="$var_name=$generated_key\n"
-                print_info "  -> Generated new $var_name."
-            fi
-
-        # 3. For all other variables, preserve existing value or use .env.example
-        else
-            if [[ -n "$existing_value" ]]; then
-                new_env_content+="$var_name=$existing_value\n"
-                print_info "  -> Kept existing $var_name."
-            else
-                new_env_content+="$line\n" # Copy from .env.example (which might be empty)
-                print_info "  -> Added $var_name from .env.example (new or empty)."
-            fi
-        fi
-    done < "$temp_env_example"
-    
-    # Push the new .env file
-    echo -e "$new_env_content" > "$WORK_DIR/.env.new"
-    
     # Backup existing .env file before pushing the new one
     if pct exec "$CT_ID" -- test -f "$env_path"; then
         if pct exec "$CT_ID" -- cp "$env_path" "$env_path.backup" 2>/dev/null; then
@@ -253,8 +219,8 @@ configure_env() {
             print_warning "  -> Could not create backup, proceeding anyway..."
         fi
     fi
-    
-    pct push "$CT_ID" "$WORK_DIR/.env.new" "$env_path"
+
+    pct push "$CT_ID" "$ENV_DECRYPTED_PATH" "$env_path"
     print_success "Environment file configured successfully."
 }
 
@@ -316,7 +282,7 @@ configure_stack_configs() {
             "grafana-provisioning-datasources.yml:$grafana_provisioning_dir"
         )
 
-        for config_entry in "${monitoring_config_files[@]}"; do
+    for config_entry in "${monitoring_config_files[@]}"; do
             IFS=':' read -r config_file target_dir <<< "$config_entry"
             local remote_url="$REPO_BASE_URL/docker/$STACK_NAME/$config_file"
             local temp_file="$WORK_DIR/$config_file"
@@ -329,7 +295,7 @@ configure_stack_configs() {
             rm "$temp_file"
         done
 
-        # Download and push Loki config
+                # Download and push Loki config
         local loki_config_url="$REPO_BASE_URL/config/loki/loki.yml"
         local temp_loki_file="$WORK_DIR/loki.yml"
         
@@ -339,6 +305,7 @@ configure_stack_configs() {
         print_info "    -> Pushing loki.yml to LXC ($loki_config_dir)"
         pct push "$CT_ID" "$temp_loki_file" "$loki_config_dir/loki.yml"
         rm "$temp_loki_file"
+
 
         print_success "Monitoring config files configured successfully."
     else
@@ -359,7 +326,7 @@ configure_promtail_config() {
     print_info "  -> Downloading promtail.yml template"
     curl -sSL "$promtail_config_url" -o "$temp_promtail_file"
     
-    # Replace host label with the actual hostname
+    # Replace host label with the actual hostname (used in labels and positions filename)
     sed -i "s/REPLACE_HOST_LABEL/$CT_HOSTNAME/g" "$temp_promtail_file"
     
     print_info "  -> Pushing customized promtail.yml to LXC ($promtail_config_dir)"
@@ -395,8 +362,14 @@ deploy_compose() {
 
 # --- Main Execution ---
 
-# For monitoring stack, setup Proxmox user first
+# For monitoring stack, decrypt .env first to fetch PVE_PASSWORD, then setup Proxmox user
 if [[ "$STACK_NAME" == "monitoring" ]]; then
+    # Ensure .env is decrypted locally to read PVE_PASSWORD
+    decrypt_repo_env_to_temp "$STACK_NAME" || { print_error "Cannot decrypt env for monitoring."; exit 1; }
+    if [ -s "$ENV_DECRYPTED_PATH" ]; then
+        # shellcheck disable=SC1090
+        PVE_MONITORING_PASSWORD=$(grep '^PVE_PASSWORD=' "$ENV_DECRYPTED_PATH" | cut -d '=' -f 2-)
+    fi
     setup_proxmox_monitoring_user
 fi
 

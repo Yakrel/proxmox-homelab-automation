@@ -102,6 +102,7 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
       - /datapool/config/promtail:/etc/promtail:ro
+      - /datapool/config/promtail/positions:/var/lib/promtail/positions:rw
     command: -config.file=/etc/promtail/promtail.yml
     environment:
       - TZ=${TZ:-Europe/Istanbul}
@@ -153,7 +154,7 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
-    command: ["--schedule", "0 0 8,14,20,2 * * *"]
+    command: ["--schedule", "0 0 2,8,14,20 * * *"]
     networks:
       - monitoring-net
     logging:
