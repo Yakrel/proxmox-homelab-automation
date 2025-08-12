@@ -59,7 +59,7 @@ decrypt_repo_env_to_temp() {
         fi
         
     # Pass the passphrase to openssl via stdin to avoid writing it to disk
-    if printf '%s' "$pass" | openssl enc -d -aes-256-cbc -pbkdf2 -pass fd:0 -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" 2>/dev/null; then
+    if printf '%s' "$pass" | openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" 2>/dev/null; then
             print_success ".env decrypted successfully."
             rm -f "$enc_tmp"
             return 0
