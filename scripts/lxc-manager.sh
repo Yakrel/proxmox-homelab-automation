@@ -47,8 +47,10 @@ pveam update > /dev/null || true
 LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/alpine-.*-default/ {print $1}' | sort -V | tail -n 1)
 if [ -z "$LATEST_TEMPLATE" ]; then
     print_warning "No local Alpine template; downloading..."
-    DOWNLOAD_TEMPLATE=$(pveam available | awk '/^system\s+alpine-[0-9]+-default/ {print $2}' | sort -V | tail -n 1)
-    [ -z "$DOWNLOAD_TEMPLATE" ] && print_error "Could not determine latest Alpine template" && exit 1
+    DOWNLOAD_TEMPLATE=$(pveam available | awk '/alpine-[0-9.]+(-[0-9]+)?-default/ {print $NF}' | sort -V | tail -n 1)
+    if [ -z "$DOWNLOAD_TEMPLATE" ]; then
+        print_error "Could not determine latest Alpine template.\n--- pveam available output ---\n$(pveam available | grep alpine)" && exit 1
+    fi
     pveam download "$STORAGE_POOL" "$DOWNLOAD_TEMPLATE"
     LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/alpine-.*-default/ {print $1}' | sort -V | tail -n 1)
     print_success "Downloaded template: $LATEST_TEMPLATE"
@@ -87,10 +89,12 @@ done
 
 print_info "Provisioning inside container (stack: $STACK_NAME)..."
 
-pct exec "$CT_ID" -- sh -c "set -e
+pct exec "$CT_ID" -- sh -c "
+set -e
+STACK_NAME='$STACK_NAME'
 apk update
-if [ "$STACK_NAME" = 'development' ]; then
-        # Development: NO Docker; only what is needed for Gemini CLI & autologin.
+if [ \"\$STACK_NAME\" = 'development' ]; then
+        # Development: NO Docker; only what is needed for Dev apps & autologin.
         apk add --no-cache util-linux nodejs npm git curl
         npm config set fund false >/dev/null 2>&1 || true
         npm config set update-notifier false >/dev/null 2>&1 || true
@@ -98,7 +102,8 @@ else
         # Other stacks: Docker runtime only.
         apk add --no-cache docker docker-cli-compose util-linux
 fi
-rc-update add docker boot
+
+# Configure Docker daemon
 mkdir -p /etc/docker
 cat > /etc/docker/daemon.json <<EOFDOCKER
 {
@@ -106,20 +111,44 @@ cat > /etc/docker/daemon.json <<EOFDOCKER
     \"experimental\": true
 }
 EOFDOCKER
-if [ "$STACK_NAME" != 'development' ]; then
+
+# Add docker to boot runlevel (but don't start yet for development)
+if [ \"\$STACK_NAME\" != 'development' ]; then
+    rc-update add docker boot
+    # Try to start docker service
     service docker start || rc-service docker start || true
 fi
+
+# Remove root password (allow passwordless login)
 passwd -d root || true
+
+# Configure autologin
 mkdir -p /etc/local.d
 cat > /etc/local.d/autologin.start <<'EOFAUTO'
 #!/bin/sh
-sed -i "s|^tty1::.*|tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux|" /etc/inittab
-kill -HUP 1
+# Configure autologin for tty1
+if [ -f /etc/inittab ]; then
+    # First check if the line exists, then modify it
+    if grep -q '^tty1::' /etc/inittab; then
+        sed -i 's|^tty1::.*|tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux|' /etc/inittab
+    else
+        echo 'tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux' >> /etc/inittab
+    fi
+    # Signal init to reload configuration
+    kill -HUP 1 2>/dev/null || true
+fi
 EOFAUTO
+
 chmod +x /etc/local.d/autologin.start
 rc-update add local default
+
+# Run autologin setup (ignore errors)
 /etc/local.d/autologin.start || true
+
+# Create hushlogin to suppress login messages
 touch /root/.hushlogin
+
+# Remove openssh if present (reduce attack surface for containers)
 apk del openssh || true
 "
 
