@@ -19,8 +19,9 @@ ENV_PASSPHRASE_CACHE=""
 prompt_env_passphrase() {
     local pass
     while true; do
-        read -s -p "Enter .env decryption passphrase: " pass </dev/tty || true
-        echo
+        echo -n "Enter .env decryption passphrase: " >&2
+        read -s pass
+        echo >&2
         if [ -z "$pass" ]; then
             print_warning "Passphrase cannot be empty."
         else
@@ -64,7 +65,11 @@ decrypt_repo_env_to_temp() {
             rm -f "$enc_tmp"
             return 0
         else
-            print_warning "Decryption failed (attempt $attempts/3)."
+            print_warning "Decryption failed (attempt $attempts/3). Check passphrase or file integrity."
+            # Clear cached passphrase on first failure to force re-entry
+            if [ $attempts -eq 1 ]; then
+                ENV_PASSPHRASE_CACHE=""
+            fi
         fi
     done
     rm -f "$enc_tmp" "$ENV_DECRYPTED_PATH" 2>/dev/null || true
