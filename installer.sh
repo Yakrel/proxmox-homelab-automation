@@ -46,27 +46,33 @@ mkdir -p scripts
 # 2. Download Core Scripts
 print_info "Downloading the latest scripts from the repository..."
 
-# List of scripts to download
-SCRIPTS_TO_DOWNLOAD=(
+# List of files to download
+FILES_TO_DOWNLOAD=(
     "scripts/main-menu.sh"
     "scripts/lxc-manager.sh"
     "scripts/deploy-stack.sh"
-    
     "scripts/helper-menu.sh"
     "scripts/fail2ban-manager.sh"
+    "stacks.yaml"
 )
 
-for script_path in "${SCRIPTS_TO_DOWNLOAD[@]}"; do
-    print_info " -> Downloading $script_path"
-    curl -sSL "$REPO_BASE_URL/$script_path" -o "$script_path"
-    if [ ! -s "$script_path" ]; then
-        print_error "Failed to download $script_path. Please check the URL and repository structure."
+for file_path in "${FILES_TO_DOWNLOAD[@]}"; do
+    # Create the directory structure if it doesn't exist
+    mkdir -p "$(dirname "$file_path")"
+
+    print_info " -> Downloading $file_path"
+    curl -sSL "$REPO_BASE_URL/$file_path" -o "$file_path"
+    if [ ! -s "$file_path" ]; then
+        print_error "Failed to download $file_path. Please check the URL and repository structure."
         exit 1
     fi
-    # Convert line endings to Unix format (LF)
-    sed -i 's/\r$//' "$script_path"
-    chmod +x "$script_path"
+    # Convert line endings to Unix format (LF) for scripts
+    if [[ "$file_path" == *.sh ]]; then
+        sed -i 's/$//' "$file_path"
+        chmod +x "$file_path"
+    fi
 done
+
 
 print_success "All scripts downloaded successfully."
 

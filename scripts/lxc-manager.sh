@@ -4,7 +4,8 @@
 set -e
 
 STACK_NAME=$1
-STACKS_FILE="/root/stacks.yaml"
+WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
+STACKS_FILE="$WORK_DIR/stacks.yaml"
 
 print_info() { echo -e "\033[36m[INFO]\033[0m $1"; }
 print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
