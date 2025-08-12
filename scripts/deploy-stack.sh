@@ -81,7 +81,7 @@ print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 # --- Stack Configuration (YAML-driven only) ---
 get_stack_config() {
     local stack=$1
-    local stacks_file="/root/stacks.yaml"
+    local stacks_file="$WORK_DIR/stacks.yaml"
     
     # Ensure yq is installed only if missing (faster, less network usage)
     if ! command -v yq >/dev/null 2>&1; then
@@ -129,10 +129,7 @@ prepare_host() {
         print_warning "Could not set ownership to 101000:101000, proceeding anyway."
     fi
 
-    # Place stacks.yaml for YAML-driven config (optional)
-    if [ -f "$WORK_DIR/../stacks.yaml" ]; then
-        cp -f "$WORK_DIR/../stacks.yaml" /root/stacks.yaml || true
-    fi
+    
 }
 
 # --- Step 1.1: Proxmox User Management (for monitoring stack) ---
