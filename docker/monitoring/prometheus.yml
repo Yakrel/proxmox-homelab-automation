@@ -5,12 +5,6 @@ global:
 rule_files:
   - "/etc/prometheus/rules/*.yml"
 
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets:
-          - alertmanager:9093
-
 scrape_configs:
   # Prometheus itself
   - job_name: 'prometheus'
@@ -31,27 +25,27 @@ scrape_configs:
       - source_labels: [__address__]
         regex: '192.168.1.100:9323'
         target_label: instance
-        replacement: 'proxy-lxc-100'
+        replacement: 'lxc-proxy-01'
       - source_labels: [__address__]
         regex: '192.168.1.101:9323'
         target_label: instance
-        replacement: 'media-lxc-101'
+        replacement: 'lxc-media-01'
       - source_labels: [__address__]
         regex: '192.168.1.102:9323'
         target_label: instance
-        replacement: 'files-lxc-102'
+        replacement: 'lxc-files-01'
       - source_labels: [__address__]
         regex: '192.168.1.103:9323'
         target_label: instance
-        replacement: 'webtools-lxc-103'
+        replacement: 'lxc-webtools-01'
       - source_labels: [__address__]
         regex: '192.168.1.104:9323'
         target_label: instance
-        replacement: 'monitoring-lxc-104'
+        replacement: 'lxc-monitoring-01'
       - source_labels: [__address__]
         regex: '192.168.1.150:9323'
         target_label: instance
-        replacement: 'development-lxc-150'
+        replacement: 'lxc-development-01'
 
   
 
