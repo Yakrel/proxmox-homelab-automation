@@ -134,6 +134,15 @@ All LXC containers use Alpine for minimal footprint; only the "development" cont
 - **LXC Configuration:** 4 Cores, 6144MB RAM
 - **Contents:** Node.js + npm (for development purposes, e.g., Gemini CLI); Docker is not installed.
 
+#### Backup Stack
+
+- **Directory:** Native PBS installation (no Docker)
+- **LXC Configuration:** 4 Cores, 8192MB RAM
+- **Services:**
+    - Proxmox Backup Server (native systemd service)
+    - Web Interface (https://IP:8007)
+- **Datastore:** /datapool/backups
+
 ## Metrics & Dashboards
 
 Container metrics are collected via Docker Engine daemon metrics (`metrics-addr: 0.0.0.0:9323`) instead of cAdvisor. The Prometheus `docker_engine` job scrapes each LXC's Docker daemon. This provides core cgroup CPU / memory / I/O counters; per-layer filesystem details from cAdvisor are intentionally omitted for lower overhead.
