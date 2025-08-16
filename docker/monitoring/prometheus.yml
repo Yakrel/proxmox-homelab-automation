@@ -11,16 +11,16 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Docker Engine daemon metrics (each LXC exposes 9323)
+  # Docker Engine daemon metrics (only for Docker-enabled LXCs)
   - job_name: 'docker_engine'
     static_configs:
       - targets:
-        - '192.168.1.100:9323'
-        - '192.168.1.101:9323'
-        - '192.168.1.102:9323'
-        - '192.168.1.103:9323'
-        - '192.168.1.104:9323'
-        - '192.168.1.150:9323'
+        - '192.168.1.100:9323'  # proxy
+        - '192.168.1.101:9323'  # media
+        - '192.168.1.102:9323'  # files
+        - '192.168.1.103:9323'  # webtools
+        - '192.168.1.104:9323'  # monitoring
+        # Note: LXC 150 (backup) and 151 (development) excluded - no Docker
     relabel_configs:
       - source_labels: [__address__]
         regex: '192.168.1.100:9323'
@@ -42,10 +42,6 @@ scrape_configs:
         regex: '192.168.1.104:9323'
         target_label: instance
         replacement: 'lxc-monitoring-01'
-      - source_labels: [__address__]
-        regex: '192.168.1.150:9323'
-        target_label: instance
-        replacement: 'lxc-development-01'
 
   
 
@@ -64,6 +60,22 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: prometheus-pve-exporter:9221 # The exporter's address
+
+  # Proxmox Backup Server
+  - job_name: 'proxmox-backup'
+    static_configs:
+      - targets: ['192.168.1.150:8007']
+    metrics_path: '/api2/prometheus/metrics'
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+    basic_auth:
+      username: 'root@pam'
+      password: 'PBS_ADMIN_PASSWORD'  # This will need to be updated manually or via API
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'lxc-backup-01'
 
   # Loki for log aggregation
   - job_name: 'loki'
