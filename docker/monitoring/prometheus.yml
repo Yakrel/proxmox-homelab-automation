@@ -71,7 +71,7 @@ scrape_configs:
       insecure_skip_verify: true
     basic_auth:
       username: 'root@pam'
-      password: 'PBS_ADMIN_PASSWORD'  # This will need to be updated manually or via API
+      password: 'REPLACE_ME'  # WARNING: Replace with actual PBS admin password before deployment. Prometheus will fail to authenticate if this value is not replaced.
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance

@@ -117,7 +117,7 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     apt update
     
     # Add Proxmox repositories for PBS
-    wget -O /usr/share/keyrings/proxmox-archive-keyring.gpg https://enterprise.proxmox.com/debian/proxmox-archive-keyring-trixie.gpg
+    wget --https-only -O /usr/share/keyrings/proxmox-archive-keyring.gpg https://enterprise.proxmox.com/debian/proxmox-archive-keyring-trixie.gpg
     
     # Add PBS repository (no-subscription)
     cat > /etc/apt/sources.list.d/proxmox.sources << 'EOFPBS'

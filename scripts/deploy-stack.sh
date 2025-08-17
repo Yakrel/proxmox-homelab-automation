@@ -413,13 +413,14 @@ configure_pbs() {
         local prometheus_config="/datapool/config/prometheus/prometheus.yml"
         if [ -f "$prometheus_config" ]; then
             # Escape special characters in password for sed
-            local escaped_password=$(printf '%s\n' "$PBS_PASS" | sed 's/[[\.*^$()+?{|]/\\&/g')
-            sed -i "s/PBS_ADMIN_PASSWORD/$escaped_password/g" "$prometheus_config"
+            local escaped_password=$(printf '%s\n' "$PBS_PASS" | sed 's/[][\\.*^$()+?{|]/\\&/g')
+            sed -i "s/REPLACE_ME/$escaped_password/g" "$prometheus_config"
             
             # Restart Prometheus to apply new config (if monitoring stack is running)
-            if pct status 140 >/dev/null 2>&1; then
+            local monitoring_ct_id=$(yq -r ".stacks.monitoring.ct_id" "$WORK_DIR/stacks.yaml")
+            if pct status "$monitoring_ct_id" >/dev/null 2>&1; then
                 print_info "  -> Restarting Prometheus to apply PBS authentication..."
-                pct exec 140 -- docker compose restart prometheus 2>/dev/null || print_warning "Could not restart Prometheus - do it manually"
+                pct exec "$monitoring_ct_id" -- docker compose restart prometheus 2>/dev/null || print_warning "Could not restart Prometheus - do it manually"
             fi
             print_success "  -> Prometheus PBS monitoring configured."
         else
@@ -447,7 +448,9 @@ configure_pbs() {
     pct exec "$CT_ID" -- proxmox-backup-manager verification-job create backup-datastore \
         --schedule "weekly" 2>/dev/null || true
     
-    print_success "PBS configuration completed. Access web interface at: https://192.168.1.150:8007"
+    # Get dynamic IP from stack config for web interface URL
+    local pbs_ip=$(echo "$CT_IP_CIDR" | cut -d'/' -f1)
+    print_success "PBS configuration completed. Access web interface at: https://${pbs_ip}:8007"
     print_info "Login with: root@pam and the password you just set."
 }
 
