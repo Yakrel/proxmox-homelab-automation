@@ -1,0 +1,9 @@
+---
+# Variables for the media role
+stack_name: media
+ct_id: 101
+hostname: lxc-media-01
+ip_octet: 101
+cpu_cores: 6
+memory_mb: 10240
+disk_gb: 20

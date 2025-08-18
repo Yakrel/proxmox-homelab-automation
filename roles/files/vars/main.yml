@@ -1,0 +1,9 @@
+---
+# Variables for the files role
+stack_name: files
+ct_id: 102
+hostname: lxc-files-01
+ip_octet: 102
+cpu_cores: 2
+memory_mb: 3072
+disk_gb: 15

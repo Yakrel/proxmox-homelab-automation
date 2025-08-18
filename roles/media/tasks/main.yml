@@ -1,0 +1,95 @@
+---
+# tasks file for the proxy role (using ansible_connection: lxc)
+
+- name: Include stack-specific variables
+  include_vars: "vars/main.yml"
+
+- name: Include generated API credentials if they exist
+  include_vars: /etc/ansible_secrets/credentials.yml
+  ignore_errors: true
+
+- name: Find latest Alpine Linux template on the Proxmox host
+  shell: "pveam list {{ storage_pool }} | awk '/alpine-.*-default/ {print $1}' | sort -V | tail -n 1"
+  register: latest_alpine_template_result
+  changed_when: false
+  delegate_to: localhost
+
+- name: Set template fact
+  set_fact:
+    lxc_template: "{{ latest_alpine_template_result.stdout }}"
+
+- name: Fail if no template was found
+  fail:
+    msg: "Could not find any Alpine Linux template in storage pool '{{ storage_pool }}'."
+  when: lxc_template is not defined or lxc_template | length == 0
+
+- name: Create or Update Proxy LXC Container on Proxmox host
+  community.general.proxmox_lxc:
+    node: "{{ proxmox_node }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ proxmox_api_token_secret }}"
+    vmid: "{{ ct_id }}"
+    hostname: "{{ hostname }}"
+    state: started
+    storage: "{{ storage_pool }}"
+    cores: "{{ cpu_cores }}"
+    memory: "{{ memory_mb }}"
+    swap: 0
+    features:
+      - keyctl=1
+      - nesting=1
+    netif:
+      net0: "name=eth0,bridge={{ network_bridge }},ip={{ network_ip_base }}.{{ ip_octet }}/24,gw={{ network_gateway }}"
+    onboot: true
+    unprivileged: true
+    ostemplate: "{{ lxc_template }}"
+    rootfs: "{{ storage_pool }}:{{ disk_gb }}"
+  delegate_to: localhost
+  register: lxc_creation_result
+
+- name: Add new LXC to Ansible's in-memory inventory
+  add_host:
+    name: "{{ hostname }}"
+    ansible_connection: lxc
+    ansible_user: root
+  changed_when: false
+
+# From this point on, we delegate tasks to the container itself.
+# Ansible will use the 'lxc' connection plugin automatically.
+
+- name: Wait until the container is ready for package management
+  command: "apk update"
+  delegate_to: "{{ hostname }}"
+  changed_when: false
+  retries: 10
+  delay: 5
+  until: result.rc == 0
+  register: result
+
+- name: Install Docker and Docker Compose Plugin inside the LXC
+  package:
+    name:
+      - docker
+      - docker-cli-compose
+    state: present
+  delegate_to: "{{ hostname }}"
+
+- name: Ensure Docker service is started
+  service:
+    name: docker
+    state: started
+    enabled: true
+  delegate_to: "{{ hostname }}"
+
+- name: Copy Docker Compose file to the new LXC
+  copy:
+    src: "{{ role_path }}/../../docker/{{ stack_name }}/docker-compose.yml"
+    dest: "/root/docker-compose.yml"
+  delegate_to: "{{ hostname }}"
+
+- name: Deploy Docker Compose stack
+  community.general.docker_compose:
+    project_src: "/root/"
+    state: present
+  delegate_to: "{{ hostname }}"

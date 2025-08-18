@@ -1,0 +1,17 @@
+auto lo
+iface lo inet loopback
+
+auto bond0
+iface bond0 inet manual
+    bond-slaves {{ bonding_interfaces | join(' ') }}
+    bond-miimon 100
+    bond-mode active-backup
+    bond-primary {{ bonding_interfaces[0] }}
+
+auto vmbr0
+iface vmbr0 inet static
+    address {{ bonding_ip_address.stdout }}/{{ bonding_network_mask.stdout }}
+    gateway {{ bonding_gateway.stdout }}
+    bridge-ports bond0
+    bridge-stp off
+    bridge-fd 0

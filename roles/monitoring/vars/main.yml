@@ -1,0 +1,9 @@
+---
+# Variables for the monitoring role
+stack_name: monitoring
+ct_id: 104
+hostname: lxc-monitoring-01
+ip_octet: 104
+cpu_cores: 4
+memory_mb: 6144
+disk_gb: 15

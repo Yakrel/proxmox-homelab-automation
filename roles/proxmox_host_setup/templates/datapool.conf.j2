@@ -1,0 +1,11 @@
+# --- Datapool Share Definition (Managed by Automation) ---
+[datapool]
+    path = /datapool
+    browseable = yes
+    read only = no
+    valid users = {{ samba_username }}
+    force user = root
+    force group = root
+    create mask = 0664
+    directory mask = 0775
+    guest ok = no
