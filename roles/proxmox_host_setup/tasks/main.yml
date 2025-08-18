@@ -1,0 +1,257 @@
+---
+- name: Configure Timezone and NTP (run_configure_timezone)
+  block:
+    - name: Ensure chrony is installed
+      ansible.builtin.package:
+        name: chrony
+        state: present
+
+    - name: Set timezone to Europe/Istanbul
+      community.general.timezone:
+        name: Europe/Istanbul
+
+    - name: Copy chrony configuration
+      ansible.builtin.template:
+        src: chrony.conf.j2
+        dest: /etc/chrony/chrony.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart chrony
+
+    - name: Ensure chrony service is running and enabled
+      ansible.builtin.service:
+        name: chrony
+        state: started
+        enabled: true
+  tags:
+    - timezone
+
+- name: Install and Configure Security Tools (Fail2ban) (run_install_security)
+  block:
+    - name: Ensure fail2ban is installed
+      ansible.builtin.package:
+        name: fail2ban
+        state: present
+
+    - name: Create Fail2ban filter directory
+      ansible.builtin.file:
+        path: /etc/fail2ban/filter.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Copy Fail2ban filter for Proxmox
+      ansible.builtin.template:
+        src: proxmox.conf.j2
+        dest: /etc/fail2ban/filter.d/proxmox.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart fail2ban
+
+    - name: Create Fail2ban jail directory
+      ansible.builtin.file:
+        path: /etc/fail2ban/jail.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Copy Fail2ban jail for Proxmox
+      ansible.builtin.template:
+        src: 01-proxmox.conf.j2
+        dest: /etc/fail2ban/jail.d/01-proxmox.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart fail2ban
+
+    - name: Copy Fail2ban jail for SSHD
+      ansible.builtin.template:
+        src: 02-sshd.conf.j2
+        dest: /etc/fail2ban/jail.d/02-sshd.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart fail2ban
+
+    - name: Ensure fail2ban service is running and enabled
+      ansible.builtin.service:
+        name: fail2ban
+        state: started
+        enabled: true
+  tags:
+    - security
+    - fail2ban
+
+- name: Configure Storage (Samba + Sanoid) (run_install_storage)
+  block:
+    - name: Ensure samba and sanoid are installed
+      ansible.builtin.package:
+        name:
+          - samba
+          - sanoid
+        state: present
+
+    - name: Ensure Sanoid configuration directory exists
+      ansible.builtin.file:
+        path: /etc/sanoid
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Copy Sanoid configuration
+      ansible.builtin.template:
+        src: sanoid.conf.j2
+        dest: /etc/sanoid/sanoid.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Enable and Start Sanoid Timer
+
+    - name: Ensure Samba main configuration directory exists
+      ansible.builtin.file:
+        path: /etc/samba/conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Copy Samba main configuration
+      ansible.builtin.template:
+        src: smb.conf.j2
+        dest: /etc/samba/smb.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart smbd
+
+    - name: Ensure Samba user exists
+      ansible.builtin.user:
+        name: "{{ samba_username }}"
+        state: present
+        shell: /bin/false
+        system: true # Create as system user
+
+    - name: Set Samba password for user
+      ansible.builtin.command: "(echo "{{ samba_password }}"; echo "{{ samba_password }}") | smbpasswd -a -s "{{ samba_username }}""
+      args:
+        creates: "/var/lib/samba/private/smbpasswd" # Idempotency check
+      no_log: true # Prevent password from appearing in logs
+      changed_when: true # Always report change as we can't easily check smbpasswd state
+
+    - name: Copy Samba share configuration for datapool
+      ansible.builtin.template:
+        src: datapool.conf.j2
+        dest: /etc/samba/conf.d/datapool.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart smbd
+
+  tags:
+    - storage
+    - samba
+    - sanoid
+
+- name: Optimize ZFS Performance (run_optimize_zfs)
+  block:
+    - name: Ensure ZFS is installed (if not already)
+      ansible.builtin.package:
+        name: zfsutils-linux
+        state: present
+
+    - name: Apply ZFS dataset properties
+      ansible.builtin.command: "zfs set {{ item.property }}={{ item.value }} {{ item.dataset }}"
+      loop:
+        - { dataset: "rpool", property: "atime", value: "off" }
+        - { dataset: "datapool", property: "sync", value: "disabled" }
+        - { dataset: "datapool", property: "atime", value: "off" }
+        - { dataset: "datapool", property: "compression", value: "lz4" }
+        - { dataset: "rpool", property: "compression", value: "lz4" }
+      changed_when: true # Assume change as zfs set doesn't always report well
+
+    - name: Calculate ZFS ARC memory limit
+      ansible.builtin.shell: "free -g | awk 'NR==2{print $2}'"
+      register: total_memory_gb
+      changed_when: false
+
+    - name: Set ZFS ARC memory limit in modprobe.d
+      ansible.builtin.lineinfile:
+        path: /etc/modprobe.d/zfs.conf
+        regexp: "^\s*options zfs zfs_arc_max="
+        line: "options zfs zfs_arc_max={{ (total_memory_gb.stdout | int / 2) * 1024 * 1024 * 1024 }}"
+        create: true
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Update initramfs
+
+  tags:
+    - zfs
+    - optimization
+
+- name: Setup Network Bonding (run_setup_bonding)
+  block:
+    - name: Detect ethernet interfaces
+      ansible.builtin.shell: "ip link show | grep -E '^[0-9]+: enp|^[0-9]+: eth' | cut -d: -f2 | tr -d ' '"
+      register: detected_interfaces
+      changed_when: false
+
+    - name: Fail if no ethernet interfaces found
+      ansible.builtin.fail:
+        msg: "No ethernet interfaces found for bonding!"
+      when: detected_interfaces.stdout | length == 0
+
+    - name: Set interfaces fact
+      ansible.builtin.set_fact:
+        bonding_interfaces: "{{ detected_interfaces.stdout.split() }}"
+
+    - name: Get network configuration from user
+      ansible.builtin.pause:
+        prompt: |
+          Please provide network configuration for bonding:
+          Detected interfaces: {{ bonding_interfaces | join(', ') }}
+          Enter IP Address (e.g., 192.168.1.100):
+      register: bonding_ip_address
+      when: bonding_ip_address is not defined
+
+    - name: Get network gateway from user
+      ansible.builtin.pause:
+        prompt: Enter Gateway (e.g., 192.168.1.1):
+      register: bonding_gateway
+      when: bonding_gateway is not defined
+
+    - name: Get network mask from user
+      ansible.builtin.pause:
+        prompt: Enter Network Mask (CIDR, e.g., 24):
+      register: bonding_network_mask
+      when: bonding_network_mask is not defined
+
+    - name: Backup /etc/network/interfaces
+      ansible.builtin.copy:
+        src: /etc/network/interfaces
+        dest: "/etc/network/interfaces.bak.{{ ansible_date_time.epoch }}"
+        remote_src: true
+        force: false # Do not overwrite if backup exists
+
+    - name: Write new /etc/network/interfaces
+      ansible.builtin.template:
+        src: interfaces.j2
+        dest: /etc/network/interfaces
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart networking
+
+    - name: Warn about network interruption
+      ansible.builtin.pause:
+        prompt: "Network connectivity will be briefly interrupted! Press Enter to apply configuration or Ctrl+C to abort..."
+      when: ansible_check_mode is not defined or not ansible_check_mode
+
+  tags:
+    - network
+    - bonding

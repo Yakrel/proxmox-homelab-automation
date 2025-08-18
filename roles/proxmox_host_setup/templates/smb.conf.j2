@@ -1,0 +1,15 @@
+# --- Base Samba Configuration (Managed by Automation) ---
+[global]
+    workgroup = WORKGROUP
+    server role = standalone server
+    security = user
+    log file = /var/log/samba/log.%m
+    max log size = 1000
+    socket options = TCP_NODELAY IPTOS_LOWDELAY
+    read raw = yes
+    write raw = yes
+    strict locking = no
+
+# --- Share Definitions ---
+# Modular configuration for shares.
+include = /etc/samba/conf.d/datapool.conf

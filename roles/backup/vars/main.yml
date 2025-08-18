@@ -1,0 +1,10 @@
+---
+# Variables for the backup role
+stack_name: backup
+ct_id: 150
+hostname: lxc-backup-01
+ip_octet: 150
+cpu_cores: 4
+memory_mb: 8192
+disk_gb: 50
+pbs_datastore_name: "backup-datastore"

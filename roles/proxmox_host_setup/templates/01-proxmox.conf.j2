@@ -1,0 +1,8 @@
+[proxmox]
+enabled = true
+port = https,http,8006
+filter = proxmox
+backend = systemd
+maxretry = 5
+findtime = 2d
+bantime = 1h

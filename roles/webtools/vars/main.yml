@@ -1,0 +1,9 @@
+---
+# Variables for the webtools role
+stack_name: webtools
+ct_id: 103
+hostname: lxc-webtools-01
+ip_octet: 103
+cpu_cores: 2
+memory_mb: 6144
+disk_gb: 15
