@@ -59,3 +59,8 @@ stacks:
     cpu_cores: 4
     memory_mb: 8192
     disk_gb: 50
+    pbs_datastore_name: "backup-datastore"
+    pbs_repo_suite: "trixie"
+    pbs_prune_schedule: "daily"
+    pbs_gc_schedule: "daily"
+    pbs_verify_schedule: "weekly"

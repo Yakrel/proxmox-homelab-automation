@@ -61,21 +61,16 @@ scrape_configs:
       - target_label: __address__
         replacement: prometheus-pve-exporter:9221 # The exporter's address
 
-  # Proxmox Backup Server
-  - job_name: 'proxmox-backup'
-    static_configs:
-      - targets: ['192.168.1.150:8007']
-    metrics_path: '/api2/prometheus/metrics'
+  # Proxmox Backup Server (via file discovery)
+  - job_name: 'pbs'
+    metrics_path: /api2/prometheus/metrics
     scheme: https
     tls_config:
       insecure_skip_verify: true
-    basic_auth:
-      username: 'root@pam'
-      password: 'REPLACE_ME'  # WARNING: Replace with actual PBS admin password before deployment. Prometheus will fail to authenticate if this value is not replaced.
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: instance
-        replacement: 'lxc-backup-01'
+    file_sd_configs:
+      - files:
+        - /etc/prometheus/pbs_job.yml
+        refresh_interval: 1m
 
   # Loki for log aggregation
   - job_name: 'loki'

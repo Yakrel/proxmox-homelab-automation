@@ -371,10 +371,17 @@ configure_pbs() {
     print_info "(4.3/5) Configuring Proxmox Backup Server for [$STACK_NAME]..."
     get_stack_config "$STACK_NAME"
     
+    # Read PBS-specific config from stacks.yaml
+    local datastore_name=$(yq -r ".stacks.backup.pbs_datastore_name" "$WORK_DIR/stacks.yaml")
+    local gc_schedule=$(yq -r ".stacks.backup.pbs_gc_schedule" "$WORK_DIR/stacks.yaml")
+    local prune_schedule=$(yq -r ".stacks.backup.pbs_prune_schedule" "$WORK_DIR/stacks.yaml")
+    local verify_schedule=$(yq -r ".stacks.backup.pbs_verify_schedule" "$WORK_DIR/stacks.yaml")
+    local prom_user="prometheus@pbs"
+    local prom_pass_path="/root/.prometheus_password"
+
     print_info "  -> Waiting for PBS services to be ready..."
     local max_attempts=30
     local attempt=1
-    
     while [ $attempt -le $max_attempts ]; do
         if pct exec "$CT_ID" -- systemctl is-active proxmox-backup >/dev/null 2>&1; then
             print_success "  -> PBS service is active."
@@ -390,68 +397,132 @@ configure_pbs() {
         return 1
     fi
     
-    # PBS Admin Password Setup
-    print_info "  -> Setting up PBS admin password (root@pam)..."
-    local PBS_PASS
-    while true; do
-        echo -n "Enter PBS admin password: " >&2
-        read -s PBS_PASS
-        echo >&2
-        if [ ${#PBS_PASS} -ge 8 ]; then
-            break
-        else
-            print_warning "Password must be at least 8 characters. Try again."
-        fi
-    done
-    
-    # Set password (idempotent - works for new or existing user)
-    if echo "$PBS_PASS" | pct exec "$CT_ID" -- proxmox-backup-manager user passwd root@pam 2>/dev/null; then
-        print_success "  -> PBS admin password configured."
+    # --- Idempotent Prometheus User & Password Setup ---
+    if ! pct exec "$CT_ID" -- test -f "$prom_pass_path"; then
+        print_info "  -> Prometheus user credentials not found. Creating new user..."
         
-        # Update Prometheus config with the actual password
-        print_info "  -> Updating Prometheus configuration for PBS monitoring..."
-        local prometheus_config="/datapool/config/prometheus/prometheus.yml"
-        if [ -f "$prometheus_config" ]; then
-            # Escape special characters in password for sed
-            local escaped_password=$(printf '%s\n' "$PBS_PASS" | sed 's/[][\\.*^$()+?{|]/\\&/g')
-            sed -i "s/REPLACE_ME/$escaped_password/g" "$prometheus_config"
-            
-            # Restart Prometheus to apply new config (if monitoring stack is running)
-            local monitoring_ct_id=$(yq -r ".stacks.monitoring.ct_id" "$WORK_DIR/stacks.yaml")
-            if pct status "$monitoring_ct_id" >/dev/null 2>&1; then
-                print_info "  -> Restarting Prometheus to apply PBS authentication..."
-                pct exec "$monitoring_ct_id" -- docker compose restart prometheus 2>/dev/null || print_warning "Could not restart Prometheus - do it manually"
+        print_info "  -> Setting up PBS admin password (root@pam) to create monitoring user..."
+        local PBS_ADMIN_PASS
+        while true;
+        do
+            echo -n "Enter PBS admin (root@pam) password: " >&2
+            read -s PBS_ADMIN_PASS
+            echo >&2
+            if [ ${#PBS_ADMIN_PASS} -ge 8 ]; then
+                break
+            else
+                print_warning "Password must be at least 8 characters. Try again."
             fi
-            print_success "  -> Prometheus PBS monitoring configured."
-        else
-            print_warning "  -> Prometheus config not found, monitoring setup skipped."
-        fi
+        done
+        echo "$PBS_ADMIN_PASS" | pct exec "$CT_ID" -- proxmox-backup-manager user passwd root@pam 2>/dev/null
+        
+        pct exec "$CT_ID" -- proxmox-backup-manager user create "$prom_user" --comment "Read-only user for Prometheus monitoring" 2>/dev/null || true
+        pct exec "$CT_ID" -- proxmox-backup-manager acl update /datastore/"$datastore_name" --user "$prom_user" --role DatastoreAudit 2>/dev/null || true
+
+        local prom_pass=$(openssl rand -base64 16)
+        echo "$prom_pass" | pct exec "$CT_ID" -- proxmox-backup-manager user passwd "$prom_user"
+        echo "$prom_pass" | pct exec "$CT_ID" -- sh -c "cat > $prom_pass_path && chmod 600 $prom_pass_path"
+        print_success "  -> Prometheus user '$prom_user' created and password stored securely in LXC."
     else
-        print_warning "  -> Password setting might have failed, check manually."
+        print_info "  -> Prometheus user credentials found. Skipping creation."
+    fi
+
+    local final_prom_pass=$(pct exec "$CT_ID" -- cat "$prom_pass_path")
+
+    print_info "  -> Configuring Prometheus for PBS monitoring..."
+    local monitoring_ct_id=$(yq -r ".stacks.monitoring.ct_id" "$WORK_DIR/stacks.yaml")
+    if pct status "$monitoring_ct_id" >/dev/null 2>&1;
+    then
+        local pbs_job_config_temp="$WORK_DIR/pbs_job.yml"
+        local pbs_ip_address="$(yq -r ".network.ip_base" "$WORK_DIR/stacks.yaml").$(yq -r ".stacks.backup.ip_octet" "$WORK_DIR/stacks.yaml")"
+
+        cat > "$pbs_job_config_temp" << EOF
+- targets: ['$pbs_ip_address:8007']
+  labels:
+    instance: '$CT_HOSTNAME'
+  basic_auth:
+    username: '$prom_user'
+    password: '$final_prom_pass'
+EOF
+        pct push "$monitoring_ct_id" "$pbs_job_config_temp" "/etc/prometheus/pbs_job.yml"
+        rm "$pbs_job_config_temp"
+
+        print_info "  -> Restarting Prometheus to apply PBS configuration..."
+        pct exec "$monitoring_ct_id" -- docker compose restart prometheus 2>/dev/null || print_warning "Could not restart Prometheus - do it manually"
+        print_success "  -> Prometheus PBS monitoring configured."
+    else
+        print_warning "  -> Monitoring stack not found, skipping Prometheus configuration."
     fi
     
-    print_info "  -> Creating PBS datastore 'backup-datastore'..."
-    if pct exec "$CT_ID" -- proxmox-backup-manager datastore create backup-datastore /datapool/backups 2>/dev/null; then
+    print_info "  -> Creating PBS datastore '$datastore_name' நான்காவது..."
+    if pct exec "$CT_ID" -- proxmox-backup-manager datastore create "$datastore_name" /datapool/backups 2>/dev/null;
+    then
         print_success "  -> PBS datastore created successfully."
     else
         print_warning "  -> Datastore might already exist or PBS not fully started yet."
     fi
     
     print_info "  -> Setting up garbage collection schedule..."
-    pct exec "$CT_ID" -- proxmox-backup-manager gc-schedule update backup-datastore --schedule "daily" 2>/dev/null || true
+    pct exec "$CT_ID" -- proxmox-backup-manager gc-schedule update "$datastore_name" --schedule "$gc_schedule" 2>/dev/null || true
     
     print_info "  -> Creating prune job for backup retention..."
-    pct exec "$CT_ID" -- proxmox-backup-manager prune-job create backup-datastore \
-        --schedule "daily" --keep-daily 7 --keep-weekly 4 --keep-monthly 6 2>/dev/null || true
+    pct exec "$CT_ID" -- proxmox-backup-manager prune-job create "$datastore_name" \
+        --schedule "$prune_schedule" --keep-daily 7 --keep-weekly 4 --keep-monthly 6 2>/dev/null || true
     
     print_info "  -> Setting up verification job..."
-    pct exec "$CT_ID" -- proxmox-backup-manager verification-job create backup-datastore \
-        --schedule "weekly" 2>/dev/null || true
+    pct exec "$CT_ID" -- proxmox-backup-manager verification-job create "$datastore_name" \
+        --schedule "$verify_schedule" 2>/dev/null || true
     
-    # Get dynamic IP from stack config for web interface URL
-    local pbs_ip=$(echo "$CT_IP_CIDR" | cut -d'/' -f1)
+    local pbs_ip=$(yq -r ".network.ip_base" "$WORK_DIR/stacks.yaml").$(yq -r ".stacks.backup.ip_octet" "$WORK_DIR/stacks.yaml")
     print_success "PBS configuration completed. Access web interface at: https://${pbs_ip}:8007"
-    print_info "Login with: root@pam and the password you just set."
+}
+
+
+
+# --- Step 4.4: Configure PVE Backup Job ---
+
+configure_pve_backup_job() {
+    print_info "(4.4/5) Configuring Proxmox VE backup job..."
+    local pbs_storage_name="lxc-backup-01" # This should match the storage added in PVE
+    local job_config_file="/etc/pve/jobs.cfg"
+    local job_id="vzdump-automated-pbs"
+
+    # First, ensure the PBS storage is added to PVE.
+    # This part is complex to automate securely without API tokens, so we guide the user.
+    if ! pvesm status --storage "$pbs_storage_name" >/dev/null 2>&1; then
+        print_warning "Storage '$pbs_storage_name' not found in Proxmox VE."
+        print_warning "Please add it manually before proceeding: Datacenter -> Storage -> Add -> Proxmox Backup Server"
+        local pbs_ip=$(yq -r ".network.ip_base" "$WORK_DIR/stacks.yaml").$(yq -r ".stacks.backup.ip_octet" "$WORK_DIR/stacks.yaml")
+        local pbs_datastore=$(yq -r ".stacks.backup.pbs_datastore_name" "$WORK_DIR/stacks.yaml")
+        print_info "    ID: $pbs_storage_name"
+        print_info "    Server: $pbs_ip"
+        print_info "    Username: root@pam"
+        print_info "    Datastore: $pbs_datastore"
+        read -p "Press [Enter] to continue after adding the storage..."
+    fi
+
+    # Check if the job already exists
+    if grep -q "^vzdump: $job_id" "$job_config_file"; then
+        print_warning "Automated PVE backup job '$job_id' already exists. Skipping creation."
+        return 0
+    fi
+
+    print_info "  -> Creating automated backup job '$job_id'..."
+    cat >> "$job_config_file" <<EOF
+
+vzdump: $job_id
+    all 1
+    comment "Automated backup for all guests to PBS"
+    compress zstd
+    enabled 1
+    mailnotification failure
+    mode snapshot
+    node $(hostname)
+    prune-backups keep-daily=7,keep-weekly=4,keep-monthly=6
+    schedule 02:30
+    storage $pbs_storage_name
+EOF
+    print_success "  -> Automated backup job created successfully."
 }
 
 # --- Step 5: Docker Compose Deployment ---
@@ -507,6 +578,7 @@ if [[ "$STACK_NAME" == "development" ]]; then
 elif [[ "$STACK_NAME" == "backup" ]]; then
     # PBS-specific deployment (no Docker, no .env)
     configure_pbs
+    configure_pve_backup_job
 else
     # Proceed with standard Docker-based deployment
     configure_env
