@@ -46,9 +46,21 @@ stacks:
     memory_mb: 6144
     disk_gb: 15
   development:
-    ct_id: 150
+    ct_id: 151
     hostname: lxc-development-01
-    ip_octet: 150
+    ip_octet: 151
     cpu_cores: 4
     memory_mb: 6144
     disk_gb: 15
+  backup:
+    ct_id: 150
+    hostname: lxc-backup-01
+    ip_octet: 150
+    cpu_cores: 4
+    memory_mb: 8192
+    disk_gb: 50
+    pbs_datastore_name: "backup-datastore"
+    pbs_repo_suite: "trixie"
+    pbs_prune_schedule: "daily"
+    pbs_gc_schedule: "daily"
+    pbs_verify_schedule: "weekly"
