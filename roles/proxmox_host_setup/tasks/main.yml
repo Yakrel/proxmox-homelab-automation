@@ -135,7 +135,7 @@
     - name: Set Samba password for user
       ansible.builtin.shell: |
         set -o pipefail
-        echo '{{ samba_password }}' | smbpasswd -s -a {{ admin_username }}
+        echo '{{ samba_password }}' | smbpasswd -s -a {{ samba_username }}
       args:
         executable: /bin/bash
         creates: "/var/lib/samba/private/smbpasswd" # Idempotency check
@@ -176,15 +176,15 @@
     - name: Calculate ZFS ARC memory limit
       ansible.builtin.shell: |
         set -o pipefail
-        echo $(($(free -m | awk '/^Mem:/{print $2}') / 2))
-      register: total_memory_gb
+        echo $(($(free -b | awk '/^Mem:/{print $2}') / 2))
+      register: arc_memory_limit_bytes
       changed_when: false
 
     - name: Set ZFS ARC memory limit in modprobe.d
       ansible.builtin.lineinfile:
         path: /etc/modprobe.d/zfs.conf
         regexp: '^\s*options zfs zfs_arc_max='
-        line: "options zfs zfs_arc_max={{ (total_memory_gb.stdout | int / 2) * 1024 * 1024 * 1024 }}"
+        line: "options zfs zfs_arc_max={{ arc_memory_limit_bytes.stdout | int }}"
         create: true
         owner: root
         group: root

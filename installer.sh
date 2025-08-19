@@ -65,7 +65,13 @@ run_first_time_setup() {
         print_success "Token '$API_TOKEN_ID' created and secret captured."
     else
         print_warning "Token '$API_TOKEN_ID' already exists. Cannot retrieve secret."
-        print_warning "Ansible may need to be configured with the secret manually if this is a re-installation."
+        print_warning "Removing existing token to create a new one with known secret..."
+        pveum user token remove "$API_USER" "$API_TOKEN_ID" 2>/dev/null || true
+        local TOKEN_OUTPUT
+        TOKEN_OUTPUT=$(pveum user token add "$API_USER" "$API_TOKEN_ID" --comment "Token for Ansible automation")
+        TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | sed -n 's/.*secret: *\(.*\)/\1/p')
+        [ -z "$TOKEN_SECRET" ] && { print_error "Failed to extract token secret."; exit 1; }
+        print_success "Token '$API_TOKEN_ID' recreated and secret captured."
     fi
 
     # Step 2: Create and Provision Control LXC
