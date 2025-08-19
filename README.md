@@ -1,6 +1,6 @@
-# Proxmox Homelab Automation
+# Proxmox Homelab Automation (Ansible Edition)
 
-This repository contains a collection of scripts and configurations to automate the setup of a personal homelab environment on Proxmox VE. The architecture is based on creating separate LXC containers for different service stacks, each managed by Docker Compose.
+This repository contains a collection of Ansible roles and playbooks to automate the setup of a personal homelab environment on Proxmox VE. The architecture is based on creating separate LXC containers for different service stacks, each managed by Docker Compose and deployed via Ansible.
 
 ## ⚠️ Project Philosophy & Disclaimer
 
@@ -8,147 +8,59 @@ This repository documents my personal homelab setup, tailored specifically to my
 
 **Please be aware that this is not a universal, one-click deployment solution.**
 
-By design, many values such as IP addresses, container IDs, and specific paths are hard-coded for my own convenience and rapid, repeatable deployments. If you wish to adapt this project for your own use, you should be prepared to:
+By design, many values such as IP addresses, container IDs, and specific paths are hard-coded within the Ansible roles for my own convenience and rapid, repeatable deployments. If you wish to adapt this project for your own use, you should be prepared to:
 
-*   Thoroughly review all scripts and configuration files.
+*   Thoroughly review all Ansible roles and configuration files.
 *   Replace hard-coded values with your own environment's settings.
-*   Adjust resource allocations (CPU, RAM) to match your hardware.
+*   Adjust resource allocations (CPU, RAM) in the `vars/main.yml` file of each role.
 
 Feel free to fork this repository and use it as an inspiration or a template for your own homelab automation journey!
 
-## Quick Start
+## Architecture: The "Host as Remote Control" Model
 
-Run this command on your Proxmox host to start the setup:
+The new architecture is designed for true automation and idempotency, managed by a single script on the host that controls Ansible inside a dedicated container.
+
+1.  **Unified Installer & Menu (`installer.sh`):** This is the single entry point for all operations, run on the Proxmox VE host. 
+    -   **On its first run,** it bootstraps the entire system by creating the Ansible Control LXC (ID 151) and the necessary Proxmox API credentials.
+    -   **On all subsequent runs,** it presents a menu to manage your homelab.
+
+2.  **Ansible Control LXC:** A dedicated Debian container (ID 151) that holds this Git repository and Ansible. All configuration logic resides here, keeping the Proxmox host clean.
+
+3.  **The Bridge (`pct exec`):** The menu on the host uses the `pct exec` command to trigger Ansible playbooks inside the Control LXC. This provides a clean, secure, and professional separation of concerns.
+
+## Quick Start & Usage
+
+All management is performed through the unified script on the Proxmox host.
 
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
+# Navigate to the repository directory on your Proxmox host and run:
+./installer.sh
 ```
 
-This will download and run the installer script that will guide you through the initial setup and LXC container configuration.
+- **First Time:** The script will perform the initial setup of the control node.
+- **After Setup:** The script will automatically display a menu. From the menu, you can choose to set up the Proxmox host for the first time or deploy any of the available service stacks. The script will run the appropriate Ansible playbook for you, and you will see all output in your terminal.
 
-## Architecture Overview
+## Secrets Management: Ansible Vault
 
-The philosophy of this project is to isolate different categories of services into their own lightweight Proxmox LXC containers. Each container runs a specific stack of services using Docker and Docker Compose. This approach offers several advantages:
+All secrets (API keys, passwords, etc.) are now managed in a single encrypted file: `secrets.yml`.
 
-- **Isolation:** Services are separated, preventing dependency conflicts and improving security.
-- **Resource Efficiency:** LXC containers are more lightweight than full virtual machines.
-- **Modularity:** You can easily deploy, update, or remove a specific stack without affecting others.
+- **Encryption:** This file is encrypted using `ansible-vault`. It is safe to commit to Git.
+- **Editing:** To edit secrets, you must do so from the host by executing a command within the control LXC:
+  ```bash
+  pct exec 151 -- ansible-vault edit /root/proxmox-homelab-automation/secrets.yml
+  ```
 
-The main management is done via the `main-menu.sh` script, which provides an interactive menu to manage the deployment and configuration of these stacks.
-
-## Idempotency & GitOps Philosophy
-
-This project is designed with idempotency and GitOps principles in mind. This means that running the scripts multiple times will always lead to the same desired state, without causing unintended side effects. Configurations are treated as code, allowing for consistent and repeatable deployments across your homelab environment.
-## Secrets: .env encryption workflow
-
-This repo stores only encrypted .env files (.env.enc) for each stack. Use the interactive helper on Windows to manage them:
-
-- Location: `scripts/encrypt-env.ps1`
-- Modes: Encrypt (.env -> .env.enc) and Decrypt (.env.enc -> .env.dec)
-- OpenSSL is required. If openssl.exe is installed but not on PATH, a quick fix for the current session:
-    - PowerShell: `$env:Path += ';C:\Program Files\OpenSSL-Win64\bin'`
-
-Typical flow:
-1. Edit plaintext `docker/<stack>/.env` locally (gitignored).
-2. Run the helper and choose Encrypt to generate `docker/<stack>/.env.enc`.
-3. Commit/push only the `.env.enc` files.
-4. On Proxmox deploy, the script will prompt for the passphrase and decrypt into the container.
-
-Validation (optional): Choose Decrypt to write `.env.dec` files for inspection. Use strong passphrases; encryption uses AES-256-CBC with PBKDF2.
-
-
-## Prerequisites
-
-Before you begin, ensure you have the following:
-
-- A working Proxmox VE installation.
-- Your Proxmox host and the new LXC containers should be on the same network.
+This replaces the old, cumbersome `.env.enc` workflow.
 
 ## Service Stacks
 
-This project is divided into several service stacks, each with its own `docker-compose.yml` and configuration. The deployment scripts will guide you through configuring the necessary environment variables for each stack.
+This project is divided into several service stacks, each defined by an Ansible role in the `roles/` directory. Configuration for each stack (like Docker images and versions) can be found in the `vars/main.yml` file within its role directory.
 
-### Available Stacks (Alpine-based)
-
-All LXC containers use Alpine for minimal footprint; only the "development" container includes Node.js (npm). Other stacks contain only Docker Engine + Compose plugin (and Docker daemon metrics). Root console autologin is enabled and SSH server removed (lab convenience assumption).
-
-#### Proxy Stack
-
-- **Directory:** `docker/proxy/`
-- **LXC Configuration:** 2 Cores, 2048MB RAM
-- **Services:**
-    - Cloudflared
-    - Watchtower
-
-#### Media Stack
-
-- **Directory:** `docker/media/`
-- **LXC Configuration:** 6 Cores, 10240MB RAM
-- **Services:**
-    - Sonarr
-    - Radarr
-    - Bazarr
-    - Jellyfin
-    - Jellyseerr
-    - qBittorrent
-    - Prowlarr
-    - FlareSolverr
-    - Recyclarr
-    - Watchtower
-    - Cleanuparr
-
-#### Files Stack
-
-- **Directory:** `docker/files/`
-- **LXC Configuration:** 2 Cores, 3072MB RAM
-- **Services:**
-    - JDownloader 2
-    - MeTube
-    - Palmr
-    - Watchtower
-
-#### Webtools Stack
-
-- **Directory:** `docker/webtools/`
-- **LXC Configuration:** 2 Cores, 6144MB RAM
-- **Services:**
-    - Homepage
-    - Firefox
-    - Watchtower
-
-#### Monitoring Stack
-
-- **Directory:** `docker/monitoring/`
-- **LXC Configuration:** 4 Cores, 6144MB RAM
-- **Services:**
-    - Prometheus
-    - Grafana
-    - Prometheus PVE Exporter
-    - Loki
-    - Promtail
-    - Watchtower
-
-#### Development Stack
-
-- **Directory:** (created on demand)
-- **LXC Configuration:** 4 Cores, 6144MB RAM
-- **Contents:** Node.js + npm (for development purposes, e.g., Gemini CLI); Docker is not installed.
-
-#### Backup Stack
-
-- **Directory:** Native PBS installation (no Docker)
-- **LXC Configuration:** 4 Cores, 8192MB RAM
-- **Services:**
-    - Proxmox Backup Server (native systemd service)
-    - Web Interface (https://IP:8007)
-- **Datastore:** /datapool/backups
-
-## Metrics & Dashboards
-
-Container metrics are collected via Docker Engine daemon metrics (`metrics-addr: 0.0.0.0:9323`) instead of cAdvisor. The Prometheus `docker_engine` job scrapes each LXC's Docker daemon. This provides core cgroup CPU / memory / I/O counters; per-layer filesystem details from cAdvisor are intentionally omitted for lower overhead.
-
-Suggested Grafana dashboards:
-
-- **Proxmox VE Overview:** `10347` – High-level view of host and guests.
-- **Docker Engine Basic Panels:** Build simple panels with: `rate(container_cpu_usage_seconds_total[5m])`, `container_memory_usage_bytes`, network RX/TX counters.
-- **Loki & Promtail Overview:** `12423` – Log pipeline health.
+- **Host Configuration** (`roles/proxmox_host_setup`)
+- **Proxy Stack** (`roles/proxy`)
+- **Media Stack** (`roles/media`)
+- **Files Stack** (`roles/files`)
+- **Webtools Stack** (`roles/webtools`)
+- **Monitoring Stack** (`roles/monitoring`)
+- **Development Stack** (`roles/development`)
+- **Backup Stack** (`roles/backup`)
