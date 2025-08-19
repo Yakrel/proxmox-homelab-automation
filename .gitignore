@@ -47,5 +47,5 @@ setting.local.json
 
 # Gemini AI files
 .gemini/
-GEMINI.md.vault_pass
+GEMINI.md
 .vault_pass
