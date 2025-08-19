@@ -27,8 +27,13 @@
   tags:
     - timezone
 
-- name: Install and Configure Security Tools (Fail2ban) (run_install_security)
+- name: Install and Configure Security Tools (Fail2ban & SSH Removal)
   block:
+    - name: Ensure openssh-server is uninstalled
+      ansible.builtin.package:
+        name: openssh-server
+        state: absent
+
     - name: Ensure fail2ban is installed
       ansible.builtin.package:
         name: fail2ban
@@ -63,15 +68,6 @@
       ansible.builtin.template:
         src: 01-proxmox.conf.j2
         dest: /etc/fail2ban/jail.d/01-proxmox.conf
-        owner: root
-        group: root
-        mode: '0644'
-      notify: Restart fail2ban
-
-    - name: Copy Fail2ban jail for SSHD
-      ansible.builtin.template:
-        src: 02-sshd.conf.j2
-        dest: /etc/fail2ban/jail.d/02-sshd.conf
         owner: root
         group: root
         mode: '0644'
