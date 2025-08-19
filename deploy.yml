@@ -5,10 +5,14 @@
   gather_facts: false
 
   pre_tasks:
-    - name: Check that stack_name is provided
-      fail:
-        msg: "Please provide the stack name to deploy, e.g., --extra-vars 'stack_name=proxy'"
-      when: stack_name is not defined
+    - name: Ensure stack_name has a default
+      ansible.builtin.set_fact:
+        stack_name: "{{ stack_name | default('proxy') }}"
+    - name: Announce selected stack
+      ansible.builtin.debug:
+        msg: "Deploying stack: {{ stack_name }}"
 
-  roles:
-    - role: "{{ stack_name }}"
+  tasks:
+    - name: Run selected stack role
+      ansible.builtin.include_role:
+        name: "{{ stack_name }}"

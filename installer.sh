@@ -92,8 +92,13 @@ run_first_time_setup() {
     # Step 3: Provision Control Node with Ansible and Git
     print_info "Provisioning Control Node with Ansible, Git, and credentials..."
     pct exec "$CONTROL_CT_ID" -- apt-get update
-    pct exec "$CONTROL_CT_ID" -- apt-get install -y git ansible
+    pct exec "$CONTROL_CT_ID" -- apt-get install -y git ansible python3-pip
+    pct exec "$CONTROL_CT_ID" -- pip3 install proxmoxer
     pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
+    
+    # Install required Ansible collections
+    print_info "Installing required Ansible collections..."
+    pct exec "$CONTROL_CT_ID" -- ansible-galaxy collection install community.general community.proxmox community.docker
     
     # Inject credentials into a vault file
     local VAULT_CONTENT

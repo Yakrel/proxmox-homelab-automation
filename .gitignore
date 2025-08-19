@@ -49,3 +49,6 @@ setting.local.json
 .gemini/
 GEMINI.md
 .vault_pass
+
+# Local Ansible cache/collections
+.ansible/

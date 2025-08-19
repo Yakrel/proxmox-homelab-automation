@@ -133,8 +133,11 @@
         system: true # Create as system user
 
     - name: Set Samba password for user
-      ansible.builtin.command: "(echo "{{ samba_password }}"; echo "{{ samba_password }}") | smbpasswd -a -s "{{ samba_username }}""
+      ansible.builtin.shell: |
+        set -o pipefail
+        echo '{{ samba_password }}' | smbpasswd -s -a {{ admin_username }}
       args:
+        executable: /bin/bash
         creates: "/var/lib/samba/private/smbpasswd" # Idempotency check
       no_log: true # Prevent password from appearing in logs
       changed_when: true # Always report change as we can't easily check smbpasswd state
@@ -171,14 +174,16 @@
       changed_when: true # Assume change as zfs set doesn't always report well
 
     - name: Calculate ZFS ARC memory limit
-      ansible.builtin.shell: "free -g | awk 'NR==2{print $2}'"
+      ansible.builtin.shell: |
+        set -o pipefail
+        echo $(($(free -m | awk '/^Mem:/{print $2}') / 2))
       register: total_memory_gb
       changed_when: false
 
     - name: Set ZFS ARC memory limit in modprobe.d
       ansible.builtin.lineinfile:
         path: /etc/modprobe.d/zfs.conf
-        regexp: "^\s*options zfs zfs_arc_max="
+        regexp: '^\s*options zfs zfs_arc_max='
         line: "options zfs zfs_arc_max={{ (total_memory_gb.stdout | int / 2) * 1024 * 1024 * 1024 }}"
         create: true
         owner: root
@@ -193,7 +198,9 @@
 - name: Setup Network Bonding (run_setup_bonding)
   block:
     - name: Detect ethernet interfaces
-      ansible.builtin.shell: "ip link show | grep -E '^[0-9]+: enp|^[0-9]+: eth' | cut -d: -f2 | tr -d ' '"
+      ansible.builtin.shell: |
+        set -o pipefail
+        ip link show | grep -E '^[0-9]+:' | grep -v 'lo:' | awk -F': ' '{print $2}' | head -2
       register: detected_interfaces
       changed_when: false
 
@@ -217,13 +224,13 @@
 
     - name: Get network gateway from user
       ansible.builtin.pause:
-        prompt: Enter Gateway (e.g., 192.168.1.1):
+        prompt: "Enter Gateway (e.g., 192.168.1.1):"
       register: bonding_gateway
       when: bonding_gateway is not defined
 
     - name: Get network mask from user
       ansible.builtin.pause:
-        prompt: Enter Network Mask (CIDR, e.g., 24):
+        prompt: "Enter Network Mask (CIDR, e.g., 24):"
       register: bonding_network_mask
       when: bonding_network_mask is not defined
 
@@ -233,6 +240,7 @@
         dest: "/etc/network/interfaces.bak.{{ ansible_date_time.epoch }}"
         remote_src: true
         force: false # Do not overwrite if backup exists
+        mode: '0644'
 
     - name: Write new /etc/network/interfaces
       ansible.builtin.template:
