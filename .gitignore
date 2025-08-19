@@ -45,6 +45,10 @@ WORKFLOW-DIAGRAM.md
 setting.local.json
 .mcp.json
 
-# Gemini AI files
+# Other
 .gemini/
 GEMINI.md
+.env
+.env.*
+!.env.example
+.vault_pass
