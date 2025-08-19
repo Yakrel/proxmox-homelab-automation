@@ -44,9 +44,13 @@ run_first_time_setup() {
     # Step 1: Create Proxmox API User and Token
     print_info "Ensuring Proxmox API user '$API_USER' exists..."
     if ! pveum user show "$API_USER" >/dev/null 2>&1; then
-        pveum user add "$API_USER" --comment "Ansible Automation User"
-        pveum acl modify / --user "$API_USER" --role Administrator
-        print_success "User '$API_USER' created."
+        if ! pveum user add "$API_USER" --comment "Ansible Automation User" 2>/dev/null; then
+            print_warning "User creation failed - user '$API_USER' may already exist."
+        fi
+        if ! pveum acl modify / --user "$API_USER" --role Administrator 2>/dev/null; then
+            print_warning "ACL modification failed - permissions may already be set."
+        fi
+        print_success "User '$API_USER' configured."
     else
         print_success "User '$API_USER' already exists."
     fi

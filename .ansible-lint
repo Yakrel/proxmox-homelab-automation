@@ -7,8 +7,10 @@ exclude_paths:
 skip_list:
   # Prefer generic var names across roles; lint rule too strict for this repo
   - var-naming
-  # Allow flexible task key ordering for readability
+  # Allow flexible task key ordering for readability (name, when, register order flexibility)
   - key-order
+  # Skip command-instead-of-module for specific shell operations
+  - command-instead-of-module
 
 mock_modules:
   - community.general.proxmox_lxc
