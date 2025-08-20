@@ -86,7 +86,16 @@ run_first_time_setup() {
     print_info "Creating new API token..."
     local TOKEN_OUTPUT
     if TOKEN_OUTPUT=$(pveum user token add "$API_USER" "$API_TOKEN_ID" --comment "Token for Ansible automation" 2>&1); then
+        # Extract secret using multiple patterns to handle different output formats
         TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | sed -n 's/.*secret: *\(.*\)/\1/p')
+        if [ -z "$TOKEN_SECRET" ]; then
+            # Try alternative extraction for table format output
+            TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | awk '/'"$API_TOKEN_ID"'/ {for(i=1;i<=NF;i++) if($i ~ /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) print $i}' | tr -d '│ ')
+        fi
+        if [ -z "$TOKEN_SECRET" ]; then
+            # Try extracting UUID pattern from any line
+            TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
+        fi
         [ -z "$TOKEN_SECRET" ] && { print_error "Failed to extract token secret from output: $TOKEN_OUTPUT"; exit 1; }
         print_success "Token '$API_TOKEN_ID' created and secret captured."
     else
@@ -180,24 +189,23 @@ EOF
 
     # Automatically encrypt the secrets file with a generated password
     print_info "Automatically encrypting secrets.yml file..."
-    local VAULT_PASS_FILE="/tmp/vault_pass_$$"
     local VAULT_PASSWORD
-    VAULT_PASSWORD=$(openssl rand -base64 32)
-    echo "$VAULT_PASSWORD" > "$VAULT_PASS_FILE"
-    
-    # Encrypt the secrets file inside the LXC
-    if pct exec "$CONTROL_CT_ID" -- bash -c "echo '$VAULT_PASSWORD' | ansible-vault encrypt --vault-password-file /dev/stdin $PLAYBOOK_DIR/secrets.yml"; then
-        print_success "secrets.yml file encrypted successfully."
-        print_info "Vault password: $VAULT_PASSWORD"
-        print_warning "IMPORTANT: Save this vault password securely. You'll need it to edit secrets later."
-        print_info "To edit secrets later: pct exec $CONTROL_CT_ID -- ansible-vault edit --vault-password-file <(echo '$VAULT_PASSWORD') $PLAYBOOK_DIR/secrets.yml"
+    if ! VAULT_PASSWORD=$(openssl rand -base64 32 2>/dev/null); then
+        print_warning "Failed to generate vault password. Creating plaintext secrets file."
+        print_warning "Please encrypt manually: pct exec $CONTROL_CT_ID -- ansible-vault encrypt $PLAYBOOK_DIR/secrets.yml"
     else
-        print_error "Failed to encrypt secrets.yml file."
-        print_warning "The file was created as plaintext. Please encrypt it manually."
+        # Encrypt the secrets file inside the LXC
+        if pct exec "$CONTROL_CT_ID" -- bash -c "echo '$VAULT_PASSWORD' | ansible-vault encrypt --vault-password-file /dev/stdin $PLAYBOOK_DIR/secrets.yml" 2>/dev/null; then
+            print_success "secrets.yml file encrypted successfully."
+            print_info "Vault password: $VAULT_PASSWORD"
+            print_warning "IMPORTANT: Save this vault password securely. You'll need it to edit secrets later."
+            print_info "To edit secrets later: pct exec $CONTROL_CT_ID -- ansible-vault edit --vault-password-file <(echo '$VAULT_PASSWORD') $PLAYBOOK_DIR/secrets.yml"
+        else
+            print_warning "Failed to encrypt secrets.yml file automatically."
+            print_warning "The file was created as plaintext. Please encrypt it manually:"
+            print_info "pct exec $CONTROL_CT_ID -- ansible-vault encrypt $PLAYBOOK_DIR/secrets.yml"
+        fi
     fi
-    
-    # Clean up temporary password file
-    rm -f "$VAULT_PASS_FILE"
 
     print_success "================================================="
     print_success "  First-time setup complete!"
