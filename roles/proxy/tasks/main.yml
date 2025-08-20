@@ -13,21 +13,43 @@
   ansible.builtin.include_vars: /etc/ansible_secrets/credentials.yml
   when: creds_file.stat.exists
 
-- name: Find latest Alpine Linux template on the Proxmox host
-  ansible.builtin.shell: "set -o pipefail && pveam list {{ storage_pool }} | awk '/alpine-.*-default/ {print $1}' | sort -V | tail -n 1"
+- name: Download latest template if needed (Alpine/Debian to datapool)
+  ansible.builtin.shell: >
+    set -o pipefail &&
+    TEMPLATE_PATTERN="{{ alpine_template_pattern if template_type == 'alpine' else debian_template_pattern }}" &&
+    LATEST_AVAILABLE=$(pveam available | awk "/$TEMPLATE_PATTERN/ {print \$NF}" | sort -V | tail -n 1) &&
+    if [ -n "$LATEST_AVAILABLE" ]; then
+      LATEST_LOCAL=$(pveam list {{ storage_pool }} | awk "/$TEMPLATE_PATTERN/ {print \$1}" | sort -V | tail -n 1) &&
+      if [ -z "$LATEST_LOCAL" ]; then
+        echo "Downloading $LATEST_AVAILABLE to {{ storage_pool }}" &&
+        pveam download {{ storage_pool }} "$LATEST_AVAILABLE"
+      fi
+    fi
   args:
     executable: /bin/bash
-  register: latest_alpine_template_result
+  register: template_download_result
+  changed_when: "'Downloading' in template_download_result.stdout"
+  delegate_to: localhost
+
+- name: Find latest template in datapool storage
+  ansible.builtin.shell: >
+    set -o pipefail && 
+    pveam list {{ storage_pool }} | 
+    awk '/{{ alpine_template_pattern if template_type == "alpine" else debian_template_pattern }}/ {print $1}' | 
+    sort -V | tail -n 1
+  args:
+    executable: /bin/bash
+  register: latest_template_result
   changed_when: false
   delegate_to: localhost
 
 - name: Set template fact
   ansible.builtin.set_fact:
-    lxc_template: "{{ latest_alpine_template_result.stdout }}"
+    lxc_template: "{{ latest_template_result.stdout }}"
 
 - name: Fail if no template was found
   ansible.builtin.fail:
-    msg: "Could not find any Alpine Linux template in storage pool '{{ storage_pool }}'."
+    msg: "Could not find any {{ template_type }} template in storage pool '{{ storage_pool }}'."
   when: lxc_template is not defined or lxc_template | length == 0
 
 - name: Create or Update Proxy LXC Container on Proxmox host
@@ -50,6 +72,13 @@
         bridge: "{{ network_bridge }}"
         ip: "{{ network_ip_base }}.{{ ip_octet }}/24"
         gw: "{{ network_gateway }}"
+    mounts:
+      mp0: "{{ storage_pool }}:0,mp={{ datapool_mount }},backup=0"
+    onboot: "{{ onboot | default(true) }}"
+    unprivileged: true
+    features:
+      - keyctl=1
+      - nesting=1
   delegate_to: localhost
   register: lxc_creation_result
 
@@ -64,7 +93,7 @@
 # Ansible will use the 'lxc' connection plugin automatically.
 
 - name: Wait until the container is ready for package management
-  ansible.builtin.command: "apk update"
+  ansible.builtin.command: "{{ 'apk update' if template_type == 'alpine' else 'apt-get update' }}"
   delegate_to: "{{ hostname }}"
   changed_when: false
   retries: 10
@@ -74,11 +103,13 @@
 
 - name: Install Docker and Docker Compose Plugin inside the LXC
   ansible.builtin.package:
-    name:
-      - docker
-      - docker-cli-compose
+    name: "{{ docker_packages }}"
     state: present
   delegate_to: "{{ hostname }}"
+  vars:
+    docker_packages: >-
+      {{ ['docker', 'docker-cli-compose'] if template_type == 'alpine' 
+         else ['docker.io', 'docker-compose-plugin'] }}
 
 - name: Ensure Docker service is started
   ansible.builtin.service:

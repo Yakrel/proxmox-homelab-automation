@@ -5,17 +5,18 @@
 # This script is the single entry point for the entire automation.
 # - On first run, it bootstraps the Ansible Control Node (LXC 151).
 # - On subsequent runs, it acts as a menu to manage the homelab.
+# All configuration is hardcoded for homelab simplicity and consistency.
 
 set -e
 
-# --- Configuration ---
+# --- Hardcoded Configuration (Static for homelab) ---
 API_USER="ansible-bot@pve"
 API_TOKEN_ID="ansible-token"
 REPO_URL="https://github.com/Yakrel/proxmox-homelab-automation.git"
 REPO_DIR="/root/proxmox-homelab-automation"
 PLAYBOOK_DIR="/root/proxmox-homelab-automation" # Inside the LXC
 
-# Control LXC Config
+# Ansible Control LXC Config (matches stacks.yaml)
 CONTROL_CT_ID="151"
 CONTROL_HOSTNAME="lxc-ansible-control"
 CONTROL_IP_OCTET="151"
@@ -23,7 +24,7 @@ CONTROL_CORES="2"
 CONTROL_MEMORY="2048"
 CONTROL_DISK="10"
 
-# General Config
+# Network & Storage (Static for homelab)
 NETWORK_GATEWAY="192.168.1.1"
 NETWORK_BRIDGE="vmbr0"
 NETWORK_IP_BASE="192.168.1"
@@ -93,6 +94,7 @@ run_first_time_setup() {
         --cores "$CONTROL_CORES" --memory "$CONTROL_MEMORY" --swap 0 \
         --features keyctl=1,nesting=1 \
         --net0 name=eth0,bridge=$NETWORK_BRIDGE,ip=$CONTROL_IP_CIDR,gw=$NETWORK_GATEWAY \
+        --mp0 "${STORAGE_POOL}:0,mp=/datapool,backup=0" \
         --onboot 1 --unprivileged 1 --rootfs "${STORAGE_POOL}:${CONTROL_DISK}"
     
     pct start "$CONTROL_CT_ID"
@@ -155,7 +157,7 @@ show_management_menu() {
   [1;32m4[0m) Deploy Media Stack
   [1;32m5[0m) Deploy Files Stack
   [1;32m6[0m) Deploy Webtools Stack
-  [1;32m7[0m) Deploy Development Stack
+  [1;32m7[0m) Deploy Ansible Control Stack
   [1;32m8[0m) Deploy Backup Stack
 
 [1;31mQ[0m) Quit
@@ -190,8 +192,8 @@ EOF
                 pct exec "$CONTROL_CT_ID" -- ansible-playbook "$PLAYBOOK_DIR/deploy.yml" --extra-vars "stack_name=webtools"
                 ;;
             7)
-                print_info "Deploying Development Stack..."
-                pct exec "$CONTROL_CT_ID" -- ansible-playbook "$PLAYBOOK_DIR/deploy.yml" --extra-vars "stack_name=development"
+                print_info "Deploying Ansible Control Stack..."
+                pct exec "$CONTROL_CT_ID" -- ansible-playbook "$PLAYBOOK_DIR/deploy.yml" --extra-vars "stack_name=ansible-control"
                 ;;
             8)
                 print_info "Deploying Backup Stack..."

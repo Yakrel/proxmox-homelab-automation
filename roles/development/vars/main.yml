@@ -1,9 +1,0 @@
----
-# Variables for the development role
-stack_name: development
-ct_id: 151
-hostname: lxc-development-01
-ip_octet: 151
-cpu_cores: 4
-memory_mb: 6144
-disk_gb: 15
