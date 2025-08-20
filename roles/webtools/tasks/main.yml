@@ -125,6 +125,20 @@
     mode: '0644'
   delegate_to: "{{ hostname }}"
 
+- name: Check if .env template exists for this stack
+  ansible.builtin.stat:
+    path: "{{ role_path }}/../../docker/{{ stack_name }}/.env.j2"
+  register: env_template_exists
+  delegate_to: localhost
+
+- name: Generate .env file from vault secrets
+  ansible.builtin.template:
+    src: "{{ role_path }}/../../docker/{{ stack_name }}/.env.j2"
+    dest: "/root/.env"
+    mode: '0600'
+  delegate_to: "{{ hostname }}"
+  when: env_template_exists.stat.exists
+
 - name: Deploy Docker Compose stack
   community.docker.docker_compose_v2:
     project_src: "/root/"
