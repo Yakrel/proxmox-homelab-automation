@@ -37,6 +37,27 @@ print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
 print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 
+ensure_repository_exists_and_update() {
+    # Safely ensure repository exists and is up to date in the Control Node
+    # This function handles edge cases where the directory doesn't exist or is corrupted
+    
+    if ! pct exec "$CONTROL_CT_ID" -- test -d "$REPO_DIR"; then
+        print_info "Repository directory doesn't exist. Cloning repository..."
+        pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
+    elif ! pct exec "$CONTROL_CT_ID" -- test -d "$REPO_DIR/.git"; then
+        print_warning "Repository directory exists but is not a git repository. Re-cloning..."
+        pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
+        pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
+    else
+        print_info "Repository exists. Updating..."
+        if ! pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git pull" 2>/dev/null; then
+            print_warning "Failed to update repository. Re-cloning for safety..."
+            pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
+            pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
+        fi
+    fi
+}
+
 prompt_vault_password() {
     local vault_password=""
     print_info "Ansible Vault password is required to access encrypted secrets."
@@ -245,16 +266,8 @@ run_first_time_setup() {
         print_info "Proxmoxer package already installed."
     fi
     
-    # Check if repository is already cloned
-    if ! pct exec "$CONTROL_CT_ID" -- test -d "$REPO_DIR/.git"; then
-        print_info "Cloning repository..."
-        # Remove directory if it exists but is not a git repo
-        pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
-        pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
-    else
-        print_info "Repository already exists. Updating..."
-        pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git pull"
-    fi
+    # Ensure repository exists and is up to date (idempotent)
+    ensure_repository_exists_and_update
     
     # Check if Ansible collections are installed (idempotent check)
     print_info "Ensuring required Ansible collections are installed..."
@@ -393,7 +406,7 @@ EOF
 show_management_menu() {
     # On subsequent runs, update the repo before showing the menu
     print_info "Updating repository in Control Node..."
-    pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git pull"
+    ensure_repository_exists_and_update
     
     while true; do
         clear
