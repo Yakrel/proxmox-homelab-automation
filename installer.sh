@@ -37,6 +37,27 @@ print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
 print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 
+ensure_repository_exists_and_update() {
+    # Safely ensure repository exists and is up to date in the Control Node
+    # This function handles edge cases where the directory doesn't exist or is corrupted
+    
+    if ! pct exec "$CONTROL_CT_ID" -- test -d "$REPO_DIR"; then
+        print_info "Repository directory doesn't exist. Cloning repository..."
+        pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
+    elif ! pct exec "$CONTROL_CT_ID" -- test -d "$REPO_DIR/.git"; then
+        print_warning "Repository directory exists but is not a git repository. Re-cloning..."
+        pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
+        pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
+    else
+        print_info "Repository exists. Updating..."
+        if ! pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git pull" 2>/dev/null; then
+            print_warning "Failed to update repository. Re-cloning for safety..."
+            pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
+            pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
+        fi
+    fi
+}
+
 prompt_vault_password() {
     local vault_password=""
     print_info "Ansible Vault password is required to access encrypted secrets."
@@ -61,7 +82,7 @@ run_ansible_playbook() {
     
     # Run the playbook by piping the vault password directly to ansible-playbook
     print_info "Executing playbook with vault password..."
-    if pct exec "$CONTROL_CT_ID" -- bash -c "cd $PLAYBOOK_DIR && echo '$vault_password' | ansible-playbook --vault-password-file /dev/stdin $playbook_command" 2>/dev/null; then
+    if pct exec "$CONTROL_CT_ID" -- bash -c "export LC_ALL=C.UTF-8 && export LANG=C.UTF-8 && cd $PLAYBOOK_DIR && echo '$vault_password' | ansible-playbook --vault-password-file /dev/stdin $playbook_command"; then
         print_success "Playbook execution completed successfully."
     else
         print_error "Playbook execution failed. Please check the logs."
@@ -223,6 +244,17 @@ run_first_time_setup() {
 
     # Step 3: Provision Control Node with Ansible and Git (idempotent)
     print_info "Provisioning Control Node with Ansible, Git, and credentials..."
+
+    print_info "Configuring autologin for root user in web console..."
+    pct exec "$CONTROL_CT_ID" -- bash -c "mkdir -p /etc/systemd/system/getty@tty1.service.d"
+    pct exec "$CONTROL_CT_ID" -- bash -c "echo -e '[Service]\nExecStart=\nExecStart=-/sbin/agetty -o -p -- \\u --autologin root --noclear %I \$TERM' > /etc/systemd/system/getty@tty1.service.d/override.conf"
+    pct exec "$CONTROL_CT_ID" -- systemctl daemon-reload
+    pct exec "$CONTROL_CT_ID" -- systemctl restart getty@tty1.service >/dev/null 2>&1 || true # Restart may fail if not fully booted, but that's okay
+
+    print_info "Configuring locale for Ansible compatibility..."
+    pct exec "$CONTROL_CT_ID" -- bash -c "apt-get update >/dev/null 2>&1 && apt-get install -y locales >/dev/null 2>&1"
+    pct exec "$CONTROL_CT_ID" -- sed -i 's/^# \(en_US.UTF-8\)/\1/' /etc/locale.gen
+    pct exec "$CONTROL_CT_ID" -- locale-gen >/dev/null 2>&1
     
     # Check if basic tools are already installed
     if ! pct exec "$CONTROL_CT_ID" -- which git >/dev/null 2>&1 || ! pct exec "$CONTROL_CT_ID" -- which ansible >/dev/null 2>&1; then
@@ -245,16 +277,8 @@ run_first_time_setup() {
         print_info "Proxmoxer package already installed."
     fi
     
-    # Check if repository is already cloned
-    if ! pct exec "$CONTROL_CT_ID" -- test -d "$REPO_DIR/.git"; then
-        print_info "Cloning repository..."
-        # Remove directory if it exists but is not a git repo
-        pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
-        pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
-    else
-        print_info "Repository already exists. Updating..."
-        pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git pull"
-    fi
+    # Ensure repository exists and is up to date (idempotent)
+    ensure_repository_exists_and_update
     
     # Check if Ansible collections are installed (idempotent check)
     print_info "Ensuring required Ansible collections are installed..."
@@ -393,7 +417,7 @@ EOF
 show_management_menu() {
     # On subsequent runs, update the repo before showing the menu
     print_info "Updating repository in Control Node..."
-    pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git pull"
+    ensure_repository_exists_and_update
     
     while true; do
         clear
