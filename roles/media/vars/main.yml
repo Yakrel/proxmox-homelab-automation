@@ -1,9 +1,18 @@
 ---
-# Variables for the media role
+# Variables for the media role - loaded from stacks.yaml central config
+
+# Load central configuration
+stacks_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') | from_yaml }}"
+stack_data: "{{ stacks_config.stacks.media }}"
+
+# Stack-specific variables from central config
 stack_name: media
-ct_id: 101
-hostname: lxc-media-01
-ip_octet: 101
-cpu_cores: 6
-memory_mb: 10240
-disk_gb: 20
+ct_id: "{{ stack_data.ct_id }}"
+hostname: "{{ stack_data.hostname }}"
+ip_octet: "{{ stack_data.ip_octet }}"
+cpu_cores: "{{ stack_data.cpu_cores }}"
+memory_mb: "{{ stack_data.memory_mb }}"
+disk_gb: "{{ stack_data.disk_gb }}"
+template_type: "{{ stack_data.template }}"
+mount_datapool: "{{ stack_data.mount_datapool }}"
+onboot: "{{ stack_data.onboot }}"

@@ -1,15 +1,55 @@
-# Central source of truth for LXC stacks (IDs, hostnames, IPs, resources)
-# This is a scaffold to begin consolidating repeated values. Not yet wired.
+# ===================================================================
+# Central Configuration - Single Source of Truth for Homelab
+# ===================================================================
+# All hardcoded values consolidated here for simplicity and consistency
 
+# Global Settings
+global:
+  proxmox_node: pve01
+  repo_url: "https://github.com/Yakrel/proxmox-homelab-automation.git"
+  repo_dir: "/root/proxmox-homelab-automation"
+  
+# Network Configuration (Static/Hardcoded)
 network:
   gateway: 192.168.1.1
   bridge: vmbr0
-  ip_base: 192.168.1 # used to form static IPs like 192.168.1.<octet>
+  ip_base: 192.168.1
 
+# Storage Configuration (All using datapool)
 storage:
   pool: datapool
+  mount_point: /datapool
 
+# Template Configuration (Latest versions, stored in datapool)
+templates:
+  alpine_latest: "alpine-.*-default"  # Pattern for latest Alpine
+  debian_latest: "debian-.*-standard" # Pattern for latest Debian
+  default_template: alpine            # Most stacks use Alpine
+  special_templates:                  # Exceptions that need Debian
+    - ansible-control
+    - backup
+
+# API Configuration
+api:
+  user: "ansible-bot@pve"
+  token_id: "ansible-token"
+
+# LXC Stack Definitions (Hardcoded for homelab)
 stacks:
+  # Ansible Control Node (LXC 151) - Created first by installer
+  ansible-control:
+    ct_id: 151
+    hostname: lxc-ansible-control
+    ip_octet: 151
+    cpu_cores: 2
+    memory_mb: 2048
+    disk_gb: 10
+    template: debian
+    mount_datapool: true
+    onboot: true
+    description: "Ansible Control Node - manages all other stacks"
+    
+  # Service Stacks (All using Alpine, latest images)
   proxy:
     ct_id: 100
     hostname: lxc-proxy-01
@@ -17,6 +57,11 @@ stacks:
     cpu_cores: 2
     memory_mb: 2048
     disk_gb: 10
+    template: alpine
+    mount_datapool: true
+    onboot: true
+    description: "Proxy services (Cloudflared, Promtail, Watchtower)"
+    
   media:
     ct_id: 101
     hostname: lxc-media-01
@@ -24,6 +69,11 @@ stacks:
     cpu_cores: 6
     memory_mb: 10240
     disk_gb: 20
+    template: alpine
+    mount_datapool: true
+    onboot: true
+    description: "Media server stack"
+    
   files:
     ct_id: 102
     hostname: lxc-files-01
@@ -31,6 +81,11 @@ stacks:
     cpu_cores: 2
     memory_mb: 3072
     disk_gb: 15
+    template: alpine
+    mount_datapool: true
+    onboot: true
+    description: "File management services"
+    
   webtools:
     ct_id: 103
     hostname: lxc-webtools-01
@@ -38,6 +93,11 @@ stacks:
     cpu_cores: 2
     memory_mb: 6144
     disk_gb: 15
+    template: alpine
+    mount_datapool: true
+    onboot: true
+    description: "Web-based tools and utilities"
+    
   monitoring:
     ct_id: 104
     hostname: lxc-monitoring-01
@@ -45,13 +105,11 @@ stacks:
     cpu_cores: 4
     memory_mb: 6144
     disk_gb: 15
-  development:
-    ct_id: 151
-    hostname: lxc-development-01
-    ip_octet: 151
-    cpu_cores: 4
-    memory_mb: 6144
-    disk_gb: 15
+    template: alpine
+    mount_datapool: true
+    onboot: true
+    description: "Monitoring stack (Prometheus, Grafana, etc.)"
+    
   backup:
     ct_id: 150
     hostname: lxc-backup-01
@@ -59,6 +117,11 @@ stacks:
     cpu_cores: 4
     memory_mb: 8192
     disk_gb: 50
+    template: debian
+    mount_datapool: true
+    onboot: true
+    description: "Proxmox Backup Server"
+    # PBS specific settings
     pbs_datastore_name: "backup-datastore"
     pbs_repo_suite: "trixie"
     pbs_prune_schedule: "daily"

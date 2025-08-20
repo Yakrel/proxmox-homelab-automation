@@ -1,29 +1,35 @@
 ---
-# Variables for the backup role
+# Variables for the backup role - loaded from stacks.yaml central config
+
+# Load central configuration
+stacks_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') | from_yaml }}"
+stack_data: "{{ stacks_config.stacks.backup }}"
+
+# Stack-specific variables from central config
 stack_name: backup
-ct_id: 150
-hostname: lxc-backup-01
-ip_octet: 150
-cpu_cores: 4
-memory_mb: 8192
-disk_gb: 50
+ct_id: "{{ stack_data.ct_id }}"
+hostname: "{{ stack_data.hostname }}"
+ip_octet: "{{ stack_data.ip_octet }}"
+cpu_cores: "{{ stack_data.cpu_cores }}"
+memory_mb: "{{ stack_data.memory_mb }}"
+disk_gb: "{{ stack_data.disk_gb }}"
+template_type: "{{ stack_data.template }}"
+mount_datapool: "{{ stack_data.mount_datapool }}"
+onboot: "{{ stack_data.onboot }}"
 
-# PBS Configuration
-pbs_datastore_name: "backup-datastore"
+# PBS specific configuration from central config
+pbs_datastore_name: "{{ stack_data.pbs_datastore_name }}"
+pbs_repo_suite: "{{ stack_data.pbs_repo_suite }}"
+pbs_prune_schedule: "{{ stack_data.pbs_prune_schedule }}"
+pbs_gc_schedule: "{{ stack_data.pbs_gc_schedule }}"
+pbs_verify_schedule: "{{ stack_data.pbs_verify_schedule }}"
+
+# Additional PBS hardcoded settings (homelab optimized)
 pbs_datastore_path: "/datapool/backups"
-
-# PBS Scheduling (homelab-appropriate settings)
-pbs_gc_schedule: "02:00"  # Garbage collection at 2 AM daily
-pbs_prune_schedule: "03:00"  # Pruning at 3 AM daily
-pbs_verify_schedule: "mon 04:00"  # Verification weekly on Monday at 4 AM
-
-# PBS Backup Retention Policy (homelab settings)
 pbs_keep_daily: 7      # Keep daily backups for 7 days
 pbs_keep_weekly: 4     # Keep weekly backups for 4 weeks
 pbs_keep_monthly: 6    # Keep monthly backups for 6 months
 pbs_keep_yearly: 1     # Keep yearly backups for 1 year
-
-# PBS User for Proxmox integration
 pbs_backup_user: "proxmox-backup@pbs"
 pbs_backup_user_comment: "Proxmox VE backup user"
 
