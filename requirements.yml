@@ -1,0 +1,8 @@
+---
+collections:
+  - name: community.general
+    version: ">=8.0.0"
+  - name: community.proxmox  
+    version: ">=4.0.0"
+  - name: community.docker
+    version: ">=4.0.0"

@@ -139,8 +139,30 @@
   delegate_to: "{{ hostname }}"
   when: env_template_exists.stat.exists
 
-- name: Deploy Docker Compose stack
-  community.docker.docker_compose_v2:
-    project_src: "/root/"
-    state: present
-  delegate_to: "{{ hostname }}"
+- name: Deploy Docker Compose stack (with fallback)
+  block:
+    # First try using the Ansible module
+    - name: Deploy Docker Compose stack using Ansible module
+      community.docker.docker_compose_v2:
+        project_src: "/root/"
+        state: present
+      delegate_to: "{{ hostname }}"
+      register: compose_ansible_result
+  rescue:
+    # Fallback to using docker compose CLI directly
+    - name: Deploy Docker Compose stack using CLI (fallback)
+      ansible.builtin.shell: |
+        cd /root/
+        if [ -f docker-compose.yml ]; then
+          docker compose up -d --remove-orphans
+        else
+          echo "No docker-compose.yml file found in /root/"
+          exit 1
+        fi
+      delegate_to: "{{ hostname }}"
+      register: compose_cli_result
+      changed_when: "'Creating' in compose_cli_result.stdout or 'Starting' in compose_cli_result.stdout or 'Recreating' in compose_cli_result.stdout"
+      
+    - name: Log fallback usage
+      ansible.builtin.debug:
+        msg: "Used docker compose CLI fallback due to Ansible module issue"
