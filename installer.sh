@@ -93,8 +93,15 @@ run_first_time_setup() {
     print_info "Ensuring API token '$API_TOKEN_ID' exists for user '$API_USER'..."
     local TOKEN_SECRET=""
     
-    # Check if token already exists
-    if pveum user token list "$API_USER" --output-format json 2>/dev/null | grep -q '"tokenid": "'$API_TOKEN_ID'"'; then
+    # Check if token already exists - improved detection logic
+    local token_exists=false
+    if pveum user token list "$API_USER" 2>/dev/null | grep -q "$API_TOKEN_ID"; then
+        token_exists=true
+    elif pveum user token list "$API_USER" --output-format json 2>/dev/null | grep -q '"tokenid": "'$API_TOKEN_ID'"'; then
+        token_exists=true
+    fi
+    
+    if [ "$token_exists" = true ]; then
         print_warning "Token '$API_TOKEN_ID' already exists. Removing to create a new one with known secret..."
         
         # Remove existing token - retry logic to handle potential failures
@@ -102,6 +109,7 @@ run_first_time_setup() {
         while [ $remove_attempts -lt 3 ]; do
             if pveum user token remove "$API_USER" "$API_TOKEN_ID" 2>/dev/null; then
                 print_info "Successfully removed existing token."
+                sleep 2  # Brief pause to ensure removal is processed
                 break
             else
                 remove_attempts=$((remove_attempts + 1))
@@ -114,70 +122,185 @@ run_first_time_setup() {
                 sleep 2
             fi
         done
+    else
+        print_info "Token '$API_TOKEN_ID' does not exist. Creating new token..."
     fi
     
-    # Create new token
+    # Create new token - with retry logic for idempotency
     print_info "Creating new API token..."
     local TOKEN_OUTPUT
-    if TOKEN_OUTPUT=$(pveum user token add "$API_USER" "$API_TOKEN_ID" --comment "Token for Ansible automation" 2>&1); then
-        # Extract secret using multiple patterns to handle different output formats
-        TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | sed -n 's/.*secret: *\(.*\)/\1/p')
-        if [ -z "$TOKEN_SECRET" ]; then
-            # Try alternative extraction for table format output
-            TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | awk '/'"$API_TOKEN_ID"'/ {for(i=1;i<=NF;i++) if($i ~ /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) print $i}' | tr -d '│ ')
+    local create_attempts=0
+    while [ $create_attempts -lt 3 ]; do
+        if TOKEN_OUTPUT=$(pveum user token add "$API_USER" "$API_TOKEN_ID" --comment "Token for Ansible automation" 2>&1); then
+            # Extract secret using multiple patterns to handle different output formats
+            TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | sed -n 's/.*secret: *\(.*\)/\1/p')
+            if [ -z "$TOKEN_SECRET" ]; then
+                # Try alternative extraction for table format output
+                TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | awk '/'"$API_TOKEN_ID"'/ {for(i=1;i<=NF;i++) if($i ~ /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) print $i}' | tr -d '│ ')
+            fi
+            if [ -z "$TOKEN_SECRET" ]; then
+                # Try extracting UUID pattern from any line
+                TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
+            fi
+            
+            if [ -n "$TOKEN_SECRET" ]; then
+                print_success "Token '$API_TOKEN_ID' created and secret captured."
+                break
+            else
+                print_error "Failed to extract token secret from output: $TOKEN_OUTPUT"
+                exit 1
+            fi
+        else
+            # Check if error is due to existing token (edge case)
+            if echo "$TOKEN_OUTPUT" | grep -q "Token already exists"; then
+                create_attempts=$((create_attempts + 1))
+                if [ $create_attempts -eq 3 ]; then
+                    print_error "Token creation failed after 3 attempts due to existing token. Manual intervention required:"
+                    print_error "pveum user token remove '$API_USER' '$API_TOKEN_ID'"
+                    print_error "Then re-run this installer."
+                    exit 1
+                fi
+                print_warning "Token already exists (attempt $create_attempts). Trying to remove and recreate..."
+                pveum user token remove "$API_USER" "$API_TOKEN_ID" 2>/dev/null
+                sleep 2
+                continue
+            else
+                print_error "Failed to create API token. Output: $TOKEN_OUTPUT"
+                exit 1
+            fi
         fi
-        if [ -z "$TOKEN_SECRET" ]; then
-            # Try extracting UUID pattern from any line
-            TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
-        fi
-        [ -z "$TOKEN_SECRET" ] && { print_error "Failed to extract token secret from output: $TOKEN_OUTPUT"; exit 1; }
-        print_success "Token '$API_TOKEN_ID' created and secret captured."
-    else
-        print_error "Failed to create API token. Output: $TOKEN_OUTPUT"
-        exit 1
-    fi
+    done
 
     # Step 2: Create and Provision Control LXC
-    print_info "Creating Ansible Control LXC ($CONTROL_CT_ID)..."
-    local LATEST_DEBIAN_TEMPLATE
-    LATEST_DEBIAN_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-.*-standard/ {print $1}' | sort -V | tail -n 1)
-    if [ -z "$LATEST_DEBIAN_TEMPLATE" ]; then
-        print_warning "No local Debian template found; downloading..."
-        local DOWNLOAD_TEMPLATE
-        DOWNLOAD_TEMPLATE=$(pveam available | awk '/debian-[0-9.]+(-[0-9]+)?-standard/ {print $NF}' | sort -V | tail -n 1)
-        pveam download "$STORAGE_POOL" "$DOWNLOAD_TEMPLATE"
+    # Check if LXC already exists (should not happen in first-time setup, but added for robustness)
+    if pct status "$CONTROL_CT_ID" >/dev/null 2>&1; then
+        print_warning "LXC $CONTROL_CT_ID already exists. This should not happen during first-time setup."
+        print_info "Checking if it's properly configured..."
+        
+        # Ensure it's running
+        if ! pct status "$CONTROL_CT_ID" | grep -q "status: running"; then
+            print_info "Starting existing LXC..."
+            pct start "$CONTROL_CT_ID"
+            sleep 10
+        fi
+        
+        # Skip to provisioning step
+        print_info "Skipping LXC creation, proceeding to provisioning..."
+    else
+        print_info "Creating Ansible Control LXC ($CONTROL_CT_ID)..."
+        local LATEST_DEBIAN_TEMPLATE
         LATEST_DEBIAN_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-.*-standard/ {print $1}' | sort -V | tail -n 1)
+        if [ -z "$LATEST_DEBIAN_TEMPLATE" ]; then
+            print_warning "No local Debian template found; downloading..."
+            local DOWNLOAD_TEMPLATE
+            DOWNLOAD_TEMPLATE=$(pveam available | awk '/debian-[0-9.]+(-[0-9]+)?-standard/ {print $NF}' | sort -V | tail -n 1)
+            pveam download "$STORAGE_POOL" "$DOWNLOAD_TEMPLATE"
+            LATEST_DEBIAN_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-.*-standard/ {print $1}' | sort -V | tail -n 1)
+        fi
+        print_success "Using Debian template: $LATEST_DEBIAN_TEMPLATE"
+
+        local CONTROL_IP_CIDR="$NETWORK_IP_BASE.$CONTROL_IP_OCTET/24"
+        if pct create "$CONTROL_CT_ID" "$LATEST_DEBIAN_TEMPLATE" \
+            --hostname "$CONTROL_HOSTNAME" --storage "$STORAGE_POOL" \
+            --cores "$CONTROL_CORES" --memory "$CONTROL_MEMORY" --swap 0 \
+            --features keyctl=1,nesting=1 \
+            --net0 name=eth0,bridge=$NETWORK_BRIDGE,ip=$CONTROL_IP_CIDR,gw=$NETWORK_GATEWAY \
+            --mp0 "${STORAGE_POOL}:0,mp=/datapool,backup=0" \
+            --onboot 1 --unprivileged 1 --rootfs "${STORAGE_POOL}:${CONTROL_DISK}" 2>/dev/null; then
+            print_success "LXC $CONTROL_CT_ID created successfully."
+        else
+            print_error "Failed to create LXC $CONTROL_CT_ID. It may already exist or there's a configuration issue."
+            # Try to continue anyway in case the LXC was created but the command failed
+            if ! pct status "$CONTROL_CT_ID" >/dev/null 2>&1; then
+                exit 1
+            fi
+        fi
+        
+        pct start "$CONTROL_CT_ID"
+        print_info "Waiting for container to boot..."
+        sleep 10
     fi
-    print_success "Using Debian template: $LATEST_DEBIAN_TEMPLATE"
 
-    local CONTROL_IP_CIDR="$NETWORK_IP_BASE.$CONTROL_IP_OCTET/24"
-    pct create "$CONTROL_CT_ID" "$LATEST_DEBIAN_TEMPLATE" \
-        --hostname "$CONTROL_HOSTNAME" --storage "$STORAGE_POOL" \
-        --cores "$CONTROL_CORES" --memory "$CONTROL_MEMORY" --swap 0 \
-        --features keyctl=1,nesting=1 \
-        --net0 name=eth0,bridge=$NETWORK_BRIDGE,ip=$CONTROL_IP_CIDR,gw=$NETWORK_GATEWAY \
-        --mp0 "${STORAGE_POOL}:0,mp=/datapool,backup=0" \
-        --onboot 1 --unprivileged 1 --rootfs "${STORAGE_POOL}:${CONTROL_DISK}"
-    
-    pct start "$CONTROL_CT_ID"
-    print_info "Waiting for container to boot..."
-    sleep 10
-
-    # Step 3: Provision Control Node with Ansible and Git
+    # Step 3: Provision Control Node with Ansible and Git (idempotent)
     print_info "Provisioning Control Node with Ansible, Git, and credentials..."
-    # Only update package index if necessary
-    pct exec "$CONTROL_CT_ID" -- bash -c 'if [ ! -d /var/lib/apt/lists ] || [ -z "$(ls -A /var/lib/apt/lists)" ] || find /var/lib/apt/lists/* -mtime +1 2>/dev/null | grep -q .; then apt-get update; else echo "[INFO] Skipping apt-get update (package index is fresh)"; fi'
-    pct exec "$CONTROL_CT_ID" -- apt-get install -y git ansible python3-pip
-    pct exec "$CONTROL_CT_ID" -- pip3 install proxmoxer
-    pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
     
-    # Install required Ansible collections
-    print_info "Installing required Ansible collections..."
-    pct exec "$CONTROL_CT_ID" -- ansible-galaxy collection install community.general community.proxmox community.docker
+    # Check if basic tools are already installed
+    if ! pct exec "$CONTROL_CT_ID" -- which git >/dev/null 2>&1 || ! pct exec "$CONTROL_CT_ID" -- which ansible >/dev/null 2>&1; then
+        print_info "Installing required packages..."
+        # Only update package index if necessary
+        pct exec "$CONTROL_CT_ID" -- bash -c 'if [ ! -d /var/lib/apt/lists ] || [ -z "$(ls -A /var/lib/apt/lists)" ] || find /var/lib/apt/lists/* -mtime +1 2>/dev/null | grep -q .; then apt-get update; else echo "[INFO] Skipping apt-get update (package index is fresh)"; fi'
+        pct exec "$CONTROL_CT_ID" -- apt-get install -y git ansible python3-pip
+    else
+        print_info "Required packages already installed."
+    fi
     
-    # Inject credentials into a vault file
-    local VAULT_CONTENT
-    VAULT_CONTENT=$(cat <<EOF
+    # Check if proxmoxer is installed
+    if ! pct exec "$CONTROL_CT_ID" -- python3 -c "import proxmoxer" >/dev/null 2>&1; then
+        print_info "Installing proxmoxer Python package..."
+        # proxmoxer is not available as a Debian package, only via PyPI
+        # Using --break-system-packages in isolated LXC container environment
+        # This is safe since we control the entire container and its purpose
+        pct exec "$CONTROL_CT_ID" -- pip3 install --break-system-packages proxmoxer
+    else
+        print_info "Proxmoxer package already installed."
+    fi
+    
+    # Check if repository is already cloned
+    if ! pct exec "$CONTROL_CT_ID" -- test -d "$REPO_DIR/.git"; then
+        print_info "Cloning repository..."
+        # Remove directory if it exists but is not a git repo
+        pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
+        pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
+    else
+        print_info "Repository already exists. Updating..."
+        pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git pull"
+    fi
+    
+    # Check if Ansible collections are installed (idempotent check)
+    print_info "Ensuring required Ansible collections are installed..."
+    pct exec "$CONTROL_CT_ID" -- bash -c '
+        collections_needed=""
+        for collection in community.general community.proxmox community.docker; do
+            if ! ansible-galaxy collection list | grep -q "$collection"; then
+                collections_needed="$collections_needed $collection"
+            fi
+        done
+        if [ -n "$collections_needed" ]; then
+            echo "Installing missing collections: $collections_needed"
+            ansible-galaxy collection install $collections_needed
+        else
+            echo "All required collections already installed."
+        fi
+    '
+    
+    # Step 4: Create/Update credentials (idempotent)
+    local secrets_file_path="/root/proxmox-homelab-automation/secrets.yml"
+    local create_new_secrets=false
+    
+    # Check if secrets.yml already exists (encrypted or unencrypted)
+    if pct exec "$CONTROL_CT_ID" -- test -f "$secrets_file_path"; then
+        print_warning "Secrets file already exists. Checking if it needs updating..."
+        
+        # Check if it's encrypted
+        if pct exec "$CONTROL_CT_ID" -- head -1 "$secrets_file_path" | grep -q "ANSIBLE_VAULT"; then
+            print_info "Secrets file is already encrypted. Skipping secrets creation."
+            print_info "If you need to update secrets, please do so manually using:"
+            print_info "pct exec $CONTROL_CT_ID -- ansible-vault edit $secrets_file_path"
+        else
+            print_warning "Secrets file exists but is not encrypted. This may be from a previous failed setup."
+            print_info "Backing up existing file and creating new one..."
+            pct exec "$CONTROL_CT_ID" -- mv "$secrets_file_path" "${secrets_file_path}.backup.$(date +%s)"
+            create_new_secrets=true
+        fi
+    else
+        print_info "No secrets file found. Creating new one..."
+        create_new_secrets=true
+    fi
+    
+    if [ "$create_new_secrets" = true ]; then
+        # Create new secrets file
+        local VAULT_CONTENT
+        VAULT_CONTENT=$(cat <<EOF
 # Proxmox API Configuration
 proxmox_api_user: $API_USER
 proxmox_api_token_id: $API_TOKEN_ID
@@ -218,46 +341,47 @@ homepage_grafana_password: "REPLACE_WITH_GRAFANA_PASSWORD"
 timezone: "Europe/Istanbul"
 EOF
 )
-    # Use pct push to create the file
-    echo "$VAULT_CONTENT" | pct push "$CONTROL_CT_ID" - "/root/proxmox-homelab-automation/secrets.yml"
+        # Use pct push to create the file
+        echo "$VAULT_CONTENT" | pct push "$CONTROL_CT_ID" - "$secrets_file_path"
 
-    # Prompt user for vault password to encrypt secrets.yml
-    print_info "Creating encrypted secrets.yml file..."
-    print_info "Please set a secure password for the Ansible Vault."
-    print_warning "IMPORTANT: Remember this password! You'll need it for all future operations."
-    
-    local VAULT_PASSWORD=""
-    while [ -z "$VAULT_PASSWORD" ]; do
-        read -s -p "Enter Vault password: " VAULT_PASSWORD
-        echo
-        if [ -z "$VAULT_PASSWORD" ]; then
-            print_warning "Password cannot be empty. Please try again."
-            continue
+        # Prompt user for vault password to encrypt secrets.yml
+        print_info "Creating encrypted secrets.yml file..."
+        print_info "Please set a secure password for the Ansible Vault."
+        print_warning "IMPORTANT: Remember this password! You'll need it for all future operations."
+        
+        local VAULT_PASSWORD=""
+        while [ -z "$VAULT_PASSWORD" ]; do
+            read -s -p "Enter Vault password: " VAULT_PASSWORD
+            echo
+            if [ -z "$VAULT_PASSWORD" ]; then
+                print_warning "Password cannot be empty. Please try again."
+                continue
+            fi
+            
+            local VAULT_PASSWORD_CONFIRM=""
+            read -s -p "Confirm Vault password: " VAULT_PASSWORD_CONFIRM
+            echo
+            
+            if [ "$VAULT_PASSWORD" != "$VAULT_PASSWORD_CONFIRM" ]; then
+                print_warning "Passwords do not match. Please try again."
+                VAULT_PASSWORD=""
+            fi
+        done
+
+        # Encrypt the secrets file inside the LXC
+        if pct exec "$CONTROL_CT_ID" -- bash -c "echo '$VAULT_PASSWORD' | ansible-vault encrypt --vault-password-file /dev/stdin $secrets_file_path" 2>/dev/null; then
+            print_success "secrets.yml file encrypted successfully."
+        else
+            print_error "Failed to encrypt secrets.yml file."
+            print_warning "The file was created as plaintext. Please encrypt it manually:"
+            print_info "pct exec $CONTROL_CT_ID -- ansible-vault encrypt $secrets_file_path"
+            exit 1
         fi
         
-        local VAULT_PASSWORD_CONFIRM=""
-        read -s -p "Confirm Vault password: " VAULT_PASSWORD_CONFIRM
-        echo
-        
-        if [ "$VAULT_PASSWORD" != "$VAULT_PASSWORD_CONFIRM" ]; then
-            print_warning "Passwords do not match. Please try again."
-            VAULT_PASSWORD=""
-        fi
-    done
-
-    # Encrypt the secrets file inside the LXC
-    if pct exec "$CONTROL_CT_ID" -- bash -c "echo '$VAULT_PASSWORD' | ansible-vault encrypt --vault-password-file /dev/stdin $PLAYBOOK_DIR/secrets.yml" 2>/dev/null; then
-        print_success "secrets.yml file encrypted successfully."
-    else
-        print_error "Failed to encrypt secrets.yml file."
-        print_warning "The file was created as plaintext. Please encrypt it manually:"
-        print_info "pct exec $CONTROL_CT_ID -- ansible-vault encrypt $PLAYBOOK_DIR/secrets.yml"
-        exit 1
+        # Clear password from memory
+        unset VAULT_PASSWORD
+        unset VAULT_PASSWORD_CONFIRM
     fi
-    
-    # Clear password from memory
-    unset VAULT_PASSWORD
-    unset VAULT_PASSWORD_CONFIRM
 
     print_success "================================================="
     print_success "  First-time setup complete!"
