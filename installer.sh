@@ -57,7 +57,7 @@ run_first_time_setup() {
 
     print_info "Ensuring API token '$API_TOKEN_ID' exists for user '$API_USER'..."
     local TOKEN_SECRET=""
-    if ! pveum user token list "$API_USER" | grep -q "tokenid=$API_TOKEN_ID"; then
+        if ! pveum user token list "$API_USER" --output-format json | grep -q '"tokenid": "'$API_TOKEN_ID'"'; then
         local TOKEN_OUTPUT
         TOKEN_OUTPUT=$(pveum user token add "$API_USER" "$API_TOKEN_ID" --comment "Token for Ansible automation")
         TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | sed -n 's/.*secret: *\(.*\)/\1/p')
