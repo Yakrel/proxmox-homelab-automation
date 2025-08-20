@@ -59,13 +59,14 @@ Alternatively, if you have already cloned the repository:
 
 All secrets (API keys, passwords, etc.) are now managed in a single encrypted file: `secrets.yml`.
 
-- **Encryption:** This file is encrypted using `ansible-vault`. It is safe to commit to Git.
-- **Editing:** To edit secrets, you must do so from the host by executing a command within the control LXC:
+- **Encryption:** This file is encrypted using `ansible-vault` with an interactive password that you set during first-time setup. It is safe to commit to Git.
+- **Password Management:** You will be prompted for the vault password whenever deploying stacks or running playbooks through the installer menu.
+- **Editing:** To edit secrets, you can use the ansible-vault edit command from within the control LXC:
   ```bash
   pct exec 151 -- ansible-vault edit /root/proxmox-homelab-automation/secrets.yml
   ```
 
-This replaces the old, cumbersome `.env.enc` workflow.
+**Important:** Remember your vault password! You'll need it for all homelab operations. The installer will prompt you to set this password during first-time setup and will request it each time you deploy stacks.
 
 ## Service Stacks
 
