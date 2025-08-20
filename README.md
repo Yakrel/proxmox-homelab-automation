@@ -30,15 +30,30 @@ The new architecture is designed for true automation and idempotency, managed by
 
 ## Quick Start & Usage
 
-All management is performed through the unified script on the Proxmox host.
+All management is performed through the unified installer script. You can run it directly from GitHub without cloning the repository first.
+
+```bash
+# Run the installer directly from GitHub (recommended):
+bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
+```
+
+Alternatively, if you have already cloned the repository:
 
 ```bash
 # Navigate to the repository directory on your Proxmox host and run:
 ./installer.sh
 ```
 
-- **First Time:** The script will perform the initial setup of the control node.
-- **After Setup:** The script will automatically display a menu. From the menu, you can choose to set up the Proxmox host for the first time or deploy any of the available service stacks. The script will run the appropriate Ansible playbook for you, and you will see all output in your terminal.
+### How It Works:
+
+- **First Time:** The script will perform the initial setup by creating the Ansible Control LXC (ID 151) and configuring all necessary credentials.
+- **After Setup:** The script will automatically display an interactive menu. From this menu, you can:
+  - Configure the Proxmox host (timezone, security, etc.)
+  - Deploy any of the available service stacks (proxy, media, monitoring, etc.)
+  - All operations are performed automatically - just select the option and the script will run the appropriate Ansible playbook
+  - After each operation completes, you'll be returned to the main menu to perform additional tasks
+
+**Everything is menu-driven - no manual playbook execution required!**
 
 ## Secrets Management: Ansible Vault
 
