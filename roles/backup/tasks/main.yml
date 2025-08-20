@@ -398,3 +398,7 @@
       - "Backup Schedule: {{ pve_backup_schedule }} daily"
       - "Retention: {{ pbs_keep_daily }}d/{{ pbs_keep_weekly }}w/{{ pbs_keep_monthly }}m/{{ pbs_keep_yearly }}y"
       - "================================================="
+
+# Apply common LXC security configuration (SSH disable, autologin)
+- name: Apply LXC security configuration
+  ansible.builtin.include_tasks: "../common/tasks/lxc_security_setup.yml"

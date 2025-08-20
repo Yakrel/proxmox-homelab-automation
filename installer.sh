@@ -256,6 +256,11 @@ run_first_time_setup() {
     pct exec "$CONTROL_CT_ID" -- sed -i 's/^# \(en_US.UTF-8\)/\1/' /etc/locale.gen
     pct exec "$CONTROL_CT_ID" -- locale-gen >/dev/null 2>&1
     
+    print_info "Disabling SSH for security (LXC console access only)..."
+    pct exec "$CONTROL_CT_ID" -- apt-get remove -y openssh-server >/dev/null 2>&1 || true
+    pct exec "$CONTROL_CT_ID" -- systemctl disable ssh >/dev/null 2>&1 || true
+    pct exec "$CONTROL_CT_ID" -- systemctl stop ssh >/dev/null 2>&1 || true
+    
     # Step 3.1: Install base packages and Python pip
     print_info "Installing base packages (git, pip)..."
     pct exec "$CONTROL_CT_ID" -- bash -c 'if [ ! -d /var/lib/apt/lists ] || [ -z "$(ls -A /var/lib/apt/lists)" ] || find /var/lib/apt/lists/* -mtime +1 2>/dev/null | grep -q .; then apt-get update; else echo "[INFO] Skipping apt-get update (package index is fresh)"; fi'
@@ -266,12 +271,19 @@ run_first_time_setup() {
     print_info "Installing Ansible, proxmoxer, and dependencies via pip..."
     pct exec "$CONTROL_CT_ID" -- pip3 install --break-system-packages ansible proxmoxer
     
+    # Add /usr/local/bin to PATH permanently for ansible tools
+    print_info "Configuring PATH for Ansible tools..."
+    pct exec "$CONTROL_CT_ID" -- bash -c 'echo "export PATH=\"/usr/local/bin:\$PATH\"" >> /root/.bashrc'
+    pct exec "$CONTROL_CT_ID" -- bash -c 'echo "export PATH=\"/usr/local/bin:\$PATH\"" >> /etc/profile'
+    
     # Ensure repository exists and is up to date (idempotent)
     ensure_repository_exists_and_update
     
     # Check if Ansible collections are installed (idempotent check)
     print_info "Ensuring required Ansible collections are installed..."
     pct exec "$CONTROL_CT_ID" -- bash -c '
+        # Add /usr/local/bin to PATH to access ansible-galaxy installed via pip
+        export PATH="/usr/local/bin:$PATH"
         collections_needed=""
         for collection in community.general community.proxmox community.docker; do
             if ! ansible-galaxy collection list | grep -q "$collection"; then

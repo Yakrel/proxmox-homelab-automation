@@ -119,3 +119,7 @@
     version: main
     force: yes
   delegate_to: "{{ hostname }}"
+
+# Apply common LXC security configuration (SSH disable, autologin)
+- name: Apply LXC security configuration
+  ansible.builtin.include_tasks: "../common/tasks/lxc_security_setup.yml"
