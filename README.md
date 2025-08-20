@@ -76,7 +76,7 @@ The backup stack provides a complete, automated backup solution using Proxmox Ba
 - **Security-First**: Dedicated users, secure authentication, minimal permissions
 - **Zero Maintenance**: Handles garbage collection, verification, and pruning automatically
 
-For detailed information, see [PBS_BACKUP_SYSTEM.md](PBS_BACKUP_SYSTEM.md).
+
 
 ### Quick Deployment:
 ```bash
