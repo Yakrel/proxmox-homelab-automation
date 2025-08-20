@@ -101,7 +101,8 @@ run_first_time_setup() {
 
     # Step 3: Provision Control Node with Ansible and Git
     print_info "Provisioning Control Node with Ansible, Git, and credentials..."
-    pct exec "$CONTROL_CT_ID" -- apt-get update
+    # Only update package index if necessary
+    pct exec "$CONTROL_CT_ID" -- bash -c 'if [ ! -d /var/lib/apt/lists ] || [ -z "$(ls -A /var/lib/apt/lists)" ] || find /var/lib/apt/lists/* -mtime +1 2>/dev/null | grep -q .; then apt-get update; else echo "[INFO] Skipping apt-get update (package index is fresh)"; fi'
     pct exec "$CONTROL_CT_ID" -- apt-get install -y git ansible python3-pip
     pct exec "$CONTROL_CT_ID" -- pip3 install proxmoxer
     pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"

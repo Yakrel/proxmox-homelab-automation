@@ -1,0 +1,13 @@
+---
+# Common variables for all roles
+# Network settings - shared across all service stacks
+network_gateway: 192.168.1.1
+network_bridge: vmbr0
+network_ip_base: 192.168.1
+
+# Storage settings
+storage_pool: datapool
+
+# Repository settings
+repo_url: "https://github.com/Yakrel/proxmox-homelab-automation.git"
+repo_dir: "/root/proxmox-homelab-automation"

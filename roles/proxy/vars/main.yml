@@ -1,14 +1,6 @@
 ---
 # Variables for the proxy role, sourced from stacks.yaml
 
-# General network settings
-network_gateway: 192.168.1.1
-network_bridge: vmbr0
-network_ip_base: 192.168.1
-
-# General storage settings
-storage_pool: datapool
-
 # Proxy specific settings
 stack_name: proxy
 ct_id: 100

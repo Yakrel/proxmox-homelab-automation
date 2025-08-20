@@ -132,15 +132,21 @@
         shell: /bin/false
         system: true # Create as system user
 
+    - name: Check if Samba user exists
+      ansible.builtin.command: pdbedit -L -u {{ samba_username }}
+      register: samba_user_check
+      failed_when: false
+      changed_when: false
+
     - name: Set Samba password for user
       ansible.builtin.shell: |
         set -o pipefail
         echo '{{ samba_password }}' | smbpasswd -s -a {{ samba_username }}
       args:
         executable: /bin/bash
-        creates: "/var/lib/samba/private/smbpasswd" # Idempotency check
       no_log: true # Prevent password from appearing in logs
       changed_when: true # Always report change as we can't easily check smbpasswd state
+      when: samba_user_check.stdout == ""
 
     - name: Copy Samba share configuration for datapool
       ansible.builtin.template:
