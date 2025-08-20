@@ -52,3 +52,6 @@ GEMINI.md
 .env.*
 !.env.example
 .vault_pass
+
+# Local Ansible cache/collections
+.ansible/

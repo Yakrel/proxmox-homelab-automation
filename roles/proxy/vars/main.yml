@@ -1,0 +1,11 @@
+---
+# Variables for the proxy role, sourced from stacks.yaml
+
+# Proxy specific settings
+stack_name: proxy
+ct_id: 100
+hostname: lxc-proxy-01
+ip_octet: 100
+cpu_cores: 2
+memory_mb: 2048
+disk_gb: 10

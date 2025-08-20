@@ -1,0 +1,18 @@
+---
+- name: Deploy a specific LXC stack
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  pre_tasks:
+    - name: Ensure stack_name has a default
+      ansible.builtin.set_fact:
+        stack_name: "{{ stack_name | default('proxy') }}"
+    - name: Announce selected stack
+      ansible.builtin.debug:
+        msg: "Deploying stack: {{ stack_name }}"
+
+  tasks:
+    - name: Run selected stack role
+      ansible.builtin.include_role:
+        name: "{{ stack_name }}"

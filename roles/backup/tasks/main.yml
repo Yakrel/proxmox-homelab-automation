@@ -1,0 +1,103 @@
+---
+# tasks file for the backup role
+
+- name: Include stack-specific variables
+  ansible.builtin.include_vars: "vars/main.yml"
+
+- name: Check if generated API credentials exist
+  ansible.builtin.stat:
+    path: /etc/ansible_secrets/credentials.yml
+  register: creds_file
+
+- name: Include generated API credentials if they exist
+  ansible.builtin.include_vars: /etc/ansible_secrets/credentials.yml
+  when: creds_file.stat.exists
+
+- name: Find latest Debian Linux template on the Proxmox host
+  ansible.builtin.shell: "set -o pipefail && pveam list {{ storage_pool }} | awk '/debian-.*-standard/ {print $1}' | sort -V | tail -n 1"
+  args:
+    executable: /bin/bash
+  register: latest_debian_template_result
+  changed_when: false
+  delegate_to: localhost
+
+- name: Set template fact
+  ansible.builtin.set_fact:
+    lxc_template: "{{ latest_debian_template_result.stdout }}"
+
+- name: Fail if no template was found
+  ansible.builtin.fail:
+    msg: "Could not find any Debian Linux template in storage pool '{{ storage_pool }}'."
+  when: lxc_template is not defined or lxc_template | length == 0
+
+- name: Create or Update Backup LXC Container on Proxmox host
+  community.proxmox.proxmox:
+    api_host: "{{ proxmox_api_host }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ proxmox_api_token_secret }}"
+    node: "{{ proxmox_node }}"
+    vmid: "{{ ct_id }}"
+    hostname: "{{ hostname }}"
+    state: started
+    cores: "{{ cpu_cores }}"
+    memory: "{{ memory_mb }}"
+    disk: "{{ storage_pool }}:{{ disk_gb }}"
+    ostemplate: "{{ lxc_template }}"
+    netif:
+      net0:
+        name: eth0
+        bridge: "{{ network_bridge }}"
+        ip: "{{ network_ip_base }}.{{ ip_octet }}/24"
+        gw: "{{ network_gateway }}"
+  delegate_to: localhost
+
+- name: Add new LXC to Ansible's in-memory inventory
+  ansible.builtin.add_host:
+    name: "{{ hostname }}"
+    ansible_connection: lxc
+    ansible_user: root
+  changed_when: false
+
+# From this point on, we delegate tasks to the container itself.
+
+- name: Wait until the container is ready for package management
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 0
+  delegate_to: "{{ hostname }}"
+  changed_when: false
+  retries: 10
+  delay: 5
+  register: result
+  until: result is succeeded
+
+- name: Download the Proxmox GPG key
+  ansible.builtin.get_url:
+    url: https://enterprise.proxmox.com/debian/proxmox-archive-keyring.gpg
+    dest: /usr/share/keyrings/proxmox-archive-keyring.gpg
+    mode: '0644'
+    # Add checksum verification for security - this is the SHA256 checksum for the current key
+    # Update this checksum if the key changes
+    checksum: "sha256:7fb03ec8a1675723d2853b84aa4fdb49a46a3bb72b9951361488bfd19b29aab0"
+  delegate_to: "{{ hostname }}"
+
+- name: Add Proxmox Backup Server repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pbs trixie pbs-no-subscription"
+    state: present
+  delegate_to: "{{ hostname }}"
+
+- name: Install Proxmox Backup Server
+  ansible.builtin.apt:
+    name: proxmox-backup-server
+    update_cache: true
+    state: present
+  delegate_to: "{{ hostname }}"
+
+- name: Ensure Proxmox Backup service is started and enabled
+  ansible.builtin.service:
+    name: proxmox-backup
+    state: started
+    enabled: true
+  delegate_to: "{{ hostname }}"

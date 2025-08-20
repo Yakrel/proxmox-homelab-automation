@@ -1,0 +1,89 @@
+---
+# tasks file for the development role
+
+- name: Include stack-specific variables
+  ansible.builtin.include_vars: "vars/main.yml"
+
+- name: Check if generated API credentials exist
+  ansible.builtin.stat:
+    path: /etc/ansible_secrets/credentials.yml
+  register: creds_file
+
+- name: Include generated API credentials if they exist
+  ansible.builtin.include_vars: /etc/ansible_secrets/credentials.yml
+  when: creds_file.stat.exists
+
+- name: Find latest Debian Linux template on the Proxmox host
+  ansible.builtin.shell: "set -o pipefail && pveam list {{ storage_pool }} | awk '/debian-.*-standard/ {print $1}' | sort -V | tail -n 1"
+  args:
+    executable: /bin/bash
+  register: latest_debian_template_result
+  changed_when: false
+  delegate_to: localhost
+
+- name: Set template fact
+  ansible.builtin.set_fact:
+    lxc_template: "{{ latest_debian_template_result.stdout }}"
+
+- name: Fail if no template was found
+  ansible.builtin.fail:
+    msg: "Could not find any Debian Linux template in storage pool '{{ storage_pool }}'."
+  when: lxc_template is not defined or lxc_template | length == 0
+
+- name: Create or Update Development LXC Container on Proxmox host
+  community.proxmox.proxmox:
+    api_host: "{{ proxmox_api_host }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ proxmox_api_token_secret }}"
+    node: "{{ proxmox_node }}"
+    vmid: "{{ ct_id }}"
+    hostname: "{{ hostname }}"
+    state: started
+    cores: "{{ cpu_cores }}"
+    memory: "{{ memory_mb }}"
+    disk: "{{ storage_pool }}:{{ disk_gb }}"
+    ostemplate: "{{ lxc_template }}"
+    netif:
+      net0:
+        name: eth0
+        bridge: "{{ network_bridge }}"
+        ip: "{{ network_ip_base }}.{{ ip_octet }}/24"
+        gw: "{{ network_gateway }}"
+  delegate_to: localhost
+
+- name: Add new LXC to Ansible's in-memory inventory
+  ansible.builtin.add_host:
+    name: "{{ hostname }}"
+    ansible_connection: lxc
+    ansible_user: root
+  changed_when: false
+
+- name: Wait until the container is ready for package management
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 0
+  delegate_to: "{{ hostname }}"
+  changed_when: false
+  retries: 10
+  delay: 5
+  register: result
+  until: result is succeeded
+
+- name: Install Git and Ansible inside the LXC
+  ansible.builtin.apt:
+    name:
+      - git
+      - ansible
+    update_cache: true
+    state: present
+  delegate_to: "{{ hostname }}"
+
+- name: Clone or update repository inside the LXC
+  ansible.builtin.git:
+    repo: "{{ repo_url }}"
+    dest: "{{ repo_dir }}"
+    version: main
+    update: true
+    accept_hostkey: true
+  delegate_to: "{{ hostname }}"

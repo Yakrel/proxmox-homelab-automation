@@ -1,0 +1,10 @@
+pool tr.pool.ntp.org iburst
+server 0.tr.pool.ntp.org iburst
+server 1.tr.pool.ntp.org iburst
+server 2.tr.pool.ntp.org iburst
+pool 0.pool.ntp.org iburst
+driftfile /var/lib/chrony/chrony.drift
+makestep 1.0 3
+rtcsync
+leapsectz right/UTC
+logdir /var/log/chrony
