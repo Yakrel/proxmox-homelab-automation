@@ -15,12 +15,22 @@
 
 - name: Check if secrets exist in repository location
   ansible.builtin.stat:
-    path: "{{ repo_dir }}/secrets.yml"
+    path: "/root/proxmox-homelab-automation/secrets.yml"
   register: repo_secrets_file
 
 - name: Include repository secrets if they exist and standard location doesn't
-  ansible.builtin.include_vars: "{{ repo_dir }}/secrets.yml"
+  ansible.builtin.include_vars: "/root/proxmox-homelab-automation/secrets.yml"
   when: repo_secrets_file.stat.exists and not creds_file.stat.exists
+
+- name: Validate required API credentials are available
+  ansible.builtin.assert:
+    that:
+      - proxmox_api_user is defined
+      - proxmox_api_token_id is defined  
+      - proxmox_api_token_secret is defined
+      - proxmox_node is defined
+    fail_msg: "Required Proxmox API credentials are not available. Please ensure secrets are properly configured."
+    success_msg: "API credentials validation passed."
 
 # ========================================
 # Phase 1: Prepare Host Environment
