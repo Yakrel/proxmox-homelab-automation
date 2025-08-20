@@ -286,7 +286,10 @@ run_first_time_setup() {
         cd /root/proxmox-homelab-automation
         if [ -f requirements.yml ]; then
             echo "Installing collections from requirements.yml..."
-            ansible-galaxy collection install -r requirements.yml --force
+            # Ensure ansible collection directory exists and has proper permissions
+            mkdir -p /root/.ansible/collections/ansible_collections
+            # Install with force to ensure latest versions and handle any corruption
+            ansible-galaxy collection install -r requirements.yml --force --no-deps
         else
             echo "No requirements.yml found, falling back to manual installation..."
             collections_needed=""
@@ -297,10 +300,24 @@ run_first_time_setup() {
             done
             if [ -n "$collections_needed" ]; then
                 echo "Installing missing collections: $collections_needed"
-                ansible-galaxy collection install $collections_needed
+                ansible-galaxy collection install $collections_needed --force
             else
                 echo "All required collections already installed."
             fi
+        fi
+    '
+    
+    # Verify collections are properly installed
+    print_info "Verifying Ansible collections installation..."
+    pct exec "$CONTROL_CT_ID" -- bash -c '
+        echo "Installed collections:"
+        ansible-galaxy collection list | grep -E "(community\.general|community\.proxmox|community\.docker)" || echo "No collections found matching expected patterns"
+        
+        echo -e "\nTesting docker_compose_v2 module availability:"
+        if ansible-doc community.docker.docker_compose_v2 >/dev/null 2>&1; then
+            echo "✓ community.docker.docker_compose_v2 module is available"
+        else
+            echo "✗ community.docker.docker_compose_v2 module is NOT available"
         fi
     '
     
