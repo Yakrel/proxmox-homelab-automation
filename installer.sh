@@ -94,6 +94,7 @@ run_first_time_setup() {
         --cores "$CONTROL_CORES" --memory "$CONTROL_MEMORY" --swap 0 \
         --features keyctl=1,nesting=1 \
         --net0 name=eth0,bridge=$NETWORK_BRIDGE,ip=$CONTROL_IP_CIDR,gw=$NETWORK_GATEWAY \
+        --mp0 "${STORAGE_POOL}:0,mp=/datapool,backup=0" \
         --onboot 1 --unprivileged 1 --rootfs "${STORAGE_POOL}:${CONTROL_DISK}"
     
     pct start "$CONTROL_CT_ID"
