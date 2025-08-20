@@ -58,21 +58,40 @@ run_first_time_setup() {
 
     print_info "Ensuring API token '$API_TOKEN_ID' exists for user '$API_USER'..."
     local TOKEN_SECRET=""
-        if ! pveum user token list "$API_USER" --output-format json | grep -q '"tokenid": "'$API_TOKEN_ID'"'; then
-        local TOKEN_OUTPUT
-        TOKEN_OUTPUT=$(pveum user token add "$API_USER" "$API_TOKEN_ID" --comment "Token for Ansible automation")
+    
+    # Check if token already exists
+    if pveum user token list "$API_USER" --output-format json 2>/dev/null | grep -q '"tokenid": "'$API_TOKEN_ID'"'; then
+        print_warning "Token '$API_TOKEN_ID' already exists. Removing to create a new one with known secret..."
+        
+        # Remove existing token - retry logic to handle potential failures
+        local remove_attempts=0
+        while [ $remove_attempts -lt 3 ]; do
+            if pveum user token remove "$API_USER" "$API_TOKEN_ID" 2>/dev/null; then
+                print_info "Successfully removed existing token."
+                break
+            else
+                remove_attempts=$((remove_attempts + 1))
+                if [ $remove_attempts -eq 3 ]; then
+                    print_error "Failed to remove existing token after 3 attempts. Please manually remove it:"
+                    print_error "pveum user token remove '$API_USER' '$API_TOKEN_ID'"
+                    exit 1
+                fi
+                print_warning "Token removal attempt $remove_attempts failed, retrying in 2 seconds..."
+                sleep 2
+            fi
+        done
+    fi
+    
+    # Create new token
+    print_info "Creating new API token..."
+    local TOKEN_OUTPUT
+    if TOKEN_OUTPUT=$(pveum user token add "$API_USER" "$API_TOKEN_ID" --comment "Token for Ansible automation" 2>&1); then
         TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | sed -n 's/.*secret: *\(.*\)/\1/p')
-        [ -z "$TOKEN_SECRET" ] && { print_error "Failed to extract token secret."; exit 1; }
+        [ -z "$TOKEN_SECRET" ] && { print_error "Failed to extract token secret from output: $TOKEN_OUTPUT"; exit 1; }
         print_success "Token '$API_TOKEN_ID' created and secret captured."
     else
-        print_warning "Token '$API_TOKEN_ID' already exists. Cannot retrieve secret."
-        print_warning "Removing existing token to create a new one with known secret..."
-        pveum user token remove "$API_USER" "$API_TOKEN_ID" 2>/dev/null || true
-        local TOKEN_OUTPUT
-        TOKEN_OUTPUT=$(pveum user token add "$API_USER" "$API_TOKEN_ID" --comment "Token for Ansible automation")
-        TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | sed -n 's/.*secret: *\(.*\)/\1/p')
-        [ -z "$TOKEN_SECRET" ] && { print_error "Failed to extract token secret."; exit 1; }
-        print_success "Token '$API_TOKEN_ID' recreated and secret captured."
+        print_error "Failed to create API token. Output: $TOKEN_OUTPUT"
+        exit 1
     fi
 
     # Step 2: Create and Provision Control LXC
@@ -116,17 +135,69 @@ run_first_time_setup() {
     # Inject credentials into a vault file
     local VAULT_CONTENT
     VAULT_CONTENT=$(cat <<EOF
+# Proxmox API Configuration
 proxmox_api_user: $API_USER
 proxmox_api_token_id: $API_TOKEN_ID
 proxmox_api_token_secret: $TOKEN_SECRET
 proxmox_node: $PROXMOX_NODE
+
+# Stack Environment Variables
+# Proxy Stack
+cloudflared_token: "REPLACE_WITH_YOUR_CLOUDFLARE_TUNNEL_TOKEN"
+
+# Monitoring Stack  
+grafana_admin_user: "admin"
+grafana_admin_password: "REPLACE_WITH_SECURE_PASSWORD"
+pve_exporter_user: "pve-exporter@pve"
+pve_exporter_password: "REPLACE_WITH_SECURE_PASSWORD"
+pve_url: "https://192.168.1.10:8006"
+pve_verify_ssl: "false"
+
+# Files Stack
+jdownloader_vnc_password: "REPLACE_WITH_SECURE_PASSWORD"
+palmr_encryption_key: "REPLACE_WITH_SECURE_KEY"
+palmr_app_url: "REPLACE_WITH_YOUR_PALMR_URL"
+
+# Webtools Stack
+firefox_vnc_password: "REPLACE_WITH_SECURE_PASSWORD"
+homepage_sonarr_api_key: "REPLACE_WITH_SONARR_API_KEY"
+homepage_radarr_api_key: "REPLACE_WITH_RADARR_API_KEY"
+homepage_prowlarr_api_key: "REPLACE_WITH_PROWLARR_API_KEY"
+homepage_bazarr_api_key: "REPLACE_WITH_BAZARR_API_KEY" 
+homepage_jellyfin_api_key: "REPLACE_WITH_JELLYFIN_API_KEY"
+homepage_jellyseerr_api_key: "REPLACE_WITH_JELLYSEERR_API_KEY"
+homepage_qb_username: "REPLACE_WITH_QB_USERNAME"
+homepage_qb_password: "REPLACE_WITH_QB_PASSWORD"
+homepage_grafana_username: "admin"
+homepage_grafana_password: "REPLACE_WITH_GRAFANA_PASSWORD"
+
+# Common Settings
+timezone: "Europe/Istanbul"
 EOF
 )
     # Use pct push to create the file
     echo "$VAULT_CONTENT" | pct push "$CONTROL_CT_ID" - "/root/proxmox-homelab-automation/secrets.yml"
 
-    print_warning "It is highly recommended to encrypt the new secrets.yml file."
-    print_warning "Run this command from the host: pct exec $CONTROL_CT_ID -- ansible-vault encrypt $PLAYBOOK_DIR/secrets.yml"
+    # Automatically encrypt the secrets file with a generated password
+    print_info "Automatically encrypting secrets.yml file..."
+    local VAULT_PASS_FILE="/tmp/vault_pass_$$"
+    local VAULT_PASSWORD
+    VAULT_PASSWORD=$(openssl rand -base64 32)
+    echo "$VAULT_PASSWORD" > "$VAULT_PASS_FILE"
+    
+    # Encrypt the secrets file inside the LXC
+    if pct exec "$CONTROL_CT_ID" -- bash -c "echo '$VAULT_PASSWORD' | ansible-vault encrypt --vault-password-file /dev/stdin $PLAYBOOK_DIR/secrets.yml"; then
+        print_success "secrets.yml file encrypted successfully."
+        print_info "Vault password: $VAULT_PASSWORD"
+        print_warning "IMPORTANT: Save this vault password securely. You'll need it to edit secrets later."
+        print_info "To edit secrets later: pct exec $CONTROL_CT_ID -- ansible-vault edit --vault-password-file <(echo '$VAULT_PASSWORD') $PLAYBOOK_DIR/secrets.yml"
+    else
+        print_error "Failed to encrypt secrets.yml file."
+        print_warning "The file was created as plaintext. Please encrypt it manually."
+    fi
+    
+    # Clean up temporary password file
+    rm -f "$VAULT_PASS_FILE"
 
     print_success "================================================="
     print_success "  First-time setup complete!"
