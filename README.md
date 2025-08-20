@@ -64,3 +64,25 @@ This project is divided into several service stacks, each defined by an Ansible 
 - **Monitoring Stack** (`roles/monitoring`)
 - **Development Stack** (`roles/development`)
 - **Backup Stack** (`roles/backup`)
+
+## 🔒 Comprehensive Backup System
+
+The backup stack provides a complete, automated backup solution using Proxmox Backup Server (PBS). This implementation fulfills the "set and forget" philosophy with intelligent scheduling and retention policies optimized for homelab environments.
+
+### Key Features:
+- **Fully Automated Setup**: Creates PBS LXC, configures datastore, sets up schedules
+- **Intelligent Retention**: 7d/4w/6m/1y retention policy with automatic pruning
+- **Complete Integration**: Automatically configures Proxmox VE storage and backup jobs
+- **Security-First**: Dedicated users, secure authentication, minimal permissions
+- **Zero Maintenance**: Handles garbage collection, verification, and pruning automatically
+
+
+
+### Quick Deployment:
+```bash
+# Deploy the comprehensive backup system
+ansible-playbook deploy.yml --extra-vars "stack_name=backup"
+
+# Validate deployment
+./validate-pbs-system.sh
+```

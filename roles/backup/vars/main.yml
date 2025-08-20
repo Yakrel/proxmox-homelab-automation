@@ -7,4 +7,30 @@ ip_octet: 150
 cpu_cores: 4
 memory_mb: 8192
 disk_gb: 50
+
+# PBS Configuration
 pbs_datastore_name: "backup-datastore"
+pbs_datastore_path: "/datapool/backups"
+
+# PBS Scheduling (homelab-appropriate settings)
+pbs_gc_schedule: "02:00"  # Garbage collection at 2 AM daily
+pbs_prune_schedule: "03:00"  # Pruning at 3 AM daily
+pbs_verify_schedule: "mon 04:00"  # Verification weekly on Monday at 4 AM
+
+# PBS Backup Retention Policy (homelab settings)
+pbs_keep_daily: 7      # Keep daily backups for 7 days
+pbs_keep_weekly: 4     # Keep weekly backups for 4 weeks
+pbs_keep_monthly: 6    # Keep monthly backups for 6 months
+pbs_keep_yearly: 1     # Keep yearly backups for 1 year
+
+# PBS User for Proxmox integration
+pbs_backup_user: "proxmox-backup@pbs"
+pbs_backup_user_comment: "Proxmox VE backup user"
+
+# Proxmox VE Backup Job Configuration
+pve_backup_job_id: "pbs-homelab-backup"
+pve_backup_schedule: "02:30"  # Start backups at 2:30 AM daily
+pve_backup_storage: "pbs-backup"  # Storage name in Proxmox VE
+pve_backup_mode: "snapshot"  # Use snapshot mode for minimal downtime
+pve_backup_compress: "zstd"   # Use zstd compression
+pve_backup_notes_template: "{{guestname}} backup created on {{cluster}} at {{isotime}}"
