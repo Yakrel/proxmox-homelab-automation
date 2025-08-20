@@ -37,6 +37,40 @@ print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
 print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 
+prompt_vault_password() {
+    local vault_password=""
+    print_info "Ansible Vault password is required to access encrypted secrets."
+    
+    while [ -z "$vault_password" ]; do
+        read -s -p "Enter Vault password: " vault_password
+        echo
+        if [ -z "$vault_password" ]; then
+            print_warning "Password cannot be empty. Please try again."
+        fi
+    done
+    
+    echo "$vault_password"
+}
+
+run_ansible_playbook() {
+    local playbook_command="$1"
+    local vault_password
+    
+    # Get vault password from user
+    vault_password=$(prompt_vault_password)
+    
+    # Run the playbook by piping the vault password directly to ansible-playbook
+    print_info "Executing playbook with vault password..."
+    if pct exec "$CONTROL_CT_ID" -- bash -c "cd $PLAYBOOK_DIR && echo '$vault_password' | ansible-playbook --vault-password-file /dev/stdin $playbook_command" 2>/dev/null; then
+        print_success "Playbook execution completed successfully."
+    else
+        print_error "Playbook execution failed. Please check the logs."
+    fi
+    
+    # Clear password from memory
+    unset vault_password
+}
+
 # --- Core Functions ---
 
 run_first_time_setup() {
@@ -187,25 +221,43 @@ EOF
     # Use pct push to create the file
     echo "$VAULT_CONTENT" | pct push "$CONTROL_CT_ID" - "/root/proxmox-homelab-automation/secrets.yml"
 
-    # Automatically encrypt the secrets file with a generated password
-    print_info "Automatically encrypting secrets.yml file..."
-    local VAULT_PASSWORD
-    if ! VAULT_PASSWORD=$(openssl rand -base64 32 2>/dev/null); then
-        print_warning "Failed to generate vault password. Creating plaintext secrets file."
-        print_warning "Please encrypt manually: pct exec $CONTROL_CT_ID -- ansible-vault encrypt $PLAYBOOK_DIR/secrets.yml"
-    else
-        # Encrypt the secrets file inside the LXC
-        if pct exec "$CONTROL_CT_ID" -- bash -c "echo '$VAULT_PASSWORD' | ansible-vault encrypt --vault-password-file /dev/stdin $PLAYBOOK_DIR/secrets.yml" 2>/dev/null; then
-            print_success "secrets.yml file encrypted successfully."
-            print_info "Vault password: $VAULT_PASSWORD"
-            print_warning "IMPORTANT: Save this vault password securely. You'll need it to edit secrets later."
-            print_info "To edit secrets later: pct exec $CONTROL_CT_ID -- ansible-vault edit --vault-password-file <(echo '$VAULT_PASSWORD') $PLAYBOOK_DIR/secrets.yml"
-        else
-            print_warning "Failed to encrypt secrets.yml file automatically."
-            print_warning "The file was created as plaintext. Please encrypt it manually:"
-            print_info "pct exec $CONTROL_CT_ID -- ansible-vault encrypt $PLAYBOOK_DIR/secrets.yml"
+    # Prompt user for vault password to encrypt secrets.yml
+    print_info "Creating encrypted secrets.yml file..."
+    print_info "Please set a secure password for the Ansible Vault."
+    print_warning "IMPORTANT: Remember this password! You'll need it for all future operations."
+    
+    local VAULT_PASSWORD=""
+    while [ -z "$VAULT_PASSWORD" ]; do
+        read -s -p "Enter Vault password: " VAULT_PASSWORD
+        echo
+        if [ -z "$VAULT_PASSWORD" ]; then
+            print_warning "Password cannot be empty. Please try again."
+            continue
         fi
+        
+        local VAULT_PASSWORD_CONFIRM=""
+        read -s -p "Confirm Vault password: " VAULT_PASSWORD_CONFIRM
+        echo
+        
+        if [ "$VAULT_PASSWORD" != "$VAULT_PASSWORD_CONFIRM" ]; then
+            print_warning "Passwords do not match. Please try again."
+            VAULT_PASSWORD=""
+        fi
+    done
+
+    # Encrypt the secrets file inside the LXC
+    if pct exec "$CONTROL_CT_ID" -- bash -c "echo '$VAULT_PASSWORD' | ansible-vault encrypt --vault-password-file /dev/stdin $PLAYBOOK_DIR/secrets.yml" 2>/dev/null; then
+        print_success "secrets.yml file encrypted successfully."
+    else
+        print_error "Failed to encrypt secrets.yml file."
+        print_warning "The file was created as plaintext. Please encrypt it manually:"
+        print_info "pct exec $CONTROL_CT_ID -- ansible-vault encrypt $PLAYBOOK_DIR/secrets.yml"
+        exit 1
     fi
+    
+    # Clear password from memory
+    unset VAULT_PASSWORD
+    unset VAULT_PASSWORD_CONFIRM
 
     print_success "================================================="
     print_success "  First-time setup complete!"
@@ -248,35 +300,35 @@ EOF
         case $choice in
             1)
                 print_info "Running Proxmox Host Setup..."
-                pct exec "$CONTROL_CT_ID" -- ansible-playbook "$PLAYBOOK_DIR/setup-host.yml"
+                run_ansible_playbook "setup-host.yml"
                 ;;
             2)
                 print_info "Deploying Proxy Stack..."
-                pct exec "$CONTROL_CT_ID" -- ansible-playbook "$PLAYBOOK_DIR/deploy.yml" --extra-vars "stack_name=proxy"
+                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=proxy'"
                 ;;
             3)
                 print_info "Deploying Monitoring Stack..."
-                pct exec "$CONTROL_CT_ID" -- ansible-playbook "$PLAYBOOK_DIR/deploy.yml" --extra-vars "stack_name=monitoring"
+                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=monitoring'"
                 ;;
             4)
                 print_info "Deploying Media Stack..."
-                pct exec "$CONTROL_CT_ID" -- ansible-playbook "$PLAYBOOK_DIR/deploy.yml" --extra-vars "stack_name=media"
+                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=media'"
                 ;;
             5)
                 print_info "Deploying Files Stack..."
-                pct exec "$CONTROL_CT_ID" -- ansible-playbook "$PLAYBOOK_DIR/deploy.yml" --extra-vars "stack_name=files"
+                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=files'"
                 ;;
             6)
                 print_info "Deploying Webtools Stack..."
-                pct exec "$CONTROL_CT_ID" -- ansible-playbook "$PLAYBOOK_DIR/deploy.yml" --extra-vars "stack_name=webtools"
+                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=webtools'"
                 ;;
             7)
                 print_info "Deploying Ansible Control Stack..."
-                pct exec "$CONTROL_CT_ID" -- ansible-playbook "$PLAYBOOK_DIR/deploy.yml" --extra-vars "stack_name=ansible-control"
+                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=ansible-control'"
                 ;;
             8)
                 print_info "Deploying Backup Stack..."
-                pct exec "$CONTROL_CT_ID" -- ansible-playbook "$PLAYBOOK_DIR/deploy.yml" --extra-vars "stack_name=backup"
+                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=backup'"
                 ;;
             [Qq])
                 echo "Exiting..."

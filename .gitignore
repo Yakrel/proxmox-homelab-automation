@@ -48,6 +48,7 @@ setting.local.json
 # Other
 .gemini/
 GEMINI.md
+ANSIBLE_MIGRATION_PLAN.md
 .env
 .env.*
 !.env.example
