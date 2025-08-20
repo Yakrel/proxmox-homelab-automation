@@ -102,3 +102,13 @@ ansible-playbook deploy.yml --extra-vars "stack_name=backup"
 # Validate deployment
 ./validate-pbs-system.sh
 ```
+
+## Troubleshooting
+
+### Docker Compose Module Issues
+If you encounter `ERROR! couldn't resolve module/action 'community.docker.docker_compose_v2'`, the system includes an automatic fallback mechanism that will:
+1. First attempt to use the Ansible Docker Compose module for better integration and reporting
+2. Automatically fallback to using the Docker Compose CLI directly if the module is unavailable
+3. Ensure your stacks deploy successfully regardless of collection installation issues
+
+The installer now uses a `requirements.yml` file to ensure consistent Ansible collection versions and includes verification steps to help troubleshoot any collection issues.
