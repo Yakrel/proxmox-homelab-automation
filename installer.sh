@@ -73,9 +73,83 @@ prompt_vault_password() {
     echo "$vault_password"
 }
 
+ensure_templates_available() {
+    # Ensure the latest Alpine and Debian templates are downloaded to the storage pool
+    print_info "Checking and downloading latest templates if needed..."
+    
+    # Download latest Alpine template if needed
+    local ALPINE_PATTERN="alpine-.*-default"
+    local LATEST_ALPINE=$(pveam available | awk "/$ALPINE_PATTERN/ {print \$NF}" | sort -V | tail -n 1)
+    if [ -n "$LATEST_ALPINE" ]; then
+        local LOCAL_ALPINE=$(pveam list "$STORAGE_POOL" | awk "/$ALPINE_PATTERN/ {print \$1}" | sort -V | tail -n 1)
+        if [ -z "$LOCAL_ALPINE" ]; then
+            print_info "Downloading $LATEST_ALPINE to $STORAGE_POOL..."
+            pveam download "$STORAGE_POOL" "$LATEST_ALPINE"
+        else
+            print_info "Alpine template already available: $LOCAL_ALPINE"
+        fi
+    fi
+    
+    # Download latest Debian template if needed
+    local DEBIAN_PATTERN="debian-.*-standard"
+    local LATEST_DEBIAN=$(pveam available | awk "/$DEBIAN_PATTERN/ {print \$NF}" | sort -V | tail -n 1)
+    if [ -n "$LATEST_DEBIAN" ]; then
+        local LOCAL_DEBIAN=$(pveam list "$STORAGE_POOL" | awk "/$DEBIAN_PATTERN/ {print \$1}" | sort -V | tail -n 1)
+        if [ -z "$LOCAL_DEBIAN" ]; then
+            print_info "Downloading $LATEST_DEBIAN to $STORAGE_POOL..."
+            pveam download "$STORAGE_POOL" "$LATEST_DEBIAN"
+        else
+            print_info "Debian template already available: $LOCAL_DEBIAN"
+        fi
+    fi
+}
+
+get_latest_template() {
+    local template_type="$1"
+    local pattern=""
+    
+    if [ "$template_type" = "alpine" ]; then
+        pattern="alpine-.*-default"
+    elif [ "$template_type" = "debian" ]; then
+        pattern="debian-.*-standard"
+    else
+        print_error "Unknown template type: $template_type"
+        return 1
+    fi
+    
+    # Find the latest local template of the specified type
+    pveam list "$STORAGE_POOL" | awk "/$pattern/ {print \$1}" | sort -V | tail -n 1
+}
+
 run_ansible_playbook() {
     local playbook_command="$1"
     local vault_password
+    
+    # Ensure templates are available and determine template names for deployment commands
+    if [[ "$playbook_command" =~ deploy\.yml ]]; then
+        ensure_templates_available
+        
+        # Extract stack name from the command
+        local stack_name=$(echo "$playbook_command" | sed -n "s/.*stack_name=\([^']*\).*/\1/p")
+        if [ -n "$stack_name" ]; then
+            # Determine template type based on stack (most use alpine, some use debian)
+            local template_type="alpine"
+            if [ "$stack_name" = "ansible-control" ] || [ "$stack_name" = "backup" ]; then
+                template_type="debian"
+            fi
+            
+            # Get the actual template name
+            local template_name=$(get_latest_template "$template_type")
+            if [ -n "$template_name" ]; then
+                # Add template name as an extra variable
+                playbook_command="${playbook_command} --extra-vars 'lxc_template=$template_name'"
+                print_info "Using template: $template_name"
+            else
+                print_error "Could not find $template_type template in storage pool $STORAGE_POOL"
+                return 1
+            fi
+        fi
+    fi
     
     # Get vault password from user
     vault_password=$(prompt_vault_password)
