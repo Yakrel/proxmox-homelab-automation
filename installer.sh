@@ -320,7 +320,7 @@ run_first_time_setup() {
     print_info "Provisioning Control Node with Ansible, Git, and credentials..."
 
     print_info "Configuring autologin for root user in web console..."
-    pct exec "$CONTROL_CT_ID" -- bash -c "mkdir -p /etc/systemd/system/getty@tty1.service.d"
+    pct exec "$CONTROL_CT_ID" -- mkdir -p /etc/systemd/system/getty@tty1.service.d
     pct exec "$CONTROL_CT_ID" -- bash -c "cat > /etc/systemd/system/getty@tty1.service.d/override.conf << 'EOF'
 [Service]
 ExecStart=
@@ -328,7 +328,13 @@ ExecStart=-/sbin/agetty --autologin root --noclear %I \$TERM
 EOF"
     pct exec "$CONTROL_CT_ID" -- systemctl daemon-reload
     pct exec "$CONTROL_CT_ID" -- systemctl enable getty@tty1.service
-    pct exec "$CONTROL_CT_ID" -- systemctl restart getty@tty1.service >/dev/null 2>&1 || true # Restart may fail if not fully booted, but that's okay
+    # Give the container time to fully boot before trying to restart the service
+    sleep 5
+    if pct exec "$CONTROL_CT_ID" -- systemctl restart getty@tty1.service 2>/dev/null; then
+        print_success "Autologin configured successfully."
+    else
+        print_warning "Getty service restart failed - this is normal during initial setup. Autologin will work after container reboot."
+    fi
 
     print_info "Configuring locale for Ansible compatibility..."
     pct exec "$CONTROL_CT_ID" -- bash -c "apt-get update >/dev/null 2>&1 && apt-get install -y locales >/dev/null 2>&1"
