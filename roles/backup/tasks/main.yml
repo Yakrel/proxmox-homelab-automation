@@ -1,0 +1,374 @@
+---
+# tasks file for the backup role
+
+- name: Include stack-specific variables
+  ansible.builtin.include_vars: "vars/main.yml"
+
+- name: Check if generated API credentials exist in standard location
+  ansible.builtin.stat:
+    path: /etc/ansible_secrets/credentials.yml
+  register: creds_file
+
+- name: Include generated API credentials if they exist in standard location
+  ansible.builtin.include_vars: /etc/ansible_secrets/credentials.yml
+  when: creds_file.stat.exists
+
+- name: Check if secrets exist in repository location
+  ansible.builtin.stat:
+    path: "/root/proxmox-homelab-automation/secrets.yml"
+  register: repo_secrets_file
+
+- name: Include repository secrets if they exist and standard location doesn't
+  ansible.builtin.include_vars: "/root/proxmox-homelab-automation/secrets.yml"
+  when: repo_secrets_file.stat.exists and not creds_file.stat.exists
+
+- name: Validate required API credentials are available
+  ansible.builtin.assert:
+    that:
+      - proxmox_api_user is defined
+      - proxmox_api_token_id is defined  
+      - proxmox_api_token_secret is defined
+      - proxmox_node is defined
+    fail_msg: "Required Proxmox API credentials are not available. Please ensure secrets are properly configured."
+    success_msg: "API credentials validation passed."
+
+# ========================================
+# Phase 1: Prepare Host Environment
+# ========================================
+
+- name: Ensure datapool/backups directory exists on host
+  ansible.builtin.file:
+    path: "{{ pbs_datastore_path }}"
+    state: directory
+    owner: "101000"  # Maps to UID 1000 inside unprivileged LXC
+    group: "101000"  # Maps to GID 1000 inside unprivileged LXC
+    mode: '0755'
+  delegate_to: localhost
+
+# ========================================
+# Phase 2: LXC Container Management
+# ========================================
+
+# Template download is now handled by the installer script before running Ansible
+
+# Template name is now passed as a variable from the installer script
+
+- name: Fail if no template was provided
+  ansible.builtin.fail:
+    msg: "No template name provided. This should be passed as an extra variable by the installer script."
+  when: lxc_template is not defined or lxc_template | length == 0
+
+- name: Create or Update Backup LXC Container on Proxmox host
+  community.proxmox.proxmox:
+    api_host: "{{ proxmox_api_host | default('localhost') }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ proxmox_api_token_secret }}"
+    node: "{{ proxmox_node }}"
+    vmid: "{{ ct_id }}"
+    hostname: "{{ hostname }}"
+    state: started
+    cores: "{{ cpu_cores }}"
+    memory: "{{ memory_mb }}"
+    disk: "{{ storage_pool }}:{{ disk_gb }}"
+    ostemplate: "{{ lxc_template }}"
+    netif:
+      net0:
+        name: eth0
+        bridge: "{{ network_bridge }}"
+        ip: "{{ network_ip_base }}.{{ ip_octet }}/24"
+        gw: "{{ network_gateway }}"
+  delegate_to: localhost
+
+- name: Configure mount point for backup storage
+  ansible.builtin.shell: >
+    pct set {{ ct_id }} -mp0 {{ pbs_datastore_path }},mp={{ pbs_datastore_path }},acl=1
+  delegate_to: localhost
+  register: mount_result
+  failed_when: false
+  changed_when: mount_result.rc == 0
+
+- name: Restart container to apply mount point changes
+  community.proxmox.proxmox:
+    api_host: "{{ proxmox_api_host | default('localhost') }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ proxmox_api_token_secret }}"
+    node: "{{ proxmox_node }}"
+    vmid: "{{ ct_id }}"
+    state: restarted
+  delegate_to: localhost
+  when: mount_result.rc == 0
+
+- name: Wait for container to be ready after restart
+  ansible.builtin.wait_for:
+    timeout: 60
+  delegate_to: localhost
+  when: mount_result.rc == 0
+
+- name: Ensure container is running
+  community.proxmox.proxmox:
+    api_host: "{{ proxmox_api_host | default('localhost') }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ proxmox_api_token_secret }}"
+    node: "{{ proxmox_node }}"
+    vmid: "{{ ct_id }}"
+    state: started
+  delegate_to: localhost
+
+- name: Add new LXC to Ansible's in-memory inventory
+  ansible.builtin.add_host:
+    name: "{{ hostname }}"
+    ansible_connection: lxc
+    ansible_user: root
+  changed_when: false
+
+# ========================================
+# Phase 3: PBS Installation
+# ========================================
+
+- name: Wait until the container is ready for package management
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 0
+  delegate_to: "{{ hostname }}"
+  changed_when: false
+  retries: 10
+  delay: 5
+  register: result
+  until: result is succeeded
+
+- name: Download the Proxmox GPG key
+  ansible.builtin.get_url:
+    url: https://enterprise.proxmox.com/debian/proxmox-archive-keyring.gpg
+    dest: /usr/share/keyrings/proxmox-archive-keyring.gpg
+    mode: '0644'
+    # Add checksum verification for security - this is the SHA256 checksum for the current key
+    # Update this checksum if the key changes
+    checksum: "sha256:7fb03ec8a1675723d2853b84aa4fdb49a46a3bb72b9951361488bfd19b29aab0"
+  delegate_to: "{{ hostname }}"
+
+- name: Add Proxmox Backup Server repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pbs trixie pbs-no-subscription"
+    state: present
+  delegate_to: "{{ hostname }}"
+
+- name: Install Proxmox Backup Server and required tools
+  ansible.builtin.apt:
+    name:
+      - proxmox-backup-server
+      - jq
+    update_cache: true
+    state: present
+  delegate_to: "{{ hostname }}"
+
+- name: Ensure Proxmox Backup service is started and enabled
+  ansible.builtin.service:
+    name: proxmox-backup
+    state: started
+    enabled: true
+  delegate_to: "{{ hostname }}"
+
+# ========================================
+# Phase 4: PBS Configuration
+# ========================================
+
+- name: Wait for PBS service to be fully ready
+  ansible.builtin.wait_for:
+    port: 8007
+    host: "{{ network_ip_base }}.{{ ip_octet }}"
+    timeout: 300
+  delegate_to: localhost
+
+- name: Check if PBS datastore already exists
+  ansible.builtin.shell: >
+    proxmox-backup-manager datastore list --output-format json | 
+    jq -r '.[] | select(.name == "{{ pbs_datastore_name }}") | .name'
+  delegate_to: "{{ hostname }}"
+  register: existing_datastore
+  failed_when: false
+  changed_when: false
+
+- name: Create PBS datastore
+  ansible.builtin.shell: >
+    proxmox-backup-manager datastore create {{ pbs_datastore_name }} {{ pbs_datastore_path }}
+  delegate_to: "{{ hostname }}"
+  when: existing_datastore.stdout != pbs_datastore_name
+
+- name: Configure garbage collection schedule
+  ansible.builtin.shell: >
+    proxmox-backup-manager gc-schedule update {{ pbs_datastore_name }} --schedule "{{ pbs_gc_schedule }}"
+  delegate_to: "{{ hostname }}"
+  changed_when: true
+
+- name: Check if prune job already exists
+  ansible.builtin.shell: >
+    proxmox-backup-manager prune-job list --output-format json | 
+    jq -r '.[] | select(.store == "{{ pbs_datastore_name }}") | .id'
+  delegate_to: "{{ hostname }}"
+  register: existing_prune_job
+  failed_when: false
+  changed_when: false
+
+- name: Create prune job for backup retention
+  ansible.builtin.shell: >
+    proxmox-backup-manager prune-job create {{ pbs_datastore_name }} 
+    --schedule "{{ pbs_prune_schedule }}" 
+    --keep-daily {{ pbs_keep_daily }} 
+    --keep-weekly {{ pbs_keep_weekly }} 
+    --keep-monthly {{ pbs_keep_monthly }}
+    --keep-yearly {{ pbs_keep_yearly }}
+  delegate_to: "{{ hostname }}"
+  when: existing_prune_job.stdout == ""
+
+- name: Check if verification job already exists
+  ansible.builtin.shell: >
+    proxmox-backup-manager verification-job list --output-format json | 
+    jq -r '.[] | select(.store == "{{ pbs_datastore_name }}") | .id'
+  delegate_to: "{{ hostname }}"
+  register: existing_verify_job
+  failed_when: false
+  changed_when: false
+
+- name: Create verification job
+  ansible.builtin.shell: >
+    proxmox-backup-manager verification-job create {{ pbs_datastore_name }} 
+    --schedule "{{ pbs_verify_schedule }}"
+  delegate_to: "{{ hostname }}"
+  when: existing_verify_job.stdout == ""
+
+# ========================================
+# Phase 5: PBS User Management
+# ========================================
+
+- name: Generate random password for PBS backup user
+  ansible.builtin.set_fact:
+    pbs_user_password: "{{ lookup('password', '/tmp/pbs_user_password length=32 chars=ascii_letters,digits') }}"
+  run_once: true
+
+- name: Check if PBS backup user exists
+  ansible.builtin.shell: >
+    proxmox-backup-manager user list --output-format json | 
+    jq -r '.[] | select(.userid == "{{ pbs_backup_user }}") | .userid'
+  delegate_to: "{{ hostname }}"
+  register: existing_pbs_user
+  failed_when: false
+  changed_when: false
+
+- name: Create PBS backup user
+  ansible.builtin.shell: >
+    proxmox-backup-manager user create {{ pbs_backup_user }} 
+    --comment "{{ pbs_backup_user_comment }}"
+  delegate_to: "{{ hostname }}"
+  when: existing_pbs_user.stdout != pbs_backup_user
+
+- name: Set password for PBS backup user
+  ansible.builtin.shell: >
+    echo "{{ pbs_user_password }}" | proxmox-backup-manager user passwd {{ pbs_backup_user }}
+  delegate_to: "{{ hostname }}"
+  no_log: true
+  when: existing_pbs_user.stdout != pbs_backup_user
+
+- name: Assign DatastoreBackup role to PBS user
+  ansible.builtin.shell: >
+    proxmox-backup-manager acl update {{ pbs_datastore_path }} 
+    --user {{ pbs_backup_user }} --role DatastoreBackup
+  delegate_to: "{{ hostname }}"
+  when: existing_pbs_user.stdout != pbs_backup_user
+
+- name: Assign DatastoreReader role to PBS user  
+  ansible.builtin.shell: >
+    proxmox-backup-manager acl update {{ pbs_datastore_path }} 
+    --user {{ pbs_backup_user }} --role DatastoreReader
+  delegate_to: "{{ hostname }}"
+  when: existing_pbs_user.stdout != pbs_backup_user
+
+# ========================================
+# Phase 6: Proxmox VE Integration
+# ========================================
+
+- name: Check if PBS storage already exists in Proxmox VE
+  ansible.builtin.shell: >
+    grep -q "^pbs: {{ pve_backup_storage }}$" /etc/pve/storage.cfg
+  delegate_to: localhost
+  register: pbs_storage_exists
+  failed_when: false
+  changed_when: false
+
+- name: Add PBS storage to Proxmox VE configuration
+  ansible.builtin.blockinfile:
+    path: /etc/pve/storage.cfg
+    marker: "# {mark} ANSIBLE MANAGED PBS STORAGE"
+    block: |
+      pbs: {{ pve_backup_storage }}
+      	server {{ network_ip_base }}.{{ ip_octet }}
+      	port 8007
+      	username {{ pbs_backup_user }}
+      	password {{ pbs_user_password }}
+      	datastore {{ pbs_datastore_name }}
+      	content backup
+      	encryption 1
+      	fingerprint-on-connect 1
+    backup: true
+  delegate_to: localhost
+  no_log: true
+  when: pbs_storage_exists.rc != 0
+
+- name: Check if backup job already exists
+  ansible.builtin.shell: >
+    grep -q "^jobs: {{ pve_backup_job_id }}$" /etc/pve/jobs.cfg
+  delegate_to: localhost
+  register: backup_job_exists
+  failed_when: false
+  changed_when: false
+
+- name: Get all VM and LXC IDs for backup job
+  ansible.builtin.shell: >
+    (pvesh get /nodes/{{ proxmox_node }}/qemu --output-format json | jq -r '.[].vmid'; 
+     pvesh get /nodes/{{ proxmox_node }}/lxc --output-format json | jq -r '.[].vmid') | 
+    sort -n | tr '\n' ',' | sed 's/,$//'
+  delegate_to: localhost
+  register: all_vm_ids
+  changed_when: false
+
+- name: Create comprehensive backup job
+  ansible.builtin.blockinfile:
+    path: /etc/pve/jobs.cfg
+    create: true
+    marker: "# {mark} ANSIBLE MANAGED PBS BACKUP JOB"
+    block: |
+      jobs: {{ pve_backup_job_id }}
+      	type vzdump
+      	all 1
+      	compress {{ pve_backup_compress }}
+      	enabled 1
+      	mode {{ pve_backup_mode }}
+      	node {{ proxmox_node }}
+      	notes-template {{ pve_backup_notes_template }}
+      	schedule {{ pve_backup_schedule }}
+      	storage {{ pve_backup_storage }}
+    backup: true
+    owner: root
+    group: www-data
+    mode: '0640'
+  delegate_to: localhost
+  when: backup_job_exists.rc != 0
+
+- name: Display setup completion information
+  ansible.builtin.debug:
+    msg:
+      - "================================================="
+      - "PBS Setup Complete!"  
+      - "================================================="
+      - "PBS Web Interface: https://{{ network_ip_base }}.{{ ip_octet }}:8007"
+      - "Datastore: {{ pbs_datastore_name }}"
+      - "Storage Path: {{ pbs_datastore_path }}"
+      - "Backup Schedule: {{ pve_backup_schedule }} daily"
+      - "Retention: {{ pbs_keep_daily }}d/{{ pbs_keep_weekly }}w/{{ pbs_keep_monthly }}m/{{ pbs_keep_yearly }}y"
+      - "================================================="
+
+# Apply common LXC security configuration (SSH disable, autologin)
+- name: Apply LXC security configuration
+  ansible.builtin.include_tasks: "../common/tasks/lxc_security_setup.yml"

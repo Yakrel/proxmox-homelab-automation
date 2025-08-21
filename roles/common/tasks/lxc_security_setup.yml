@@ -1,0 +1,63 @@
+---
+# Common LXC Security Configuration Tasks
+# These tasks ensure consistent security configuration across all LXC containers
+
+- name: Configure autologin for root user in LXC console
+  ansible.builtin.file:
+    path: /etc/systemd/system/getty@tty1.service.d
+    state: directory
+    mode: '0755'
+  delegate_to: "{{ lxc_hostname | default(hostname) }}"
+
+- name: Setup autologin configuration for root user
+  ansible.builtin.copy:
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart=-/sbin/agetty --autologin root --noclear %I $TERM
+    dest: /etc/systemd/system/getty@tty1.service.d/override.conf
+    mode: '0644'
+  delegate_to: "{{ lxc_hostname | default(hostname) }}"
+  register: autologin_config
+
+- name: Reload systemd daemon after autologin config
+  ansible.builtin.systemd:
+    daemon_reload: true
+  delegate_to: "{{ lxc_hostname | default(hostname) }}"
+  when: autologin_config.changed
+
+- name: Enable getty service
+  ansible.builtin.service:
+    name: getty@tty1.service
+    enabled: true
+  delegate_to: "{{ lxc_hostname | default(hostname) }}"
+  when: autologin_config.changed
+
+- name: Restart getty service for autologin
+  ansible.builtin.service:
+    name: getty@tty1.service
+    state: restarted
+  delegate_to: "{{ lxc_hostname | default(hostname) }}"
+  when: autologin_config.changed
+  failed_when: false  # May fail if not fully booted
+
+- name: Ensure openssh-server is not installed in LXC containers
+  ansible.builtin.package:
+    name: "{{ ssh_packages }}"
+    state: absent
+  delegate_to: "{{ lxc_hostname | default(hostname) }}"
+  vars:
+    ssh_packages: >-
+      {{ ['openssh-server', 'openssh'] if template_type == 'alpine'
+         else ['openssh-server'] }}
+  failed_when: false  # In case it's not installed
+
+- name: Disable SSH service if it exists
+  ansible.builtin.service:
+    name: "{{ ssh_service }}"
+    state: stopped
+    enabled: false
+  delegate_to: "{{ lxc_hostname | default(hostname) }}"
+  vars:
+    ssh_service: "{{ 'sshd' if template_type == 'alpine' else 'ssh' }}"
+  failed_when: false  # In case service doesn't exist

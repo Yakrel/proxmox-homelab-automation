@@ -1,0 +1,20 @@
+---
+# Common LXC Handlers
+
+- name: Reload systemd daemon in LXC
+  ansible.builtin.systemd:
+    daemon_reload: true
+  delegate_to: "{{ lxc_hostname | default(hostname) }}"
+
+- name: Enable getty service in LXC
+  ansible.builtin.service:
+    name: getty@tty1.service
+    enabled: true
+  delegate_to: "{{ lxc_hostname | default(hostname) }}"
+
+- name: Restart getty service in LXC
+  ansible.builtin.service:
+    name: getty@tty1.service
+    state: restarted
+  delegate_to: "{{ lxc_hostname | default(hostname) }}"
+  failed_when: false  # May fail if not fully booted

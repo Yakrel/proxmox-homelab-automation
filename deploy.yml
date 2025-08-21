@@ -1,0 +1,31 @@
+---
+- name: Deploy a specific LXC stack
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - secrets.yml
+
+  pre_tasks:
+    - name: Ensure stack_name has a default
+      ansible.builtin.set_fact:
+        stack_name: "{{ stack_name | default('proxy') }}"
+    
+    - name: Validate required API credentials are available
+      ansible.builtin.assert:
+        that:
+          - proxmox_api_user is defined
+          - proxmox_api_token_id is defined  
+          - proxmox_api_token_secret is defined
+          - proxmox_node is defined
+        fail_msg: "Required Proxmox API credentials are not available. Please ensure secrets.yml is properly configured and vault password is correct."
+        success_msg: "API credentials validation passed."
+    
+    - name: Announce selected stack
+      ansible.builtin.debug:
+        msg: "Deploying stack: {{ stack_name }}"
+
+  tasks:
+    - name: Run selected stack role
+      ansible.builtin.include_role:
+        name: "{{ stack_name }}"

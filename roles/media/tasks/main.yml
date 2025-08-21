@@ -1,0 +1,120 @@
+---
+# tasks file for the media role (using ansible_connection: lxc)
+
+- name: Include stack-specific variables
+  ansible.builtin.include_vars: "vars/main.yml"
+
+- name: Check if generated API credentials exist
+  ansible.builtin.stat:
+    path: /etc/ansible_secrets/credentials.yml
+  register: creds_file
+
+- name: Include generated API credentials if they exist
+  ansible.builtin.include_vars: /etc/ansible_secrets/credentials.yml
+  when: creds_file.stat.exists
+
+# Template download is now handled by the installer script before running Ansible
+
+# Template name is now passed as a variable from the installer script
+
+- name: Fail if no template was provided
+  ansible.builtin.fail:
+    msg: "No template name provided. This should be passed as an extra variable by the installer script."
+  when: lxc_template is not defined or lxc_template | length == 0
+
+- name: Create or Update Media LXC Container on Proxmox host
+  community.proxmox.proxmox:
+    api_host: "{{ proxmox_api_host }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ proxmox_api_token_secret }}"
+    node: "{{ proxmox_node }}"
+    vmid: "{{ ct_id }}"
+    hostname: "{{ hostname }}"
+    state: started
+    cores: "{{ cpu_cores }}"
+    memory: "{{ memory_mb }}"
+    disk: "{{ storage_pool }}:{{ disk_gb }}"
+    ostemplate: "{{ lxc_template }}"
+    netif:
+      net0:
+        name: eth0
+        bridge: "{{ network_bridge }}"
+        ip: "{{ network_ip_base }}.{{ ip_octet }}/24"
+        gw: "{{ network_gateway }}"
+    mounts:
+      mp0: "{{ storage_pool }}:0,mp={{ datapool_mount }},backup=0"
+    onboot: "{{ onboot | default(true) }}"
+    unprivileged: true
+    features:
+      - keyctl=1
+      - nesting=1
+  delegate_to: localhost
+  register: lxc_creation_result
+
+- name: Add new LXC to Ansible's in-memory inventory
+  ansible.builtin.add_host:
+    name: "{{ hostname }}"
+    ansible_connection: lxc
+    ansible_user: root
+  changed_when: false
+
+# From this point on, we delegate tasks to the container itself.
+# Ansible will use the 'lxc' connection plugin automatically.
+
+- name: Wait until the container is ready for package management
+  ansible.builtin.command: "{{ 'apk update' if template_type == 'alpine' else 'apt-get update' }}"
+  delegate_to: "{{ hostname }}"
+  changed_when: false
+  retries: 10
+  delay: 5
+  register: result
+  until: result.rc == 0
+
+- name: Install Docker and Docker Compose Plugin inside the LXC
+  ansible.builtin.package:
+    name: "{{ docker_packages }}"
+    state: present
+  delegate_to: "{{ hostname }}"
+  vars:
+    docker_packages: >-
+      {{ ['docker', 'docker-cli-compose'] if template_type == 'alpine' 
+         else ['docker.io', 'docker-compose-plugin'] }}
+
+- name: Ensure Docker service is started
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+  delegate_to: "{{ hostname }}"
+
+- name: Copy Docker Compose file to the new LXC
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../docker/{{ stack_name }}/docker-compose.yml"
+    dest: "/root/docker-compose.yml"
+    mode: '0644'
+  delegate_to: "{{ hostname }}"
+
+- name: Check if .env template exists for this stack
+  ansible.builtin.stat:
+    path: "{{ role_path }}/../../docker/{{ stack_name }}/.env.j2"
+  register: env_template_exists
+  delegate_to: localhost
+
+- name: Generate .env file from vault secrets
+  ansible.builtin.template:
+    src: "{{ role_path }}/../../docker/{{ stack_name }}/.env.j2"
+    dest: "/root/.env"
+    mode: '0600'
+  delegate_to: "{{ hostname }}"
+  when: env_template_exists.stat.exists
+
+- name: Deploy Docker Compose stack
+  community.docker.docker_compose_v2:
+    project_src: "/root/"
+    state: present
+  delegate_to: "{{ hostname }}"
+
+# Apply common LXC security configuration (SSH disable, autologin)
+- name: Apply LXC security configuration
+  ansible.builtin.include_tasks: "../common/tasks/lxc_security_setup.yml"

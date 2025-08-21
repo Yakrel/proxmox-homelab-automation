@@ -48,7 +48,11 @@ setting.local.json
 # Other
 .gemini/
 GEMINI.md
+ANSIBLE_MIGRATION_PLAN.md
 .env
 .env.*
 !.env.example
 .vault_pass
+
+# Local Ansible cache/collections
+.ansible/

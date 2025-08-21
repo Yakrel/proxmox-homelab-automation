@@ -1,0 +1,30 @@
+---
+- name: Restart chrony
+  ansible.builtin.service:
+    name: chrony
+    state: restarted
+
+- name: Restart fail2ban
+  ansible.builtin.service:
+    name: fail2ban
+    state: restarted
+
+- name: Enable and Start Sanoid Timer
+  ansible.builtin.systemd:
+    name: sanoid.timer
+    state: started
+    enabled: true
+
+- name: Restart smbd
+  ansible.builtin.service:
+    name: smbd
+    state: restarted
+
+- name: Update initramfs
+  ansible.builtin.command: update-initramfs -u -k all
+  changed_when: true
+
+- name: Restart networking
+  ansible.builtin.service:
+    name: networking
+    state: restarted
