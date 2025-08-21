@@ -394,7 +394,7 @@ EOF
         done
 
         # Encrypt the secrets file inside the LXC
-        if pct exec "$CONTROL_CT_ID" -- bash -c "echo '$VAULT_PASSWORD' | ansible-vault encrypt --vault-password-file /dev/stdin $secrets_file_path" 2>/dev/null; then
+        if pct exec "$CONTROL_CT_ID" -- bash -l -c "echo '$VAULT_PASSWORD' | ansible-vault encrypt --vault-password-file /dev/stdin $secrets_file_path" 2>/dev/null; then
             print_success "secrets.yml file encrypted successfully."
         else
             print_error "Failed to encrypt secrets.yml file."
