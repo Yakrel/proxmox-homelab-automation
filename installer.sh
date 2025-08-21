@@ -82,7 +82,7 @@ run_ansible_playbook() {
     
     # Run the playbook by piping the vault password directly to ansible-playbook
     print_info "Executing playbook with vault password..."
-    if pct exec "$CONTROL_CT_ID" -- bash -c "cd $PLAYBOOK_DIR && echo '$vault_password' | ansible-playbook --vault-password-file /dev/stdin $playbook_command"; then
+    if pct exec "$CONTROL_CT_ID" -- bash -l -c "cd $PLAYBOOK_DIR && echo '$vault_password' | ansible-playbook --vault-password-file /dev/stdin $playbook_command"; then
         print_success "Playbook execution completed successfully."
     else
         print_error "Playbook execution failed. Please check the logs."
