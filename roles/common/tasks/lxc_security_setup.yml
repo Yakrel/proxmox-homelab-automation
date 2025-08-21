@@ -18,10 +18,28 @@
     dest: /etc/systemd/system/getty@tty1.service.d/override.conf
     mode: '0644'
   delegate_to: "{{ lxc_hostname | default(hostname) }}"
-  notify:
-    - Reload systemd daemon in LXC
-    - Enable getty service in LXC
-    - Restart getty service in LXC
+  register: autologin_config
+
+- name: Reload systemd daemon after autologin config
+  ansible.builtin.systemd:
+    daemon_reload: true
+  delegate_to: "{{ lxc_hostname | default(hostname) }}"
+  when: autologin_config.changed
+
+- name: Enable getty service
+  ansible.builtin.service:
+    name: getty@tty1.service
+    enabled: true
+  delegate_to: "{{ lxc_hostname | default(hostname) }}"
+  when: autologin_config.changed
+
+- name: Restart getty service for autologin
+  ansible.builtin.service:
+    name: getty@tty1.service
+    state: restarted
+  delegate_to: "{{ lxc_hostname | default(hostname) }}"
+  when: autologin_config.changed
+  failed_when: false  # May fail if not fully booted
 
 - name: Ensure openssh-server is not installed in LXC containers
   ansible.builtin.package:

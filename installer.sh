@@ -331,9 +331,10 @@ EOF"
     # Give the container time to fully boot before trying to restart the service
     sleep 5
     if pct exec "$CONTROL_CT_ID" -- systemctl restart getty@tty1.service 2>/dev/null; then
-        print_success "Autologin configured successfully."
+        print_success "Autologin configured and service restarted successfully."
     else
-        print_warning "Getty service restart failed - this is normal during initial setup. Autologin will work after container reboot."
+        print_warning "Getty service restart failed during initial setup - this is normal."
+        print_info "Autologin will be active after the container is fully provisioned."
     fi
 
     print_info "Configuring locale for Ansible compatibility..."
