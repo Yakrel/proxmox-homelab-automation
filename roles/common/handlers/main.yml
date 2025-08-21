@@ -6,9 +6,15 @@
     daemon_reload: true
   delegate_to: "{{ lxc_hostname | default(hostname) }}"
 
+- name: Enable getty service in LXC
+  ansible.builtin.service:
+    name: getty@tty1.service
+    enabled: true
+  delegate_to: "{{ lxc_hostname | default(hostname) }}"
+
 - name: Restart getty service in LXC
   ansible.builtin.service:
     name: getty@tty1.service
     state: restarted
   delegate_to: "{{ lxc_hostname | default(hostname) }}"
-  ignore_errors: true  # May fail if not fully booted
+  failed_when: false  # May fail if not fully booted

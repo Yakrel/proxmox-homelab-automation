@@ -20,6 +20,7 @@
   delegate_to: "{{ lxc_hostname | default(hostname) }}"
   notify:
     - Reload systemd daemon in LXC
+    - Enable getty service in LXC
     - Restart getty service in LXC
 
 - name: Ensure openssh-server is not installed in LXC containers
@@ -29,9 +30,9 @@
   delegate_to: "{{ lxc_hostname | default(hostname) }}"
   vars:
     ssh_packages: >-
-      {{ ['openssh-server', 'openssh'] if template_type == 'alpine' 
+      {{ ['openssh-server', 'openssh'] if template_type == 'alpine'
          else ['openssh-server'] }}
-  ignore_errors: true  # In case it's not installed
+  failed_when: false  # In case it's not installed
 
 - name: Disable SSH service if it exists
   ansible.builtin.service:
@@ -41,4 +42,4 @@
   delegate_to: "{{ lxc_hostname | default(hostname) }}"
   vars:
     ssh_service: "{{ 'sshd' if template_type == 'alpine' else 'ssh' }}"
-  ignore_errors: true  # In case service doesn't exist
+  failed_when: false  # In case service doesn't exist

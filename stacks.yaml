@@ -39,7 +39,7 @@ stacks:
   # Ansible Control Node (LXC 151) - Created first by installer
   ansible-control:
     ct_id: 151
-    hostname: lxc-ansible-control
+    hostname: lxc-ansible-control-01
     ip_octet: 151
     cpu_cores: 2
     memory_mb: 2048
