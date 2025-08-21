@@ -61,14 +61,28 @@ ensure_repository_exists_and_update() {
 prompt_vault_password() {
     local vault_password=""
     print_info "Ansible Vault password is required to access encrypted secrets."
+    print_info "Note: Special characters are supported."
     
-    while [ -z "$vault_password" ]; do
+    local attempts=0
+    local max_attempts=3
+    
+    while [ -z "$vault_password" ] && [ $attempts -lt $max_attempts ]; do
         read -s -p "Enter Vault password: " vault_password
         echo
         if [ -z "$vault_password" ]; then
-            print_warning "Password cannot be empty. Please try again."
+            attempts=$((attempts + 1))
+            print_warning "Password cannot be empty. Please try again. (Attempt $attempts/$max_attempts)"
+        elif [ ${#vault_password} -lt 4 ]; then
+            print_warning "Password is too short (minimum 4 characters). Please use a stronger password."
+            vault_password=""
+            attempts=$((attempts + 1))
         fi
     done
+    
+    if [ -z "$vault_password" ]; then
+        print_error "Too many failed attempts. Please restart the script."
+        exit 1
+    fi
     
     echo "$vault_password"
 }
@@ -154,16 +168,38 @@ run_ansible_playbook() {
     # Get vault password from user
     vault_password=$(prompt_vault_password)
     
-    # Run the playbook by piping the vault password directly to ansible-playbook
+    # Create a temporary password file inside the LXC for safer handling
+    local vault_pass_file="/tmp/.ansible_vault_pass_$$"
+    
     print_info "Executing playbook with vault password..."
-    if pct exec "$CONTROL_CT_ID" -- bash -l -c "cd $PLAYBOOK_DIR && echo '$vault_password' | ansible-playbook --vault-password-file /dev/stdin $playbook_command"; then
-        print_success "Playbook execution completed successfully."
+    
+    # Create password file inside LXC with proper permissions
+    if pct exec "$CONTROL_CT_ID" -- bash -c "echo '$vault_password' > '$vault_pass_file' && chmod 600 '$vault_pass_file'"; then
+        # Run ansible-playbook with the password file
+        if pct exec "$CONTROL_CT_ID" -- bash -l -c "cd $PLAYBOOK_DIR && ansible-playbook --vault-password-file '$vault_pass_file' $playbook_command"; then
+            print_success "Playbook execution completed successfully."
+            vault_result=0
+        else
+            print_error "Playbook execution failed. Please check the logs."
+            # Check if it's specifically a vault decryption error
+            if pct exec "$CONTROL_CT_ID" -- bash -l -c "cd $PLAYBOOK_DIR && ansible-playbook --vault-password-file '$vault_pass_file' $playbook_command" 2>&1 | grep -q "Decryption failed"; then
+                print_error "Vault decryption failed. Please verify your vault password is correct."
+                print_info "You can check/edit your secrets with:"
+                print_info "pct exec $CONTROL_CT_ID -- ansible-vault edit $PLAYBOOK_DIR/secrets.yml"
+            fi
+            vault_result=1
+        fi
+        
+        # Clean up password file
+        pct exec "$CONTROL_CT_ID" -- rm -f "$vault_pass_file" 2>/dev/null || true
     else
-        print_error "Playbook execution failed. Please check the logs."
+        print_error "Failed to create temporary password file in LXC."
+        vault_result=1
     fi
     
     # Clear password from memory
     unset vault_password
+    return $vault_result
 }
 
 # --- Core Functions ---
@@ -324,18 +360,43 @@ run_first_time_setup() {
     pct exec "$CONTROL_CT_ID" -- bash -c "cat > /etc/systemd/system/getty@tty1.service.d/override.conf << 'EOF'
 [Service]
 ExecStart=
-ExecStart=-/sbin/agetty --autologin root --noclear %I \$TERM
+ExecStart=-/sbin/agetty --autologin root --noclear %I linux
+Type=idle
 EOF"
+    
+    # Also create a console-setup configuration for better compatibility
+    pct exec "$CONTROL_CT_ID" -- bash -c "cat > /etc/systemd/system/console-getty.service << 'EOF'
+[Unit]
+Description=Console Getty
+After=systemd-user-sessions.service plymouth-quit-wait.service
+Before=getty.target
+
+[Service]
+ExecStart=-/sbin/agetty --autologin root --noclear --keep-baud console 115200,38400,9600 linux
+Type=idle
+Restart=always
+RestartSec=0
+UtmpIdentifier=cons
+TTYPath=/dev/console
+TTYReset=yes
+TTYVHangup=yes
+KillMode=process
+IgnoreSIGPIPE=no
+SendSIGHUP=yes
+
+[Install]
+WantedBy=getty.target
+EOF"
+
     pct exec "$CONTROL_CT_ID" -- systemctl daemon-reload
     pct exec "$CONTROL_CT_ID" -- systemctl enable getty@tty1.service
-    # Give the container time to fully boot before trying to restart the service
-    sleep 5
-    if pct exec "$CONTROL_CT_ID" -- systemctl restart getty@tty1.service 2>/dev/null; then
-        print_success "Autologin configured and service restarted successfully."
-    else
-        print_warning "Getty service restart failed during initial setup - this is normal."
-        print_info "Autologin will be active after the container is fully provisioned."
-    fi
+    pct exec "$CONTROL_CT_ID" -- systemctl enable console-getty.service
+    
+    # Disable the standard getty@console service that may conflict
+    pct exec "$CONTROL_CT_ID" -- systemctl mask getty@console.service 2>/dev/null || true
+    
+    print_success "Autologin configured successfully."
+    print_info "Autologin will be active after container restart or next boot."
 
     print_info "Configuring locale for Ansible compatibility..."
     pct exec "$CONTROL_CT_ID" -- bash -c "apt-get update >/dev/null 2>&1 && apt-get install -y locales >/dev/null 2>&1"
@@ -480,10 +541,22 @@ EOF
         done
 
         # Encrypt the secrets file inside the LXC
-        if pct exec "$CONTROL_CT_ID" -- bash -l -c "echo '$VAULT_PASSWORD' | ansible-vault encrypt --vault-password-file /dev/stdin $secrets_file_path" 2>/dev/null; then
-            print_success "secrets.yml file encrypted successfully."
+        local vault_pass_file="/tmp/.ansible_vault_pass_setup_$$"
+        if pct exec "$CONTROL_CT_ID" -- bash -c "echo '$VAULT_PASSWORD' > '$vault_pass_file' && chmod 600 '$vault_pass_file'"; then
+            if pct exec "$CONTROL_CT_ID" -- bash -l -c "ansible-vault encrypt --vault-password-file '$vault_pass_file' $secrets_file_path" 2>/dev/null; then
+                print_success "secrets.yml file encrypted successfully."
+                # Clean up password file
+                pct exec "$CONTROL_CT_ID" -- rm -f "$vault_pass_file" 2>/dev/null || true
+            else
+                print_error "Failed to encrypt secrets.yml file."
+                print_warning "The file was created as plaintext. Please encrypt it manually:"
+                print_info "pct exec $CONTROL_CT_ID -- ansible-vault encrypt $secrets_file_path"
+                # Clean up password file
+                pct exec "$CONTROL_CT_ID" -- rm -f "$vault_pass_file" 2>/dev/null || true
+                exit 1
+            fi
         else
-            print_error "Failed to encrypt secrets.yml file."
+            print_error "Failed to create temporary password file for encryption."
             print_warning "The file was created as plaintext. Please encrypt it manually:"
             print_info "pct exec $CONTROL_CT_ID -- ansible-vault encrypt $secrets_file_path"
             exit 1
@@ -493,6 +566,13 @@ EOF
         unset VAULT_PASSWORD
         unset VAULT_PASSWORD_CONFIRM
     fi
+
+    # Final step: Restart getty services to ensure autologin is active
+    print_info "Finalizing autologin configuration..."
+    pct exec "$CONTROL_CT_ID" -- systemctl daemon-reload
+    pct exec "$CONTROL_CT_ID" -- systemctl restart getty@tty1.service 2>/dev/null || true
+    pct exec "$CONTROL_CT_ID" -- systemctl restart console-getty.service 2>/dev/null || true
+    print_info "Autologin services restarted. Console should now auto-login as root."
 
     print_success "================================================="
     print_success "  First-time setup complete!"
