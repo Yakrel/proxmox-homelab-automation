@@ -49,43 +49,13 @@
 # Phase 2: LXC Container Management
 # ========================================
 
-- name: Download latest template if needed (Alpine/Debian to datapool)
-  ansible.builtin.shell: >
-    set -o pipefail &&
-    TEMPLATE_PATTERN="{{ alpine_template_pattern if template_type == 'alpine' else debian_template_pattern }}" &&
-    LATEST_AVAILABLE=$(pveam available | awk "/$TEMPLATE_PATTERN/ {print \$NF}" | sort -V | tail -n 1) &&
-    if [ -n "$LATEST_AVAILABLE" ]; then
-      LATEST_LOCAL=$(pveam list {{ storage_pool }} | awk "/$TEMPLATE_PATTERN/ {print \$1}" | sort -V | tail -n 1) &&
-      if [ -z "$LATEST_LOCAL" ]; then
-        echo "Downloading $LATEST_AVAILABLE to {{ storage_pool }}" &&
-        pveam download {{ storage_pool }} "$LATEST_AVAILABLE"
-      fi
-    fi
-  args:
-    executable: /bin/bash
-  register: template_download_result
-  changed_when: "'Downloading' in template_download_result.stdout"
-  delegate_to: localhost
+# Template download is now handled by the installer script before running Ansible
 
-- name: Find latest template in datapool storage
-  ansible.builtin.shell: >
-    set -o pipefail && 
-    pveam list {{ storage_pool }} | 
-    awk '/{{ alpine_template_pattern if template_type == "alpine" else debian_template_pattern }}/ {print $1}' | 
-    sort -V | tail -n 1
-  args:
-    executable: /bin/bash
-  register: latest_template_result
-  changed_when: false
-  delegate_to: localhost
+# Template name is now passed as a variable from the installer script
 
-- name: Set template fact
-  ansible.builtin.set_fact:
-    lxc_template: "{{ latest_template_result.stdout }}"
-
-- name: Fail if no template was found
+- name: Fail if no template was provided
   ansible.builtin.fail:
-    msg: "Could not find any {{ template_type }} template in storage pool '{{ storage_pool }}'."
+    msg: "No template name provided. This should be passed as an extra variable by the installer script."
   when: lxc_template is not defined or lxc_template | length == 0
 
 - name: Create or Update Backup LXC Container on Proxmox host
