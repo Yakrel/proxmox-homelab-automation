@@ -173,8 +173,30 @@ run_ansible_playbook() {
     
     print_info "Executing playbook with vault password..."
     
-    # Create password file inside LXC with proper permissions
-    if pct exec "$CONTROL_CT_ID" -- bash -c "echo '$vault_password' > '$vault_pass_file' && chmod 600 '$vault_pass_file'"; then
+    # Create password file inside LXC with proper permissions using base64 to avoid shell interpretation
+    # This fixes the issue where special characters in passwords (like $, ", ', \, backticks) 
+    # would be interpreted by the shell during the multiple command layers:
+    # Host shell -> pct exec -> bash -c -> echo -> file write
+    local encoded_password=$(echo -n "$vault_password" | base64)
+    if pct exec "$CONTROL_CT_ID" -- bash -c "echo '$encoded_password' | base64 -d > '$vault_pass_file' && chmod 600 '$vault_pass_file'"; then
+        # Validate password file was created successfully
+        if ! pct exec "$CONTROL_CT_ID" -- test -f "$vault_pass_file"; then
+            print_error "Password file creation appeared successful but file does not exist."
+            vault_result=1
+            unset vault_password
+            return $vault_result
+        fi
+        
+        # Validate file has correct permissions and non-zero size
+        if ! pct exec "$CONTROL_CT_ID" -- bash -c "[ -s '$vault_pass_file' ] && [ \"\$(stat -c '%a' '$vault_pass_file')\" = '600' ]"; then
+            print_error "Password file validation failed - check file size and permissions."
+            pct exec "$CONTROL_CT_ID" -- rm -f "$vault_pass_file" 2>/dev/null || true
+            vault_result=1
+            unset vault_password  
+            return $vault_result
+        fi
+        
+        print_info "Password file created and validated successfully."
         # Run ansible-playbook with the password file
         if pct exec "$CONTROL_CT_ID" -- bash -l -c "cd $PLAYBOOK_DIR && ansible-playbook --vault-password-file '$vault_pass_file' $playbook_command"; then
             print_success "Playbook execution completed successfully."
@@ -194,6 +216,10 @@ run_ansible_playbook() {
         pct exec "$CONTROL_CT_ID" -- rm -f "$vault_pass_file" 2>/dev/null || true
     else
         print_error "Failed to create temporary password file in LXC."
+        print_info "Troubleshooting steps:"
+        print_info "1. Check if LXC $CONTROL_CT_ID is running: pct status $CONTROL_CT_ID"
+        print_info "2. Test manual password file creation: pct exec $CONTROL_CT_ID -- touch /tmp/test_file"
+        print_info "3. Check LXC disk space: pct exec $CONTROL_CT_ID -- df -h"
         vault_result=1
     fi
     
@@ -545,9 +571,11 @@ EOF
             fi
         done
 
-        # Encrypt the secrets file inside the LXC
+        # Encrypt the secrets file inside the LXC using base64 to avoid shell interpretation
+        # This prevents vault password corruption when it contains special characters
         local vault_pass_file="/tmp/.ansible_vault_pass_setup_$$"
-        if pct exec "$CONTROL_CT_ID" -- bash -c "echo '$VAULT_PASSWORD' > '$vault_pass_file' && chmod 600 '$vault_pass_file'"; then
+        local encoded_password=$(echo -n "$VAULT_PASSWORD" | base64)
+        if pct exec "$CONTROL_CT_ID" -- bash -c "echo '$encoded_password' | base64 -d > '$vault_pass_file' && chmod 600 '$vault_pass_file'"; then
             if pct exec "$CONTROL_CT_ID" -- bash -l -c "ansible-vault encrypt --vault-password-file '$vault_pass_file' $secrets_file_path" 2>/dev/null; then
                 print_success "secrets.yml file encrypted successfully."
                 # Clean up password file
