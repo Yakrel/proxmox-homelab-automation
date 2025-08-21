@@ -18,7 +18,7 @@ PLAYBOOK_DIR="/root/proxmox-homelab-automation" # Inside the LXC
 
 # Ansible Control LXC Config (matches stacks.yaml)
 CONTROL_CT_ID="151"
-CONTROL_HOSTNAME="lxc-ansible-control"
+CONTROL_HOSTNAME="lxc-ansible-control-01"
 CONTROL_IP_OCTET="151"
 CONTROL_CORES="2"
 CONTROL_MEMORY="2048"
@@ -247,8 +247,13 @@ run_first_time_setup() {
 
     print_info "Configuring autologin for root user in web console..."
     pct exec "$CONTROL_CT_ID" -- bash -c "mkdir -p /etc/systemd/system/getty@tty1.service.d"
-    pct exec "$CONTROL_CT_ID" -- bash -c "echo -e '[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin root --noclear %I \$TERM' > /etc/systemd/system/getty@tty1.service.d/override.conf"
+    pct exec "$CONTROL_CT_ID" -- bash -c "cat > /etc/systemd/system/getty@tty1.service.d/override.conf << 'EOF'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin root --noclear %I \$TERM
+EOF"
     pct exec "$CONTROL_CT_ID" -- systemctl daemon-reload
+    pct exec "$CONTROL_CT_ID" -- systemctl enable getty@tty1.service
     pct exec "$CONTROL_CT_ID" -- systemctl restart getty@tty1.service >/dev/null 2>&1 || true # Restart may fail if not fully booted, but that's okay
 
     print_info "Configuring locale for Ansible compatibility..."
