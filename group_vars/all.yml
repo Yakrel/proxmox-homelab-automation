@@ -28,6 +28,7 @@ datapool_mount: "{{ homelab_config.storage.mount_point }}"
 # Repository Settings
 repo_url: "{{ homelab_config.global.repo_url }}"
 repo_dir: "{{ homelab_config.global.repo_dir }}"
+timezone: "{{ homelab_config.global.timezone }}"
 
 # Template Management
 lxc_template_patterns:

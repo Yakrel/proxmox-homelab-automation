@@ -35,6 +35,7 @@ load_config() {
         STORAGE_POOL=$(yq eval '.storage.pool' "$config_file")
         API_USER=$(yq eval '.api.user' "$config_file")
         API_TOKEN_ID=$(yq eval '.api.token_id' "$config_file")
+        TIMEZONE=$(yq eval '.global.timezone' "$config_file")
         
         # Control node config
         CONTROL_CT_ID=$(yq eval '.stacks.ansible_control.ct_id' "$config_file")
@@ -55,6 +56,7 @@ load_config() {
         REPO_DIR=$(awk -F'"' '/repo_dir:/ {print $2}' "$config_file")
         API_USER=$(awk -F'"' '/user:/ {print $2}' "$config_file")
         API_TOKEN_ID=$(awk -F'"' '/token_id:/ {print $2}' "$config_file")
+        TIMEZONE=$(awk -F'"' '/timezone:/ {print $2}' "$config_file")
         
         # Control node config - extract from ansible_control section
         CONTROL_CT_ID=$(awk '/ansible_control:/,/^[[:space:]]*[^[:space:]]/ { if (/ct_id:/) print $2 }' "$config_file")
@@ -520,7 +522,7 @@ homepage_grafana_username: "admin"
 homepage_grafana_password: "REPLACE_WITH_GRAFANA_PASSWORD"
 
 # Common Settings
-timezone: "Europe/Istanbul"
+timezone: "$TIMEZONE"
 EOF
 )
         # Use pct push to create the file

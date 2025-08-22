@@ -6,9 +6,9 @@
         name: chrony
         state: present
 
-    - name: Set timezone to Europe/Istanbul
+    - name: Set timezone from configuration
       community.general.timezone:
-        name: Europe/Istanbul
+        name: "{{ timezone | default('UTC') }}"
 
     - name: Copy chrony configuration
       ansible.builtin.template:
@@ -145,14 +145,14 @@
       args:
         executable: /bin/bash
       no_log: true  # Prevent password from appearing in logs
-      changed_when: true  # Always report change as we can't easily 
+      changed_when: true  # Always report change as we can't easily
         # check smbpasswd state
       when: samba_user_check.stdout == ""
 
-    - name: Copy Samba share configuration for datapool
+    - name: Copy Samba share configuration for data storage
       ansible.builtin.template:
         src: datapool.conf.j2
-        dest: /etc/samba/conf.d/datapool.conf
+        dest: "/etc/samba/conf.d/{{ storage_pool }}.conf"
         owner: root
         group: root
         mode: '0644'
@@ -171,14 +171,14 @@
         state: present
 
     - name: Apply ZFS dataset properties
-      ansible.builtin.command: "zfs set {{ item.property }}={{ item.value }} 
+      ansible.builtin.command: "zfs set {{ item.property }}={{ item.value }}
         {{ item.dataset }}"
       loop:
         - {dataset: "rpool", property: "atime", value: "off"}
-        - {dataset: "datapool", property: "sync", value: "disabled"}
-        - {dataset: "datapool", property: "atime", value: "off"}
-        - {dataset: "datapool", property: "compression", value: "lz4"}
-        - { dataset: "rpool", property: "compression", value: "lz4" }
+        - {dataset: "{{ storage_pool }}", property: "sync", value: "disabled"}
+        - {dataset: "{{ storage_pool }}", property: "atime", value: "off"}
+        - {dataset: "{{ storage_pool }}", property: "compression", value: "lz4"}
+        - {dataset: "rpool", property: "compression", value: "lz4"}
       changed_when: true # Assume change as zfs set doesn't always report well
 
     - name: Calculate ZFS ARC memory limit

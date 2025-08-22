@@ -9,6 +9,7 @@ global:
   proxmox_node: pve01
   repo_url: "https://github.com/Yakrel/proxmox-homelab-automation.git"
   repo_dir: "/root/proxmox-homelab-automation"
+  timezone: "Europe/Istanbul"
 
 # Network Configuration (Static/Hardcoded)
 network:
