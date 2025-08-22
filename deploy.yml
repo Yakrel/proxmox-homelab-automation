@@ -1,5 +1,5 @@
 ---
-- name: Deploy a specific LXC stack
+- name: Deploy a specific LXC stack with best practices
   hosts: localhost
   connection: local
   gather_facts: false
@@ -7,11 +7,36 @@
     - secrets.yml
 
   pre_tasks:
-    - name: Ensure stack_name has a default
+    - name: Set default stack if not provided
       ansible.builtin.set_fact:
         stack_name: "{{ stack_name | default('proxy') }}"
 
-    - name: Validate required API credentials are available
+    - name: Display deployment information
+      ansible.builtin.debug:
+        msg: 
+          - "==================================="
+          - "Deploying stack: {{ stack_name }}"
+          - "Timestamp: {{ ansible_date_time.iso8601 }}"
+          - "==================================="
+
+    - name: Validate stack exists in configuration
+      ansible.builtin.assert:
+        that:
+          - stack_name in homelab_config.stacks.keys()
+        fail_msg: |
+          Stack '{{ stack_name }}' is not defined in stacks.yaml.
+          Available stacks: {{ homelab_config.stacks.keys() | list | join(', ') }}
+        success_msg: "Stack '{{ stack_name }}' found in configuration."
+
+    - name: Validate required global variables
+      ansible.builtin.assert:
+        that:
+          - item is defined and item | length > 0
+        fail_msg: "Required variable '{{ item }}' is not defined or empty"
+        success_msg: "Global variables validation passed"
+      loop: "{{ homelab_required_vars }}"
+      
+    - name: Validate Proxmox API credentials
       ansible.builtin.assert:
         that:
           - proxmox_api_user is defined
@@ -21,11 +46,37 @@
         fail_msg: "Required Proxmox API credentials are not available. Please ensure secrets.yml is properly configured and vault password is correct."
         success_msg: "API credentials validation passed."
 
-    - name: Announce selected stack
-      ansible.builtin.debug:
-        msg: "Deploying stack: {{ stack_name }}"
+    - name: Load and validate stack-specific configuration
+      ansible.builtin.set_fact:
+        current_stack_config: "{{ homelab_config.stacks[stack_name] }}"
+
+    - name: Validate stack-specific required variables
+      ansible.builtin.assert:
+        that:
+          - current_stack_config.ct_id is defined
+          - current_stack_config.hostname is defined
+          - current_stack_config.ip_octet is defined
+          - current_stack_config.cpu_cores is defined
+          - current_stack_config.memory_mb is defined
+          - current_stack_config.disk_gb is defined
+        fail_msg: "Stack '{{ stack_name }}' is missing required configuration parameters"
+        success_msg: "Stack configuration validation passed"
 
   tasks:
-    - name: Run selected stack role
+    - name: Deploy the selected stack role
       ansible.builtin.include_role:
         name: "{{ stack_name }}"
+      vars:
+        # Pass current stack configuration to the role
+        stack_config: "{{ current_stack_config }}"
+
+  post_tasks:
+    - name: Display deployment completion
+      ansible.builtin.debug:
+        msg:
+          - "==================================="
+          - "Stack '{{ stack_name }}' deployment completed successfully!"
+          - "Container ID: {{ current_stack_config.ct_id }}"
+          - "Hostname: {{ current_stack_config.hostname }}" 
+          - "IP Address: {{ network_ip_base }}.{{ current_stack_config.ip_octet }}"
+          - "==================================="

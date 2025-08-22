@@ -1,27 +1,55 @@
 ---
-# Common variables for all roles - loaded from stacks.yaml
-# This file dynamically reads the central configuration
+# Global variables for all roles - Best Practice Configuration Management
+# This file provides centralized access to configuration from stacks.yaml
 
-# Load stacks configuration
-stacks_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') | from_yaml }}"
+# Load central configuration once and cache it
+homelab_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') | from_yaml }}"
 
-# Extract global settings for easy access
-network_gateway: "{{ stacks_config.network.gateway }}"
-network_bridge: "{{ stacks_config.network.bridge }}"
-network_ip_base: "{{ stacks_config.network.ip_base }}"
-storage_pool: "{{ stacks_config.storage.pool }}"
-datapool_mount: "{{ stacks_config.storage.mount_point }}"
-proxmox_node: "{{ stacks_config.global.proxmox_node }}"
-repo_url: "{{ stacks_config.global.repo_url }}"
-repo_dir: "{{ stacks_config.global.repo_dir }}"
+# ======================================================================
+# GLOBAL SETTINGS - Available to all roles
+# ======================================================================
 
-# API settings
-proxmox_api_user: "{{ stacks_config.api.user }}"
-proxmox_api_token_id: "{{ stacks_config.api.token_id }}"
-proxmox_api_host: "{{ network_ip_base }}.1"
+# Proxmox Configuration
+proxmox_node: "{{ homelab_config.global.proxmox_node }}"
+proxmox_api_user: "{{ homelab_config.api.user }}"
+proxmox_api_token_id: "{{ homelab_config.api.token_id }}"
+proxmox_api_host: "{{ homelab_config.network.ip_base }}.1"
 
-# Template settings
-alpine_template_pattern: "{{ stacks_config.templates.alpine_latest }}"
-debian_template_pattern: "{{ stacks_config.templates.debian_latest }}"
-default_template_type: "{{ stacks_config.templates.default_template }}"
-special_debian_stacks: "{{ stacks_config.templates.special_templates }}"
+# Network Configuration (Static for homelab)
+network_gateway: "{{ homelab_config.network.gateway }}"
+network_bridge: "{{ homelab_config.network.bridge }}"
+network_ip_base: "{{ homelab_config.network.ip_base }}"
+
+# Storage Configuration
+storage_pool: "{{ homelab_config.storage.pool }}"
+datapool_mount: "{{ homelab_config.storage.mount_point }}"
+
+# Repository Settings
+repo_url: "{{ homelab_config.global.repo_url }}"
+repo_dir: "{{ homelab_config.global.repo_dir }}"
+
+# Template Management
+lxc_template_patterns:
+  alpine: "{{ homelab_config.templates.alpine_latest }}"
+  debian: "{{ homelab_config.templates.debian_latest }}"
+
+default_template_type: "{{ homelab_config.templates.default_template }}"
+debian_required_stacks: "{{ homelab_config.templates.special_templates }}"
+
+# ======================================================================
+# ROLE CONFIGURATION HELPERS - For easy access in roles
+# ======================================================================
+
+# Function to get stack configuration by name
+# Usage in roles: homelab_config.stacks[stack_name]
+stacks_definitions: "{{ homelab_config.stacks }}"
+
+# Validation settings
+homelab_required_vars:
+  - proxmox_api_user
+  - proxmox_api_token_id
+  - proxmox_api_token_secret
+  - proxmox_node
+  - network_gateway
+  - network_bridge
+  - storage_pool

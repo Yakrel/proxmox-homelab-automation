@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  author: Yakrel
+  description: Common Docker management role for containerized services
+  company: Personal Project
+  
+  license: MIT
+  
+  min_ansible_version: "2.16"
+
+  platforms:
+    - name: Alpine
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+  
+  galaxy_tags:
+    - docker
+    - containers
+    - docker-compose
+    - homelab
+
+dependencies: []
