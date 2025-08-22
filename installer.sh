@@ -9,27 +9,73 @@
 
 set -e
 
-# --- Hardcoded Configuration (Static for homelab) ---
-API_USER="ansible-bot@pve"
-API_TOKEN_ID="ansible-token"
-REPO_URL="https://github.com/Yakrel/proxmox-homelab-automation.git"
-REPO_DIR="/root/proxmox-homelab-automation"
-PLAYBOOK_DIR="/root/proxmox-homelab-automation" # Inside the LXC
+# --- Configuration ---
+# Configuration will be loaded after helper functions are defined
 
-# Ansible Control LXC Config (matches stacks.yaml)
-CONTROL_CT_ID="151"
-CONTROL_HOSTNAME="lxc-ansible-control-01"
-CONTROL_IP_OCTET="151"
-CONTROL_CORES="2"
-CONTROL_MEMORY="2048"
-CONTROL_DISK="10"
+# --- Helper Functions ---
 
-# Network & Storage (Static for homelab)
-NETWORK_GATEWAY="192.168.1.1"
-NETWORK_BRIDGE="vmbr0"
-NETWORK_IP_BASE="192.168.1"
-STORAGE_POOL="datapool"
-PROXMOX_NODE="pve01"
+# --- Configuration Loader Function ---
+load_config() {
+    # Load configuration from stacks.yaml - single source of truth
+    local config_file="${PWD}/stacks.yaml"
+    if [[ ! -f "$config_file" ]]; then
+        print_error "Configuration file stacks.yaml not found in current directory"
+        exit 1
+    fi
+    
+    # Extract values from stacks.yaml using yq/awk as fallback
+    if command -v yq >/dev/null 2>&1; then
+        # Use yq if available (preferred)
+        PROXMOX_NODE=$(yq eval '.global.proxmox_node' "$config_file")
+        REPO_URL=$(yq eval '.global.repo_url' "$config_file")
+        REPO_DIR=$(yq eval '.global.repo_dir' "$config_file")
+        NETWORK_GATEWAY=$(yq eval '.network.gateway' "$config_file")
+        NETWORK_BRIDGE=$(yq eval '.network.bridge' "$config_file")
+        NETWORK_IP_BASE=$(yq eval '.network.ip_base' "$config_file")
+        STORAGE_POOL=$(yq eval '.storage.pool' "$config_file")
+        API_USER=$(yq eval '.api.user' "$config_file")
+        API_TOKEN_ID=$(yq eval '.api.token_id' "$config_file")
+        
+        # Control node config
+        CONTROL_CT_ID=$(yq eval '.stacks.ansible_control.ct_id' "$config_file")
+        CONTROL_HOSTNAME=$(yq eval '.stacks.ansible_control.hostname' "$config_file")
+        CONTROL_IP_OCTET=$(yq eval '.stacks.ansible_control.ip_octet' "$config_file")
+        CONTROL_CORES=$(yq eval '.stacks.ansible_control.cpu_cores' "$config_file")
+        CONTROL_MEMORY=$(yq eval '.stacks.ansible_control.memory_mb' "$config_file")
+        CONTROL_DISK=$(yq eval '.stacks.ansible_control.disk_gb' "$config_file")
+    else
+        # Fallback to basic awk parsing (less robust but more portable)
+        print_warning "yq not found, using basic parsing. Install yq for better reliability."
+        PROXMOX_NODE=$(awk '/proxmox_node:/ {print $2}' "$config_file" | head -1)
+        NETWORK_GATEWAY=$(awk '/gateway:/ {print $2}' "$config_file")
+        NETWORK_BRIDGE=$(awk '/bridge:/ {print $2}' "$config_file")
+        NETWORK_IP_BASE=$(awk '/ip_base:/ {print $2}' "$config_file")
+        STORAGE_POOL=$(awk '/pool:/ {print $2}' "$config_file")
+        REPO_URL=$(awk -F'"' '/repo_url:/ {print $2}' "$config_file")
+        REPO_DIR=$(awk -F'"' '/repo_dir:/ {print $2}' "$config_file")
+        API_USER=$(awk -F'"' '/user:/ {print $2}' "$config_file")
+        API_TOKEN_ID=$(awk -F'"' '/token_id:/ {print $2}' "$config_file")
+        
+        # Control node config - extract from ansible_control section
+        CONTROL_CT_ID=$(awk '/ansible_control:/,/^[[:space:]]*[^[:space:]]/ { if (/ct_id:/) print $2 }' "$config_file")
+        CONTROL_HOSTNAME=$(awk '/ansible_control:/,/^[[:space:]]*[^[:space:]]/ { if (/hostname:/) print $2 }' "$config_file")
+        CONTROL_IP_OCTET=$(awk '/ansible_control:/,/^[[:space:]]*[^[:space:]]/ { if (/ip_octet:/) print $2 }' "$config_file")
+        CONTROL_CORES=$(awk '/ansible_control:/,/^[[:space:]]*[^[:space:]]/ { if (/cpu_cores:/) print $2 }' "$config_file")
+        CONTROL_MEMORY=$(awk '/ansible_control:/,/^[[:space:]]*[^[:space:]]/ { if (/memory_mb:/) print $2 }' "$config_file")
+        CONTROL_DISK=$(awk '/ansible_control:/,/^[[:space:]]*[^[:space:]]/ { if (/disk_gb:/) print $2 }' "$config_file")
+    fi
+    
+    # Set computed values  
+    PLAYBOOK_DIR="$REPO_DIR"  # Inside the LXC, same as repo dir
+    
+    # Validation
+    if [[ -z "$PROXMOX_NODE" || -z "$STORAGE_POOL" || -z "$CONTROL_CT_ID" ]]; then
+        print_error "Failed to load required configuration from stacks.yaml"
+        exit 1
+    fi
+    
+    print_info "Configuration loaded from stacks.yaml successfully"
+}
 
 # --- Helper Functions ---
 print_info() { echo -e "\033[36m[INFO]\033[0m $1"; }
@@ -61,17 +107,26 @@ ensure_repository_exists_and_update() {
 
 
 ensure_template_available() {
-    # Unified template management - downloads and returns template name
-    # Static approach: downloads latest available, returns name for use
+    # Unified template management - uses stacks.yaml configuration
     local template_type="$1"
     local pattern=""
     
     case "$template_type" in
         "alpine")
-            pattern="alpine-.*-default"
+            # Load pattern from stacks.yaml if available, otherwise use fallback
+            if command -v yq >/dev/null 2>&1; then
+                pattern=$(yq eval '.templates.alpine_latest' "${PWD}/stacks.yaml" 2>/dev/null || echo "alpine-.*-default")
+            else
+                pattern="alpine-.*-default"
+            fi
             ;;
         "debian")
-            pattern="debian-.*-standard"
+            # Load pattern from stacks.yaml if available, otherwise use fallback
+            if command -v yq >/dev/null 2>&1; then
+                pattern=$(yq eval '.templates.debian_latest' "${PWD}/stacks.yaml" 2>/dev/null || echo "debian-.*-standard")
+            else
+                pattern="debian-.*-standard"
+            fi
             ;;
         *)
             print_error "Unknown template type: $template_type"
@@ -115,10 +170,18 @@ run_ansible_playbook() {
         # Extract stack name from the command
         local stack_name=$(echo "$playbook_command" | sed -n "s/.*stack_name=\([^']*\).*/\1/p")
         if [ -n "$stack_name" ]; then
-            # Determine template type based on stack (hardcoded for homelab consistency)
-            local template_type="alpine"  # Default for most stacks
-            if [ "$stack_name" = "ansible_control" ] || [ "$stack_name" = "backup" ]; then
-                template_type="debian"  # Static exceptions
+            # Determine template type from stacks.yaml configuration
+            local template_type="alpine"  # Default from stacks.yaml
+            
+            # Load template type from stacks.yaml for this specific stack
+            if command -v yq >/dev/null 2>&1; then
+                # Use yq to read template type for the stack
+                template_type=$(yq eval ".stacks.${stack_name}.template" "${PWD}/stacks.yaml" 2>/dev/null || echo "alpine")
+            else
+                # Fallback: check if stack is in the debian_required list
+                if grep -q "ansible_control\|backup" "${PWD}/stacks.yaml" && [[ "$stack_name" =~ ^(ansible_control|backup)$ ]]; then
+                    template_type="debian"
+                fi
             fi
             
             # Ensure template is available and get its name
@@ -576,6 +639,9 @@ EOF
 }
 
 # --- Main Execution ---
+# Load configuration from stacks.yaml (single source of truth)
+load_config
+
 if ! pct status "$CONTROL_CT_ID" >/dev/null 2>&1; then
     run_first_time_setup
 else

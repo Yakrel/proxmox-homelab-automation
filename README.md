@@ -1,104 +1,53 @@
-# Proxmox Homelab Automation (Ansible Edition)
+# Proxmox Homelab Automation
 
-This repository contains a collection of Ansible roles and playbooks to automate the setup of a personal homelab environment on Proxmox VE. The architecture is based on creating separate LXC containers for different service stacks, each managed by Docker Compose and deployed via Ansible.
+Automated deployment of containerized services on Proxmox VE using Ansible. Creates separate LXC containers for different service stacks, managed by Docker Compose.
 
-## ⚠️ Project Philosophy & Disclaimer
+## 🚀 Quick Start
 
-This repository documents my personal homelab setup, tailored specifically to my own hardware and network configuration. It is shared publicly to showcase my approach to infrastructure-as-code, automation, and GitOps principles.
-
-**Please be aware that this is not a universal, one-click deployment solution.**
-
-By design, many values such as IP addresses, container IDs, and specific paths are hard-coded within the Ansible roles for my own convenience and rapid, repeatable deployments. If you wish to adapt this project for your own use, you should be prepared to:
-
-*   Thoroughly review all Ansible roles and configuration files.
-*   Replace hard-coded values with your own environment's settings.
-*   Adjust resource allocations (CPU, RAM) in the `vars/main.yml` file of each role.
-
-Feel free to fork this repository and use it as an inspiration or a template for your own homelab automation journey!
-
-## Architecture: The "Host as Remote Control" Model
-
-The new architecture is designed for true automation and idempotency, managed by a single script on the host that controls Ansible inside a dedicated container.
-
-1.  **Unified Installer & Menu (`installer.sh`):** This is the single entry point for all operations, run on the Proxmox VE host. 
-    -   **On its first run,** it bootstraps the entire system by creating the Ansible Control LXC (ID 151) and the necessary Proxmox API credentials.
-    -   **On all subsequent runs,** it presents a menu to manage your homelab.
-
-2.  **Ansible Control LXC:** A dedicated Debian container (ID 151) that holds this Git repository and Ansible. All configuration logic resides here, keeping the Proxmox host clean.
-
-3.  **The Bridge (`pct exec`):** The menu on the host uses the `pct exec` command to trigger Ansible playbooks inside the Control LXC. This provides a clean, secure, and professional separation of concerns.
-
-## Quick Start & Usage
-
-All management is performed through the unified installer script. You can run it directly from GitHub without cloning the repository first.
+Run the installer directly on your Proxmox host:
 
 ```bash
-# Run the installer directly from GitHub (recommended):
 bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
 ```
 
-Alternatively, if you have already cloned the repository:
+**First run**: Creates Ansible Control LXC and configures API credentials  
+**Subsequent runs**: Shows interactive menu to deploy stacks
 
+## 🏗️ Architecture
+
+- **installer.sh**: Single entry point, runs on Proxmox host
+- **Ansible Control LXC**: Dedicated container (ID 151) with Ansible and this repository  
+- **Service Stacks**: Individual LXC containers for each service group
+
+## 📦 Available Stacks
+
+| Stack | Description | Container ID |
+|-------|-------------|--------------|
+| Host Configuration | Proxmox host setup | - |
+| Proxy | Cloudflared, monitoring agents | 100 |
+| Media | Jellyfin, Sonarr, Radarr, etc. | 101 |
+| Files | File management services | 102 |
+| Webtools | Web-based utilities | 103 |
+| Monitoring | Prometheus, Grafana | 104 |
+| Backup | Proxmox Backup Server | 150 |
+
+## 🔐 Configuration
+
+- **Central Config**: All settings in `stacks.yaml`
+- **Secrets**: Encrypted with Ansible Vault in `secrets.yml`
+- **Customization**: Modify `stacks.yaml` for your environment
+
+## ⚠️ Important Notes
+
+This is a **personal homelab configuration**. Before using:
+
+1. Review `stacks.yaml` and adjust IP addresses, storage pools, etc.
+2. Update secrets in `secrets.yml` during first setup
+3. Modify resource allocations as needed
+
+## 📝 Managing Secrets
+
+Edit encrypted secrets:
 ```bash
-# Navigate to the repository directory on your Proxmox host and run:
-./installer.sh
-```
-
-### How It Works:
-
-- **First Time:** The script will perform the initial setup by creating the Ansible Control LXC (ID 151) and configuring all necessary credentials.
-- **After Setup:** The script will automatically display an interactive menu. From this menu, you can:
-  - Configure the Proxmox host (timezone, security, etc.)
-  - Deploy any of the available service stacks (proxy, media, monitoring, etc.)
-  - All operations are performed automatically - just select the option and the script will run the appropriate Ansible playbook
-  - After each operation completes, you'll be returned to the main menu to perform additional tasks
-
-**Everything is menu-driven - no manual playbook execution required!**
-
-## Secrets Management: Ansible Vault
-
-All secrets (API keys, passwords, etc.) are now managed in a single encrypted file: `secrets.yml`.
-
-- **Encryption:** This file is encrypted using `ansible-vault` with an interactive password that you set during first-time setup. It is safe to commit to Git.
-- **Password Management:** You will be prompted for the vault password whenever deploying stacks or running playbooks through the installer menu.
-- **Editing:** To edit secrets, you can use the ansible-vault edit command from within the control LXC:
-  ```bash
-  pct exec 151 -- ansible-vault edit /root/proxmox-homelab-automation/secrets.yml
-  ```
-
-**Important:** Remember your vault password! You'll need it for all homelab operations. The installer will prompt you to set this password during first-time setup and will request it each time you deploy stacks.
-
-## Service Stacks
-
-This project is divided into several service stacks, each defined by an Ansible role in the `roles/` directory. Configuration for each stack (like Docker images and versions) can be found in the `vars/main.yml` file within its role directory.
-
-- **Host Configuration** (`roles/proxmox_host_setup`)
-- **Proxy Stack** (`roles/proxy`)
-- **Media Stack** (`roles/media`)
-- **Files Stack** (`roles/files`)
-- **Webtools Stack** (`roles/webtools`)
-- **Monitoring Stack** (`roles/monitoring`)
-- **Development Stack** (`roles/development`)
-- **Backup Stack** (`roles/backup`)
-
-## 🔒 Comprehensive Backup System
-
-The backup stack provides a complete, automated backup solution using Proxmox Backup Server (PBS). This implementation fulfills the "set and forget" philosophy with intelligent scheduling and retention policies optimized for homelab environments.
-
-### Key Features:
-- **Fully Automated Setup**: Creates PBS LXC, configures datastore, sets up schedules
-- **Intelligent Retention**: 7d/4w/6m/1y retention policy with automatic pruning
-- **Complete Integration**: Automatically configures Proxmox VE storage and backup jobs
-- **Security-First**: Dedicated users, secure authentication, minimal permissions
-- **Zero Maintenance**: Handles garbage collection, verification, and pruning automatically
-
-
-
-### Quick Deployment:
-```bash
-# Deploy the comprehensive backup system
-ansible-playbook deploy.yml --extra-vars "stack_name=backup"
-
-# Validate deployment
-./validate-pbs-system.sh
+pct exec 151 -- ansible-vault edit /root/proxmox-homelab-automation/secrets.yml
 ```
