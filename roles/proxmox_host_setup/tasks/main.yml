@@ -130,7 +130,7 @@
         name: "{{ samba_username }}"
         state: present
         shell: /bin/false
-        system: true # Create as system user
+        system: true  # Create as system user
 
     - name: Check if Samba user exists
       ansible.builtin.command: pdbedit -L -u {{ samba_username }}
@@ -144,8 +144,9 @@
         echo '{{ samba_password }}' | smbpasswd -s -a {{ samba_username }}
       args:
         executable: /bin/bash
-      no_log: true # Prevent password from appearing in logs
-      changed_when: true # Always report change as we can't easily check smbpasswd state
+      no_log: true  # Prevent password from appearing in logs
+      changed_when: true  # Always report change as we can't easily 
+        # check smbpasswd state
       when: samba_user_check.stdout == ""
 
     - name: Copy Samba share configuration for datapool
@@ -170,12 +171,13 @@
         state: present
 
     - name: Apply ZFS dataset properties
-      ansible.builtin.command: "zfs set {{ item.property }}={{ item.value }} {{ item.dataset }}"
+      ansible.builtin.command: "zfs set {{ item.property }}={{ item.value }} 
+        {{ item.dataset }}"
       loop:
-        - { dataset: "rpool", property: "atime", value: "off" }
-        - { dataset: "datapool", property: "sync", value: "disabled" }
-        - { dataset: "datapool", property: "atime", value: "off" }
-        - { dataset: "datapool", property: "compression", value: "lz4" }
+        - {dataset: "rpool", property: "atime", value: "off"}
+        - {dataset: "datapool", property: "sync", value: "disabled"}
+        - {dataset: "datapool", property: "atime", value: "off"}
+        - {dataset: "datapool", property: "compression", value: "lz4"}
         - { dataset: "rpool", property: "compression", value: "lz4" }
       changed_when: true # Assume change as zfs set doesn't always report well
 

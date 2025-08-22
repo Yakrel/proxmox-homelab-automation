@@ -3,7 +3,8 @@
 # This file provides centralized access to configuration from stacks.yaml
 
 # Load central configuration once and cache it
-homelab_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') | from_yaml }}"
+homelab_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') |
+  from_yaml }}"
 
 # ======================================================================
 # GLOBAL SETTINGS - Available to all roles

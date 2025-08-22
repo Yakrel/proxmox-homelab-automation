@@ -5,7 +5,8 @@
 stack_name: files
 
 # Load stack-specific variables from central configuration
-_stacks_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') | from_yaml }}"
+_stacks_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') |
+  from_yaml }}"
 _stack_data: "{{ _stacks_config.stacks.files }}"
 
 # LXC Configuration from stacks.yaml

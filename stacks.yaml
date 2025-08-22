@@ -1,3 +1,4 @@
+---
 # ===================================================================
 # Central Configuration - Single Source of Truth for Homelab
 # ===================================================================
@@ -23,7 +24,7 @@ storage:
 # Template Configuration (Latest versions, stored in datapool)
 templates:
   alpine_latest: "alpine-.*-default"  # Pattern for latest Alpine
-  debian_latest: "debian-.*-standard" # Pattern for latest Debian
+  debian_latest: "debian-.*-standard"  # Pattern for latest Debian
   default_template: alpine            # Most stacks use Alpine
   special_templates:                  # Exceptions that need Debian
     - ansible_control
