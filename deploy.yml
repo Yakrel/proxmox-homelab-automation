@@ -16,7 +16,7 @@
         msg: 
           - "==================================="
           - "Deploying stack: {{ stack_name }}"
-          - "Timestamp: {{ ansible_date_time.iso8601 }}"
+          - "Timestamp: {{ now() }}"
           - "==================================="
 
     - name: Validate stack exists in configuration

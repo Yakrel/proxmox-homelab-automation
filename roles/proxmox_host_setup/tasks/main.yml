@@ -243,7 +243,7 @@
     - name: Backup /etc/network/interfaces
       ansible.builtin.copy:
         src: /etc/network/interfaces
-        dest: "/etc/network/interfaces.bak.{{ ansible_date_time.epoch }}"
+        dest: "/etc/network/interfaces.bak.{{ now().strftime('%Y%m%d_%H%M%S') }}"
         remote_src: true
         force: false # Do not overwrite if backup exists
         mode: '0644'
