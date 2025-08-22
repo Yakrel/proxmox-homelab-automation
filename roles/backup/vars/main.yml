@@ -39,4 +39,4 @@ pve_backup_schedule: "02:30"  # Start backups at 2:30 AM daily
 pve_backup_storage: "pbs-backup"  # Storage name in Proxmox VE
 pve_backup_mode: "snapshot"  # Use snapshot mode for minimal downtime
 pve_backup_compress: "zstd"   # Use zstd compression
-pve_backup_notes_template: "{{guestname}} backup created on {{cluster}} at {{isotime}}"
+pve_backup_notes_template: "{{ guestname }} backup created on {{ cluster }} at {{ isotime }}"

@@ -60,79 +60,74 @@ ensure_repository_exists_and_update() {
 
 
 
-ensure_templates_available() {
-    # Ensure the latest Alpine and Debian templates are downloaded to the storage pool
-    print_info "Checking and downloading latest templates if needed..."
-    
-    # Download latest Alpine template if needed
-    local ALPINE_PATTERN="alpine-.*-default"
-    local LATEST_ALPINE=$(pveam available | awk "/$ALPINE_PATTERN/ {print \$NF}" | sort -V | tail -n 1)
-    if [ -n "$LATEST_ALPINE" ]; then
-        local LOCAL_ALPINE=$(pveam list "$STORAGE_POOL" | awk "/$ALPINE_PATTERN/ {print \$1}" | sort -V | tail -n 1)
-        if [ -z "$LOCAL_ALPINE" ]; then
-            print_info "Downloading $LATEST_ALPINE to $STORAGE_POOL..."
-            pveam download "$STORAGE_POOL" "$LATEST_ALPINE"
-        else
-            print_info "Alpine template already available: $LOCAL_ALPINE"
-        fi
-    fi
-    
-    # Download latest Debian template if needed
-    local DEBIAN_PATTERN="debian-.*-standard"
-    local LATEST_DEBIAN=$(pveam available | awk "/$DEBIAN_PATTERN/ {print \$NF}" | sort -V | tail -n 1)
-    if [ -n "$LATEST_DEBIAN" ]; then
-        local LOCAL_DEBIAN=$(pveam list "$STORAGE_POOL" | awk "/$DEBIAN_PATTERN/ {print \$1}" | sort -V | tail -n 1)
-        if [ -z "$LOCAL_DEBIAN" ]; then
-            print_info "Downloading $LATEST_DEBIAN to $STORAGE_POOL..."
-            pveam download "$STORAGE_POOL" "$LATEST_DEBIAN"
-        else
-            print_info "Debian template already available: $LOCAL_DEBIAN"
-        fi
-    fi
-}
-
-get_latest_template() {
+ensure_template_available() {
+    # Unified template management - downloads and returns template name
+    # Static approach: downloads latest available, returns name for use
     local template_type="$1"
     local pattern=""
     
-    if [ "$template_type" = "alpine" ]; then
-        pattern="alpine-.*-default"
-    elif [ "$template_type" = "debian" ]; then
-        pattern="debian-.*-standard"
-    else
-        print_error "Unknown template type: $template_type"
-        return 1
+    case "$template_type" in
+        "alpine")
+            pattern="alpine-.*-default"
+            ;;
+        "debian")
+            pattern="debian-.*-standard"
+            ;;
+        *)
+            print_error "Unknown template type: $template_type"
+            return 1
+            ;;
+    esac
+    
+    print_info "Ensuring $template_type template is available..."
+    
+    # Check if template already exists locally
+    local local_template=$(pveam list "$STORAGE_POOL" | awk "/$pattern/ {print \$1}" | sort -V | tail -n 1)
+    
+    if [ -z "$local_template" ]; then
+        # Download latest template
+        local latest_available=$(pveam available | awk "/$pattern/ {print \$NF}" | sort -V | tail -n 1)
+        if [ -n "$latest_available" ]; then
+            print_info "Downloading $latest_available to $STORAGE_POOL..."
+            pveam download "$STORAGE_POOL" "$latest_available"
+            local_template=$(pveam list "$STORAGE_POOL" | awk "/$pattern/ {print \$1}" | sort -V | tail -n 1)
+        else
+            print_error "No $template_type template available for download"
+            return 1
+        fi
     fi
     
-    # Find the latest local template of the specified type
-    pveam list "$STORAGE_POOL" | awk "/$pattern/ {print \$1}" | sort -V | tail -n 1
+    if [ -n "$local_template" ]; then
+        print_info "$template_type template available: $local_template"
+        echo "$local_template"
+        return 0
+    else
+        print_error "Failed to ensure $template_type template availability"
+        return 1
+    fi
 }
 
 run_ansible_playbook() {
     local playbook_command="$1"
-    local vault_password
     
-    # Ensure templates are available and determine template names for deployment commands
+    # For deployment commands, ensure required template is available
     if [[ "$playbook_command" =~ deploy\.yml ]]; then
-        ensure_templates_available
-        
         # Extract stack name from the command
         local stack_name=$(echo "$playbook_command" | sed -n "s/.*stack_name=\([^']*\).*/\1/p")
         if [ -n "$stack_name" ]; then
-            # Determine template type based on stack (most use alpine, some use debian)
-            local template_type="alpine"
-            if [ "$stack_name" = "ansible-control" ] || [ "$stack_name" = "backup" ]; then
-                template_type="debian"
+            # Determine template type based on stack (hardcoded for homelab consistency)
+            local template_type="alpine"  # Default for most stacks
+            if [ "$stack_name" = "ansible_control" ] || [ "$stack_name" = "backup" ]; then
+                template_type="debian"  # Static exceptions
             fi
             
-            # Get the actual template name
-            local template_name=$(get_latest_template "$template_type")
-            if [ -n "$template_name" ]; then
+            # Ensure template is available and get its name
+            local template_name
+            if template_name=$(ensure_template_available "$template_type"); then
                 # Add template name as an extra variable
                 playbook_command="${playbook_command} --extra-vars 'lxc_template=$template_name'"
-                print_info "Using template: $template_name"
             else
-                print_error "Could not find $template_type template in storage pool $STORAGE_POOL"
+                print_error "Failed to ensure $template_type template for $stack_name stack"
                 return 1
             fi
         fi
@@ -286,16 +281,15 @@ run_first_time_setup() {
         print_info "Skipping LXC creation, proceeding to provisioning..."
     else
         print_info "Creating Ansible Control LXC ($CONTROL_CT_ID)..."
+        
+        # Use consolidated template function
         local LATEST_DEBIAN_TEMPLATE
-        LATEST_DEBIAN_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-.*-standard/ {print $1}' | sort -V | tail -n 1)
-        if [ -z "$LATEST_DEBIAN_TEMPLATE" ]; then
-            print_warning "No local Debian template found; downloading..."
-            local DOWNLOAD_TEMPLATE
-            DOWNLOAD_TEMPLATE=$(pveam available | awk '/debian-[0-9.]+(-[0-9]+)?-standard/ {print $NF}' | sort -V | tail -n 1)
-            pveam download "$STORAGE_POOL" "$DOWNLOAD_TEMPLATE"
-            LATEST_DEBIAN_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-.*-standard/ {print $1}' | sort -V | tail -n 1)
+        if LATEST_DEBIAN_TEMPLATE=$(ensure_template_available "debian"); then
+            print_success "Using Debian template: $LATEST_DEBIAN_TEMPLATE"
+        else
+            print_error "Failed to ensure Debian template for Control LXC"
+            exit 1
         fi
-        print_success "Using Debian template: $LATEST_DEBIAN_TEMPLATE"
 
         local CONTROL_IP_CIDR="$NETWORK_IP_BASE.$CONTROL_IP_OCTET/24"
         if pct create "$CONTROL_CT_ID" "$LATEST_DEBIAN_TEMPLATE" \
@@ -562,7 +556,7 @@ EOF
                 ;;
             7)
                 print_info "Deploying Ansible Control Stack..."
-                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=ansible-control'"
+                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=ansible_control'"
                 ;;
             8)
                 print_info "Deploying Backup Stack..."

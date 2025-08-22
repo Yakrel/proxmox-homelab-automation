@@ -1,19 +1,19 @@
 ---
 # Handlers for the backup role
 
-- name: restart proxmox-backup
+- name: Restart proxmox-backup
   ansible.builtin.service:
     name: proxmox-backup
     state: restarted
   delegate_to: "{{ hostname }}"
 
-- name: reload proxmox-backup
+- name: Reload proxmox-backup
   ansible.builtin.service:
     name: proxmox-backup
     state: reloaded
   delegate_to: "{{ hostname }}"
 
-- name: restart proxmox-backup-proxy
+- name: Restart proxmox-backup-proxy
   ansible.builtin.service:
     name: proxmox-backup-proxy
     state: restarted

@@ -43,7 +43,7 @@ scrape_configs:
         target_label: instance
         replacement: 'lxc-monitoring-01'
 
-  
+
 
   # Proxmox VE Exporter
   - job_name: 'proxmox'

@@ -20,7 +20,7 @@ proxmox_api_user: "{{ stacks_config.api.user }}"
 proxmox_api_token_id: "{{ stacks_config.api.token_id }}"
 proxmox_api_host: "{{ network_ip_base }}.1"
 
-# Template settings  
+# Template settings
 alpine_template_pattern: "{{ stacks_config.templates.alpine_latest }}"
 debian_template_pattern: "{{ stacks_config.templates.debian_latest }}"
 default_template_type: "{{ stacks_config.templates.default_template }}"

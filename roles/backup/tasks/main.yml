@@ -26,7 +26,7 @@
   ansible.builtin.assert:
     that:
       - proxmox_api_user is defined
-      - proxmox_api_token_id is defined  
+      - proxmox_api_token_id is defined
       - proxmox_api_token_secret is defined
       - proxmox_node is defined
     fail_msg: "Required Proxmox API credentials are not available. Please ensure secrets are properly configured."
@@ -184,7 +184,7 @@
 
 - name: Check if PBS datastore already exists
   ansible.builtin.shell: >
-    proxmox-backup-manager datastore list --output-format json | 
+    set -o pipefail && proxmox-backup-manager datastore list --output-format json |
     jq -r '.[] | select(.name == "{{ pbs_datastore_name }}") | .name'
   delegate_to: "{{ hostname }}"
   register: existing_datastore
@@ -196,6 +196,7 @@
     proxmox-backup-manager datastore create {{ pbs_datastore_name }} {{ pbs_datastore_path }}
   delegate_to: "{{ hostname }}"
   when: existing_datastore.stdout != pbs_datastore_name
+  changed_when: true
 
 - name: Configure garbage collection schedule
   ansible.builtin.shell: >
@@ -205,7 +206,7 @@
 
 - name: Check if prune job already exists
   ansible.builtin.shell: >
-    proxmox-backup-manager prune-job list --output-format json | 
+    set -o pipefail && proxmox-backup-manager prune-job list --output-format json |
     jq -r '.[] | select(.store == "{{ pbs_datastore_name }}") | .id'
   delegate_to: "{{ hostname }}"
   register: existing_prune_job
@@ -214,18 +215,19 @@
 
 - name: Create prune job for backup retention
   ansible.builtin.shell: >
-    proxmox-backup-manager prune-job create {{ pbs_datastore_name }} 
-    --schedule "{{ pbs_prune_schedule }}" 
-    --keep-daily {{ pbs_keep_daily }} 
-    --keep-weekly {{ pbs_keep_weekly }} 
+    proxmox-backup-manager prune-job create {{ pbs_datastore_name }}
+    --schedule "{{ pbs_prune_schedule }}"
+    --keep-daily {{ pbs_keep_daily }}
+    --keep-weekly {{ pbs_keep_weekly }}
     --keep-monthly {{ pbs_keep_monthly }}
     --keep-yearly {{ pbs_keep_yearly }}
   delegate_to: "{{ hostname }}"
   when: existing_prune_job.stdout == ""
+  changed_when: true
 
 - name: Check if verification job already exists
   ansible.builtin.shell: >
-    proxmox-backup-manager verification-job list --output-format json | 
+    set -o pipefail && proxmox-backup-manager verification-job list --output-format json |
     jq -r '.[] | select(.store == "{{ pbs_datastore_name }}") | .id'
   delegate_to: "{{ hostname }}"
   register: existing_verify_job
@@ -234,10 +236,11 @@
 
 - name: Create verification job
   ansible.builtin.shell: >
-    proxmox-backup-manager verification-job create {{ pbs_datastore_name }} 
+    proxmox-backup-manager verification-job create {{ pbs_datastore_name }}
     --schedule "{{ pbs_verify_schedule }}"
   delegate_to: "{{ hostname }}"
   when: existing_verify_job.stdout == ""
+  changed_when: true
 
 # ========================================
 # Phase 5: PBS User Management
@@ -250,7 +253,7 @@
 
 - name: Check if PBS backup user exists
   ansible.builtin.shell: >
-    proxmox-backup-manager user list --output-format json | 
+    set -o pipefail && proxmox-backup-manager user list --output-format json |
     jq -r '.[] | select(.userid == "{{ pbs_backup_user }}") | .userid'
   delegate_to: "{{ hostname }}"
   register: existing_pbs_user
@@ -259,31 +262,35 @@
 
 - name: Create PBS backup user
   ansible.builtin.shell: >
-    proxmox-backup-manager user create {{ pbs_backup_user }} 
+    proxmox-backup-manager user create {{ pbs_backup_user }}
     --comment "{{ pbs_backup_user_comment }}"
   delegate_to: "{{ hostname }}"
   when: existing_pbs_user.stdout != pbs_backup_user
+  changed_when: true
 
 - name: Set password for PBS backup user
   ansible.builtin.shell: >
-    echo "{{ pbs_user_password }}" | proxmox-backup-manager user passwd {{ pbs_backup_user }}
+    set -o pipefail && echo "{{ pbs_user_password }}" | proxmox-backup-manager user passwd {{ pbs_backup_user }}
   delegate_to: "{{ hostname }}"
   no_log: true
   when: existing_pbs_user.stdout != pbs_backup_user
+  changed_when: true
 
 - name: Assign DatastoreBackup role to PBS user
   ansible.builtin.shell: >
-    proxmox-backup-manager acl update {{ pbs_datastore_path }} 
+    proxmox-backup-manager acl update {{ pbs_datastore_path }}
     --user {{ pbs_backup_user }} --role DatastoreBackup
   delegate_to: "{{ hostname }}"
   when: existing_pbs_user.stdout != pbs_backup_user
+  changed_when: true
 
-- name: Assign DatastoreReader role to PBS user  
+- name: Assign DatastoreReader role to PBS user
   ansible.builtin.shell: >
-    proxmox-backup-manager acl update {{ pbs_datastore_path }} 
+    proxmox-backup-manager acl update {{ pbs_datastore_path }}
     --user {{ pbs_backup_user }} --role DatastoreReader
   delegate_to: "{{ hostname }}"
   when: existing_pbs_user.stdout != pbs_backup_user
+  changed_when: true
 
 # ========================================
 # Phase 6: Proxmox VE Integration
@@ -326,8 +333,8 @@
 
 - name: Get all VM and LXC IDs for backup job
   ansible.builtin.shell: >
-    (pvesh get /nodes/{{ proxmox_node }}/qemu --output-format json | jq -r '.[].vmid'; 
-     pvesh get /nodes/{{ proxmox_node }}/lxc --output-format json | jq -r '.[].vmid') | 
+    set -o pipefail && (pvesh get /nodes/{{ proxmox_node }}/qemu --output-format json | jq -r '.[].vmid';
+     pvesh get /nodes/{{ proxmox_node }}/lxc --output-format json | jq -r '.[].vmid') |
     sort -n | tr '\n' ',' | sed 's/,$//'
   delegate_to: localhost
   register: all_vm_ids
@@ -360,7 +367,7 @@
   ansible.builtin.debug:
     msg:
       - "================================================="
-      - "PBS Setup Complete!"  
+      - "PBS Setup Complete!"
       - "================================================="
       - "PBS Web Interface: https://{{ network_ip_base }}.{{ ip_octet }}:8007"
       - "Datastore: {{ pbs_datastore_name }}"

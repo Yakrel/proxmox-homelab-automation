@@ -1,12 +1,12 @@
 ---
-# Variables for the ansible-control role - loaded from stacks.yaml central config
+# Variables for the ansible_control role - loaded from stacks.yaml central config
 
 # Load central configuration
 stacks_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') | from_yaml }}"
-stack_data: "{{ stacks_config.stacks['ansible-control'] }}"
+stack_data: "{{ stacks_config.stacks['ansible_control'] }}"
 
 # Stack-specific variables from central config
-stack_name: ansible-control
+stack_name: ansible_control
 ct_id: "{{ stack_data.ct_id }}"
 hostname: "{{ stack_data.hostname }}"
 ip_octet: "{{ stack_data.ip_octet }}"
