@@ -9,10 +9,53 @@
 
 set -e
 
+# --- Command Line Arguments ---
+REPO_BRANCH="main"  # Default branch
+REPO_URL="https://github.com/Yakrel/proxmox-homelab-automation.git"  # Default repo
+AUTO_DETECT_BRANCH=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --branch)
+            REPO_BRANCH="$2"
+            shift 2
+            ;;
+        --repo-url)
+            REPO_URL="$2"
+            shift 2
+            ;;
+        --auto-detect)
+            AUTO_DETECT_BRANCH=true
+            shift
+            ;;
+        --help|-h)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --branch BRANCH      Use specific branch (default: main)"
+            echo "  --repo-url URL       Use specific repository URL"
+            echo "  --auto-detect        Auto-detect branch from current directory"
+            echo "  --help, -h           Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  $0                           # Use main branch (default)"
+            echo "  $0 --branch develop          # Use develop branch"
+            echo "  $0 --auto-detect             # Use current branch from local repo"
+            echo "  $0 --branch feature-test --repo-url https://github.com/user/fork.git"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
 # --- Hardcoded Configuration (Static for homelab) ---
 API_USER="ansible-bot@pve"
 API_TOKEN_ID="ansible-token"
-REPO_URL="https://github.com/Yakrel/proxmox-homelab-automation.git"
 REPO_DIR="/root/proxmox-homelab-automation"
 PLAYBOOK_DIR="/root/proxmox-homelab-automation" # Inside the LXC
 
@@ -37,24 +80,88 @@ print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
 print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 
+# Auto-detect branch if requested and we're in a git repository
+if [ "$AUTO_DETECT_BRANCH" = true ]; then
+    if [ -d ".git" ] && command -v git >/dev/null 2>&1; then
+        DETECTED_BRANCH=$(git branch --show-current 2>/dev/null)
+        if [ -n "$DETECTED_BRANCH" ]; then
+            REPO_BRANCH="$DETECTED_BRANCH"
+            print_info "Auto-detected branch: $REPO_BRANCH"
+        else
+            print_warning "Could not auto-detect branch, using default: $REPO_BRANCH"
+        fi
+    else
+        print_warning "Not in a git repository or git not available, using default branch: $REPO_BRANCH"
+    fi
+fi
+
 ensure_repository_exists_and_update() {
     # Safely ensure repository exists and is up to date in the Control Node
     # This function handles edge cases where the directory doesn't exist or is corrupted
+    # Now supports specific branch checkout
+    
+    print_info "Using repository: $REPO_URL"
+    print_info "Target branch: $REPO_BRANCH"
     
     if ! pct exec "$CONTROL_CT_ID" -- test -d "$REPO_DIR"; then
         print_info "Repository directory doesn't exist. Cloning repository..."
-        pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
+        pct exec "$CONTROL_CT_ID" -- git clone -b "$REPO_BRANCH" "$REPO_URL" "$REPO_DIR"
     elif ! pct exec "$CONTROL_CT_ID" -- test -d "$REPO_DIR/.git"; then
         print_warning "Repository directory exists but is not a git repository. Re-cloning..."
         pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
-        pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
+        pct exec "$CONTROL_CT_ID" -- git clone -b "$REPO_BRANCH" "$REPO_URL" "$REPO_DIR"
     else
         print_info "Repository exists. Updating..."
-        if ! pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git pull" 2>/dev/null; then
-            print_warning "Failed to update repository. Re-cloning for safety..."
+        
+        # Get current branch and remote URL
+        local current_branch=$(pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git branch --show-current" 2>/dev/null || echo "")
+        local current_remote=$(pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git config --get remote.origin.url" 2>/dev/null || echo "")
+        
+        # Check if we need to change repository or branch
+        if [ "$current_remote" != "$REPO_URL" ]; then
+            print_info "Repository URL has changed. Re-cloning..."
             pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
-            pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
+            pct exec "$CONTROL_CT_ID" -- git clone -b "$REPO_BRANCH" "$REPO_URL" "$REPO_DIR"
+        elif [ "$current_branch" != "$REPO_BRANCH" ]; then
+            print_info "Switching from branch '$current_branch' to '$REPO_BRANCH'..."
+            # Fetch all branches first
+            if ! pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git fetch origin" 2>/dev/null; then
+                print_warning "Failed to fetch from remote. Re-cloning for safety..."
+                pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
+                pct exec "$CONTROL_CT_ID" -- git clone -b "$REPO_BRANCH" "$REPO_URL" "$REPO_DIR"
+                return
+            fi
+            
+            # Check if target branch exists on remote
+            if pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git ls-remote --heads origin $REPO_BRANCH | grep -q $REPO_BRANCH" 2>/dev/null; then
+                # Switch to the target branch
+                if ! pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git checkout -B $REPO_BRANCH origin/$REPO_BRANCH" 2>/dev/null; then
+                    print_warning "Failed to switch to branch '$REPO_BRANCH'. Re-cloning for safety..."
+                    pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
+                    pct exec "$CONTROL_CT_ID" -- git clone -b "$REPO_BRANCH" "$REPO_URL" "$REPO_DIR"
+                fi
+            else
+                print_error "Branch '$REPO_BRANCH' does not exist on remote repository"
+                print_info "Available branches:"
+                pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git ls-remote --heads origin" 2>/dev/null || echo "Could not list remote branches"
+                exit 1
+            fi
+        else
+            # Same branch and repo, just pull updates
+            if ! pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git pull" 2>/dev/null; then
+                print_warning "Failed to update repository. Re-cloning for safety..."
+                pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
+                pct exec "$CONTROL_CT_ID" -- git clone -b "$REPO_BRANCH" "$REPO_URL" "$REPO_DIR"
+            fi
         fi
+    fi
+    
+    # Verify we're on the correct branch
+    local final_branch=$(pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git branch --show-current" 2>/dev/null || echo "unknown")
+    if [ "$final_branch" = "$REPO_BRANCH" ]; then
+        print_success "Repository is ready on branch: $final_branch"
+    else
+        print_warning "Expected branch '$REPO_BRANCH' but got '$final_branch'"
     fi
 }
 

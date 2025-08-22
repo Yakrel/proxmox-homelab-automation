@@ -32,9 +32,29 @@ The new architecture is designed for true automation and idempotency, managed by
 
 All management is performed through the unified installer script. You can run it directly from GitHub without cloning the repository first.
 
+### Standard Usage (Production)
+
 ```bash
 # Run the installer directly from GitHub (recommended):
 bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
+```
+
+### Development & Testing Usage
+
+The installer now supports testing from different branches without merging to main first, perfect for GitOps workflows:
+
+```bash
+# Test from a specific branch:
+bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh) --branch your-feature-branch
+
+# Test from a forked repository:
+bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh) --repo-url https://github.com/yourusername/proxmox-homelab-automation.git --branch your-branch
+
+# Auto-detect and use current branch (when running from local repository):
+./installer.sh --auto-detect
+
+# Show all available options:
+./installer.sh --help
 ```
 
 Alternatively, if you have already cloned the repository:
@@ -54,6 +74,42 @@ Alternatively, if you have already cloned the repository:
   - After each operation completes, you'll be returned to the main menu to perform additional tasks
 
 **Everything is menu-driven - no manual playbook execution required!**
+
+## Development & Testing Workflow
+
+The installer now supports testing from development branches without merging to main first, ideal for GitOps practices:
+
+### Branch-Based Testing Options
+
+| Command | Description |
+|---------|-------------|
+| `./installer.sh` | Uses main branch (default, production) |
+| `./installer.sh --branch feature-xyz` | Test specific branch |
+| `./installer.sh --auto-detect` | Auto-detect current branch from local repo |
+| `./installer.sh --repo-url https://github.com/user/fork.git --branch dev` | Test from forked repository |
+
+### Example Development Workflow
+
+```bash
+# 1. Create and switch to feature branch
+git checkout -b feature-new-service
+
+# 2. Make your changes to roles, playbooks, etc.
+# ... edit files ...
+
+# 3. Test your changes without merging to main
+./installer.sh --auto-detect
+
+# 4. The installer will use your current branch automatically
+# 5. Deploy and test your changes in the Proxmox environment
+```
+
+### Branch Safety Features
+
+- **Branch validation**: Verifies branch exists on remote before proceeding
+- **Automatic switching**: Handles branch changes in existing Control LXC
+- **Repository validation**: Supports switching between different repository URLs
+- **Fallback protection**: Re-clones repository if branch operations fail
 
 ## Secrets Management: Ansible Vault
 
