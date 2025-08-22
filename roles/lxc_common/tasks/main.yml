@@ -90,6 +90,7 @@
     docker_packages: >-
       {{ lxc_docker_packages_alpine if lxc_template_type == 'alpine'
          else lxc_docker_packages_debian }}
+  when: not (skip_docker_setup | default(false))
 
 - name: Ensure Docker service is started and enabled
   ansible.builtin.service:
@@ -98,6 +99,7 @@
     enabled: true
   delegate_to: "{{ hostname }}"
   notify: Docker service restarted
+  when: not (skip_docker_setup | default(false))
 
 - name: Apply common LXC security configuration
   ansible.builtin.include_tasks: security_setup.yml

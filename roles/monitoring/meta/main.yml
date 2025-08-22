@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: Yakrel
-  description: Proxy stack role for Proxmox homelab automation
+  description: Monitoring stack role for Proxmox homelab automation
   company: Personal Project
 
   license: MIT
@@ -15,8 +15,7 @@ galaxy_info:
 
   galaxy_tags:
     - proxmox
-    - proxy
-    - cloudflared
+    - monitoring
     - homelab
 
 dependencies:

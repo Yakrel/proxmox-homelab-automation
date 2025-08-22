@@ -20,7 +20,7 @@ lxc_template_name: ""  # Must be provided by calling role or installer
 # Network defaults (these get loaded from stacks.yaml via group_vars)
 lxc_network_interface: eth0
 
-# Mount defaults  
+# Mount defaults
 lxc_mount_datapool: true
 lxc_datapool_backup: false
 

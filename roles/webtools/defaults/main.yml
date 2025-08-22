@@ -1,13 +1,12 @@
 ---
-# Default values for proxy role
-# These override defaults from lxc_common and docker_common roles
+# Default values for webtools role
 
 # Stack identification
-stack_name: proxy
+stack_name: webtools
 
 # Load stack-specific variables from central configuration
 _stacks_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') | from_yaml }}"
-_stack_data: "{{ _stacks_config.stacks.proxy }}"
+_stack_data: "{{ _stacks_config.stacks.webtools }}"
 
 # LXC Configuration from stacks.yaml
 ct_id: "{{ _stack_data.ct_id }}"
@@ -19,9 +18,3 @@ disk_gb: "{{ _stack_data.disk_gb }}"
 lxc_template_type: "{{ _stack_data.template }}"
 lxc_mount_datapool: "{{ _stack_data.mount_datapool }}"
 lxc_onboot: "{{ _stack_data.onboot }}"
-
-# Service-specific settings
-proxy_services:
-  - cloudflared
-  - promtail
-  - watchtower

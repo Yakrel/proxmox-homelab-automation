@@ -1,7 +1,7 @@
 ---
 galaxy_info:
   author: Yakrel
-  description: Proxy stack role for Proxmox homelab automation
+  description: Proxmox Backup Server stack role for homelab automation
   company: Personal Project
 
   license: MIT
@@ -15,10 +15,9 @@ galaxy_info:
 
   galaxy_tags:
     - proxmox
-    - proxy
-    - cloudflared
+    - backup
+    - pbs
     - homelab
 
 dependencies:
   - role: lxc_common
-  - role: docker_common
