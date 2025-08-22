@@ -5,270 +5,33 @@
 # This script is the single entry point for the entire automation.
 # - On first run, it bootstraps the Ansible Control Node (LXC 151).
 # - On subsequent runs, it acts as a menu to manage the homelab.
-# All configuration is loaded from stacks.yaml for consistency.
+# All configuration is hardcoded for homelab simplicity and consistency.
 
 set -e
 
-# --- Configuration ---
-# Configuration will be loaded after helper functions are defined
+# --- Hardcoded Configuration (Static for homelab) ---
+API_USER="ansible-bot@pve"
+API_TOKEN_ID="ansible-token"
+REPO_URL="https://github.com/Yakrel/proxmox-homelab-automation.git"
+REPO_DIR="/root/proxmox-homelab-automation"
+PLAYBOOK_DIR="/root/proxmox-homelab-automation" # Inside the LXC
+
+# Ansible Control LXC Config (matches stacks.yaml)
+CONTROL_CT_ID="151"
+CONTROL_HOSTNAME="lxc-ansible-control-01"
+CONTROL_IP_OCTET="151"
+CONTROL_CORES="2"
+CONTROL_MEMORY="2048"
+CONTROL_DISK="10"
+
+# Network & Storage (Static for homelab)
+NETWORK_GATEWAY="192.168.1.1"
+NETWORK_BRIDGE="vmbr0"
+NETWORK_IP_BASE="192.168.1"
+STORAGE_POOL="datapool"
+PROXMOX_NODE="pve01"
 
 # --- Helper Functions ---
-
-# --- Configuration Loader Function ---
-load_config() {
-    # For direct GitHub execution, download stacks.yaml from the detected branch
-    local config_file="${PWD}/stacks.yaml"
-    
-    # First detect the branch we're running from
-    detect_github_branch_and_repo
-    
-    if [[ ! -f "$config_file" ]]; then
-        print_info "Downloading stacks.yaml from branch: $REPO_BRANCH"
-        local config_url="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$REPO_BRANCH/stacks.yaml"
-        
-        if ! curl -fsSL "$config_url" -o "$config_file"; then
-            print_error "Failed to download stacks.yaml from $config_url"
-            print_error "Please ensure the branch '$REPO_BRANCH' exists and contains stacks.yaml"
-            exit 1
-        fi
-        print_info "Downloaded stacks.yaml successfully"
-    fi
-    
-    # Validate file exists and is readable
-    if [[ ! -f "$config_file" || ! -r "$config_file" ]]; then
-        print_error "Configuration file stacks.yaml is not accessible"
-        exit 1
-    fi
-    
-    # Extract values from stacks.yaml using yq with robust error handling
-    print_info "Loading configuration from stacks.yaml..."
-    
-    # Validate yq is available and working
-    if ! command -v yq >/dev/null 2>&1; then
-        print_error "yq is not installed. Please install yq to parse configuration files."
-        print_info "Install with: apt-get install yq  or  pip install yq"
-        exit 1
-    fi
-    
-    # Debug: show the file we're trying to read
-    print_info "Reading configuration from: $config_file"
-    
-    # Test yq with the config file before proceeding
-    if ! yq e '.' "$config_file" >/dev/null 2>&1; then
-        print_error "Configuration file '$config_file' is not valid YAML or cannot be read by yq"
-        exit 1
-    fi
-    
-    # Global settings - extracted safely
-    PROXMOX_NODE=$(safe_yq_extract '.global.proxmox_node' "$config_file")
-    REPO_URL_FROM_CONFIG=$(safe_yq_extract '.global.repo_url' "$config_file")
-    REPO_DIR_FROM_CONFIG=$(safe_yq_extract '.global.repo_dir' "$config_file")
-    TIMEZONE=$(safe_yq_extract '.global.timezone' "$config_file")
-    
-    # Network settings
-    NETWORK_GATEWAY=$(safe_yq_extract '.network.gateway' "$config_file")
-    NETWORK_BRIDGE=$(safe_yq_extract '.network.bridge' "$config_file")
-    NETWORK_IP_BASE=$(safe_yq_extract '.network.ip_base' "$config_file")
-    
-    # Storage settings
-    STORAGE_POOL=$(safe_yq_extract '.storage.pool' "$config_file")
-    
-    # API settings  
-    API_USER=$(safe_yq_extract '.api.user' "$config_file")
-    API_TOKEN_ID=$(safe_yq_extract '.api.token_id' "$config_file")
-    
-    # Control node config
-    CONTROL_CT_ID=$(safe_yq_extract '.stacks.ansible_control.ct_id' "$config_file")
-    CONTROL_HOSTNAME=$(safe_yq_extract '.stacks.ansible_control.hostname' "$config_file")
-    CONTROL_IP_OCTET=$(safe_yq_extract '.stacks.ansible_control.ip_octet' "$config_file")
-    CONTROL_CORES=$(safe_yq_extract '.stacks.ansible_control.cpu_cores' "$config_file")
-    CONTROL_MEMORY=$(safe_yq_extract '.stacks.ansible_control.memory_mb' "$config_file")
-    CONTROL_DISK=$(safe_yq_extract '.stacks.ansible_control.disk_gb' "$config_file")
-    
-    # Set computed values using branch detection results (not config file)
-    # REPO_URL and REPO_DIR were set by detect_github_branch_and_repo()
-    PLAYBOOK_DIR="$REPO_DIR"  # Inside the LXC, same as repo dir
-    
-    # Critical validation - ensure required values are loaded and valid
-    local validation_failed=false
-    
-    if [[ -z "$PROXMOX_NODE" ]]; then
-        print_error "Failed to load 'global.proxmox_node' from stacks.yaml"
-        validation_failed=true
-    fi
-    
-    if [[ -z "$STORAGE_POOL" ]]; then
-        print_error "Failed to load 'storage.pool' from stacks.yaml"
-        validation_failed=true
-    fi
-    
-    if [[ -z "$CONTROL_CT_ID" ]]; then
-        print_error "Failed to load 'stacks.ansible_control.ct_id' from stacks.yaml"
-        validation_failed=true
-    fi
-    
-    if [[ -z "$API_USER" ]]; then
-        print_error "Failed to load 'api.user' from stacks.yaml"
-        validation_failed=true
-    fi
-    
-    if [[ -z "$API_TOKEN_ID" ]]; then
-        print_error "Failed to load 'api.token_id' from stacks.yaml"
-        validation_failed=true
-    fi
-    
-    if [[ -z "$NETWORK_GATEWAY" ]]; then
-        print_error "Failed to load 'network.gateway' from stacks.yaml"
-        validation_failed=true
-    fi
-    
-    if [[ -z "$NETWORK_BRIDGE" ]]; then
-        print_error "Failed to load 'network.bridge' from stacks.yaml" 
-        validation_failed=true
-    fi
-    
-    if [[ -z "$NETWORK_IP_BASE" ]]; then
-        print_error "Failed to load 'network.ip_base' from stacks.yaml"
-        validation_failed=true
-    fi
-    
-    if [[ "$validation_failed" == "true" ]]; then
-        print_error "Configuration validation failed. Please check your stacks.yaml file."
-        print_info "Expected structure:"
-        print_info "global:"
-        print_info "  proxmox_node: pve01"
-        print_info "storage:"  
-        print_info "  pool: datapool"
-        print_info "stacks:"
-        print_info "  ansible_control:"
-        print_info "    ct_id: 151"
-        exit 1
-    fi
-    
-    print_success "Configuration loaded successfully from stacks.yaml"
-    print_info "Proxmox Node: $PROXMOX_NODE"
-    print_info "Storage Pool: $STORAGE_POOL"
-    print_info "Control LXC ID: $CONTROL_CT_ID"
-    print_info "Repository Branch: $REPO_BRANCH"
-}
-
-# --- Branch Detection for Direct GitHub Execution ---
-detect_github_branch_and_repo() {
-    # Robust branch detection for GitHub raw URL execution
-    # Detects branch from various process command lines and environment variables
-    
-    local detected_repo="https://github.com/Yakrel/proxmox-homelab-automation.git"
-    local detected_branch=""
-    
-    # Method 1: Environment variable override (highest priority)
-    if [[ -n "$GITHUB_BRANCH" ]]; then
-        detected_branch="$GITHUB_BRANCH"
-        print_info "Using branch from environment variable: $detected_branch"
-    else
-        # Method 2: Comprehensive process inspection for GitHub URLs
-        local found_branch=""
-        
-        # Enhanced detection: check all bash processes that might contain our URL
-        # This covers various execution methods (curl piped to bash, direct execution, etc.)
-        local search_patterns=(
-            "curl.*raw\.githubusercontent\.com/Yakrel/proxmox-homelab-automation"
-            "bash.*raw\.githubusercontent\.com/Yakrel/proxmox-homelab-automation"  
-            "sh.*raw\.githubusercontent\.com/Yakrel/proxmox-homelab-automation"
-        )
-        
-        for pattern in "${search_patterns[@]}"; do
-            if command -v pgrep >/dev/null 2>&1; then
-                local matching_pids=$(pgrep -f "$pattern" 2>/dev/null || echo "")
-                if [[ -n "$matching_pids" ]]; then
-                    print_info "Found processes matching pattern '$pattern': $matching_pids"
-                    for pid in $matching_pids; do
-                        if [[ -f "/proc/$pid/cmdline" ]]; then
-                            local cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || echo "")
-                            if [[ -n "$cmdline" ]]; then
-                                print_info "Analyzing process $pid: $cmdline"
-                                # Try to extract branch from command line  
-                                # Flexible pattern: Captures any branch name between repo and /installer.sh
-                                if [[ "$cmdline" =~ raw\.githubusercontent\.com/Yakrel/proxmox-homelab-automation/([^[:space:]]+)/installer\.sh ]]; then
-                                    found_branch="${BASH_REMATCH[1]}"
-                                    print_info "Detected branch: '$found_branch'"
-                                    break 2
-                                fi
-                            fi
-                        fi
-                    done
-                fi
-            fi
-        done
-        
-        # Method 3: Check process tree (parent/child processes)
-        if [[ -z "$found_branch" ]]; then
-            print_info "Process search unsuccessful, checking process tree..."
-            local current_pid=$$
-            for level in {0..3}; do  # Check up to 3 levels up
-                if [[ -f "/proc/$current_pid/cmdline" ]]; then
-                    local cmdline=$(tr '\0' ' ' < "/proc/$current_pid/cmdline" 2>/dev/null || echo "")
-                    if [[ -n "$cmdline" ]]; then
-                        print_info "Level $level - Process $current_pid: $cmdline"
-                        # Apply same branch detection pattern - flexible for any branch name
-                        if [[ "$cmdline" =~ raw\.githubusercontent\.com/Yakrel/proxmox-homelab-automation/([^[:space:]]+)/installer\.sh ]]; then
-                            found_branch="${BASH_REMATCH[1]}"
-                            print_info "Found branch in process tree: '$found_branch'"
-                            break
-                        fi
-                    fi
-                fi
-                # Move to parent process
-                local parent_pid=$(ps -o ppid= -p "$current_pid" 2>/dev/null | tr -d ' ')
-                if [[ -z "$parent_pid" || "$parent_pid" == "1" || "$parent_pid" == "$current_pid" ]]; then
-                    break
-                fi
-                current_pid="$parent_pid"
-            done
-        fi
-        
-        # Set detected branch or exit with error
-        if [[ -n "$found_branch" ]]; then
-            detected_branch="$found_branch"
-            print_info "Successfully detected branch: '$detected_branch'"
-        else
-            print_error "Failed to detect GitHub branch from execution context"
-            print_error "This installer must be run via GitHub raw URL or with GITHUB_BRANCH set"
-            print_info "Example: bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/BRANCH_NAME/installer.sh)"
-            print_info "Or: GITHUB_BRANCH=my-branch bash <(curl -s https://raw.githubusercontent.com/...main/installer.sh)"
-            exit 1
-        fi
-    fi
-    
-    # Set global variables
-    REPO_URL="$detected_repo"  
-    REPO_DIR="/root/proxmox-homelab-automation"
-    REPO_BRANCH="$detected_branch"
-    
-    print_info "Repository configuration:"
-    print_info "  URL: $REPO_URL"
-    print_info "  Branch: $REPO_BRANCH"  
-    print_info "  Target directory: $REPO_DIR"
-}
-
-# --- Helper Functions ---
-# --- Helper Functions ---
-
-# Safe yq extraction with proper error handling
-safe_yq_extract() {
-    local path="$1"
-    local config_file="$2"
-    local result
-    
-    result=$(yq e "$path" "$config_file" 2>/dev/null || echo "null")
-    
-    # Return empty string if null or extraction failed
-    if [[ "$result" == "null" || -z "$result" ]]; then
-        echo ""
-    else
-        echo "$result"
-    fi
-}
-
 print_info() { echo -e "\033[36m[INFO]\033[0m $1"; }
 print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
 print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
@@ -278,36 +41,19 @@ ensure_repository_exists_and_update() {
     # Safely ensure repository exists and is up to date in the Control Node
     # This function handles edge cases where the directory doesn't exist or is corrupted
     
-    local clone_args=""
-    if [[ -n "$REPO_BRANCH" && "$REPO_BRANCH" != "main" ]]; then
-        clone_args="--branch $REPO_BRANCH"
-        print_info "Using branch: $REPO_BRANCH"
-    fi
-    
     if ! pct exec "$CONTROL_CT_ID" -- test -d "$REPO_DIR"; then
         print_info "Repository directory doesn't exist. Cloning repository..."
-        pct exec "$CONTROL_CT_ID" -- git clone $clone_args "$REPO_URL" "$REPO_DIR"
+        pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
     elif ! pct exec "$CONTROL_CT_ID" -- test -d "$REPO_DIR/.git"; then
         print_warning "Repository directory exists but is not a git repository. Re-cloning..."
         pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
-        pct exec "$CONTROL_CT_ID" -- git clone $clone_args "$REPO_URL" "$REPO_DIR"
+        pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
     else
         print_info "Repository exists. Updating..."
-        # Check if we're on the correct branch
-        local current_branch
-        current_branch=$(pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git branch --show-current" 2>/dev/null || echo "")
-        
-        if [[ -n "$REPO_BRANCH" && "$current_branch" != "$REPO_BRANCH" ]]; then
-            print_info "Switching to branch: $REPO_BRANCH"
-            if ! pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git checkout $REPO_BRANCH && git pull origin $REPO_BRANCH" 2>/dev/null; then
-                print_warning "Failed to switch to branch $REPO_BRANCH. Re-cloning for safety..."
-                pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
-                pct exec "$CONTROL_CT_ID" -- git clone $clone_args "$REPO_URL" "$REPO_DIR"
-            fi
-        elif ! pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git pull" 2>/dev/null; then
+        if ! pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git pull" 2>/dev/null; then
             print_warning "Failed to update repository. Re-cloning for safety..."
             pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
-            pct exec "$CONTROL_CT_ID" -- git clone $clone_args "$REPO_URL" "$REPO_DIR"
+            pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
         fi
     fi
 }
@@ -315,16 +61,17 @@ ensure_repository_exists_and_update() {
 
 
 ensure_template_available() {
-    # Template management using stacks.yaml configuration only
+    # Unified template management - downloads and returns template name
+    # Static approach: downloads latest available, returns name for use
     local template_type="$1"
     local pattern=""
     
     case "$template_type" in
         "alpine")
-            pattern=$(safe_yq_extract '.templates.alpine_latest' "${PWD}/stacks.yaml")
+            pattern="alpine-.*-default"
             ;;
         "debian")
-            pattern=$(safe_yq_extract '.templates.debian_latest' "${PWD}/stacks.yaml")
+            pattern="debian-.*-standard"
             ;;
         *)
             print_error "Unknown template type: $template_type"
@@ -332,12 +79,7 @@ ensure_template_available() {
             ;;
     esac
     
-    if [[ -z "$pattern" ]]; then
-        print_error "Failed to load template pattern for $template_type from stacks.yaml"
-        return 1
-    fi
-    
-    print_info "Ensuring $template_type template is available (pattern: $pattern)..."
+    print_info "Ensuring $template_type template is available..."
     
     # Check if template already exists locally
     local local_template=$(pveam list "$STORAGE_POOL" | awk "/$pattern/ {print \$1}" | sort -V | tail -n 1)
@@ -373,13 +115,10 @@ run_ansible_playbook() {
         # Extract stack name from the command
         local stack_name=$(echo "$playbook_command" | sed -n "s/.*stack_name=\([^']*\).*/\1/p")
         if [ -n "$stack_name" ]; then
-            # Load template type from stacks.yaml for this specific stack
-            local template_type
-            template_type=$(yq e ".stacks.${stack_name}.template" "${PWD}/stacks.yaml" 2>/dev/null || echo "")
-            
-            if [[ -z "$template_type" ]]; then
-                print_error "Failed to load template type for stack '$stack_name' from stacks.yaml"
-                return 1
+            # Determine template type based on stack (hardcoded for homelab consistency)
+            local template_type="alpine"  # Default for most stacks
+            if [ "$stack_name" = "ansible_control" ] || [ "$stack_name" = "backup" ]; then
+                template_type="debian"  # Static exceptions
             fi
             
             # Ensure template is available and get its name
@@ -397,7 +136,7 @@ run_ansible_playbook() {
     print_info "Executing playbook..."
     
     # Run ansible-playbook, stream output to user, and capture it for error checking
-    local playbook_output_file="/tmp/ansible_output_$$"
+    local playbook_output_file="/tmp/ansible_output_$"
     local playbook_exit_code=0
 
     # Execute the command, teeing the output to a file in the host, and also displaying it.
@@ -718,7 +457,7 @@ homepage_grafana_username: "admin"
 homepage_grafana_password: "REPLACE_WITH_GRAFANA_PASSWORD"
 
 # Common Settings
-timezone: "$TIMEZONE"
+timezone: "Europe/Istanbul"
 EOF
 )
         # Use pct push to create the file
@@ -837,9 +576,6 @@ EOF
 }
 
 # --- Main Execution ---
-# Load configuration from stacks.yaml (single source of truth)
-load_config
-
 if ! pct status "$CONTROL_CT_ID" >/dev/null 2>&1; then
     run_first_time_setup
 else
