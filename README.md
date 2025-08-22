@@ -1,8 +1,23 @@
 # Proxmox Homelab Automation
 
-Automated deployment of containerized services on Proxmox VE using Ansible. Creates separate LXC containers for different service stacks, managed by Docker Compose.
+Automated deployment of containerized services on Proxmox VE using Ansible. Creates separate LXC containers for different service stacks, each managed by Docker Compose and deployed via Ansible.
+
+## ⚠️ Project Philosophy & Disclaimer
+
+This repository documents my personal homelab setup, tailored specifically to my own hardware and network configuration. It is shared publicly to showcase my approach to infrastructure-as-code, automation, and GitOps principles.
+
+**Please be aware that this is not a universal, one-click deployment solution.**
+
+By design, many values are configurable through `stacks.yaml`, but you should be prepared to:
+- Thoroughly review all configuration files
+- Replace default values with your own environment's settings  
+- Adjust resource allocations as needed
+
+Feel free to fork this repository and use it as inspiration for your own homelab automation journey!
 
 ## 🚀 Quick Start
+
+### Recommended: Direct from GitHub
 
 Run the installer directly on your Proxmox host:
 
@@ -10,8 +25,20 @@ Run the installer directly on your Proxmox host:
 bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
 ```
 
-**First run**: Creates Ansible Control LXC and configures API credentials  
-**Subsequent runs**: Shows interactive menu to deploy stacks
+### Alternative: Local Execution
+
+If you have already cloned the repository:
+
+```bash
+# Navigate to the repository directory on your Proxmox host and run:
+./installer.sh
+```
+
+### How It Works
+
+- **First Time**: Creates Ansible Control LXC (ID 151) and configures API credentials
+- **After Setup**: Interactive menu to deploy stacks and manage your homelab
+- **Everything is menu-driven** - no manual playbook execution required!
 
 ## 🏗️ Architecture
 
@@ -45,9 +72,16 @@ This is a **personal homelab configuration**. Before using:
 2. Update secrets in `secrets.yml` during first setup
 3. Modify resource allocations as needed
 
-## 📝 Managing Secrets
+## 📝 Secrets Management
 
-Edit encrypted secrets:
+All secrets (API keys, passwords, etc.) are managed in a single encrypted file: `secrets.yml`.
+
+- **Encryption**: File is encrypted using `ansible-vault` with a password you set during setup
+- **Password Management**: You'll be prompted for the vault password when deploying stacks
+- **Editing**: Use the ansible-vault edit command from within the control LXC:
+
 ```bash
 pct exec 151 -- ansible-vault edit /root/proxmox-homelab-automation/secrets.yml
 ```
+
+**Important**: Remember your vault password - you'll need it for all homelab operations!
