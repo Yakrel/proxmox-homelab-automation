@@ -8,7 +8,7 @@ global:
   proxmox_node: pve01
   repo_url: "https://github.com/Yakrel/proxmox-homelab-automation.git"
   repo_dir: "/root/proxmox-homelab-automation"
-  
+
 # Network Configuration (Static/Hardcoded)
 network:
   gateway: 192.168.1.1
@@ -26,7 +26,7 @@ templates:
   debian_latest: "debian-.*-standard" # Pattern for latest Debian
   default_template: alpine            # Most stacks use Alpine
   special_templates:                  # Exceptions that need Debian
-    - ansible-control
+    - ansible_control
     - backup
 
 # API Configuration
@@ -37,7 +37,7 @@ api:
 # LXC Stack Definitions (Hardcoded for homelab)
 stacks:
   # Ansible Control Node (LXC 151) - Created first by installer
-  ansible-control:
+  ansible_control:
     ct_id: 151
     hostname: lxc-ansible-control-01
     ip_octet: 151
@@ -48,7 +48,7 @@ stacks:
     mount_datapool: true
     onboot: true
     description: "Ansible Control Node - manages all other stacks"
-    
+
   # Service Stacks (All using Alpine, latest images)
   proxy:
     ct_id: 100
@@ -61,7 +61,7 @@ stacks:
     mount_datapool: true
     onboot: true
     description: "Proxy services (Cloudflared, Promtail, Watchtower)"
-    
+
   media:
     ct_id: 101
     hostname: lxc-media-01
@@ -73,7 +73,7 @@ stacks:
     mount_datapool: true
     onboot: true
     description: "Media server stack"
-    
+
   files:
     ct_id: 102
     hostname: lxc-files-01
@@ -85,7 +85,7 @@ stacks:
     mount_datapool: true
     onboot: true
     description: "File management services"
-    
+
   webtools:
     ct_id: 103
     hostname: lxc-webtools-01
@@ -97,7 +97,7 @@ stacks:
     mount_datapool: true
     onboot: true
     description: "Web-based tools and utilities"
-    
+
   monitoring:
     ct_id: 104
     hostname: lxc-monitoring-01
@@ -109,7 +109,7 @@ stacks:
     mount_datapool: true
     onboot: true
     description: "Monitoring stack (Prometheus, Grafana, etc.)"
-    
+
   backup:
     ct_id: 150
     hostname: lxc-backup-01

@@ -78,7 +78,7 @@
   delegate_to: "{{ hostname }}"
   vars:
     docker_packages: >-
-      {{ ['docker', 'docker-cli-compose'] if template_type == 'alpine' 
+      {{ ['docker', 'docker-cli-compose'] if template_type == 'alpine'
          else ['docker.io', 'docker-compose-plugin'] }}
 
 - name: Ensure Docker service is started

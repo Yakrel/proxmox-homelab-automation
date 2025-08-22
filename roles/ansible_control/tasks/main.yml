@@ -1,5 +1,5 @@
 ---
-# tasks file for the ansible-control role (using ansible_connection: lxc)
+# tasks file for the ansible_control role (using ansible_connection: lxc)
 
 - name: Include stack-specific variables
   ansible.builtin.include_vars: "vars/main.yml"
@@ -87,7 +87,7 @@
     repo: "{{ repo_url }}"
     dest: "{{ repo_dir }}"
     version: main
-    force: yes
+    force: true
   delegate_to: "{{ hostname }}"
 
 # Apply common LXC security configuration (SSH disable, autologin)
