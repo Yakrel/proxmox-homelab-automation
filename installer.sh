@@ -40,60 +40,108 @@ load_config() {
         exit 1
     fi
     
-    # Extract values from stacks.yaml using yq
+    # Extract values from stacks.yaml using yq with robust error handling
     print_info "Loading configuration from stacks.yaml..."
     
     # Validate yq is available and working
     if ! command -v yq >/dev/null 2>&1; then
         print_error "yq is not installed. Please install yq to parse configuration files."
+        print_info "Install with: apt-get install yq  or  pip install yq"
         exit 1
     fi
     
     # Debug: show the file we're trying to read
     print_info "Reading configuration from: $config_file"
     
-    # Global settings
-    PROXMOX_NODE=$(yq e '.global.proxmox_node' "$config_file" 2>/dev/null)
-    REPO_URL=$(yq e '.global.repo_url' "$config_file" 2>/dev/null)
-    REPO_DIR=$(yq e '.global.repo_dir' "$config_file" 2>/dev/null)
-    TIMEZONE=$(yq e '.global.timezone' "$config_file" 2>/dev/null)
+    # Test yq with the config file before proceeding
+    if ! yq e '.' "$config_file" >/dev/null 2>&1; then
+        print_error "Configuration file '$config_file' is not valid YAML or cannot be read by yq"
+        exit 1
+    fi
+    
+    # Global settings - extracted safely
+    PROXMOX_NODE=$(safe_yq_extract '.global.proxmox_node' "$config_file")
+    REPO_URL_FROM_CONFIG=$(safe_yq_extract '.global.repo_url' "$config_file")
+    REPO_DIR_FROM_CONFIG=$(safe_yq_extract '.global.repo_dir' "$config_file")
+    TIMEZONE=$(safe_yq_extract '.global.timezone' "$config_file")
     
     # Network settings
-    NETWORK_GATEWAY=$(yq e '.network.gateway' "$config_file" 2>/dev/null)
-    NETWORK_BRIDGE=$(yq e '.network.bridge' "$config_file" 2>/dev/null)
-    NETWORK_IP_BASE=$(yq e '.network.ip_base' "$config_file" 2>/dev/null)
+    NETWORK_GATEWAY=$(safe_yq_extract '.network.gateway' "$config_file")
+    NETWORK_BRIDGE=$(safe_yq_extract '.network.bridge' "$config_file")
+    NETWORK_IP_BASE=$(safe_yq_extract '.network.ip_base' "$config_file")
     
     # Storage settings
-    STORAGE_POOL=$(yq e '.storage.pool' "$config_file" 2>/dev/null)
+    STORAGE_POOL=$(safe_yq_extract '.storage.pool' "$config_file")
     
-    # API settings
-    API_USER=$(yq e '.api.user' "$config_file" 2>/dev/null)
-    API_TOKEN_ID=$(yq e '.api.token_id' "$config_file" 2>/dev/null)
+    # API settings  
+    API_USER=$(safe_yq_extract '.api.user' "$config_file")
+    API_TOKEN_ID=$(safe_yq_extract '.api.token_id' "$config_file")
     
     # Control node config
-    CONTROL_CT_ID=$(yq e '.stacks.ansible_control.ct_id' "$config_file" 2>/dev/null)
-    CONTROL_HOSTNAME=$(yq e '.stacks.ansible_control.hostname' "$config_file" 2>/dev/null)
-    CONTROL_IP_OCTET=$(yq e '.stacks.ansible_control.ip_octet' "$config_file" 2>/dev/null)
-    CONTROL_CORES=$(yq e '.stacks.ansible_control.cpu_cores' "$config_file" 2>/dev/null)
-    CONTROL_MEMORY=$(yq e '.stacks.ansible_control.memory_mb' "$config_file" 2>/dev/null)
-    CONTROL_DISK=$(yq e '.stacks.ansible_control.disk_gb' "$config_file" 2>/dev/null)
+    CONTROL_CT_ID=$(safe_yq_extract '.stacks.ansible_control.ct_id' "$config_file")
+    CONTROL_HOSTNAME=$(safe_yq_extract '.stacks.ansible_control.hostname' "$config_file")
+    CONTROL_IP_OCTET=$(safe_yq_extract '.stacks.ansible_control.ip_octet' "$config_file")
+    CONTROL_CORES=$(safe_yq_extract '.stacks.ansible_control.cpu_cores' "$config_file")
+    CONTROL_MEMORY=$(safe_yq_extract '.stacks.ansible_control.memory_mb' "$config_file")
+    CONTROL_DISK=$(safe_yq_extract '.stacks.ansible_control.disk_gb' "$config_file")
     
-    # Set computed values  
+    # Set computed values using branch detection results (not config file)
+    # REPO_URL and REPO_DIR were set by detect_github_branch_and_repo()
     PLAYBOOK_DIR="$REPO_DIR"  # Inside the LXC, same as repo dir
     
-    # Validation - ensure required values are loaded
-    if [[ -z "$PROXMOX_NODE" || "$PROXMOX_NODE" == "null" ]]; then
-        print_error "Failed to load proxmox_node from stacks.yaml"
-        exit 1
+    # Critical validation - ensure required values are loaded and valid
+    local validation_failed=false
+    
+    if [[ -z "$PROXMOX_NODE" ]]; then
+        print_error "Failed to load 'global.proxmox_node' from stacks.yaml"
+        validation_failed=true
     fi
     
-    if [[ -z "$STORAGE_POOL" || "$STORAGE_POOL" == "null" ]]; then
-        print_error "Failed to load storage pool from stacks.yaml"
-        exit 1
+    if [[ -z "$STORAGE_POOL" ]]; then
+        print_error "Failed to load 'storage.pool' from stacks.yaml"
+        validation_failed=true
     fi
     
-    if [[ -z "$CONTROL_CT_ID" || "$CONTROL_CT_ID" == "null" ]]; then
-        print_error "Failed to load ansible_control.ct_id from stacks.yaml"
+    if [[ -z "$CONTROL_CT_ID" ]]; then
+        print_error "Failed to load 'stacks.ansible_control.ct_id' from stacks.yaml"
+        validation_failed=true
+    fi
+    
+    if [[ -z "$API_USER" ]]; then
+        print_error "Failed to load 'api.user' from stacks.yaml"
+        validation_failed=true
+    fi
+    
+    if [[ -z "$API_TOKEN_ID" ]]; then
+        print_error "Failed to load 'api.token_id' from stacks.yaml"
+        validation_failed=true
+    fi
+    
+    if [[ -z "$NETWORK_GATEWAY" ]]; then
+        print_error "Failed to load 'network.gateway' from stacks.yaml"
+        validation_failed=true
+    fi
+    
+    if [[ -z "$NETWORK_BRIDGE" ]]; then
+        print_error "Failed to load 'network.bridge' from stacks.yaml" 
+        validation_failed=true
+    fi
+    
+    if [[ -z "$NETWORK_IP_BASE" ]]; then
+        print_error "Failed to load 'network.ip_base' from stacks.yaml"
+        validation_failed=true
+    fi
+    
+    if [[ "$validation_failed" == "true" ]]; then
+        print_error "Configuration validation failed. Please check your stacks.yaml file."
+        print_info "Expected structure:"
+        print_info "global:"
+        print_info "  proxmox_node: pve01"
+        print_info "storage:"  
+        print_info "  pool: datapool"
+        print_info "stacks:"
+        print_info "  ansible_control:"
+        print_info "    ct_id: 151"
         exit 1
     fi
     
@@ -101,90 +149,126 @@ load_config() {
     print_info "Proxmox Node: $PROXMOX_NODE"
     print_info "Storage Pool: $STORAGE_POOL"
     print_info "Control LXC ID: $CONTROL_CT_ID"
+    print_info "Repository Branch: $REPO_BRANCH"
 }
 
 # --- Branch Detection for Direct GitHub Execution ---
 detect_github_branch_and_repo() {
-    # Simple branch detection for GitHub raw URL execution
-    # User can specify branch by changing the URL: main -> branch-name
+    # Robust branch detection for GitHub raw URL execution
+    # Detects branch from various process command lines and environment variables
     
     local detected_repo="https://github.com/Yakrel/proxmox-homelab-automation.git"
-    local detected_branch="main"  # Default
+    local detected_branch=""
     
-    # Method 1: Environment variable override (explicit)
+    # Method 1: Environment variable override (highest priority)
     if [[ -n "$GITHUB_BRANCH" ]]; then
         detected_branch="$GITHUB_BRANCH"
         print_info "Using branch from environment variable: $detected_branch"
     else
-        # Method 2: Check all processes for curl commands with our URL
+        # Method 2: Comprehensive process inspection for GitHub URLs
         local found_branch=""
         
-        # First check running curl processes
-        if command -v pgrep >/dev/null 2>&1; then
-            local curl_pids=$(pgrep -f "curl.*raw\.githubusercontent\.com.*installer\.sh" 2>/dev/null || echo "")
-            print_info "Found curl PIDs: $curl_pids"
-            for cpid in $curl_pids; do
-                if [[ -f "/proc/$cpid/cmdline" ]]; then
-                    local curl_cmd=$(tr '\0' ' ' < "/proc/$cpid/cmdline" 2>/dev/null || echo "")
-                    print_info "Checking curl command: $curl_cmd"
-                    # Enhanced regex to capture full branch names including slashes
-                    if [[ "$curl_cmd" =~ raw\.githubusercontent\.com/Yakrel/proxmox-homelab-automation/([^/]+/[^/]+)/installer\.sh ]]; then
-                        found_branch="${BASH_REMATCH[1]}"
-                        print_info "Found branch from curl process: $found_branch"
-                        break
-                    elif [[ "$curl_cmd" =~ raw\.githubusercontent\.com/Yakrel/proxmox-homelab-automation/([^/]+)/installer\.sh ]]; then
-                        found_branch="${BASH_REMATCH[1]}"
-                        print_info "Found branch from curl process: $found_branch"
-                        break
-                    fi
-                fi
-            done
-        fi
+        # Enhanced detection: check all bash processes that might contain our URL
+        # This covers various execution methods (curl piped to bash, direct execution, etc.)
+        local search_patterns=(
+            "curl.*raw\.githubusercontent\.com/Yakrel/proxmox-homelab-automation"
+            "bash.*raw\.githubusercontent\.com/Yakrel/proxmox-homelab-automation"  
+            "sh.*raw\.githubusercontent\.com/Yakrel/proxmox-homelab-automation"
+        )
         
-        # Fallback: Check current and parent processes
+        for pattern in "${search_patterns[@]}"; do
+            if command -v pgrep >/dev/null 2>&1; then
+                local matching_pids=$(pgrep -f "$pattern" 2>/dev/null || echo "")
+                if [[ -n "$matching_pids" ]]; then
+                    print_info "Found processes matching pattern '$pattern': $matching_pids"
+                    for pid in $matching_pids; do
+                        if [[ -f "/proc/$pid/cmdline" ]]; then
+                            local cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || echo "")
+                            if [[ -n "$cmdline" ]]; then
+                                print_info "Analyzing process $pid: $cmdline"
+                                # Try to extract branch from command line  
+                                # Flexible pattern: Captures any branch name between repo and /installer.sh
+                                if [[ "$cmdline" =~ raw\.githubusercontent\.com/Yakrel/proxmox-homelab-automation/([^[:space:]]+)/installer\.sh ]]; then
+                                    found_branch="${BASH_REMATCH[1]}"
+                                    print_info "Detected branch: '$found_branch'"
+                                    break 2
+                                fi
+                            fi
+                        fi
+                    done
+                fi
+            fi
+        done
+        
+        # Method 3: Check process tree (parent/child processes)
         if [[ -z "$found_branch" ]]; then
-            print_info "No branch found from curl processes, checking parent processes..."
-            local pid=$$
-            for i in {1..5}; do
-                if [[ -f "/proc/$pid/cmdline" ]]; then
-                    local cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || echo "")
-                    print_info "Checking process $pid: $cmdline"
-                    # Enhanced regex to capture full branch names including slashes
-                    if [[ "$cmdline" =~ raw\.githubusercontent\.com/Yakrel/proxmox-homelab-automation/([^/]+/[^/]+)/installer\.sh ]] || \
-                       [[ "$cmdline" =~ github\.com/Yakrel/proxmox-homelab-automation/([^/]+/[^/]+)/installer\.sh ]]; then
-                        found_branch="${BASH_REMATCH[1]}"
-                        print_info "Found multi-level branch: $found_branch"
-                        break
-                    elif [[ "$cmdline" =~ raw\.githubusercontent\.com/Yakrel/proxmox-homelab-automation/([^/]+)/installer\.sh ]] || \
-                         [[ "$cmdline" =~ github\.com/Yakrel/proxmox-homelab-automation/([^/]+)/installer\.sh ]]; then
-                        found_branch="${BASH_REMATCH[1]}"
-                        print_info "Found single-level branch: $found_branch"
-                        break
+            print_info "Process search unsuccessful, checking process tree..."
+            local current_pid=$$
+            for level in {0..3}; do  # Check up to 3 levels up
+                if [[ -f "/proc/$current_pid/cmdline" ]]; then
+                    local cmdline=$(tr '\0' ' ' < "/proc/$current_pid/cmdline" 2>/dev/null || echo "")
+                    if [[ -n "$cmdline" ]]; then
+                        print_info "Level $level - Process $current_pid: $cmdline"
+                        # Apply same branch detection pattern - flexible for any branch name
+                        if [[ "$cmdline" =~ raw\.githubusercontent\.com/Yakrel/proxmox-homelab-automation/([^[:space:]]+)/installer\.sh ]]; then
+                            found_branch="${BASH_REMATCH[1]}"
+                            print_info "Found branch in process tree: '$found_branch'"
+                            break
+                        fi
                     fi
                 fi
-                local parent_pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
-                [[ -z "$parent_pid" || "$parent_pid" == "1" || "$parent_pid" == "$pid" ]] && break
-                pid="$parent_pid"
+                # Move to parent process
+                local parent_pid=$(ps -o ppid= -p "$current_pid" 2>/dev/null | tr -d ' ')
+                if [[ -z "$parent_pid" || "$parent_pid" == "1" || "$parent_pid" == "$current_pid" ]]; then
+                    break
+                fi
+                current_pid="$parent_pid"
             done
         fi
         
-        if [[ -n "$found_branch" && "$found_branch" != "main" ]]; then
+        # Set detected branch or exit with error
+        if [[ -n "$found_branch" ]]; then
             detected_branch="$found_branch"
-            print_info "Auto-detected branch from URL: $detected_branch"
+            print_info "Successfully detected branch: '$detected_branch'"
         else
-            print_info "Could not detect branch, using default: main"
+            print_error "Failed to detect GitHub branch from execution context"
+            print_error "This installer must be run via GitHub raw URL or with GITHUB_BRANCH set"
+            print_info "Example: bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/BRANCH_NAME/installer.sh)"
+            print_info "Or: GITHUB_BRANCH=my-branch bash <(curl -s https://raw.githubusercontent.com/...main/installer.sh)"
+            exit 1
         fi
     fi
     
     # Set global variables
-    REPO_URL="$detected_repo"
+    REPO_URL="$detected_repo"  
     REPO_DIR="/root/proxmox-homelab-automation"
     REPO_BRANCH="$detected_branch"
     
-    print_info "Using repository branch: $detected_branch"
+    print_info "Repository configuration:"
+    print_info "  URL: $REPO_URL"
+    print_info "  Branch: $REPO_BRANCH"  
+    print_info "  Target directory: $REPO_DIR"
 }
 
 # --- Helper Functions ---
+# --- Helper Functions ---
+
+# Safe yq extraction with proper error handling
+safe_yq_extract() {
+    local path="$1"
+    local config_file="$2"
+    local result
+    
+    result=$(yq e "$path" "$config_file" 2>/dev/null || echo "null")
+    
+    # Return empty string if null or extraction failed
+    if [[ "$result" == "null" || -z "$result" ]]; then
+        echo ""
+    else
+        echo "$result"
+    fi
+}
+
 print_info() { echo -e "\033[36m[INFO]\033[0m $1"; }
 print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
 print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
@@ -237,10 +321,10 @@ ensure_template_available() {
     
     case "$template_type" in
         "alpine")
-            pattern=$(yq e '.templates.alpine_latest' "${PWD}/stacks.yaml" 2>/dev/null)
+            pattern=$(safe_yq_extract '.templates.alpine_latest' "${PWD}/stacks.yaml")
             ;;
         "debian")
-            pattern=$(yq e '.templates.debian_latest' "${PWD}/stacks.yaml" 2>/dev/null)
+            pattern=$(safe_yq_extract '.templates.debian_latest' "${PWD}/stacks.yaml")
             ;;
         *)
             print_error "Unknown template type: $template_type"
@@ -248,7 +332,7 @@ ensure_template_available() {
             ;;
     esac
     
-    if [[ -z "$pattern" || "$pattern" == "null" ]]; then
+    if [[ -z "$pattern" ]]; then
         print_error "Failed to load template pattern for $template_type from stacks.yaml"
         return 1
     fi
@@ -290,9 +374,10 @@ run_ansible_playbook() {
         local stack_name=$(echo "$playbook_command" | sed -n "s/.*stack_name=\([^']*\).*/\1/p")
         if [ -n "$stack_name" ]; then
             # Load template type from stacks.yaml for this specific stack
-            local template_type=$(yq e ".stacks.${stack_name}.template" "${PWD}/stacks.yaml" 2>/dev/null)
+            local template_type
+            template_type=$(yq e ".stacks.${stack_name}.template" "${PWD}/stacks.yaml" 2>/dev/null || echo "")
             
-            if [[ -z "$template_type" || "$template_type" == "null" ]]; then
+            if [[ -z "$template_type" ]]; then
                 print_error "Failed to load template type for stack '$stack_name' from stacks.yaml"
                 return 1
             fi
