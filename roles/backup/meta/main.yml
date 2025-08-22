@@ -1,0 +1,23 @@
+---
+galaxy_info:
+  author: Yakrel
+  description: Proxmox Backup Server stack role for homelab automation
+  company: Personal Project
+
+  license: MIT
+
+  min_ansible_version: "2.16"
+
+  platforms:
+    - name: Proxmox VE
+      versions:
+        - all
+
+  galaxy_tags:
+    - proxmox
+    - backup
+    - pbs
+    - homelab
+
+dependencies:
+  - role: lxc_common

@@ -1,0 +1,29 @@
+---
+# Handlers for LXC Common Role
+
+- name: Reload systemd daemon in LXC
+  ansible.builtin.systemd:
+    daemon_reload: true
+  delegate_to: "{{ hostname }}"
+  listen: "Reload systemd daemon in LXC"
+
+- name: Enable getty service in LXC
+  ansible.builtin.service:
+    name: getty@tty1.service
+    enabled: true
+  delegate_to: "{{ hostname }}"
+  listen: "Enable getty service in LXC"
+
+- name: Restart getty service in LXC
+  ansible.builtin.service:
+    name: getty@tty1.service
+    state: restarted
+  delegate_to: "{{ hostname }}"
+  listen: "Restart getty service in LXC"
+
+- name: Docker service restarted
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+  delegate_to: "{{ hostname }}"
+  listen: "Docker service restarted"

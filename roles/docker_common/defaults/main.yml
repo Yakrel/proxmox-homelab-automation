@@ -1,0 +1,19 @@
+---
+# Default values for Docker common role
+
+# Docker Compose configuration
+docker_compose_project_src: /root
+docker_compose_file: docker-compose.yml
+docker_compose_env_file: .env
+docker_compose_state: present
+
+# Docker service configuration
+docker_service_state: started
+docker_service_enabled: true
+
+# Stack deployment configuration
+docker_stack_validate_compose_file: true
+docker_stack_validate_env_template: true
+
+# Timeout and retry settings
+docker_service_start_timeout: 60

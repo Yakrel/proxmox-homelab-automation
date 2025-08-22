@@ -1,0 +1,105 @@
+---
+# LXC Common Role - Main Tasks
+# This role provides common LXC creation and management tasks
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - lxc_template_name is defined and lxc_template_name | length > 0
+      - ct_id is defined and ct_id | int > 0
+      - hostname is defined and hostname | length > 0
+      - ip_octet is defined and ip_octet | int > 0
+      - cpu_cores is defined and cpu_cores | int > 0
+      - memory_mb is defined and memory_mb | int > 0
+      - disk_gb is defined and disk_gb | int > 0
+    fail_msg: "Required LXC variables are not properly defined"
+    success_msg: "LXC variable validation passed"
+
+- name: Load stack-specific configuration from stacks.yaml
+  ansible.builtin.set_fact:
+    _stacks_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') | from_yaml }}"
+    _current_stack: "{{ stack_name }}"
+
+- name: Set LXC network configuration
+  ansible.builtin.set_fact:
+    lxc_ip_address: "{{ network_ip_base }}.{{ ip_octet }}"
+    lxc_network_config:
+      net0:
+        name: "{{ lxc_network_interface }}"
+        bridge: "{{ network_bridge }}"
+        ip: "{{ network_ip_base }}.{{ ip_octet }}/24"
+        gw: "{{ network_gateway }}"
+
+- name: Set LXC mount configuration
+  ansible.builtin.set_fact:
+    lxc_mount_config:
+      mp0: "{{ storage_pool }}:0,mp={{ datapool_mount }},backup={{ '1' if lxc_backup_enabled else '0' }}"
+  when: lxc_mount_datapool | bool
+
+- name: Create or Update LXC Container on Proxmox host
+  community.proxmox.proxmox:
+    api_host: "{{ proxmox_api_host }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ proxmox_api_token_secret }}"
+    node: "{{ proxmox_node }}"
+    vmid: "{{ ct_id }}"
+    hostname: "{{ hostname }}"
+    state: "{{ lxc_state }}"
+    cores: "{{ cpu_cores }}"
+    memory: "{{ memory_mb }}"
+    disk: "{{ storage_pool }}:{{ disk_gb }}"
+    ostemplate: "{{ lxc_template_name }}"
+    netif: "{{ lxc_network_config }}"
+    mounts: "{{ lxc_mount_config | default(omit) }}"
+    onboot: "{{ lxc_onboot }}"
+    unprivileged: "{{ lxc_unprivileged }}"
+    features: "{{ lxc_features }}"
+  delegate_to: localhost
+  register: lxc_creation_result
+
+- name: Add LXC to Ansible's in-memory inventory
+  ansible.builtin.add_host:
+    name: "{{ hostname }}"
+    ansible_connection: lxc
+    ansible_user: root
+    lxc_template_type: "{{ lxc_template_type }}"
+  changed_when: false
+
+- name: Wait for container to be ready
+  ansible.builtin.wait_for:
+    timeout: "{{ lxc_container_ready_timeout }}"
+  delegate_to: "{{ hostname }}"
+  when: lxc_creation_result is changed
+
+- name: Update package cache in LXC
+  ansible.builtin.command: "{{ 'apk update' if lxc_template_type == 'alpine' else 'apt-get update' }}"
+  delegate_to: "{{ hostname }}"
+  changed_when: false
+  retries: "{{ lxc_package_update_retries }}"
+  delay: "{{ lxc_package_update_delay }}"
+  register: result
+  until: result.rc == 0
+
+- name: Install Docker and Docker Compose Plugin in LXC
+  ansible.builtin.package:
+    name: "{{ docker_packages }}"
+    state: present
+  delegate_to: "{{ hostname }}"
+  vars:
+    docker_packages: >-
+      {{ lxc_docker_packages_alpine if lxc_template_type == 'alpine'
+         else lxc_docker_packages_debian }}
+  when: not (skip_docker_setup | default(false))
+
+- name: Ensure Docker service is started and enabled
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+  delegate_to: "{{ hostname }}"
+  notify: Docker service restarted
+  when: not (skip_docker_setup | default(false))
+
+- name: Apply common LXC security configuration
+  ansible.builtin.include_tasks: security_setup.yml

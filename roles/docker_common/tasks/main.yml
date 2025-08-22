@@ -1,0 +1,63 @@
+---
+# Docker Common Role - Stack Deployment Tasks
+
+- name: Validate Docker stack deployment variables
+  ansible.builtin.assert:
+    that:
+      - stack_name is defined and stack_name | length > 0
+      - hostname is defined and hostname | length > 0
+    fail_msg: "Required Docker stack variables are not defined"
+    success_msg: "Docker stack validation passed"
+
+- name: Set Docker Compose source paths
+  ansible.builtin.set_fact:
+    _docker_compose_source: "{{ playbook_dir }}/docker/{{ stack_name }}/{{ docker_compose_file }}"
+    _docker_env_template_source: "{{ playbook_dir }}/docker/{{ stack_name }}/.env.j2"
+
+- name: Check if Docker Compose source file exists
+  ansible.builtin.stat:
+    path: "{{ _docker_compose_source }}"
+  register: _compose_file_exists
+  delegate_to: localhost
+  when: docker_stack_validate_compose_file | bool
+
+- name: Fail if Docker Compose file doesn't exist
+  ansible.builtin.fail:
+    msg: "Docker Compose file not found at {{ _docker_compose_source }}"
+  when:
+    - docker_stack_validate_compose_file | bool
+    - not _compose_file_exists.stat.exists
+
+- name: Copy Docker Compose file to target
+  ansible.builtin.copy:
+    src: "{{ _docker_compose_source }}"
+    dest: "{{ docker_compose_project_src }}/{{ docker_compose_file }}"
+    mode: '0644'
+  delegate_to: "{{ hostname }}"
+
+- name: Check if .env template exists for this stack
+  ansible.builtin.stat:
+    path: "{{ _docker_env_template_source }}"
+  register: _env_template_exists
+  delegate_to: localhost
+
+- name: Generate .env file from vault secrets
+  ansible.builtin.template:
+    src: "{{ _docker_env_template_source }}"
+    dest: "{{ docker_compose_project_src }}/{{ docker_compose_env_file }}"
+    mode: '0600'
+  delegate_to: "{{ hostname }}"
+  when: _env_template_exists.stat.exists
+
+- name: Ensure Docker service is running
+  ansible.builtin.service:
+    name: docker
+    state: "{{ docker_service_state }}"
+    enabled: "{{ docker_service_enabled }}"
+  delegate_to: "{{ hostname }}"
+
+- name: Deploy Docker Compose stack using native command
+  ansible.builtin.command: >-
+    docker compose -f {{ docker_compose_project_src }}/{{ docker_compose_file }} up -d
+  delegate_to: "{{ hostname }}"
+  changed_when: true

@@ -11,6 +11,8 @@ skip_list:
   - key-order
   # Skip command-instead-of-module for specific shell operations
   - command-instead-of-module
+  # Skip schema validation for our custom platform names
+  - schema[meta]
 
 mock_modules:
   - community.general.proxmox_lxc

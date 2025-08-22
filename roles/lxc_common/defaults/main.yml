@@ -1,0 +1,53 @@
+---
+# Default values for LXC common role
+# These can be overridden by roles that use this common role
+
+# LXC Configuration Defaults
+lxc_state: started
+lxc_unprivileged: true
+lxc_onboot: true
+lxc_backup_enabled: false
+
+# LXC Features (Security and functionality)
+lxc_features:
+  - keyctl=1
+  - nesting=1
+
+# Template defaults
+lxc_template_type: alpine
+lxc_template_name: ""  # Must be provided by calling role or installer
+
+# Network defaults (these get loaded from stacks.yaml via group_vars)
+lxc_network_interface: eth0
+
+# Mount defaults
+lxc_mount_datapool: true
+lxc_datapool_backup: false
+
+# Package management defaults
+lxc_docker_packages_alpine:
+  - docker
+  - docker-cli-compose
+lxc_docker_packages_debian:
+  - docker.io
+  - docker-compose-plugin
+
+lxc_ssh_packages_alpine:
+  - openssh-server
+  - openssh
+lxc_ssh_packages_debian:
+  - openssh-server
+
+# Service names by template type
+lxc_ssh_service_alpine: sshd
+lxc_ssh_service_debian: ssh
+
+# Docker Compose defaults
+lxc_docker_compose_file: docker-compose.yml
+lxc_docker_compose_env_file: .env
+lxc_docker_compose_path: /root
+
+# Retry and timeout settings
+lxc_package_update_retries: 10
+lxc_package_update_delay: 5
+lxc_container_ready_timeout: 300

@@ -1,0 +1,33 @@
+---
+# Default values for backup role
+
+# Stack identification
+stack_name: backup
+
+# Load stack-specific variables from central configuration
+_stacks_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') | from_yaml }}"
+_stack_data: "{{ _stacks_config.stacks.backup }}"
+
+# LXC Configuration from stacks.yaml
+ct_id: "{{ _stack_data.ct_id }}"
+hostname: "{{ _stack_data.hostname }}"
+ip_octet: "{{ _stack_data.ip_octet }}"
+cpu_cores: "{{ _stack_data.cpu_cores }}"
+memory_mb: "{{ _stack_data.memory_mb }}"
+disk_gb: "{{ _stack_data.disk_gb }}"
+lxc_template_type: "{{ _stack_data.template }}"
+lxc_mount_datapool: "{{ _stack_data.mount_datapool }}"
+lxc_onboot: "{{ _stack_data.onboot }}"
+
+# PBS-specific settings
+pbs_datastore_name: "{{ _stack_data.pbs_datastore_name | default('backup-datastore') }}"
+pbs_repo_suite: "{{ _stack_data.pbs_repo_suite | default('trixie') }}"
+pbs_prune_schedule: "{{ _stack_data.pbs_prune_schedule | default('daily') }}"
+pbs_gc_schedule: "{{ _stack_data.pbs_gc_schedule | default('daily') }}"
+pbs_verify_schedule: "{{ _stack_data.pbs_verify_schedule | default('weekly') }}"
+
+# Backup-specific paths (different from regular Docker stacks)
+pbs_datastore_path: /datapool/backups
+
+# Override Docker setup since PBS doesn't use Docker
+skip_docker_setup: true

@@ -1,0 +1,49 @@
+---
+# LXC Docker Compose Deployment Tasks
+# Common tasks for deploying Docker Compose stacks in LXC containers
+
+- name: Validate Docker Compose deployment variables
+  ansible.builtin.assert:
+    that:
+      - stack_name is defined and stack_name | length > 0
+      - hostname is defined and hostname | length > 0
+    fail_msg: "Required Docker Compose deployment variables are not defined"
+    success_msg: "Docker Compose deployment validation passed"
+
+- name: Check if Docker Compose source file exists
+  ansible.builtin.stat:
+    path: "{{ role_path }}/../../docker/{{ stack_name }}/{{ lxc_docker_compose_file }}"
+  register: compose_file_exists
+  delegate_to: localhost
+
+- name: Fail if Docker Compose file doesn't exist
+  ansible.builtin.fail:
+    msg: "Docker Compose file not found at {{ role_path }}/../../docker/{{ stack_name }}/{{ lxc_docker_compose_file }}"
+  when: not compose_file_exists.stat.exists
+
+- name: Copy Docker Compose file to LXC
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../docker/{{ stack_name }}/{{ lxc_docker_compose_file }}"
+    dest: "{{ lxc_docker_compose_path }}/{{ lxc_docker_compose_file }}"
+    mode: '0644'
+  delegate_to: "{{ hostname }}"
+
+- name: Check if .env template exists for this stack
+  ansible.builtin.stat:
+    path: "{{ role_path }}/../../docker/{{ stack_name }}/.env.j2"
+  register: env_template_exists
+  delegate_to: localhost
+
+- name: Generate .env file from vault secrets
+  ansible.builtin.template:
+    src: "{{ role_path }}/../../docker/{{ stack_name }}/.env.j2"
+    dest: "{{ lxc_docker_compose_path }}/{{ lxc_docker_compose_env_file }}"
+    mode: '0600'
+  delegate_to: "{{ hostname }}"
+  when: env_template_exists.stat.exists
+
+- name: Deploy Docker Compose stack
+  ansible.builtin.command: >-
+    docker compose -f {{ lxc_docker_compose_path }}/{{ lxc_docker_compose_file }} up -d
+  delegate_to: "{{ hostname }}"
+  changed_when: true
