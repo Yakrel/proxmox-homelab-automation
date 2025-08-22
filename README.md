@@ -42,6 +42,24 @@ Run the installer directly from GitHub (recommended):
 bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
 ```
 
+### Testing from Feature Branches
+
+For testing changes from feature branches, the installer can automatically detect and use the branch you're running from:
+
+```bash
+# Example: Running from a feature branch - automatically uses that branch
+bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/feature-branch-name/installer.sh)
+```
+
+Alternatively, you can explicitly specify a branch using an environment variable:
+
+```bash
+# Explicitly specify a branch to use
+GITHUB_BRANCH=feature-branch-name bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
+```
+
+The installer will automatically clone the correct branch into the Ansible Control LXC, allowing you to test your changes directly from any branch.
+
 ### Alternative: Local Execution
 
 If you have already cloned the repository:

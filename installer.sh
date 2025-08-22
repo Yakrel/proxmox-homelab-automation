@@ -83,13 +83,72 @@ load_config() {
     print_info "Configuration loaded from stacks.yaml successfully"
 }
 
+# --- Branch Detection for Direct GitHub Execution ---
+detect_github_branch_and_repo() {
+    # Automatically detect branch when running from GitHub raw URL, or use environment variable
+    # This enables testing from feature branches
+    
+    local detected_repo="https://github.com/Yakrel/proxmox-homelab-automation.git"
+    local detected_branch="main"
+    
+    # Method 1: Try to detect from environment variable (explicit override)
+    if [[ -n "$GITHUB_BRANCH" ]]; then
+        detected_branch="$GITHUB_BRANCH"
+        print_info "Using branch from environment variable: $detected_branch"
+    else
+        # Method 2: Try to detect from the way this script was invoked via curl
+        # Check the curl command in process tree
+        local curl_info=""
+        if command -v pgrep >/dev/null 2>&1 && command -v ps >/dev/null 2>&1; then
+            curl_info=$(ps -o args --no-headers -p $(pgrep -f "curl.*raw.githubusercontent.com" | head -1) 2>/dev/null || echo "")
+        fi
+        
+        # Alternative: check parent processes
+        if [[ -z "$curl_info" ]]; then
+            local pid=$$
+            for i in {1..5}; do  # Check up to 5 parent processes
+                if [[ -f "/proc/$pid/cmdline" ]]; then
+                    local cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || echo "")
+                    if [[ "$cmdline" =~ raw\.githubusercontent\.com/[^/]+/[^/]+/([^/]+)/ ]]; then
+                        detected_branch="${BASH_REMATCH[1]}"
+                        print_info "Auto-detected branch from process tree: $detected_branch"
+                        break
+                    fi
+                fi
+                # Move to parent process
+                pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ') 
+                [[ -z "$pid" || "$pid" == "1" ]] && break
+            done
+        elif [[ "$curl_info" =~ raw\.githubusercontent\.com/[^/]+/[^/]+/([^/]+)/ ]]; then
+            detected_branch="${BASH_REMATCH[1]}"
+            print_info "Auto-detected branch from curl command: $detected_branch"
+        fi
+        
+        if [[ "$detected_branch" == "main" ]]; then
+            print_info "Could not detect branch, using main (default)"
+        fi
+    fi
+    
+    # Set global variables
+    REPO_URL="$detected_repo"
+    REPO_DIR="/root/proxmox-homelab-automation"
+    REPO_BRANCH="$detected_branch"
+    
+    if [[ "$detected_branch" != "main" ]]; then
+        print_info "Will clone/use branch: $detected_branch"
+    fi
+}
+
 # --- Hardcoded Configuration Defaults ---
 load_hardcoded_defaults() {
     # Static configuration for direct GitHub execution (original values)
     API_USER="ansible-bot@pve"
     API_TOKEN_ID="ansible-token"
-    REPO_URL="https://github.com/Yakrel/proxmox-homelab-automation.git"
-    REPO_DIR="/root/proxmox-homelab-automation"
+    
+    # Auto-detect branch when running directly from GitHub
+    # This allows testing from feature branches
+    detect_github_branch_and_repo
+    
     TIMEZONE="Europe/Berlin"
 
     # Ansible Control LXC Config
@@ -123,19 +182,36 @@ ensure_repository_exists_and_update() {
     # Safely ensure repository exists and is up to date in the Control Node
     # This function handles edge cases where the directory doesn't exist or is corrupted
     
+    local clone_args=""
+    if [[ -n "$REPO_BRANCH" && "$REPO_BRANCH" != "main" ]]; then
+        clone_args="--branch $REPO_BRANCH"
+        print_info "Using branch: $REPO_BRANCH"
+    fi
+    
     if ! pct exec "$CONTROL_CT_ID" -- test -d "$REPO_DIR"; then
         print_info "Repository directory doesn't exist. Cloning repository..."
-        pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
+        pct exec "$CONTROL_CT_ID" -- git clone $clone_args "$REPO_URL" "$REPO_DIR"
     elif ! pct exec "$CONTROL_CT_ID" -- test -d "$REPO_DIR/.git"; then
         print_warning "Repository directory exists but is not a git repository. Re-cloning..."
         pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
-        pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
+        pct exec "$CONTROL_CT_ID" -- git clone $clone_args "$REPO_URL" "$REPO_DIR"
     else
         print_info "Repository exists. Updating..."
-        if ! pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git pull" 2>/dev/null; then
+        # Check if we're on the correct branch
+        local current_branch
+        current_branch=$(pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git branch --show-current" 2>/dev/null || echo "")
+        
+        if [[ -n "$REPO_BRANCH" && "$current_branch" != "$REPO_BRANCH" ]]; then
+            print_info "Switching to branch: $REPO_BRANCH"
+            if ! pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git checkout $REPO_BRANCH && git pull origin $REPO_BRANCH" 2>/dev/null; then
+                print_warning "Failed to switch to branch $REPO_BRANCH. Re-cloning for safety..."
+                pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
+                pct exec "$CONTROL_CT_ID" -- git clone $clone_args "$REPO_URL" "$REPO_DIR"
+            fi
+        elif ! pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git pull" 2>/dev/null; then
             print_warning "Failed to update repository. Re-cloning for safety..."
             pct exec "$CONTROL_CT_ID" -- rm -rf "$REPO_DIR"
-            pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
+            pct exec "$CONTROL_CT_ID" -- git clone $clone_args "$REPO_URL" "$REPO_DIR"
         fi
     fi
 }
