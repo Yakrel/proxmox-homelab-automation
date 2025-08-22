@@ -5,7 +5,7 @@
 # This script is the single entry point for the entire automation.
 # - On first run, it bootstraps the Ansible Control Node (LXC 151).
 # - On subsequent runs, it acts as a menu to manage the homelab.
-# All configuration is hardcoded for homelab simplicity and consistency.
+# All configuration is loaded from stacks.yaml for consistency.
 
 set -e
 
@@ -16,15 +16,26 @@ set -e
 
 # --- Configuration Loader Function ---
 load_config() {
-    # Load configuration from stacks.yaml if available, otherwise use hardcoded defaults
+    # For direct GitHub execution, download stacks.yaml from the detected branch
     local config_file="${PWD}/stacks.yaml"
     
+    # First detect the branch we're running from
+    detect_github_branch_and_repo
+    
     if [[ ! -f "$config_file" ]]; then
-        print_warning "Configuration file stacks.yaml not found, using hardcoded defaults"
-        print_info "This is normal when running directly from GitHub"
-        # Use hardcoded defaults for direct GitHub execution
-        load_hardcoded_defaults
-        return 0
+        print_info "Downloading stacks.yaml from branch: $REPO_BRANCH"
+        local config_url="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/$REPO_BRANCH/stacks.yaml"
+        
+        if command -v curl >/dev/null 2>&1; then
+            if ! curl -fsSL "$config_url" -o "$config_file"; then
+                print_error "Failed to download stacks.yaml from $config_url"
+                print_error "Please ensure the branch exists and contains stacks.yaml"
+                exit 1
+            fi
+        else
+            print_error "curl not found - cannot download configuration"
+            exit 1
+        fi
     fi
     
     # Extract values from stacks.yaml using yq/awk as fallback
@@ -96,36 +107,46 @@ detect_github_branch_and_repo() {
         detected_branch="$GITHUB_BRANCH"
         print_info "Using branch from environment variable: $detected_branch"
     else
-        # Method 2: Try to detect from the way this script was invoked via curl
-        # Check the curl command in process tree
-        local curl_info=""
-        if command -v pgrep >/dev/null 2>&1 && command -v ps >/dev/null 2>&1; then
-            curl_info=$(ps -o args --no-headers -p $(pgrep -f "curl.*raw.githubusercontent.com" | head -1) 2>/dev/null || echo "")
-        fi
+        # Method 2: Check process tree for the curl command that downloaded this script
+        local found_branch=""
+        local pid=$$
         
-        # Alternative: check parent processes
-        if [[ -z "$curl_info" ]]; then
-            local pid=$$
-            for i in {1..5}; do  # Check up to 5 parent processes
-                if [[ -f "/proc/$pid/cmdline" ]]; then
-                    local cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || echo "")
-                    if [[ "$cmdline" =~ raw\.githubusercontent\.com/[^/]+/[^/]+/([^/]+)/ ]]; then
-                        detected_branch="${BASH_REMATCH[1]}"
-                        print_info "Auto-detected branch from process tree: $detected_branch"
+        # Look through parent processes to find the curl command
+        for i in {1..10}; do  # Check up to 10 parent processes
+            if [[ -f "/proc/$pid/cmdline" ]]; then
+                local cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || echo "")
+                # Match GitHub raw URL pattern: raw.githubusercontent.com/user/repo/branch/file
+                if [[ "$cmdline" =~ raw\.githubusercontent\.com/[^/]+/[^/]+/([^/]+)/[^/]*installer\.sh ]]; then
+                    found_branch="${BASH_REMATCH[1]}"
+                    print_info "Auto-detected branch from URL: $found_branch"
+                    break
+                fi
+            fi
+            # Move to parent process
+            local parent_pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+            [[ -z "$parent_pid" || "$parent_pid" == "1" || "$parent_pid" == "$pid" ]] && break
+            pid="$parent_pid"
+        done
+        
+        # Method 3: Also check running curl processes
+        if [[ -z "$found_branch" ]] && command -v pgrep >/dev/null 2>&1; then
+            local curl_pids=$(pgrep -f "curl.*raw\.githubusercontent\.com.*installer\.sh" 2>/dev/null || echo "")
+            for cpid in $curl_pids; do
+                if [[ -f "/proc/$cpid/cmdline" ]]; then
+                    local curl_cmd=$(tr '\0' ' ' < "/proc/$cpid/cmdline" 2>/dev/null || echo "")
+                    if [[ "$curl_cmd" =~ raw\.githubusercontent\.com/[^/]+/[^/]+/([^/]+)/[^/]*installer\.sh ]]; then
+                        found_branch="${BASH_REMATCH[1]}"
+                        print_info "Auto-detected branch from curl process: $found_branch"
                         break
                     fi
                 fi
-                # Move to parent process
-                pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ') 
-                [[ -z "$pid" || "$pid" == "1" ]] && break
             done
-        elif [[ "$curl_info" =~ raw\.githubusercontent\.com/[^/]+/[^/]+/([^/]+)/ ]]; then
-            detected_branch="${BASH_REMATCH[1]}"
-            print_info "Auto-detected branch from curl command: $detected_branch"
         fi
         
-        if [[ "$detected_branch" == "main" ]]; then
-            print_info "Could not detect branch, using main (default)"
+        if [[ -n "$found_branch" ]]; then
+            detected_branch="$found_branch"
+        else
+            print_info "Could not auto-detect branch, using main (default)"
         fi
     fi
     
@@ -137,39 +158,6 @@ detect_github_branch_and_repo() {
     if [[ "$detected_branch" != "main" ]]; then
         print_info "Will clone/use branch: $detected_branch"
     fi
-}
-
-# --- Hardcoded Configuration Defaults ---
-load_hardcoded_defaults() {
-    # Static configuration for direct GitHub execution (original values)
-    API_USER="ansible-bot@pve"
-    API_TOKEN_ID="ansible-token"
-    
-    # Auto-detect branch when running directly from GitHub
-    # This allows testing from feature branches
-    detect_github_branch_and_repo
-    
-    TIMEZONE="Europe/Berlin"
-
-    # Ansible Control LXC Config
-    CONTROL_CT_ID="151"
-    CONTROL_HOSTNAME="lxc-ansible-control-01"
-    CONTROL_IP_OCTET="151"
-    CONTROL_CORES="2"
-    CONTROL_MEMORY="2048"
-    CONTROL_DISK="10"
-
-    # Network & Storage (Static for homelab)
-    NETWORK_GATEWAY="192.168.1.1"
-    NETWORK_BRIDGE="vmbr0"
-    NETWORK_IP_BASE="192.168.1"
-    STORAGE_POOL="datapool"
-    PROXMOX_NODE="pve01"
-    
-    # Set computed values  
-    PLAYBOOK_DIR="$REPO_DIR"  # Inside the LXC, same as repo dir
-    
-    print_info "Using hardcoded configuration defaults"
 }
 
 # --- Helper Functions ---
