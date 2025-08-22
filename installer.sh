@@ -16,11 +16,15 @@ set -e
 
 # --- Configuration Loader Function ---
 load_config() {
-    # Load configuration from stacks.yaml - single source of truth
+    # Load configuration from stacks.yaml if available, otherwise use hardcoded defaults
     local config_file="${PWD}/stacks.yaml"
+    
     if [[ ! -f "$config_file" ]]; then
-        print_error "Configuration file stacks.yaml not found in current directory"
-        exit 1
+        print_warning "Configuration file stacks.yaml not found, using hardcoded defaults"
+        print_info "This is normal when running directly from GitHub"
+        # Use hardcoded defaults for direct GitHub execution
+        load_hardcoded_defaults
+        return 0
     fi
     
     # Extract values from stacks.yaml using yq/awk as fallback
@@ -77,6 +81,36 @@ load_config() {
     fi
     
     print_info "Configuration loaded from stacks.yaml successfully"
+}
+
+# --- Hardcoded Configuration Defaults ---
+load_hardcoded_defaults() {
+    # Static configuration for direct GitHub execution (original values)
+    API_USER="ansible-bot@pve"
+    API_TOKEN_ID="ansible-token"
+    REPO_URL="https://github.com/Yakrel/proxmox-homelab-automation.git"
+    REPO_DIR="/root/proxmox-homelab-automation"
+    TIMEZONE="Europe/Berlin"
+
+    # Ansible Control LXC Config
+    CONTROL_CT_ID="151"
+    CONTROL_HOSTNAME="lxc-ansible-control-01"
+    CONTROL_IP_OCTET="151"
+    CONTROL_CORES="2"
+    CONTROL_MEMORY="2048"
+    CONTROL_DISK="10"
+
+    # Network & Storage (Static for homelab)
+    NETWORK_GATEWAY="192.168.1.1"
+    NETWORK_BRIDGE="vmbr0"
+    NETWORK_IP_BASE="192.168.1"
+    STORAGE_POOL="datapool"
+    PROXMOX_NODE="pve01"
+    
+    # Set computed values  
+    PLAYBOOK_DIR="$REPO_DIR"  # Inside the LXC, same as repo dir
+    
+    print_info "Using hardcoded configuration defaults"
 }
 
 # --- Helper Functions ---
