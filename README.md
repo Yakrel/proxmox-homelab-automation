@@ -39,22 +39,19 @@ All management is performed through the unified installer script. You can run it
 bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
 ```
 
-### Development & Testing Usage
+### Branch-Specific Usage
 
-The installer now supports testing from different branches without merging to main first, perfect for GitOps workflows:
+The installer supports simple branch selection for testing and development:
 
 ```bash
-# Test from a specific branch:
-bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh) --branch your-feature-branch
+# Method 1: Use environment variable (recommended)
+BRANCH=develop bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/develop/installer.sh)
 
-# Test from a forked repository:
-bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh) --repo-url https://github.com/yourusername/proxmox-homelab-automation.git --branch your-branch
+# Method 2: Use command line argument  
+bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/test/installer.sh) test
 
-# Auto-detect and use current branch (when running from local repository):
-./installer.sh --auto-detect
-
-# Show all available options:
-./installer.sh --help
+# Method 3: Download from specific branch URL and specify branch name
+bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/feature-branch/installer.sh) feature-branch
 ```
 
 Alternatively, if you have already cloned the repository:

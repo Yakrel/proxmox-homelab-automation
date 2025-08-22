@@ -6,52 +6,40 @@
 # - On first run, it bootstraps the Ansible Control Node (LXC 151).
 # - On subsequent runs, it acts as a menu to manage the homelab.
 # All configuration is hardcoded for homelab simplicity and consistency.
+#
+# Branch Usage Examples:
+#   # Use main branch (default)
+#   bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
+#
+#   # Use specific branch via environment variable  
+#   BRANCH=develop bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/develop/installer.sh)
+#
+#   # Use specific branch via command line argument
+#   bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/test/installer.sh) test
 
 set -e
 
-# --- Command Line Arguments ---
-REPO_BRANCH="main"  # Default branch
-REPO_URL="https://github.com/Yakrel/proxmox-homelab-automation.git"  # Default repo
-AUTO_DETECT_BRANCH=false
+# --- Simple Branch Detection ---
+# Default to main branch
+REPO_BRANCH="main"
 
-# Parse command line arguments
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --branch)
-            REPO_BRANCH="$2"
-            shift 2
-            ;;
-        --repo-url)
-            REPO_URL="$2"
-            shift 2
-            ;;
-        --auto-detect)
-            AUTO_DETECT_BRANCH=true
-            shift
-            ;;
-        --help|-h)
-            echo "Usage: $0 [OPTIONS]"
-            echo ""
-            echo "Options:"
-            echo "  --branch BRANCH      Use specific branch (default: main)"
-            echo "  --repo-url URL       Use specific repository URL"
-            echo "  --auto-detect        Auto-detect branch from current directory"
-            echo "  --help, -h           Show this help message"
-            echo ""
-            echo "Examples:"
-            echo "  $0                           # Use main branch (default)"
-            echo "  $0 --branch develop          # Use develop branch"
-            echo "  $0 --auto-detect             # Use current branch from local repo"
-            echo "  $0 --branch feature-test --repo-url https://github.com/user/fork.git"
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $1"
-            echo "Use --help for usage information"
-            exit 1
-            ;;
-    esac
-done
+# Simple branch detection from first argument or environment variable
+# Usage examples:
+#   bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
+#   BRANCH=develop bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/develop/installer.sh)
+#   bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/test/installer.sh) test
+
+if [ -n "$BRANCH" ]; then
+    REPO_BRANCH="$BRANCH"
+    print_info() { echo -e "\033[36m[INFO]\033[0m $1"; }
+    print_info "Using branch from BRANCH environment variable: $REPO_BRANCH"
+elif [ $# -eq 1 ]; then
+    REPO_BRANCH="$1"
+    print_info() { echo -e "\033[36m[INFO]\033[0m $1"; }
+    print_info "Using branch from command line argument: $REPO_BRANCH"
+fi
+
+REPO_URL="https://github.com/Yakrel/proxmox-homelab-automation.git"
 
 # --- Hardcoded Configuration (Static for homelab) ---
 API_USER="ansible-bot@pve"
@@ -80,20 +68,7 @@ print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
 print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 
-# Auto-detect branch if requested and we're in a git repository
-if [ "$AUTO_DETECT_BRANCH" = true ]; then
-    if [ -d ".git" ] && command -v git >/dev/null 2>&1; then
-        DETECTED_BRANCH=$(git branch --show-current 2>/dev/null)
-        if [ -n "$DETECTED_BRANCH" ]; then
-            REPO_BRANCH="$DETECTED_BRANCH"
-            print_info "Auto-detected branch: $REPO_BRANCH"
-        else
-            print_warning "Could not auto-detect branch, using default: $REPO_BRANCH"
-        fi
-    else
-        print_warning "Not in a git repository or git not available, using default branch: $REPO_BRANCH"
-    fi
-fi
+
 
 ensure_repository_exists_and_update() {
     # Safely ensure repository exists and is up to date in the Control Node
