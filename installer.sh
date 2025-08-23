@@ -591,14 +591,13 @@ show_management_menu() {
   [1;32m4[0m) Deploy Media Stack
   [1;32m5[0m) Deploy Files Stack
   [1;32m6[0m) Deploy Webtools Stack
-  [1;32m7[0m) Deploy Ansible Control Stack
-  [1;32m8[0m) Deploy Backup Stack
+  [1;32m7[0m) Deploy Backup Stack
 
 [1;31mQ[0m) Quit
 
 EOF
 
-        read -p "Enter your choice [1-8, Q]: " choice
+        read -p "Enter your choice [1-7, Q]: " choice
 
         case $choice in
             1)
@@ -626,10 +625,6 @@ EOF
                 run_ansible_playbook "deploy.yml --extra-vars 'stack_name=webtools'"
                 ;;
             7)
-                print_info "Deploying Ansible Control Stack..."
-                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=ansible_control'"
-                ;;
-            8)
                 print_info "Deploying Backup Stack..."
                 run_ansible_playbook "deploy.yml --extra-vars 'stack_name=backup'"
                 ;;
