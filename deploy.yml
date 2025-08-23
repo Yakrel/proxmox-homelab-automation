@@ -2,7 +2,7 @@
 - name: Deploy a specific LXC stack with best practices
   hosts: localhost
   connection: local
-  gather_facts: false
+  gather_facts: true
   vars_files:
     - secrets.yml
 
@@ -11,10 +11,7 @@
       ansible.builtin.set_fact:
         stack_name: "{{ stack_name | default('proxy') }}"
 
-    - name: Set API token from environment or extra vars
-      ansible.builtin.set_fact:
-        proxmox_api_token_secret: "{{ proxmox_api_token_secret | default(ansible_env.PROXMOX_API_TOKEN_SECRET | default('')) }}"
-      when: proxmox_api_token_secret is not defined or proxmox_api_token_secret == ""
+
 
     - name: Display deployment information
       ansible.builtin.debug:
@@ -30,7 +27,7 @@
           - stack_name in homelab_config.stacks.keys()
         fail_msg: |
           Stack '{{ stack_name }}' is not defined in stacks.yaml.
-          Available stacks: {{ homelab_config.stacks.keys() | list | 
+          Available stacks: {{ homelab_config.stacks.keys() | list |
           join(', ') }}
         success_msg: "Stack '{{ stack_name }}' found in configuration."
 
@@ -41,18 +38,20 @@
         fail_msg: "Required variable '{{ item }}' is not defined or empty"
         success_msg: "Global variables validation passed"
       loop: "{{ homelab_required_vars }}"
-    
+
     - name: Validate Proxmox API credentials
       ansible.builtin.assert:
         that:
           - proxmox_api_user is defined
           - proxmox_api_token_id is defined
           - proxmox_node is defined
-          - proxmox_api_token_secret is defined and proxmox_api_token_secret != ""
+          - proxmox_api_token_secret is defined and
+            proxmox_api_token_secret != ""
         fail_msg: |
-          Required Proxmox API credentials are not available.
-          Token secret: {{ proxmox_api_token_secret | default('NOT_SET') }}
-          This should be automatically provided by the installer script.
+          Required Proxmox API credentials are missing.
+          These credentials must be provided by the installer.sh script via extra-vars.
+          Do not run this playbook directly - use the installer.sh menu system instead.
+          Token secret status: {{ proxmox_api_token_secret | default('NOT_PROVIDED') }}
         success_msg: "API credentials validation passed."
 
     - name: Load and validate stack-specific configuration

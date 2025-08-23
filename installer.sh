@@ -477,13 +477,9 @@ run_first_time_setup() {
         # Create new secrets file
         local VAULT_CONTENT
         VAULT_CONTENT=$(cat <<EOF
-# Proxmox API Configuration
-proxmox_api_user: $API_USER
-proxmox_api_token_id: $API_TOKEN_ID
-proxmox_api_token_secret: $TOKEN_SECRET
-proxmox_node: $PROXMOX_NODE
-
 # Stack Environment Variables
+# Note: Proxmox API credentials are automatically managed by installer.sh
+# and passed directly to playbooks via extra-vars
 # Proxy Stack
 cloudflared_token: "REPLACE_WITH_YOUR_CLOUDFLARE_TUNNEL_TOKEN"
 
