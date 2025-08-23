@@ -107,8 +107,66 @@ ensure_template_available() {
     fi
 }
 
+# --- Helper Functions ---
+
+get_current_api_token() {
+    local TOKEN_SECRET=""
+    
+    # Check if token already exists
+    local token_exists=false
+    if pveum user token list "$API_USER" 2>/dev/null | grep -q "$API_TOKEN_ID"; then
+        token_exists=true
+    elif pveum user token list "$API_USER" --output-format json 2>/dev/null | grep -q '"tokenid": "'$API_TOKEN_ID'"'; then
+        token_exists=true
+    fi
+    
+    if [ "$token_exists" = true ]; then
+        # Token exists, but we need to recreate it to get the secret
+        # (Proxmox doesn't allow retrieving existing token secrets)
+        print_info "Refreshing API token '$API_TOKEN_ID'..."
+        
+        # Remove existing token
+        if ! pveum user token remove "$API_USER" "$API_TOKEN_ID" 2>/dev/null; then
+            print_error "Failed to remove existing token"
+            return 1
+        fi
+        sleep 1
+    fi
+    
+    # Create new token
+    local TOKEN_OUTPUT
+    if TOKEN_OUTPUT=$(pveum user token add "$API_USER" "$API_TOKEN_ID" --comment "Token for Ansible automation" 2>&1); then
+        # Extract secret using multiple patterns
+        TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | sed -n 's/.*secret: *\(.*\)/\1/p')
+        if [ -z "$TOKEN_SECRET" ]; then
+            TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | awk '/'"$API_TOKEN_ID"'/ {for(i=1;i<=NF;i++) if($i ~ /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/) print $i}' | tr -d '│ ')
+        fi
+        if [ -z "$TOKEN_SECRET" ]; then
+            TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
+        fi
+        
+        if [ -n "$TOKEN_SECRET" ]; then
+            echo "$TOKEN_SECRET"
+            return 0
+        else
+            print_error "Failed to extract token secret"
+            return 1
+        fi
+    else
+        print_error "Failed to create API token: $TOKEN_OUTPUT"
+        return 1
+    fi
+}
+
 run_ansible_playbook() {
     local playbook_command="$1"
+    
+    # Get fresh API token for this session
+    local CURRENT_TOKEN_SECRET
+    if ! CURRENT_TOKEN_SECRET=$(get_current_api_token); then
+        print_error "Failed to get API token. Playbook execution aborted."
+        return 1
+    fi
     
     # For deployment commands, ensure required template is available
     if [[ "$playbook_command" =~ deploy\.yml ]]; then
@@ -145,9 +203,8 @@ run_ansible_playbook() {
         vault_param="--vault-password-file /root/.vault_pass"
     fi
 
-    # Execute the command, teeing the output to a file in the host, and also displaying it.
-    # We check the exit status of the pct exec command, not tee.
-    pct exec "$CONTROL_CT_ID" -- bash -l -c "cd $PLAYBOOK_DIR && ansible-playbook $vault_param $playbook_command" 2>&1 | tee "$playbook_output_file"
+    # Execute the command with API token as environment variable
+    pct exec "$CONTROL_CT_ID" -- bash -l -c "cd $PLAYBOOK_DIR && PROXMOX_API_TOKEN_SECRET='$CURRENT_TOKEN_SECRET' ansible-playbook $vault_param --extra-vars 'proxmox_api_token_secret=$CURRENT_TOKEN_SECRET' $playbook_command" 2>&1 | tee "$playbook_output_file"
     playbook_exit_code=${PIPESTATUS[0]}
 
     if [ $playbook_exit_code -eq 0 ]; then
@@ -585,7 +642,6 @@ EOF
                 ;;
         esac
         print_info "Operation finished. Press Enter to return to the menu..."
-        read
         read
     done
 }

@@ -11,6 +11,11 @@
       ansible.builtin.set_fact:
         stack_name: "{{ stack_name | default('proxy') }}"
 
+    - name: Set API token from environment or extra vars
+      ansible.builtin.set_fact:
+        proxmox_api_token_secret: "{{ proxmox_api_token_secret | default(ansible_env.PROXMOX_API_TOKEN_SECRET | default('')) }}"
+      when: proxmox_api_token_secret is not defined or proxmox_api_token_secret == ""
+
     - name: Display deployment information
       ansible.builtin.debug:
         msg:
@@ -36,16 +41,18 @@
         fail_msg: "Required variable '{{ item }}' is not defined or empty"
         success_msg: "Global variables validation passed"
       loop: "{{ homelab_required_vars }}"
+    
     - name: Validate Proxmox API credentials
       ansible.builtin.assert:
         that:
           - proxmox_api_user is defined
           - proxmox_api_token_id is defined
-          - proxmox_api_token_secret is defined
           - proxmox_node is defined
-        fail_msg: "Required Proxmox API credentials are not available.
-          Please ensure secrets.yml is properly configured and vault
-          password is correct."
+          - proxmox_api_token_secret is defined and proxmox_api_token_secret != ""
+        fail_msg: |
+          Required Proxmox API credentials are not available.
+          Token secret: {{ proxmox_api_token_secret | default('NOT_SET') }}
+          This should be automatically provided by the installer script.
         success_msg: "API credentials validation passed."
 
     - name: Load and validate stack-specific configuration
