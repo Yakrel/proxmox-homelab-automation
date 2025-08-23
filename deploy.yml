@@ -2,7 +2,7 @@
 - name: Deploy a specific LXC stack with best practices
   hosts: localhost
   connection: local
-  gather_facts: false
+  gather_facts: true
   vars_files:
     - secrets.yml
 
@@ -11,10 +11,10 @@
       ansible.builtin.set_fact:
         stack_name: "{{ stack_name | default('proxy') }}"
 
-    - name: Set API token from environment or extra vars
+    - name: Override API token from environment if available (fresh token takes priority)
       ansible.builtin.set_fact:
-        proxmox_api_token_secret: "{{ proxmox_api_token_secret | default(ansible_env.PROXMOX_API_TOKEN_SECRET | default('')) }}"
-      when: proxmox_api_token_secret is not defined or proxmox_api_token_secret == ""
+        proxmox_api_token_secret: "{{ ansible_env.PROXMOX_API_TOKEN_SECRET }}"
+      when: ansible_env.PROXMOX_API_TOKEN_SECRET is defined and ansible_env.PROXMOX_API_TOKEN_SECRET != ""
 
     - name: Display deployment information
       ansible.builtin.debug:
