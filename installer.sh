@@ -573,20 +573,18 @@ show_game_server_menu() {
     while true; do
         clear
         cat << EOF
-$(echo -e "\033[1;34m")
 ===============================================
           Game Server Management
 ===============================================
-$(echo -e "\033[0m")
 
-[1;33mGame Server Options:[0m
-  [1;32m1[0m) Deploy Base Stack (LXC + Watchtower)
-  [1;32m2[0m) Deploy Satisfactory Server
-  [1;32m3[0m) Deploy Palworld Server
-  [1;32m4[0m) Stop All Game Servers
-  [1;32m5[0m) Switch Game (Stop Current, Start Another)
+Game Server Options:
+  1) Deploy Base Stack (LXC + Watchtower)
+  2) Deploy Satisfactory Server
+  3) Deploy Palworld Server
+  4) Stop All Game Servers
+  5) Switch Game (Stop Current, Start Another)
 
-[1;31mB[0m) Back to Main Menu
+B) Back to Main Menu
 
 EOF
 
@@ -682,24 +680,26 @@ show_management_menu() {
         clear
         cat << EOF
 
-[1;36m=================================================[0m
-[1;37m       Proxmox Homelab Automation - Main Menu[0m
-[1;36m=================================================[0m
+=================================================
+       Proxmox Homelab Automation - Main Menu
+=================================================
 
-  [1;32m1[0m) Configure Proxmox Host (Timezone, Security, etc.)
-  [1;32m2[0m) Deploy Proxy Stack
-  [1;32m3[0m) Deploy Monitoring Stack
-  [1;32m4[0m) Deploy Media Stack
-  [1;32m5[0m) Deploy Files Stack
-  [1;32m6[0m) Deploy Webtools Stack
-  [1;32m7[0m) Deploy Backup Stack
-  [1;32m8[0m) Game Server Management
+  1) Configure Proxmox Host (Timezone, Security, etc.)
+  2) Deploy Proxy Stack
+  3) Deploy Monitoring Stack
+  4) Deploy Media Stack
+  5) Deploy Files Stack
+  6) Deploy Webtools Stack
+  7) Deploy Backup Stack
 
-  [1;31mQ[0m) Quit
+Game Servers:
+  9) Game Server Management
+
+Q) Quit
 
 EOF
 
-        read -p "Enter your choice [1-8, Q]: " choice
+        read -p "Enter your choice [1-9, Q]: " choice
 
         case $choice in
             1)
@@ -730,7 +730,7 @@ EOF
                 print_info "Deploying Backup Stack..."
                 run_ansible_playbook "deploy.yml --extra-vars 'stack_name=backup'"
                 ;;
-            8)
+            9)
                 show_game_server_menu
                 ;;
             [Qq])
