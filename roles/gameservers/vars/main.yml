@@ -1,0 +1,22 @@
+---
+# Variables for Game Servers role
+
+# Container networking - will be set by LXC common role
+# These are used by the Docker Compose files
+container_ip: "{{ ansible_default_ipv4.address | default('127.0.0.1') }}"
+
+# Game server ports (for reference and potential firewall rules)
+game_ports:
+  satisfactory:
+    game_port: 7777
+    query_port: 15000
+    beacon_port: 15777
+  palworld:
+    game_port: 8211
+    query_port: 27015
+
+# Data paths
+game_data_root: /datapool/config
+game_configs:
+  satisfactory: "{{ game_data_root }}/satisfactory"
+  palworld: "{{ game_data_root }}/palworld"
