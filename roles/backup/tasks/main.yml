@@ -1,10 +1,6 @@
 ---
 # Backup role - Simplified using common roles
 
-- name: Include stack-specific variables (for backward compatibility)
-  ansible.builtin.include_vars: "vars/main.yml"
-  when: false  # Disabled as we use defaults now
-
 - name: Check if generated API credentials exist
   ansible.builtin.stat:
     path: /etc/ansible_secrets/credentials.yml

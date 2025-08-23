@@ -60,7 +60,6 @@
 
 - name: Deploy Docker Compose stack using native command
   ansible.builtin.command: >-
-    docker compose -f {{ docker_compose_project_src }}/
-    {{ docker_compose_file }} up -d
+    docker compose -f {{ docker_compose_project_src }}/{{ docker_compose_file }} up -d --remove-orphans
   delegate_to: "{{ hostname }}"
   changed_when: true
