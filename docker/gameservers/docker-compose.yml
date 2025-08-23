@@ -1,0 +1,26 @@
+# Base Game Servers Stack - Watchtower and Shared Network Only
+# Use this as the foundation, then deploy individual games separately
+---
+networks:
+  gameserver-net:
+    driver: bridge
+
+services:
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    environment:
+      - TZ=Europe/Istanbul
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=3600  # Check every hour
+      - WATCHTOWER_ROLLING_RESTART=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - gameserver-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

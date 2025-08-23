@@ -62,7 +62,8 @@ This project is divided into several service stacks, each defined by an Ansible 
 | Files | File management services | 102 | `roles/files` |
 | Webtools | Web-based utilities | 103 | `roles/webtools` |
 | Monitoring | Prometheus, Grafana | 104 | `roles/monitoring` |
-| Development | Development tools | 105 | `roles/development` |
+| Game Servers | Satisfactory, Palworld servers | 105 | `roles/gameservers` |
+| Development | Development tools | 106 | `roles/development` |
 | Backup | Proxmox Backup Server | 150 | `roles/backup` |
 
 ## 🔐 Configuration

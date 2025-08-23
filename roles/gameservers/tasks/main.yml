@@ -1,0 +1,91 @@
+---
+# Game servers role - Simplified using common roles
+
+- name: Include stack-specific variables (for backward compatibility)
+  ansible.builtin.include_vars: "vars/main.yml"
+  when: false  # Disabled as we use defaults now
+
+- name: Check if generated API credentials exist
+  ansible.builtin.stat:
+    path: /etc/ansible_secrets/credentials.yml
+  register: creds_file
+
+- name: Include generated API credentials if they exist
+  ansible.builtin.include_vars: /etc/ansible_secrets/credentials.yml
+  when: creds_file.stat.exists
+
+- name: Validate template name from installer
+  ansible.builtin.assert:
+    that:
+      - lxc_template is defined and lxc_template | length > 0
+    fail_msg: >-
+      No template name provided. This should be passed as an extra
+      variable by the installer script.
+    success_msg: "LXC template validation passed"
+
+- name: Set template name for common role
+  ansible.builtin.set_fact:
+    lxc_template_name: "{{ lxc_template }}"
+
+# The lxc_common role dependency will handle:
+# - LXC creation and configuration
+# - Docker installation
+# - Security setup
+# This is defined in meta/main.yml dependencies
+
+- name: Set Docker Compose file based on game selection
+  ansible.builtin.set_fact:
+    docker_compose_file: "{{ game_name | default('docker-compose') }}.yml"
+
+- name: Handle special game management operations
+  block:
+    - name: Stop all game servers (keep Watchtower running)
+      ansible.builtin.shell: |
+        cd /opt/gameservers
+        # Stop any running game containers but keep watchtower
+        docker compose -f satisfactory.yml down 2>/dev/null || true
+        docker compose -f palworld.yml down 2>/dev/null || true
+      when: game_name is defined and game_name == 'stop_all'
+
+    - name: End playbook after stopping games
+      ansible.builtin.meta: end_play
+      when: game_name is defined and game_name == 'stop_all'
+
+- name: Ensure base stack is running for individual games
+  block:
+    - name: Check if base stack is running (Watchtower and network)
+      ansible.builtin.shell: |
+        cd /opt/gameservers
+        docker compose -f docker-compose.yml ps -q watchtower
+      register: watchtower_running
+      failed_when: false
+      delegate_to: "{{ hostname }}"
+      when: game_name is defined and game_name != 'docker-compose'
+
+    - name: Start base stack if needed
+      ansible.builtin.command: >-
+        docker compose -f /opt/gameservers/docker-compose.yml up -d
+      delegate_to: "{{ hostname }}"
+      when:
+        - game_name is defined
+        - game_name != 'docker-compose'
+        - watchtower_running.stdout == ""
+
+    - name: Stop any currently running games before starting new one
+      ansible.builtin.shell: |
+        cd /opt/gameservers
+        # Stop other games but keep watchtower running
+        if [ "{{ game_name }}" != "satisfactory" ]; then
+          docker compose -f satisfactory.yml down 2>/dev/null || true
+        fi
+        if [ "{{ game_name }}" != "palworld" ]; then
+          docker compose -f palworld.yml down 2>/dev/null || true
+        fi
+      delegate_to: "{{ hostname }}"
+      when: >-
+        game_name is defined and
+        game_name in ['satisfactory', 'palworld']
+
+- name: Deploy Docker Compose stack using common role
+  ansible.builtin.include_role:
+    name: docker_common
