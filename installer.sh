@@ -136,12 +136,39 @@ run_ansible_playbook() {
     print_info "Executing playbook..."
     
     # Run ansible-playbook, stream output to user, and capture it for error checking
-    local playbook_output_file="/tmp/ansible_output_$"
+    local playbook_output_file="/tmp/ansible_output_$$"
     local playbook_exit_code=0
+    
+    # Check if vault password file exists for easier UX
+    local vault_param="--ask-vault-pass"
+    if pct exec "$CONTROL_CT_ID" -- test -f /root/.vault_pass; then
+        vault_param="--vault-password-file /root/.vault_pass"
+    fi
 
     # Execute the command, teeing the output to a file in the host, and also displaying it.
     # We check the exit status of the pct exec command, not tee.
-    pct exec "$CONTROL_CT_ID" -- bash -l -c "cd $PLAYBOOK_DIR && ansible-playbook --ask-vault-pass $playbook_command" 2>&1 | tee "$playbook_output_file"
+    pct exec "$CONTROL_CT_ID" -- bash -l -c "cd $PLAYBOOK_DIR && ansible-playbook $vault_param $playbook_command" 2>&1 | tee "$playbook_output_file"
+    playbook_exit_code=${PIPESTATUS[0]}
+
+    if [ $playbook_exit_code -eq 0 ]; then
+        print_success "Playbook execution completed successfully."
+        vault_result=0
+    else
+        print_error "Playbook execution failed. Please check the logs."
+        # Check if it's specifically a vault decryption error
+        if grep -q "Decryption failed" "$playbook_output_file"; then
+            print_error "Vault decryption failed. Please verify your vault password is correct."
+            print_info "You can check/edit your secrets with:"
+            print_info "pct exec $CONTROL_CT_ID -- bash -l -c 'ansible-vault edit $PLAYBOOK_DIR/secrets.yml'"
+        fi
+        vault_result=1
+    fi
+    
+    # Clean up the output file
+    rm -f "$playbook_output_file"
+    
+    return $vault_result
+}
     playbook_exit_code=${PIPESTATUS[0]}
 
     if [ $playbook_exit_code -eq 0 ]; then
@@ -470,6 +497,14 @@ EOF
         
         if pct exec "$CONTROL_CT_ID" -- bash -l -c "ansible-vault encrypt --ask-vault-pass $secrets_file_path"; then
             print_success "secrets.yml file encrypted successfully."
+            
+            # Automatically save vault password for convenience
+            print_info "Saving vault password for convenience..."
+            print_info "Please enter your vault password again to save it:"
+            read -s -p "Vault password: " vault_pass
+            echo
+            pct exec "$CONTROL_CT_ID" -- bash -c "echo '$vault_pass' > /root/.vault_pass && chmod 600 /root/.vault_pass"
+            print_success "Vault password saved for future operations."
         else
             print_error "Failed to encrypt secrets.yml file."
             print_warning "The file was created as plaintext. Please encrypt it manually:"
@@ -514,16 +549,16 @@ show_management_menu() {
 [1;33mHost Management:[0m
   [1;32m1[0m) Configure Proxmox Host (Timezone, Security, etc.)
 
-[1;33mDeploy Stacks:[0m
-  [1;32m2[0m) Deploy Proxy Stack
-  [1;32m3[0m) Deploy Monitoring Stack
-  [1;32m4[0m) Deploy Media Stack
-  [1;32m5[0m) Deploy Files Stack
-  [1;32m6[0m) Deploy Webtools Stack
-  [1;32m7[0m) Deploy Ansible Control Stack
-  [1;32m8[0m) Deploy Backup Stack
+[1;33mDeploy Stacks:[0m
+  [1;32m2[0m) Deploy Proxy Stack
+  [1;32m3[0m) Deploy Monitoring Stack
+  [1;32m4[0m) Deploy Media Stack
+  [1;32m5[0m) Deploy Files Stack
+  [1;32m6[0m) Deploy Webtools Stack
+  [1;32m7[0m) Deploy Ansible Control Stack
+  [1;32m8[0m) Deploy Backup Stack
 
-[1;31mQ[0m) Quit
+[1;31mQ[0m) Quit
 
 EOF
 
@@ -571,6 +606,7 @@ EOF
                 ;;
         esac
         print_info "Operation finished. Press Enter to return to the menu..."
+        read
         read
     done
 }

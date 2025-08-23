@@ -70,16 +70,50 @@ All secrets (API keys, passwords, etc.) are now managed in a single encrypted fi
 
 ## Service Stacks
 
-This project is divided into several service stacks, each defined by an Ansible role in the `roles/` directory. Configuration for each stack (like Docker images and versions) can be found in the `vars/main.yml` file within its role directory.
+This project is divided into several service stacks, each defined by an Ansible role in the `roles/` directory. Each stack runs in its own LXC container for isolation and resource management.
+
+### Available Stacks:
 
 - **Host Configuration** (`roles/proxmox_host_setup`)
-- **Proxy Stack** (`roles/proxy`)
-- **Media Stack** (`roles/media`)
-- **Files Stack** (`roles/files`)
-- **Webtools Stack** (`roles/webtools`)
-- **Monitoring Stack** (`roles/monitoring`)
-- **Development Stack** (`roles/development`)
-- **Backup Stack** (`roles/backup`)
+  - Configures Proxmox host security, networking, and services
+  - Sets up fail2ban, chrony, sanoid, Samba shares
+
+- **Proxy Stack** (`roles/proxy`) - *LXC 100*
+  - **Services**: Cloudflare Tunnel, Promtail, Watchtower
+  - **Purpose**: Secure external access and log aggregation
+  - **Resources**: 2 CPU cores, 2GB RAM
+
+- **Media Stack** (`roles/media`) - *LXC 101*  
+  - **Services**: Plex, Sonarr, Radarr, Bazarr, Prowlarr
+  - **Purpose**: Complete media server and automation
+  - **Resources**: 6 CPU cores, 10GB RAM (media processing intensive)
+
+- **Files Stack** (`roles/files`) - *LXC 102*
+  - **Services**: File management and sharing utilities
+  - **Purpose**: Network file access and management
+  - **Resources**: 2 CPU cores, 3GB RAM
+
+- **Webtools Stack** (`roles/webtools`) - *LXC 103*
+  - **Services**: Web-based utilities and tools
+  - **Purpose**: Homelab management and utility access
+  - **Resources**: 2 CPU cores, 6GB RAM
+
+- **Monitoring Stack** (`roles/monitoring`) - *LXC 104*
+  - **Services**: Prometheus, Grafana, AlertManager, Node Exporter
+  - **Purpose**: Infrastructure monitoring and alerting
+  - **Resources**: 4 CPU cores, 6GB RAM
+  - **Access**: Grafana at `http://your-ip:3000`
+
+- **Backup Stack** (`roles/backup`) - *LXC 150*
+  - **Services**: Proxmox Backup Server (PBS)
+  - **Purpose**: Automated backup with retention policies
+  - **Resources**: 4 CPU cores, 8GB RAM, 50GB storage
+  - **Access**: PBS Web UI at `https://your-ip:8007`
+
+### Resource Requirements:
+- **Total recommended**: 20+ CPU cores, 32GB+ RAM
+- **Storage**: ZFS pool named `datapool` required
+- **Network**: 192.168.1.0/24 with available IPs 100-151
 
 ## 🔒 Comprehensive Backup System
 
