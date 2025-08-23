@@ -480,54 +480,47 @@ EOF"
     fi
     
     if [ "$create_new_secrets" = true ]; then
-        # Create new secrets file using the template
+        # Create new secrets file
         local VAULT_CONTENT
-        if [ -f "$REPO_DIR/secrets_template.yml" ]; then
-            # Use the existing template file
-            VAULT_CONTENT=$(cat "$REPO_DIR/secrets_template.yml")
-            print_info "Using secrets template from repository..."
-        else
-            # Fallback template for backward compatibility
-            print_warning "secrets_template.yml not found, using fallback template..."
-            VAULT_CONTENT=$(cat <<EOF
-# Ansible Vault for Proxmox Homelab
-# Note: Proxmox API credentials are automatically managed by installer.sh
-# and passed as environment variables/extra-vars to playbooks
+        VAULT_CONTENT=$(cat <<EOF
+# Proxmox API Configuration
+proxmox_api_user: $API_USER
+proxmox_api_token_id: $API_TOKEN_ID
+proxmox_api_token_secret: $TOKEN_SECRET
+proxmox_node: $PROXMOX_NODE
 
-# Secrets for the 'proxy' stack
-proxy_secrets:
-  cloudflare_token: "REPLACE_WITH_YOUR_CLOUDFLARE_TUNNEL_TOKEN"
+# Stack Environment Variables
+# Proxy Stack
+cloudflared_token: "REPLACE_WITH_YOUR_CLOUDFLARE_TUNNEL_TOKEN"
 
-# Secrets for the 'monitoring' stack
-monitoring_secrets:
-  grafana_admin_user: "admin"
-  grafana_admin_password: "REPLACE_WITH_YOUR_GRAFANA_PASSWORD"
-  pve_exporter_user: "REPLACE_WITH_PVE_USER"
-  pve_exporter_password: "REPLACE_WITH_PVE_PASSWORD"
-  pve_exporter_url: "https://pve01:8006/pve2/api/jsonrpc"
-  pve_exporter_verify_ssl: false
+# Monitoring Stack  
+grafana_admin_user: "admin"
+grafana_admin_password: "REPLACE_WITH_SECURE_PASSWORD"
+pve_exporter_user: "pve-exporter@pve"
+pve_exporter_password: "REPLACE_WITH_SECURE_PASSWORD"
+pve_url: "https://192.168.1.10:8006"
+pve_verify_ssl: "false"
 
-# Secrets for the 'webtools' stack
-webtools_secrets:
-  firefox_vnc_password: "REPLACE_WITH_VNC_PASSWORD"
-  homepage_sonarr_api_key: "REPLACE_WITH_SONARR_API_KEY"
-  homepage_radarr_api_key: "REPLACE_WITH_RADARR_API_KEY"
-  homepage_prowlarr_api_key: "REPLACE_WITH_PROWLARR_API_KEY"
-  homepage_bazarr_api_key: "REPLACE_WITH_BAZARR_API_KEY"
-  homepage_jellyfin_api_key: "REPLACE_WITH_JELLYFIN_API_KEY"
-  homepage_jellyseerr_api_key: "REPLACE_WITH_JELLYSEERR_API_KEY"
-  homepage_qb_username: "REPLACE_WITH_QB_USERNAME"
-  homepage_qb_password: "REPLACE_WITH_QB_PASSWORD"
-  homepage_grafana_username: "admin"
-  homepage_grafana_password: "REPLACE_WITH_GRAFANA_PASSWORD"
+# Files Stack
+jdownloader_vnc_password: "REPLACE_WITH_SECURE_PASSWORD"
+palmr_encryption_key: "REPLACE_WITH_SECURE_KEY"
+palmr_app_url: "REPLACE_WITH_YOUR_PALMR_URL"
 
-# Secrets for the 'files' stack (JDownloader, Palmr)
-files_secrets:
-  jdownloader_vnc_password: "REPLACE_WITH_VNC_PASSWORD"
-  palmr_encryption_key: "REPLACE_WITH_PALMR_ENCRYPTION_KEY"
-  palmr_app_url: "REPLACE_WITH_PALMR_APP_URL"
-EOF
-)
+# Webtools Stack
+firefox_vnc_password: "REPLACE_WITH_SECURE_PASSWORD"
+homepage_sonarr_api_key: "REPLACE_WITH_SONARR_API_KEY"
+homepage_radarr_api_key: "REPLACE_WITH_RADARR_API_KEY"
+homepage_prowlarr_api_key: "REPLACE_WITH_PROWLARR_API_KEY"
+homepage_bazarr_api_key: "REPLACE_WITH_BAZARR_API_KEY" 
+homepage_jellyfin_api_key: "REPLACE_WITH_JELLYFIN_API_KEY"
+homepage_jellyseerr_api_key: "REPLACE_WITH_JELLYSEERR_API_KEY"
+homepage_qb_username: "REPLACE_WITH_QB_USERNAME"
+homepage_qb_password: "REPLACE_WITH_QB_PASSWORD"
+homepage_grafana_username: "admin"
+homepage_grafana_password: "REPLACE_WITH_GRAFANA_PASSWORD"
+
+# Common Settings
+timezone: "Europe/Istanbul"
 EOF
 )
         # Use pct push to create the file
