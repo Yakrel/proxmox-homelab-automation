@@ -10,13 +10,6 @@
   ansible.builtin.include_vars: /etc/ansible_secrets/credentials.yml
   when: creds_file.stat.exists
 
-- name: Validate template name from installer
-  ansible.builtin.assert:
-    that:
-      - lxc_template_name is defined and lxc_template_name | length > 0
-    fail_msg: "No template name provided. Template name should be passed as
-      lxc_template extra variable by the installer script and set in defaults."
-    success_msg: "LXC template validation passed"
 
 # The lxc_common role dependency will handle:
 # - LXC creation and configuration

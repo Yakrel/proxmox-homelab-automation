@@ -11,65 +11,20 @@
       ansible.builtin.set_fact:
         stack_name: "{{ stack_name | default('proxy') }}"
 
-
-
     - name: Display deployment information
       ansible.builtin.debug:
         msg:
-          - "==================================="
           - "Deploying stack: {{ stack_name }}"
           - "Timestamp: {{ now() }}"
-          - "==================================="
 
     - name: Validate stack exists in configuration
       ansible.builtin.assert:
-        that:
-          - stack_name in homelab_config.stacks.keys()
-        fail_msg: |
-          Stack '{{ stack_name }}' is not defined in stacks.yaml.
-          Available stacks: {{ homelab_config.stacks.keys() | list |
-          join(', ') }}
-        success_msg: "Stack '{{ stack_name }}' found in configuration."
+        that: stack_name in homelab_config.stacks.keys()
+        fail_msg: "Stack '{{ stack_name }}' not found. Available: {{ homelab_config.stacks.keys() | list | join(', ') }}"
 
-    - name: Validate required global variables
-      ansible.builtin.assert:
-        that:
-          - item is defined and item | length > 0
-        fail_msg: "Required variable '{{ item }}' is not defined or empty"
-        success_msg: "Global variables validation passed"
-      loop: "{{ homelab_required_vars }}"
-
-    - name: Validate Proxmox API credentials
-      ansible.builtin.assert:
-        that:
-          - proxmox_api_user is defined
-          - proxmox_api_token_id is defined
-          - proxmox_node is defined
-          - proxmox_api_token_secret is defined and
-            proxmox_api_token_secret != ""
-        fail_msg: |
-          Required Proxmox API credentials are missing.
-          These credentials must be provided by the installer.sh script via extra-vars.
-          Do not run this playbook directly - use the installer.sh menu system instead.
-          Token secret status: {{ proxmox_api_token_secret | default('NOT_PROVIDED') }}
-        success_msg: "API credentials validation passed."
-
-    - name: Load and validate stack-specific configuration
+    - name: Load stack configuration
       ansible.builtin.set_fact:
         current_stack_config: "{{ homelab_config.stacks[stack_name] }}"
-
-    - name: Validate stack-specific required variables
-      ansible.builtin.assert:
-        that:
-          - current_stack_config.ct_id is defined
-          - current_stack_config.hostname is defined
-          - current_stack_config.ip_octet is defined
-          - current_stack_config.cpu_cores is defined
-          - current_stack_config.memory_mb is defined
-          - current_stack_config.disk_gb is defined
-        fail_msg: "Stack '{{ stack_name }}' is missing required
-          configuration parameters"
-        success_msg: "Stack configuration validation passed"
 
     - name: Set LXC template name for role dependencies
       ansible.builtin.set_fact:
@@ -88,10 +43,6 @@
     - name: Display deployment completion
       ansible.builtin.debug:
         msg:
-          - "==================================="
-          - "Stack '{{ stack_name }}' deployment completed successfully!"
-          - "Container ID: {{ current_stack_config.ct_id }}"
-          - "Hostname: {{ current_stack_config.hostname }}"
-          - "IP Address: {{ network_ip_base }}.{{
-          current_stack_config.ip_octet }}"
-          - "==================================="
+          - "Stack '{{ stack_name }}' deployed successfully!"
+          - "Container: {{ current_stack_config.ct_id }} ({{ current_stack_config.hostname }})"
+          - "IP: {{ network_ip_base }}.{{ current_stack_config.ip_octet }}"

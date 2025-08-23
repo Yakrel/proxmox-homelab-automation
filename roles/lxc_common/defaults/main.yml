@@ -47,7 +47,5 @@ lxc_docker_compose_file: docker-compose.yml
 lxc_docker_compose_env_file: .env
 lxc_docker_compose_path: /root
 
-# Retry and timeout settings
-lxc_package_update_retries: 10
-lxc_package_update_delay: 5
-lxc_container_ready_timeout: 300
+# Container configuration defaults
+lxc_container_ready_timeout: 60

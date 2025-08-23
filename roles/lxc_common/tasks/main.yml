@@ -15,11 +15,6 @@
     fail_msg: "Required LXC variables are not properly defined"
     success_msg: "LXC variable validation passed"
 
-- name: Load stack-specific configuration from stacks.yaml
-  ansible.builtin.set_fact:
-    _stacks_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') | from_yaml }}"
-    _current_stack: "{{ stack_name }}"
-
 - name: Set LXC network configuration
   ansible.builtin.set_fact:
     lxc_ip_address: "{{ network_ip_base }}.{{ ip_octet }}"
@@ -77,10 +72,6 @@
   ansible.builtin.command: "{{ 'apk update' if lxc_template_type == 'alpine' else 'apt-get update' }}"
   delegate_to: "{{ hostname }}"
   changed_when: false
-  retries: "{{ lxc_package_update_retries }}"
-  delay: "{{ lxc_package_update_delay }}"
-  register: result
-  until: result.rc == 0
 
 - name: Install Docker and Docker Compose Plugin in LXC
   ansible.builtin.package:
