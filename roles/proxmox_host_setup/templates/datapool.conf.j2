@@ -1,6 +1,6 @@
-# --- Datapool Share Definition (Managed by Automation) ---
-[datapool]
-    path = /datapool
+# --- Storage Pool Share Definition (Managed by Automation) ---
+[{{ storage_pool }}]
+    path = {{ datapool_mount }}
     browseable = yes
     read only = no
     valid users = {{ samba_username }}

@@ -11,8 +11,10 @@
 
 - name: Set Docker Compose source paths
   ansible.builtin.set_fact:
-    _docker_compose_source: "{{ playbook_dir }}/docker/{{ stack_name }}/{{ docker_compose_file }}"
-    _docker_env_template_source: "{{ playbook_dir }}/docker/{{ stack_name }}/.env.j2"
+    _docker_compose_source: "{{ playbook_dir }}/docker/{{ stack_name }}/
+      {{ docker_compose_file }}"
+    _docker_env_template_source: "{{ playbook_dir }}/docker/
+      {{ stack_name }}/.env.j2"
 
 - name: Check if Docker Compose source file exists
   ansible.builtin.stat:
@@ -58,6 +60,7 @@
 
 - name: Deploy Docker Compose stack using native command
   ansible.builtin.command: >-
-    docker compose -f {{ docker_compose_project_src }}/{{ docker_compose_file }} up -d
+    docker compose -f {{ docker_compose_project_src }}/
+    {{ docker_compose_file }} up -d
   delegate_to: "{{ hostname }}"
   changed_when: true

@@ -3,7 +3,8 @@
 # This file provides centralized access to configuration from stacks.yaml
 
 # Load central configuration once and cache it
-homelab_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') | from_yaml }}"
+homelab_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') |
+  from_yaml }}"
 
 # ======================================================================
 # GLOBAL SETTINGS - Available to all roles
@@ -27,6 +28,7 @@ datapool_mount: "{{ homelab_config.storage.mount_point }}"
 # Repository Settings
 repo_url: "{{ homelab_config.global.repo_url }}"
 repo_dir: "{{ homelab_config.global.repo_dir }}"
+timezone: "{{ homelab_config.global.timezone }}"
 
 # Template Management
 lxc_template_patterns:
