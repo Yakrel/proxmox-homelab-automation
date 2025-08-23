@@ -1,3 +1,6 @@
+# Base Game Servers Stack - Watchtower and Shared Network Only
+# Use this as the foundation, then deploy individual games separately
+---
 networks:
   gameserver-net:
     driver: bridge

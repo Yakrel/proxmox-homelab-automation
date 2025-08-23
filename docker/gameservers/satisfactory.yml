@@ -1,27 +1,12 @@
+# Satisfactory Game Server Only
+# Run this AFTER the base stack (docker-compose.yml) is already running
+# Uses the existing gameserver-net network created by base stack
+---
 networks:
   gameserver-net:
-    driver: bridge
+    external: true
 
 services:
-  watchtower:
-    image: containrrr/watchtower:latest
-    container_name: watchtower
-    environment:
-      - TZ=Europe/Istanbul
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_POLL_INTERVAL=3600  # Check every hour
-      - WATCHTOWER_ROLLING_RESTART=true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - gameserver-net
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   satisfactory-server:
     image: wolveix/satisfactory-server:latest
     container_name: satisfactory-server
@@ -39,10 +24,10 @@ services:
     volumes:
       - /datapool/config/satisfactory:/config
     ports:
-      - "7777:7777/udp"   # Game port
-      - "7777:7777/tcp"   # Game port TCP
-      - "15000:15000/udp" # Query port
-      - "15777:15777/udp" # Beacon port
+      - "7777:7777/udp"  # Game port
+      - "7777:7777/tcp"  # Game port TCP
+      - "15000:15000/udp"  # Query port
+      - "15777:15777/udp"  # Beacon port
     networks:
       - gameserver-net
     restart: unless-stopped

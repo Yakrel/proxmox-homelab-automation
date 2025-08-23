@@ -1,27 +1,12 @@
+# Palworld Game Server Only
+# Run this AFTER the base stack (docker-compose.yml) is already running
+# Uses the existing gameserver-net network created by base stack
+---
 networks:
   gameserver-net:
-    driver: bridge
+    external: true
 
 services:
-  watchtower:
-    image: containrrr/watchtower:latest
-    container_name: watchtower
-    environment:
-      - TZ=Europe/Istanbul
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_POLL_INTERVAL=3600  # Check every hour
-      - WATCHTOWER_ROLLING_RESTART=true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - gameserver-net
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   palworld-server:
     image: jammsen/docker-palworld-dedicated-server:latest
     container_name: palworld-server
@@ -42,8 +27,8 @@ services:
     volumes:
       - /datapool/config/palworld:/palworld
     ports:
-      - "8211:8211/udp"   # Game port
-      - "27015:27015/udp" # Query port
+      - "8211:8211/udp"  # Game port
+      - "27015:27015/udp"  # Query port
     networks:
       - gameserver-net
     restart: unless-stopped

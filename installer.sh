@@ -569,6 +569,110 @@ EOF
     exit 0
 }
 
+show_game_server_menu() {
+    while true; do
+        clear
+        cat << EOF
+$(echo -e "\033[1;34m")
+===============================================
+          Game Server Management
+===============================================
+$(echo -e "\033[0m")
+
+[1;33mGame Server Options:[0m
+  [1;32m1[0m) Deploy Base Stack (LXC + Watchtower)
+  [1;32m2[0m) Deploy Satisfactory Server
+  [1;32m3[0m) Deploy Palworld Server
+  [1;32m4[0m) Stop All Game Servers
+  [1;32m5[0m) Switch Game (Stop Current, Start Another)
+
+[1;31mB[0m) Back to Main Menu
+
+EOF
+
+        read -p "Enter your choice [1-5, B]: " choice
+
+        case $choice in
+            1)
+                print_info "Deploying Game Servers Base Stack (LXC + Watchtower)..."
+                if run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers'"; then
+                    print_success "Base stack deployed successfully!"
+                    print_info "You can now deploy individual game servers."
+                else
+                    print_error "Base stack deployment failed!"
+                fi
+                ;;
+            2)
+                print_info "Deploying Satisfactory Server..."
+                if run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers game_name=satisfactory'"; then
+                    print_success "Satisfactory server deployed successfully!"
+                    print_info "Server accessible at: 192.168.1.105:7777"
+                else
+                    print_error "Satisfactory server deployment failed!"
+                fi
+                ;;
+            3)
+                print_info "Deploying Palworld Server..."
+                if run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers game_name=palworld'"; then
+                    print_success "Palworld server deployed successfully!"
+                    print_info "Server accessible at: 192.168.1.105:8211"
+                else
+                    print_error "Palworld server deployment failed!"
+                fi
+                ;;
+            4)
+                print_info "Stopping all game servers..."
+                print_info "Note: This will stop game servers but keep Watchtower running."
+                read -p "Are you sure? (y/N): " confirm
+                if [[ $confirm =~ ^[Yy] ]]; then
+                    if run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers game_name=stop_all'"; then
+                        print_success "All game servers stopped successfully!"
+                    else
+                        print_error "Failed to stop game servers!"
+                    fi
+                else
+                    print_info "Operation cancelled."
+                fi
+                ;;
+            5)
+                print_info "Game Switching Menu:"
+                echo "  1) Stop all games, start Satisfactory"
+                echo "  2) Stop all games, start Palworld"  
+                echo "  3) Just stop all games"
+                read -p "Choose switch option [1-3]: " switch_choice
+                
+                case $switch_choice in
+                    1)
+                        print_info "Switching to Satisfactory..."
+                        run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers game_name=stop_all'" && \
+                        run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers game_name=satisfactory'"
+                        ;;
+                    2)
+                        print_info "Switching to Palworld..."
+                        run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers game_name=stop_all'" && \
+                        run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers game_name=palworld'"
+                        ;;
+                    3)
+                        print_info "Stopping all games..."
+                        run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers game_name=stop_all'"
+                        ;;
+                    *)
+                        print_warning "Invalid switch option."
+                        ;;
+                esac
+                ;;
+            [Bb])
+                return
+                ;;
+            *)
+                print_warning "Invalid option. Please try again."
+                ;;
+        esac
+        print_info "Operation finished. Press Enter to continue..."
+        read
+    done
+}
+
 show_management_menu() {
     # On subsequent runs, update the repo before showing the menu
     print_info "Updating repository in Control Node..."
@@ -595,15 +699,13 @@ show_management_menu() {
   [1;32m8[0m) Deploy Backup Stack
 
 [1;33mGame Servers:[0m
-  [1;32m9[0m) Deploy Game Servers Stack (Base + Watchtower)
-  [1;32m10[0m) Deploy Satisfactory Server
-  [1;32m11[0m) Deploy Palworld Server
+  [1;32m9[0m) Game Server Management
 
 [1;31mQ[0m) Quit
 
 EOF
 
-        read -p "Enter your choice [1-11, Q]: " choice
+        read -p "Enter your choice [1-9, Q]: " choice
 
         case $choice in
             1)
@@ -639,16 +741,7 @@ EOF
                 run_ansible_playbook "deploy.yml --extra-vars 'stack_name=backup'"
                 ;;
             9)
-                print_info "Deploying Game Servers Stack (Base + Watchtower)..."
-                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers'"
-                ;;
-            10)
-                print_info "Deploying Satisfactory Server..."
-                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers game_name=satisfactory'"
-                ;;
-            11)
-                print_info "Deploying Palworld Server..."
-                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers game_name=palworld'"
+                show_game_server_menu
                 ;;
             [Qq])
                 echo "Exiting..."
