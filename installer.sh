@@ -169,27 +169,6 @@ run_ansible_playbook() {
     
     return $vault_result
 }
-    playbook_exit_code=${PIPESTATUS[0]}
-
-    if [ $playbook_exit_code -eq 0 ]; then
-        print_success "Playbook execution completed successfully."
-        vault_result=0
-    else
-        print_error "Playbook execution failed. Please check the logs."
-        # Check if it's specifically a vault decryption error
-        if grep -q "Decryption failed" "$playbook_output_file"; then
-            print_error "Vault decryption failed. Please verify your vault password is correct."
-            print_info "You can check/edit your secrets with:"
-            print_info "pct exec $CONTROL_CT_ID -- bash -l -c 'ansible-vault edit $PLAYBOOK_DIR/secrets.yml'"
-        fi
-        vault_result=1
-    fi
-    
-    # Clean up the output file
-    rm -f "$playbook_output_file"
-    
-    return $vault_result
-}
 
 # --- Core Functions ---
 

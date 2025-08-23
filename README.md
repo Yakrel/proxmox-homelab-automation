@@ -2,7 +2,7 @@
 
 This repository contains a collection of Ansible roles and playbooks to automate the setup of a personal homelab environment on Proxmox VE. The architecture is based on creating separate LXC containers for different service stacks, each managed by Docker Compose and deployed via Ansible.
 
-## ⚠️ Project Philosophy & Disclaimer
+## Project Philosophy & Disclaimer
 
 This repository documents my personal homelab setup, tailored specifically to my own hardware and network configuration. It is shared publicly to showcase my approach to infrastructure-as-code, automation, and GitOps principles.
 
@@ -30,43 +30,12 @@ The architecture is designed for true automation and idempotency, managed by a s
 
 4. **Service Stacks:** Individual LXC containers for each service group, managed via Docker Compose and deployed through Ansible.
 
-## 🚀 Quick Start & Usage
+## One-Line Installation
 
 All management is performed through the unified installer script. You can run it directly from GitHub without cloning the repository first.
 
-### Recommended: Direct from GitHub
-
-Run the installer directly from GitHub (recommended):
-
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
-```
-
-### Testing from Feature Branches
-
-For testing changes from feature branches, the installer can automatically detect and use the branch you're running from:
-
-```bash
-# Example: Running from a feature branch - automatically uses that branch
-bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/feature-branch-name/installer.sh)
-```
-
-Alternatively, you can explicitly specify a branch using an environment variable:
-
-```bash
-# Explicitly specify a branch to use
-GITHUB_BRANCH=feature-branch-name bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
-```
-
-The installer will automatically clone the correct branch into the Ansible Control LXC, allowing you to test your changes directly from any branch.
-
-### Alternative: Local Execution
-
-If you have already cloned the repository:
-
-```bash
-# Navigate to the repository directory on your Proxmox host and run:
-./installer.sh
 ```
 
 ### How It Works
@@ -79,11 +48,11 @@ If you have already cloned the repository:
   - After each operation completes, you'll be returned to the main menu to perform additional tasks
 - **Everything is menu-driven** - no manual playbook execution required!
 
-## 🏗️ Service Stacks
+## Service Stacks
 
 This project is divided into several service stacks, each defined by an Ansible role in the `roles/` directory. Each stack runs in its own LXC container for isolation and resource management.
 
-## 📦 Available Stacks
+## Available Stacks
 
 | Stack | Description | Container ID | Role Directory |
 |-------|-------------|--------------|----------------|
@@ -102,7 +71,7 @@ This project is divided into several service stacks, each defined by an Ansible 
 - **Secrets**: Encrypted with Ansible Vault in `secrets.yml`
 - **Customization**: Modify `stacks.yaml` for your environment
 
-## ⚠️ Important Notes
+## Important Notes
 
 This is a **personal homelab configuration**. Before using:
 
@@ -110,7 +79,7 @@ This is a **personal homelab configuration**. Before using:
 2. Update secrets in `secrets.yml` during first setup
 3. Modify resource allocations as needed
 
-## 📝 Secrets Management: Ansible Vault
+## Secrets Management: Ansible Vault
 
 All secrets (API keys, passwords, etc.) are managed in a single encrypted file: `secrets.yml`.
 
@@ -124,7 +93,7 @@ pct exec 151 -- ansible-vault edit /root/proxmox-homelab-automation/secrets.yml
 
 **Important**: Remember your vault password - you'll need it for all homelab operations! The installer will prompt you to set this password during first-time setup and will request it each time you deploy stacks.
 
-## 🔒 Comprehensive Backup System
+## Comprehensive Backup System
 
 The backup stack provides a complete, automated backup solution using Proxmox Backup Server (PBS). This implementation fulfills the "set and forget" philosophy with intelligent scheduling and retention policies optimized for homelab environments.
 
