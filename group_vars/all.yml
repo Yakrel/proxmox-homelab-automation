@@ -14,7 +14,7 @@ homelab_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') |
 proxmox_node: "{{ homelab_config.global.proxmox_node }}"
 proxmox_api_user: "{{ homelab_config.api.user }}"
 proxmox_api_token_id: "{{ homelab_config.api.token_id }}"
-proxmox_api_host: "{{ homelab_config.network.ip_base }}.1"
+proxmox_api_host: "{{ homelab_config.network.proxmox_host_ip }}"
 
 # Network Configuration (Static for homelab)
 network_gateway: "{{ homelab_config.network.gateway }}"

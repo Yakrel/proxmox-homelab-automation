@@ -16,6 +16,7 @@ network:
   gateway: 192.168.1.1
   bridge: vmbr0
   ip_base: 192.168.1
+  proxmox_host_ip: 192.168.1.10  # Actual Proxmox VE host IP
 
 # Storage Configuration (All using datapool)
 storage:
