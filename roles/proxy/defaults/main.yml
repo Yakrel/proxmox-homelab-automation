@@ -5,6 +5,9 @@
 # Stack identification
 stack_name: proxy
 
+# Template name from installer (passed as extra variable)
+lxc_template_name: "{{ lxc_template | default('') }}"
+
 # Load stack-specific variables from central configuration
 _stacks_config: "{{ lookup('file', playbook_dir ~ '/stacks.yaml') |
   from_yaml }}"
