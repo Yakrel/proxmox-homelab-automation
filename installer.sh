@@ -392,14 +392,8 @@ run_first_time_setup() {
 
     # Step 3: Create the correct systemd override for getty@tty1.service
     pct exec "$CONTROL_CT_ID" -- mkdir -p /etc/systemd/system/getty@tty1.service.d
-    pct exec "$CONTROL_CT_ID" -- bash -c "cat > /etc/systemd/system/getty@tty1.service.d/override.conf << 'EOF'
-[Unit]
-ConditionPathExists=
+    pct exec "$CONTROL_CT_ID" -- bash -c "cat > /etc/systemd/system/getty@tty1.service.d/override.conf << 'EOF'\n[Unit]\nConditionPathExists=\n\n[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin root --noclear --keep-baud 115200,38400,9600 tty1 \$TERM\nEOF"
 
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin root --noclear --keep-baud 115200,38400,9600 tty1 \$TERM
-EOF"
 
     # Step 4: Reload systemd and start the definitive autologin service
     pct exec "$CONTROL_CT_ID" -- systemctl daemon-reload
