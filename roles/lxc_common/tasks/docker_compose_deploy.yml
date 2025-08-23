@@ -44,6 +44,6 @@
 
 - name: Deploy Docker Compose stack
   ansible.builtin.command: >-
-    docker compose -f {{ lxc_docker_compose_path }}/{{ lxc_docker_compose_file }} up -d
+    docker compose -f {{ lxc_docker_compose_path }}/{{ lxc_docker_compose_file }} up -d --remove-orphans
   delegate_to: "{{ hostname }}"
   changed_when: true

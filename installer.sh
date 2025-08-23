@@ -449,94 +449,26 @@ run_first_time_setup() {
         fi
     '
     
-    # Step 4: Create/Update credentials (idempotent)
+    # Step 4: Verify encrypted secrets.yml exists (from repository)
     local secrets_file_path="/root/proxmox-homelab-automation/secrets.yml"
-    local create_new_secrets=false
     
-    # Check if secrets.yml already exists (encrypted or unencrypted)
+    # Check if encrypted secrets.yml exists in the repository clone
     if pct exec "$CONTROL_CT_ID" -- test -f "$secrets_file_path"; then
-        print_warning "Secrets file already exists. Checking if it needs updating..."
-        
-        # Check if it's encrypted
+        # Verify it's encrypted
         if pct exec "$CONTROL_CT_ID" -- head -1 "$secrets_file_path" | grep -q "ANSIBLE_VAULT"; then
-            print_info "Secrets file is already encrypted. Skipping secrets creation."
-            print_info "If you need to update secrets, please do so manually using:"
-            print_info "pct exec $CONTROL_CT_ID -- bash -l -c 'ansible-vault edit $secrets_file_path'"
+            print_success "Encrypted secrets.yml found in repository."
+            print_info "To edit secrets, use: pct exec $CONTROL_CT_ID -- bash -l -c 'ansible-vault edit $secrets_file_path'"
         else
-            print_warning "Secrets file exists but is not encrypted. This may be from a previous failed setup."
-            print_info "Backing up existing file and creating new one..."
-            pct exec "$CONTROL_CT_ID" -- mv "$secrets_file_path" "${secrets_file_path}.backup.$(date +%s)"
-            create_new_secrets=true
-        fi
-    else
-        print_info "No secrets file found. Creating new one..."
-        create_new_secrets=true
-    fi
-    
-    if [ "$create_new_secrets" = true ]; then
-        # Create new secrets file
-        local VAULT_CONTENT
-        VAULT_CONTENT=$(cat <<EOF
-# Stack Environment Variables
-# Note: Proxmox API credentials are automatically managed by installer.sh
-# and passed directly to playbooks via extra-vars
-# Proxy Stack
-cloudflared_token: "REPLACE_WITH_YOUR_CLOUDFLARE_TUNNEL_TOKEN"
-
-# Monitoring Stack  
-grafana_admin_user: "admin"
-grafana_admin_password: "REPLACE_WITH_SECURE_PASSWORD"
-pve_exporter_user: "pve-exporter@pve"
-pve_exporter_password: "REPLACE_WITH_SECURE_PASSWORD"
-pve_url: "https://192.168.1.10:8006"
-pve_verify_ssl: "false"
-
-# Files Stack
-jdownloader_vnc_password: "REPLACE_WITH_SECURE_PASSWORD"
-palmr_encryption_key: "REPLACE_WITH_SECURE_KEY"
-palmr_app_url: "REPLACE_WITH_YOUR_PALMR_URL"
-
-# Webtools Stack
-firefox_vnc_password: "REPLACE_WITH_SECURE_PASSWORD"
-homepage_sonarr_api_key: "REPLACE_WITH_SONARR_API_KEY"
-homepage_radarr_api_key: "REPLACE_WITH_RADARR_API_KEY"
-homepage_prowlarr_api_key: "REPLACE_WITH_PROWLARR_API_KEY"
-homepage_bazarr_api_key: "REPLACE_WITH_BAZARR_API_KEY" 
-homepage_jellyfin_api_key: "REPLACE_WITH_JELLYFIN_API_KEY"
-homepage_jellyseerr_api_key: "REPLACE_WITH_JELLYSEERR_API_KEY"
-homepage_qb_username: "REPLACE_WITH_QB_USERNAME"
-homepage_qb_password: "REPLACE_WITH_QB_PASSWORD"
-homepage_grafana_username: "admin"
-homepage_grafana_password: "REPLACE_WITH_GRAFANA_PASSWORD"
-
-# Common Settings
-timezone: "Europe/Istanbul"
-EOF
-)
-        # Use pct push to create the file
-        echo "$VAULT_CONTENT" | pct push "$CONTROL_CT_ID" - "$secrets_file_path"
-
-        # Prompt user for vault password to encrypt secrets.yml
-        print_info "Creating encrypted secrets.yml file..."
-        print_info "Please set a secure password for the Ansible Vault."
-        print_warning "IMPORTANT: Remember this password! You'll need it for all future operations."
-        
-        if pct exec "$CONTROL_CT_ID" -- bash -l -c "ansible-vault encrypt --ask-vault-pass $secrets_file_path"; then
-            print_success "secrets.yml file encrypted successfully."
-            
-            # Automatically save vault password for convenience
-            print_info "Saving vault password for convenience..."
-            print_info "Please enter your vault password again to save it:"
-            read -s -p "Vault password: " vault_pass
-            echo
-            pct exec "$CONTROL_CT_ID" -- bash -c "echo '$vault_pass' > /root/.vault_pass && chmod 600 /root/.vault_pass"
-            print_success "Vault password saved for future operations."
-        else
-            print_error "Failed to encrypt secrets.yml file."
-            print_warning "The file was created as plaintext. Please encrypt it manually:"
-            print_info "pct exec $CONTROL_CT_ID -- bash -l -c 'ansible-vault encrypt $secrets_file_path'"
+            print_error "secrets.yml exists but is not encrypted!"
+            print_error "The secrets.yml file must be encrypted with ansible-vault."
+            print_info "Please encrypt it using: ansible-vault encrypt secrets.yml"
             exit 1
         fi
+    else
+        print_error "secrets.yml not found in repository!"
+        print_error "An encrypted secrets.yml file must exist in the repository."
+        print_info "Please ensure the repository contains an encrypted secrets.yml file."
+        exit 1
     fi
 
     # Final step: Restart getty services to ensure autologin is active

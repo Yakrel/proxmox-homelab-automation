@@ -64,7 +64,7 @@
 
     - name: Start base stack if needed
       ansible.builtin.command: >-
-        docker compose -f /opt/gameservers/docker-compose.yml up -d
+        docker compose -f /opt/gameservers/docker-compose.yml up -d --remove-orphans
       delegate_to: "{{ hostname }}"
       when:
         - game_name is defined
