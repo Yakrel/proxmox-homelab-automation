@@ -594,11 +594,16 @@ show_management_menu() {
   [1;32m7[0m) Deploy Ansible Control Stack
   [1;32m8[0m) Deploy Backup Stack
 
+[1;33mGame Servers:[0m
+  [1;32m9[0m) Deploy Game Servers Stack (Base + Watchtower)
+  [1;32m10[0m) Deploy Satisfactory Server
+  [1;32m11[0m) Deploy Palworld Server
+
 [1;31mQ[0m) Quit
 
 EOF
 
-        read -p "Enter your choice [1-8, Q]: " choice
+        read -p "Enter your choice [1-11, Q]: " choice
 
         case $choice in
             1)
@@ -632,6 +637,18 @@ EOF
             8)
                 print_info "Deploying Backup Stack..."
                 run_ansible_playbook "deploy.yml --extra-vars 'stack_name=backup'"
+                ;;
+            9)
+                print_info "Deploying Game Servers Stack (Base + Watchtower)..."
+                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers'"
+                ;;
+            10)
+                print_info "Deploying Satisfactory Server..."
+                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers game_name=satisfactory'"
+                ;;
+            11)
+                print_info "Deploying Palworld Server..."
+                run_ansible_playbook "deploy.yml --extra-vars 'stack_name=gameservers game_name=palworld'"
                 ;;
             [Qq])
                 echo "Exiting..."
