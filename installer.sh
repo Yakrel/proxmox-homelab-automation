@@ -686,21 +686,16 @@ show_management_menu() {
 [1;37m       Proxmox Homelab Automation - Main Menu[0m
 [1;36m=================================================[0m
 
-[1;33mHost Management:[0m
-  [1;32m1[0m) Configure Proxmox Host (Timezone, Security, etc.)
-
-[1;33mDeploy Stacks:[0m
+  [1;32m1[0m) Configure Proxmox Host (Timezone, Security, etc.)
   [1;32m2[0m) Deploy Proxy Stack
   [1;32m3[0m) Deploy Monitoring Stack
   [1;32m4[0m) Deploy Media Stack
   [1;32m5[0m) Deploy Files Stack
   [1;32m6[0m) Deploy Webtools Stack
   [1;32m7[0m) Deploy Backup Stack
-
-[1;33mGame Servers:[0m
   [1;32m8[0m) Game Server Management
 
-[1;31mQ[0m) Quit
+  [1;31mQ[0m) Quit
 
 EOF
 
