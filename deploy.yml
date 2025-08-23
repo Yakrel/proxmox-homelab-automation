@@ -11,12 +11,7 @@
       ansible.builtin.set_fact:
         stack_name: "{{ stack_name | default('proxy') }}"
 
-    - name: Override API token from environment if available
-      ansible.builtin.set_fact:
-        proxmox_api_token_secret: "{{ ansible_env.PROXMOX_API_TOKEN_SECRET }}"
-      when: >-
-        ansible_env.PROXMOX_API_TOKEN_SECRET is defined and
-        ansible_env.PROXMOX_API_TOKEN_SECRET != ""
+
 
     - name: Display deployment information
       ansible.builtin.debug:
@@ -53,9 +48,10 @@
           - proxmox_api_token_secret is defined and
             proxmox_api_token_secret != ""
         fail_msg: |
-          Required Proxmox API credentials are not available.
-          Token secret: {{ proxmox_api_token_secret | default('NOT_SET') }}
-          This should be automatically provided by the installer script.
+          Required Proxmox API credentials are missing.
+          These credentials must be provided by the installer.sh script via extra-vars.
+          Do not run this playbook directly - use the installer.sh menu system instead.
+          Token secret status: {{ proxmox_api_token_secret | default('NOT_PROVIDED') }}
         success_msg: "API credentials validation passed."
 
     - name: Load and validate stack-specific configuration
