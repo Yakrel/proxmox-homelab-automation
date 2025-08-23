@@ -72,6 +72,11 @@
           configuration parameters"
         success_msg: "Stack configuration validation passed"
 
+    - name: Set LXC template name for role dependencies
+      ansible.builtin.set_fact:
+        lxc_template_name: "{{ lxc_template | default('') }}"
+      when: lxc_template is defined
+
   tasks:
     - name: Deploy the selected stack role
       ansible.builtin.include_role:

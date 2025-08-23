@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  author: Yakrel
+  description: Game servers stack role for Proxmox homelab automation
+  company: Personal Project
+
+  license: MIT
+
+  min_ansible_version: "2.16"
+
+  platforms:
+    - name: Proxmox VE
+      versions:
+        - all
+
+  galaxy_tags:
+    - proxmox
+    - gameservers
+    - satisfactory
+    - palworld
+    - homelab
+
+dependencies:
+  - role: lxc_common
+  - role: docker_common

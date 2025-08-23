@@ -129,3 +129,15 @@ stacks:
     pbs_prune_schedule: "daily"
     pbs_gc_schedule: "daily"
     pbs_verify_schedule: "weekly"
+
+  gameservers:
+    ct_id: 105
+    hostname: lxc-gameservers-01
+    ip_octet: 105
+    cpu_cores: 8
+    memory_mb: 16384
+    disk_gb: 50
+    template: alpine
+    mount_datapool: true
+    onboot: true
+    description: "Game servers stack (Satisfactory, Palworld, etc.)"
