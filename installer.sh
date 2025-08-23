@@ -29,7 +29,6 @@ NETWORK_GATEWAY="192.168.1.1"
 NETWORK_BRIDGE="vmbr0"
 NETWORK_IP_BASE="192.168.1"
 STORAGE_POOL="datapool"
-PROXMOX_NODE="pve01"
 
 # --- Helper Functions ---
 print_info() { echo -e "\033[36m[INFO]\033[0m $1"; }
