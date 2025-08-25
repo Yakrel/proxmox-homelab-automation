@@ -90,21 +90,27 @@ ensure_template_available() {
 get_current_api_token() {
     # Simple API token management - create or recreate token
     print_info "Managing API token '$API_TOKEN_ID'..."
-    
+
     # Remove existing token if present (idempotent)
     pveum user token remove "$API_USER" "$API_TOKEN_ID" 2>/dev/null || true
-    
-    # Create new token
+
+    # Create new token and check for command failure
     local TOKEN_OUTPUT
-    TOKEN_OUTPUT=$(pveum user token add "$API_USER" "$API_TOKEN_ID" --comment "Token for Ansible automation" 2>&1)
-    
-    # Extract secret using simple pattern
+    if ! TOKEN_OUTPUT=$(pveum user token add "$API_USER" "$API_TOKEN_ID" --comment "Token for Ansible automation" 2>&1); then
+        print_error "Failed to create API token. The 'pveum' command failed with the following output:"
+        print_error "$TOKEN_OUTPUT"
+        return 1
+    fi
+
+    # Extract secret from the successful output
     local TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
-    
+
     if [ -n "$TOKEN_SECRET" ]; then
         echo "$TOKEN_SECRET"
     else
-        print_error "Failed to extract token secret"
+        # This case is unlikely if the command succeeded, but it's a good safeguard
+        print_error "Failed to extract token secret from pveum output, even though the command succeeded."
+        print_error "Full output was: $TOKEN_OUTPUT"
         return 1
     fi
 }
