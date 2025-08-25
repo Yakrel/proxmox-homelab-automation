@@ -99,6 +99,9 @@ get_current_api_token() {
         print_error "$TOKEN_OUTPUT"
         return 1
     fi
+    # Debug: expose raw pveum output for troubleshooting token extraction
+    print_info "pveum output (for debug):"
+    echo "$TOKEN_OUTPUT" | sed 's/^/    /'
 
     # Extract secret from the line containing 'secret'
     local TOKEN_SECRET
