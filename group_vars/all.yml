@@ -43,15 +43,4 @@ debian_required_stacks: "{{ homelab_config.templates.special_templates }}"
 # ======================================================================
 
 # Function to get stack configuration by name
-# Usage in roles: homelab_config.stacks[stack_name]
 stacks_definitions: "{{ homelab_config.stacks }}"
-
-# Validation settings
-homelab_required_vars:
-  - proxmox_api_user
-  - proxmox_api_token_id
-  - proxmox_api_token_secret
-  - proxmox_node
-  - network_gateway
-  - network_bridge
-  - storage_pool
