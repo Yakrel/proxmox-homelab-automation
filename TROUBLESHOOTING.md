@@ -2,6 +2,40 @@
 
 ## Common Issues and Solutions
 
+### Environment and Prerequisites Issues
+
+**Problem**: `[ERROR] This script must be run on a Proxmox VE host`
+
+**Solutions**:
+1. Ensure you're running the script directly on your Proxmox VE host (not from a container or remote system)
+2. Verify Proxmox VE commands are available: `which pct pveum`
+3. Check you have Administrator/root privileges: `id`
+
+**Problem**: Commands not found or permission denied
+
+**Solutions**:
+1. **Verify you're root or have sudo privileges**:
+   ```bash
+   id
+   sudo -l
+   ```
+
+2. **Check Proxmox VE installation**:
+   ```bash
+   pveversion
+   which pct
+   which pveum
+   ```
+
+3. **Verify system environment**:
+   ```bash
+   # Check if running in container (should show host system)
+   systemd-detect-virt
+   
+   # Check available storage pools  
+   pvesm status
+   ```
+
 ### API Token Errors
 
 **Problem**: `[ERROR] Failed to get API token. Playbook execution aborted.`
