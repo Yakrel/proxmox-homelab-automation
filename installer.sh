@@ -36,14 +36,26 @@ print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
 
 ensure_repository_exists_and_update() {
-    # Ensure repository exists and is up to date - GitOps declarative approach
-    if ! pct exec "$CONTROL_CT_ID" -- test -d "$REPO_DIR"; then
-        print_info "Cloning repository..."
-        pct exec "$CONTROL_CT_ID" -- git clone "$REPO_URL" "$REPO_DIR"
-    else
-        print_info "Updating repository..."
-        pct exec "$CONTROL_CT_ID" -- bash -c "cd $REPO_DIR && git pull"
-    fi
+    # Ensure repository is always a perfect mirror of the remote branch.
+    # This uses git reset --hard to handle force pushes and prevent local change conflicts.
+    print_info "Ensuring repository is up-to-date..."
+
+    local git_update_script="
+        set -e
+        if [ -d '$REPO_DIR/.git' ]; then
+            echo '[INFO] Repository exists. Fetching and resetting to origin/main...'
+            cd '$REPO_DIR'
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fdx
+        else
+            echo '[INFO] Repository not found. Cloning fresh...'
+            rm -rf '$REPO_DIR'
+            git clone '$REPO_URL' '$REPO_DIR'
+        fi
+    "
+    pct exec "$CONTROL_CT_ID" -- bash -c "$git_update_script"
+    print_success "Repository is synchronized with origin/main."
 }
 
 
