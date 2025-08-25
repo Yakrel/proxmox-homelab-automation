@@ -260,6 +260,17 @@ run_ansible_playbook() {
 run_first_time_setup() {
     print_info "Starting first-time setup..."
 
+    # Validate storage pool exists
+    print_info "Validating storage pool '$STORAGE_POOL'..."
+    if ! pvesm status | grep -q "^$STORAGE_POOL"; then
+        print_error "Storage pool '$STORAGE_POOL' not found"
+        print_error "Available storage pools:"
+        pvesm status | awk 'NR>1 {print "  " $1 " (" $2 ")"}'
+        print_error "Please ensure '$STORAGE_POOL' exists or modify STORAGE_POOL variable"
+        exit 1
+    fi
+    print_success "Storage pool '$STORAGE_POOL' validated"
+
     # Step 1: Create Proxmox API User
     print_info "Ensuring Proxmox API user '$API_USER' exists..."
     
@@ -545,13 +556,67 @@ EOF
 }
 
 # --- Main Execution ---
+print_info "Proxmox Homelab Automation - Starting..."
+
+# Handle command line arguments
+case "${1:-}" in
+    --help|-h)
+        cat << 'EOF'
+Proxmox Homelab Automation - Unified Installer & Menu
+
+USAGE:
+    bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
+    ./installer.sh [OPTIONS]
+
+OPTIONS:
+    --debug     Run with API diagnostics
+    --help      Show this help message
+
+DESCRIPTION:
+    First run: Bootstraps Ansible Control Node (LXC 151) and sets up API credentials
+    Subsequent runs: Shows management menu for homelab operations
+
+REQUIREMENTS:
+    - Must run on Proxmox VE host with Administrator privileges
+    - Requires 'pct' and 'pveum' commands (standard on Proxmox VE)
+
+TROUBLESHOOTING:
+    - If API token errors occur, run with --debug flag
+    - Ensure you have Administrator role on Proxmox VE
+    - Check that storage pool 'datapool' exists and is accessible
+EOF
+        exit 0
+        ;;
+esac
+
+# Check if we're running on a Proxmox host
+if ! command -v pct >/dev/null 2>&1; then
+    print_error "This script must be run on a Proxmox VE host"
+    print_error "Commands like 'pct' and 'pveum' are required"
+    exit 1
+fi
+
+# Check if Control Node exists
 if ! pct status "$CONTROL_CT_ID" >/dev/null 2>&1; then
+    print_info "Control Node (LXC $CONTROL_CT_ID) not found - running first-time setup"
     run_first_time_setup
 else
+    # Control Node exists, ensure it's running
+    print_info "Control Node (LXC $CONTROL_CT_ID) found"
     if ! pct status "$CONTROL_CT_ID" | grep -q "status: running"; then
         print_info "Starting Control Node ($CONTROL_CT_ID)..."
-        pct start "$CONTROL_CT_ID"
+        if ! pct start "$CONTROL_CT_ID"; then
+            print_error "Failed to start Control Node"
+            print_error "Try: pct start $CONTROL_CT_ID"
+            exit 1
+        fi
         sleep 5
     fi
+    
+    # Run API diagnostics if in debug mode
+    if [[ "${1:-}" = "--debug" ]]; then
+        debug_api_setup
+    fi
+    
     show_management_menu
 fi
