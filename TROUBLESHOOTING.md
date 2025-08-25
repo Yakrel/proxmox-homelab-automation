@@ -17,30 +17,91 @@ This error occurs when the installer cannot create or extract the Proxmox API to
 
 2. **Check API user exists and has permissions**:
    ```bash
-   # Check if the API user exists
-   pveum user list | grep ansible-bot@pve
+   # Check if the API user exists (look for exact match)
+   pveum user list | grep "^ansible-bot@pve"
    
-   # Check user permissions
+   # Check user permissions (should show Administrator role)
    pveum acl list / | grep ansible-bot@pve
    ```
 
 3. **Manually recreate API user** (if needed):
    ```bash
    # Remove existing user (if exists)
-   pveum user delete ansible-bot@pve
+   pveum user delete ansible-bot@pve 2>/dev/null || true
    
    # Create new user with Administrator role
    pveum user add ansible-bot@pve --comment "Ansible Automation User"
    pveum acl modify / --user ansible-bot@pve --role Administrator
+   
+   # Verify the user was created correctly
+   pveum user list | grep ansible-bot@pve
+   pveum acl list / | grep ansible-bot@pve
    ```
 
-4. **Check token operations**:
+4. **Test token operations manually**:
    ```bash
    # List existing tokens
    pveum user token list ansible-bot@pve
    
-   # Delete problematic tokens
-   pveum user token delete ansible-bot@pve ansible-token
+   # Delete any problematic tokens
+   pveum user token delete ansible-bot@pve ansible-token 2>/dev/null || true
+   
+   # Test token creation and extraction
+   pveum user token add ansible-bot@pve test-token --comment "Manual test"
+   
+   # Verify token secret extraction (should show UUID format)
+   pveum user token add ansible-bot@pve test-token2 --comment "Test" 2>&1 | grep -oE '[0-9a-f-]{36}'
+   
+   # Clean up test tokens
+   pveum user token delete ansible-bot@pve test-token
+   pveum user token delete ansible-bot@pve test-token2
+   ```
+
+5. **Advanced diagnostics** (if above steps don't work):
+   ```bash
+   # Check Proxmox VE version compatibility
+   pveversion
+   
+   # Verify pveum command works properly
+   pveum user list | head -5
+   
+   # Check for permission issues
+   id
+   groups
+   
+   # Test raw token creation with full output
+   pveum user token add ansible-bot@pve diagnostic-token --comment "Full diagnostic" 2>&1
+   pveum user token delete ansible-bot@pve diagnostic-token 2>/dev/null
+   ```
+
+**If manual token operations work but the installer still fails:**
+
+This usually indicates an issue with the installer's user detection or token extraction logic. Try:
+
+1. **Force debug mode and check the exact error**:
+   ```bash
+   bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh) --debug 2>&1 | tee debug.log
+   ```
+
+2. **Check if the issue is with user detection**:
+   ```bash
+   # Test the exact command the installer uses
+   API_USER="ansible-bot@pve"
+   pveum user list 2>/dev/null | awk -v u="$API_USER" '$1==u { found=1 } END { exit !found }' && echo "User found" || echo "User not found"
+   ```
+
+3. **Check if the issue is with token extraction**:
+   ```bash
+   # Create a token and test extraction methods
+   TOKEN_OUTPUT=$(pveum user token add ansible-bot@pve extract-test --comment "Extraction test" 2>&1)
+   echo "=== Raw output ==="
+   echo "$TOKEN_OUTPUT"
+   echo "=== Primary extraction ==="
+   echo "$TOKEN_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1
+   echo "=== Alternative extraction ==="
+   echo "$TOKEN_OUTPUT" | grep -i "value" | grep -oE '[0-9a-f-]{36}' | head -1
+   # Clean up
+   pveum user token delete ansible-bot@pve extract-test 2>/dev/null
    ```
 
 ### Storage Pool Issues
@@ -130,15 +191,25 @@ which pct pveum
 
 ### Manual token testing:
 ```bash
-# Test token creation manually
+# Test token creation manually (basic test)
 pveum user token add ansible-bot@pve test-token --comment "Manual test"
 
-# Extract token secret (look for UUID format)
-pveum user token add ansible-bot@pve test-token2 --comment "Test" 2>&1 | grep -oE '[0-9a-f-]{36}'
+# Test token creation with full output analysis
+TOKEN_OUTPUT=$(pveum user token add ansible-bot@pve test-token2 --comment "Test" 2>&1)
+echo "=== Full token creation output ==="
+echo "$TOKEN_OUTPUT"
+echo "=== UUID extraction test ==="
+echo "$TOKEN_OUTPUT" | grep -oE '[0-9a-f-]{36}'
+echo "=== Primary regex test ==="
+echo "$TOKEN_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+
+# Test user detection logic (same as installer uses)
+API_USER="ansible-bot@pve"
+pveum user list 2>/dev/null | awk -v u="$API_USER" '$1==u { found=1 } END { exit !found }' && echo "User detection: SUCCESS" || echo "User detection: FAILED"
 
 # Clean up test tokens
-pveum user token delete ansible-bot@pve test-token
-pveum user token delete ansible-bot@pve test-token2
+pveum user token delete ansible-bot@pve test-token 2>/dev/null
+pveum user token delete ansible-bot@pve test-token2 2>/dev/null
 ```
 
 ### Check Control Node status:
