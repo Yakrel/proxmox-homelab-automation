@@ -40,24 +40,84 @@ debug_api_setup() {
     print_info "=== Proxmox API Setup Diagnostics ==="
     
     print_info "Checking API user '$API_USER'..."
-    if pveum user list 2>/dev/null | grep -q "^$API_USER"; then
+    local user_output
+    user_output=$(pveum user list 2>&1)
+    if echo "$user_output" | grep -q "^$API_USER"; then
         print_success "API user exists"
+        print_info "User details:"
+        echo "$user_output" | grep "^$API_USER" | sed 's/^/    /'
     else
         print_error "API user not found"
+        print_info "Available users:"
+        echo "$user_output" | head -5 | sed 's/^/    /'
+        print_info "Expected user: $API_USER"
         return 1
     fi
     
     print_info "Checking user permissions..."
-    if pveum acl list / 2>/dev/null | grep -q "$API_USER.*Administrator"; then
+    local acl_output
+    acl_output=$(pveum acl list / 2>&1)
+    if echo "$acl_output" | grep -q "$API_USER.*Administrator"; then
         print_success "User has Administrator role"
+        print_info "ACL details:"
+        echo "$acl_output" | grep "$API_USER" | sed 's/^/    /'
     else
         print_warning "User may not have Administrator role"
+        print_info "Current ACL entries for user:"
+        echo "$acl_output" | grep "$API_USER" | sed 's/^/    /' || print_warning "No ACL entries found"
     fi
     
     print_info "Testing token operations..."
-    local existing_tokens
-    existing_tokens=$(pveum user token list "$API_USER" 2>/dev/null | wc -l)
-    print_info "Existing tokens for user: $((existing_tokens - 1))"
+    local token_list_output
+    token_list_output=$(pveum user token list "$API_USER" 2>&1)
+    if [ $? -eq 0 ]; then
+        local existing_tokens
+        existing_tokens=$(echo "$token_list_output" | wc -l)
+        print_info "Existing tokens for user: $((existing_tokens - 1))"
+        if [ $((existing_tokens - 1)) -gt 0 ]; then
+            print_info "Current tokens:"
+            echo "$token_list_output" | sed 's/^/    /'
+        fi
+    else
+        print_warning "Could not list tokens: $token_list_output"
+    fi
+    
+    print_info "Testing token creation (will create and delete test token)..."
+    local test_token_name="diagnostic-test"
+    local test_output
+    test_output=$(pveum user token add "$API_USER" "$test_token_name" --comment "Diagnostic test token" 2>&1)
+    if [ $? -eq 0 ]; then
+        print_success "Token creation successful"
+        print_info "Test token output:"
+        echo "$test_output" | sed 's/^/    /'
+        
+        # Test token extraction like the main function does
+        local extracted_secret
+        extracted_secret=$(echo "$test_output" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
+        if [ -n "$extracted_secret" ]; then
+            print_success "Token secret extraction successful: ${extracted_secret:0:8}..."
+        else
+            print_warning "Primary token extraction failed, trying alternative method..."
+            extracted_secret=$(echo "$test_output" | grep -i "value" | grep -oE '[0-9a-f-]{36}' | head -1)
+            if [ -n "$extracted_secret" ]; then
+                print_success "Alternative token extraction successful: ${extracted_secret:0:8}..."
+            else
+                print_error "All token extraction methods failed"
+                print_info "Raw token output for analysis:"
+                echo "$test_output" | sed 's/^/    /'
+            fi
+        fi
+        
+        # Clean up test token
+        print_info "Cleaning up test token..."
+        if pveum user token delete "$API_USER" "$test_token_name" 2>/dev/null; then
+            print_success "Test token cleaned up successfully"
+        else
+            print_warning "Could not clean up test token - you may need to delete it manually"
+        fi
+    else
+        print_error "Token creation failed: $test_output"
+    fi
     
     print_info "=== Diagnostics complete ==="
 }
@@ -118,19 +178,38 @@ get_current_api_token() {
     # Create or recreate token and return its secret
     print_info "Managing API token '$API_TOKEN_ID'..."
 
-    # Verify API user exists first
-    if ! pveum user list 2>/dev/null | awk -v u="$API_USER" '$1==u { found=1 } END { exit !found }'; then
+    # Verify API user exists first with detailed output
+    print_info "Verifying API user exists..."
+    local user_check_output
+    user_check_output=$(pveum user list 2>&1)
+    if ! echo "$user_check_output" | awk -v u="$API_USER" '$1==u { found=1 } END { exit !found }'; then
         print_error "API user '$API_USER' not found. Please run first-time setup."
+        print_error "User verification output:"
+        echo "$user_check_output" | head -10 | sed 's/^/    /' >&2
+        print_error "Expected user: $API_USER"
         return 1
     fi
+    print_success "API user verified"
 
     # Remove existing token if present (with better error handling)
     print_info "Checking for existing tokens..."
-    if pveum user token list "$API_USER" 2>/dev/null | awk -v t="$API_TOKEN_ID" '$1==t { found=1 } END { exit !found }'; then
-        print_info "Removing existing token '$API_TOKEN_ID'..."
-        if ! pveum user token delete "$API_USER" "$API_TOKEN_ID" 2>/dev/null; then
-            print_warning "Could not delete existing token (may not exist anymore)"
+    local existing_token_check
+    existing_token_check=$(pveum user token list "$API_USER" 2>&1)
+    if [ $? -eq 0 ]; then
+        if echo "$existing_token_check" | awk -v t="$API_TOKEN_ID" '$1==t { found=1 } END { exit !found }'; then
+            print_info "Removing existing token '$API_TOKEN_ID'..."
+            local delete_output
+            delete_output=$(pveum user token delete "$API_USER" "$API_TOKEN_ID" 2>&1)
+            if [ $? -ne 0 ]; then
+                print_warning "Could not delete existing token: $delete_output"
+            else
+                print_success "Existing token removed"
+            fi
+        else
+            print_info "No existing token '$API_TOKEN_ID' found"
         fi
+    else
+        print_warning "Could not list existing tokens: $existing_token_check"
     fi
 
     # Create new token with detailed error handling
@@ -140,9 +219,14 @@ get_current_api_token() {
         print_error "Failed to create API token:"
         print_error "Command output: $TOKEN_OUTPUT"
         print_error "User: $API_USER, Token ID: $API_TOKEN_ID"
+        print_error "Troubleshooting:"
+        print_error "  1. Check if user has Administrator role: pveum acl list / | grep $API_USER"
+        print_error "  2. Verify user exists: pveum user list | grep $API_USER"
+        print_error "  3. Try manual token creation: pveum user token add $API_USER test-token"
         return 1
     fi
 
+    print_success "Token created successfully"
     print_info "Token creation output received, extracting secret..."
     
     # Extract UUID-style secret with improved regex and debugging
@@ -150,14 +234,19 @@ get_current_api_token() {
     TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
 
     if [ -z "$TOKEN_SECRET" ]; then
-        print_error "Failed to extract token secret from output:"
-        print_error "Raw output: $TOKEN_OUTPUT"
+        print_warning "Primary token extraction failed, trying alternative method..."
+        print_info "Raw token output:"
+        echo "$TOKEN_OUTPUT" | sed 's/^/    /' >&2
         # Try alternative extraction methods
-        print_info "Attempting alternative token extraction..."
         TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | grep -i "value" | grep -oE '[0-9a-f-]{36}' | head -1)
         if [ -z "$TOKEN_SECRET" ]; then
             print_error "All token extraction methods failed"
+            print_error "Expected format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (UUID)"
+            print_error "Raw output analysis:"
+            echo "$TOKEN_OUTPUT" | sed 's/^/    /' >&2
             return 1
+        else
+            print_success "Alternative extraction method worked"
         fi
     fi
 
