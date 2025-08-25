@@ -88,32 +88,25 @@ ensure_template_available() {
 # --- Helper Functions ---
 
 get_current_api_token() {
-    # Create or recreate token and return its secret (extract from 'secret' line)
+    # Create or recreate token and return its secret
     print_info "Managing API token '$API_TOKEN_ID'..."
 
-    pveum user token remove "$API_USER" "$API_TOKEN_ID" 2>/dev/null || true
+    # remove existing token if present
+    if pveum user token list "$API_USER" 2>/dev/null | awk -v t="$API_TOKEN_ID" '$1==t { found=1 } END { exit !found }'; then
+        pveum user token delete "$API_USER" "$API_TOKEN_ID" 2>/dev/null || true
+    fi
 
     local TOKEN_OUTPUT
     if ! TOKEN_OUTPUT=$(pveum user token add "$API_USER" "$API_TOKEN_ID" --comment "Token for Ansible automation" 2>&1); then
-        print_error "Failed to create API token. The 'pveum' command failed with the following output:"
-        print_error "$TOKEN_OUTPUT"
+        print_error "Failed to create API token: $TOKEN_OUTPUT"
         return 1
     fi
-    # Debug: expose raw pveum output for troubleshooting token extraction
-    print_info "pveum output (for debug):"
-    echo "$TOKEN_OUTPUT" | sed 's/^/    /'
 
-    # Extract secret from the line containing 'secret'
+    # extract UUID-style secret
     local TOKEN_SECRET
-    TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | awk 'tolower($0) ~ /secret/ {print $NF; exit}')
+    TOKEN_SECRET=$(echo "$TOKEN_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
 
-    if [ -n "$TOKEN_SECRET" ]; then
-        echo "$TOKEN_SECRET"
-    else
-        print_error "Failed to extract token secret from pveum output."
-        print_error "Full output was: $TOKEN_OUTPUT"
-        return 1
-    fi
+    [ -n "$TOKEN_SECRET" ] && echo "$TOKEN_SECRET" || { print_error "Failed to extract token secret"; return 1; }
 }
 
 run_ansible_playbook() {
@@ -162,7 +155,8 @@ run_first_time_setup() {
 
     # Step 1: Create Proxmox API User
     print_info "Ensuring Proxmox API user '$API_USER' exists..."
-    if ! pveum user show "$API_USER" >/dev/null 2>&1; then
+    # 'pveum user show' is not available on all versions; use list+grep
+    if ! pveum user list 2>/dev/null | awk -v u="$API_USER" '$1==u { found=1 } END { exit !found }'; then
         pveum user add "$API_USER" --comment "Ansible Automation User"
         pveum acl modify / --user "$API_USER" --role Administrator
         print_success "User '$API_USER' created and configured."
