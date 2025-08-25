@@ -204,7 +204,7 @@ run_ansible_playbook() {
 
     # Execute the command with improved error handling
     print_info "Running: cd $PLAYBOOK_DIR && ansible-playbook [options] $playbook_command"
-    if ! pct exec "$CONTROL_CT_ID" -- bash -l -c "cd $PLAYBOOK_DIR && PROXMOX_API_TOKEN_SECRET='$CURRENT_TOKEN_SECRET' ansible-playbook $vault_param --extra-vars 'proxmox_api_token_secret=$CURRENT_TOKEN_SECRET' $playbook_command"; then
+    if ! pct exec "$CONTROL_CT_ID" -- bash -l -c "cd $PLAYBOOK_DIR && PROXMOX_API_TOKEN_SECRET='$CURRENT_TOKEN_SECRET' ansible-playbook $vault_param --extra-vars \"proxmox_api_token_secret=$CURRENT_TOKEN_SECRET\" $playbook_command"; then
         print_error "Ansible playbook execution failed"
         return 1
     fi
