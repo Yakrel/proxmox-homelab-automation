@@ -228,40 +228,51 @@ run_first_time_setup() {
     fi
     print_success "Storage pool '$STORAGE_POOL' validated"
 
-    # Step 1: Create Proxmox API User
-    print_info "Ensuring Proxmox API user '$API_USER' exists..."
+    # Step 1: Create Proxmox API Role and User
+    print_info "Ensuring Proxmox API role and user exist and are configured..."
     
-    # Check if user exists
+    local ANSIBLE_ROLE="AnsibleRole"
+    # Corrected privileges list, excluding VM.Monitor
+    local ANSIBLE_PRIVS="Datastore.AllocateSpace Datastore.Audit Pool.Allocate Sys.Audit Sys.Console Sys.Modify VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.PowerMgmt"
+
+    # Ensure AnsibleRole exists and has the correct privileges
+    print_info "Verifying role '$ANSIBLE_ROLE'..."
+    if ! pveum role list | grep -q "^$ANSIBLE_ROLE"; then
+        print_info "Role '$ANSIBLE_ROLE' not found. Creating it..."
+        if ! pveum roleadd "$ANSIBLE_ROLE" -privs "$ANSIBLE_PRIVS"; then
+            print_error "Failed to create role '$ANSIBLE_ROLE'. Please check permissions."
+            exit 1
+        fi
+        print_success "Role '$ANSIBLE_ROLE' created."
+    else
+        print_success "Role '$ANSIBLE_ROLE' already exists."
+    fi
+
+    # Ensure API user exists
+    print_info "Verifying API user '$API_USER'..."
     if ! pveum user list 2>/dev/null | awk -v u="$API_USER" '$2==u { found=1 } END { exit !found }'; then
         print_info "Creating API user '$API_USER'..."
-        
-        # Create user with proper error handling
-        if ! pveum user add "$API_USER" --comment "Ansible Automation User" 2>/dev/null; then
-            print_error "Failed to create user '$API_USER'"
-            print_error "Please check Proxmox permissions and try again"
+        if ! pveum user add "$API_USER" --comment "Ansible Automation User"; then
+            print_error "Failed to create user '$API_USER'. Please check permissions."
             exit 1
         fi
-        
-        # Set Administrator role with error handling  
-        if ! pveum acl modify / --user "$API_USER" --role Administrator 2>/dev/null; then
-            print_error "Failed to set Administrator role for '$API_USER'"
-            print_error "Please manually assign Administrator role to this user"
-            exit 1
-        fi
-        
-        print_success "User '$API_USER' created and configured with Administrator role."
+        print_success "User '$API_USER' created."
     else
         print_success "User '$API_USER' already exists."
-        
-        # Verify the user has Administrator role
-        print_info "Verifying user permissions..."
-        if pveum acl list / 2>/dev/null | grep -q "$API_USER.*Administrator"; then
-            print_success "User has Administrator role confirmed."
-        else
-            print_warning "User may not have Administrator role. Attempting to set it..."
-            pveum acl modify / --user "$API_USER" --role Administrator 2>/dev/null || \
-                print_warning "Could not verify/set Administrator role. Manual intervention may be needed."
+    fi
+
+    # Ensure user has the correct role assigned at the root level
+    print_info "Verifying permissions for user '$API_USER'..."
+    if ! pveum acl list / 2>/dev/null | grep -q "$API_USER.*$ANSIBLE_ROLE"; then
+        print_warning "User '$API_USER' does not have role '$ANSIBLE_ROLE'. Assigning it now..."
+        if ! pveum acl modify / -user "$API_USER" -role "$ANSIBLE_ROLE"; then
+            print_error "Failed to assign role '$ANSIBLE_ROLE' to user '$API_USER'."
+            print_error "Please manually assign the role."
+            exit 1
         fi
+        print_success "Successfully assigned role '$ANSIBLE_ROLE' to user '$API_USER'."
+    else
+        print_success "User '$API_USER' has the correct permissions."
     fi
 
     # Step 2: Create Control LXC
