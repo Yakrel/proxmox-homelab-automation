@@ -112,12 +112,20 @@ get_current_api_token() {
 run_ansible_playbook() {
     local playbook_command="$1"
     
-    # Get API token for this session
+    # Get API token for this session (capture stderr for diagnostics)
     local CURRENT_TOKEN_SECRET
-    if ! CURRENT_TOKEN_SECRET=$(get_current_api_token); then
+    local TOKEN_ERR_FILE
+    TOKEN_ERR_FILE=$(mktemp)
+    if ! CURRENT_TOKEN_SECRET=$(get_current_api_token 2>"$TOKEN_ERR_FILE"); then
         print_error "Failed to get API token. Playbook execution aborted."
+        if [ -s "$TOKEN_ERR_FILE" ]; then
+            print_error "Token generation stderr:"
+            sed 's/^/    /' "$TOKEN_ERR_FILE" | sed -n '1,200p'
+        fi
+        rm -f "$TOKEN_ERR_FILE"
         return 1
     fi
+    rm -f "$TOKEN_ERR_FILE"
     
     # For deployment commands, ensure required template is available
     if [[ "$playbook_command" =~ deploy\.yml ]]; then
