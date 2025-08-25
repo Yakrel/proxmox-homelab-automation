@@ -42,19 +42,12 @@
 
 This error occurs when the installer cannot create or extract the Proxmox API token needed for Ansible to communicate with Proxmox.
 
-**Solutions**:
-
-1. **Run with debug mode** to get detailed diagnostics:
+1. **Check API user exists and has permissions**:
    ```bash
-   bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh) --debug
-   ```
-
-2. **Check API user exists and has permissions**:
-   ```bash
-   # Check if the API user exists (look for exact match)
-   pveum user list | grep "^ansible-bot@pve"
+   # Check if the API user exists (should show the user)
+   pveum user list | grep ansible-bot@pve
    
-   # Check user permissions (should show Administrator role)
+   # Check user permissions (should show Administrator role)  
    pveum acl list / | grep ansible-bot@pve
    ```
 
@@ -72,7 +65,7 @@ This error occurs when the installer cannot create or extract the Proxmox API to
    pveum acl list / | grep ansible-bot@pve
    ```
 
-4. **Test token operations manually**:
+2. **Test token operations manually**:
    ```bash
    # List existing tokens
    pveum user token list ansible-bot@pve
@@ -91,7 +84,7 @@ This error occurs when the installer cannot create or extract the Proxmox API to
    pveum user token delete ansible-bot@pve test-token2
    ```
 
-5. **Advanced diagnostics** (if above steps don't work):
+3. **Advanced diagnostics** (if above steps don't work):
    ```bash
    # Check Proxmox VE version compatibility
    pveversion
@@ -112,19 +105,14 @@ This error occurs when the installer cannot create or extract the Proxmox API to
 
 This usually indicates an issue with the installer's user detection or token extraction logic. Try:
 
-1. **Force debug mode and check the exact error**:
-   ```bash
-   bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh) --debug 2>&1 | tee debug.log
-   ```
-
-2. **Check if the issue is with user detection**:
+1. **Check if the issue is with user detection**:
    ```bash
    # Test the exact command the installer uses
    API_USER="ansible-bot@pve"
-   pveum user list 2>/dev/null | awk -v u="$API_USER" '$1==u { found=1 } END { exit !found }' && echo "User found" || echo "User not found"
+   pveum user list 2>/dev/null | awk -v u="$API_USER" '$2==u { found=1 } END { exit !found }' && echo "User found" || echo "User not found"
    ```
 
-3. **Check if the issue is with token extraction**:
+2. **Check if the issue is with token extraction**:
    ```bash
    # Create a token and test extraction methods
    TOKEN_OUTPUT=$(pveum user token add ansible-bot@pve extract-test --comment "Extraction test" 2>&1)
@@ -216,9 +204,6 @@ This usually indicates an issue with the installer's user detection or token ext
 # Run installer with help
 ./installer.sh --help
 
-# Run with debug output
-./installer.sh --debug
-
 # Check Proxmox commands are available
 which pct pveum
 ```
@@ -239,7 +224,7 @@ echo "$TOKEN_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}
 
 # Test user detection logic (same as installer uses)
 API_USER="ansible-bot@pve"
-pveum user list 2>/dev/null | awk -v u="$API_USER" '$1==u { found=1 } END { exit !found }' && echo "User detection: SUCCESS" || echo "User detection: FAILED"
+pveum user list 2>/dev/null | awk -v u="$API_USER" '$2==u { found=1 } END { exit !found }' && echo "User detection: SUCCESS" || echo "User detection: FAILED"
 
 # Clean up test tokens
 pveum user token delete ansible-bot@pve test-token 2>/dev/null
