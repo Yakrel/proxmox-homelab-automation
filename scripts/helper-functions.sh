@@ -117,7 +117,7 @@ ensure_yq() {
 # === CONFIGURATION MANAGEMENT ===
 # Unified configuration parsing and validation
 
-# Get list of available stacks from stacks.yaml
+# Get list of available stacks from stacks.yaml, sorted by CT ID
 get_available_stacks() {
     local stacks_file="${1:-$WORK_DIR/stacks.yaml}"
     ensure_yq
@@ -127,7 +127,8 @@ get_available_stacks() {
         return 1
     fi
     
-    yq -r '.stacks | keys | .[]' "$stacks_file" 2>/dev/null || {
+    # Get stacks with their CT IDs, sort by CT ID, then return stack names only
+    yq -r '.stacks | to_entries | map(select(.value.ct_id != null)) | sort_by(.value.ct_id) | .[].key' "$stacks_file" 2>/dev/null || {
         print_error "Failed to parse stacks from $stacks_file"
         return 1
     }
