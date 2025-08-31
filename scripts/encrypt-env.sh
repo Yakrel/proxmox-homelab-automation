@@ -40,9 +40,9 @@ encrypt_container_env() {
     # Get passphrase
     local pass=$(prompt_env_passphrase)
     
-    # Encrypt - fail fast, no retries
+    # Encrypt using helper function
     local encrypted_file="$output_dir/.env.enc"
-    if printf '%s' "$pass" | openssl enc -aes-256-cbc -pbkdf2 -salt -pass stdin -in "$temp_env" -out "$encrypted_file" 2>/dev/null; then
+    if encrypt_env_file "$temp_env" "$encrypted_file" "$pass"; then
         print_success "Environment file encrypted successfully: docker/$stack/.env.enc"
         print_info "Next steps:"
         print_info "1. Copy docker/$stack/.env.enc to your development environment"
@@ -51,7 +51,6 @@ encrypt_container_env() {
         print_info "4. git push"
     else
         print_error "Encryption failed."
-        rm -f "$encrypted_file"
         exit 1
     fi
     
@@ -59,40 +58,52 @@ encrypt_container_env() {
     rm -f "$temp_env"
 }
 
+# --- Menu handlers ---
+encrypt_stack_handler() {
+    local index="$1"
+    local stack
+    
+    if stack=$(get_stack_from_menu_index "$index"); then
+        encrypt_container_env "$stack"
+        press_enter_to_continue
+    else
+        print_error "Failed to get stack for index $index"
+        sleep 2
+    fi
+}
+
+back_to_main() {
+    print_info "Returning to main menu..."
+    exit 0
+}
+
 # --- Interactive menu ---
 show_encrypt_menu() {
-    while true; do
-        clear
-        echo "==============================================="
-        echo "      Environment File Encryption Menu"
-        echo "==============================================="
-        echo
-        echo "   1) Encrypt [proxy]      .env (LXC 100)"
-        echo "   2) Encrypt [media]      .env (LXC 101)"
-        echo "   3) Encrypt [files]      .env (LXC 102)"
-        echo "   4) Encrypt [webtools]   .env (LXC 103)"
-        echo "   5) Encrypt [monitoring] .env (LXC 104)"
-        echo "   6) Encrypt [gameservers] .env (LXC 105)"
-        echo "   7) Encrypt [development] .env (LXC 151)"
-        echo
-        echo "   q) Back to Main Menu"
-        echo
-        read -p "   Enter your choice: " choice
-        
-        case $choice in
-            1) encrypt_container_env "proxy" ; break ;;
-            2) encrypt_container_env "media" ; break ;;
-            3) encrypt_container_env "files" ; break ;;
-            4) encrypt_container_env "webtools" ; break ;;
-            5) encrypt_container_env "monitoring" ; break ;;
-            6) encrypt_container_env "gameservers" ; break ;;
-            7) encrypt_container_env "development" ; break ;;
-            q|Q) echo "Returning to main menu..."; exit 0 ;;
-            *) echo "Invalid choice. Please try again." ; sleep 2 ;;
-        esac
-        echo
-        read -p "Press Enter to continue..."
-    done
+    # Generate dynamic encryption options
+    local -a encrypt_options=()
+    while IFS= read -r stack; do
+        local ct_id=$(yq -r ".stacks.$stack.ct_id" "$WORK_DIR/stacks.yaml" 2>/dev/null)
+        if [[ "$ct_id" != "null" && -n "$ct_id" ]]; then
+            # Only show stacks that would have Docker compose (skip backup which is native)
+            if [[ "$stack" != "backup" ]]; then
+                encrypt_options+=("Encrypt [$stack] .env (LXC $ct_id)")
+            fi
+        fi
+    done < <(get_available_stacks)
+    
+    # Create handlers array
+    local -a handlers=()
+    local stack_count=0
+    
+    while IFS= read -r stack; do
+        if [[ "$stack" != "backup" ]]; then
+            handlers+=("encrypt_stack_handler")
+            ((stack_count++))
+        fi
+    done < <(get_available_stacks)
+    
+    # Show interactive menu
+    show_interactive_menu "Environment File Encryption Menu" encrypt_options handlers "back_to_main" "back_to_main"
 }
 
 # --- Main execution ---

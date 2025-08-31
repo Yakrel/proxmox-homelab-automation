@@ -117,6 +117,63 @@ ensure_yq() {
 # === CONFIGURATION MANAGEMENT ===
 # Unified configuration parsing and validation
 
+# Get list of available stacks from stacks.yaml
+get_available_stacks() {
+    local stacks_file="${1:-$WORK_DIR/stacks.yaml}"
+    ensure_yq
+    
+    if [[ ! -f "$stacks_file" ]]; then
+        print_error "Stacks file not found: $stacks_file"
+        return 1
+    fi
+    
+    yq -r '.stacks | keys | .[]' "$stacks_file" 2>/dev/null || {
+        print_error "Failed to parse stacks from $stacks_file"
+        return 1
+    }
+}
+
+# Generate dynamic stack menu options
+generate_stack_menu_options() {
+    local stacks_file="${1:-$WORK_DIR/stacks.yaml}"
+    local -a options=()
+    
+    ensure_yq
+    
+    if [[ ! -f "$stacks_file" ]]; then
+        print_error "Stacks file not found: $stacks_file"
+        return 1
+    fi
+    
+    while IFS= read -r stack; do
+        local ct_id=$(yq -r ".stacks.$stack.ct_id" "$stacks_file" 2>/dev/null)
+        local hostname=$(yq -r ".stacks.$stack.hostname" "$stacks_file" 2>/dev/null)
+        
+        if [[ "$ct_id" != "null" && -n "$ct_id" ]]; then
+            options+=("Deploy [$stack] Stack -> LXC $ct_id ($hostname)")
+        fi
+    done < <(get_available_stacks "$stacks_file")
+    
+    printf '%s\n' "${options[@]}"
+}
+
+# Get stack name from menu selection index  
+get_stack_from_menu_index() {
+    local index="$1"
+    local stacks_file="${2:-$WORK_DIR/stacks.yaml}"
+    local -a stacks=()
+    
+    while IFS= read -r stack; do
+        stacks+=("$stack")
+    done < <(get_available_stacks "$stacks_file")
+    
+    if [[ $index -ge 0 && $index -lt ${#stacks[@]} ]]; then
+        echo "${stacks[$index]}"
+    else
+        return 1
+    fi
+}
+
 get_stack_config() {
     local stack="$1"
     local stacks_file="${2:-$WORK_DIR/stacks.yaml}"
@@ -231,6 +288,59 @@ show_menu_footer() {
     echo
 }
 
+# Interactive menu system with options and handlers
+show_interactive_menu() {
+    local title="$1"
+    local -n options_ref="$2"
+    local -n handlers_ref="$3"
+    local back_handler="${4:-}"
+    local quit_handler="${5:-}"
+    
+    while true; do
+        show_menu_header "$title"
+        
+        # Show numbered options
+        for i in "${!options_ref[@]}"; do
+            echo "   $((i+1))) ${options_ref[$i]}"
+        done
+        
+        show_menu_footer
+        read -p "   Enter your choice: " choice
+        
+        case $choice in
+            [1-9]|[1-9][0-9])
+                local index=$((choice - 1))
+                if [[ $index -ge 0 && $index -lt ${#options_ref[@]} ]]; then
+                    ${handlers_ref[$index]} $index
+                else
+                    print_error "Invalid choice. Please try again."
+                    sleep 2
+                fi
+                ;;
+            b|B)
+                if [[ -n "$back_handler" ]]; then
+                    $back_handler
+                    return 0
+                else
+                    return 0
+                fi
+                ;;
+            q|Q)
+                if [[ -n "$quit_handler" ]]; then
+                    $quit_handler
+                else
+                    print_info "Exiting..."
+                    exit 0
+                fi
+                ;;
+            *)
+                print_error "Invalid choice. Please try again."
+                sleep 2
+                ;;
+        esac
+    done
+}
+
 # === FILE AND DIRECTORY UTILITIES ===
 # Common file operations and validations
 
@@ -255,6 +365,85 @@ backup_file() {
         cp "$file_path" "$file_path.backup.$(date +%Y%m%d_%H%M%S)"
         print_info "Backup created: $file_path.backup.$(date +%Y%m%d_%H%M%S)"
     fi
+}
+
+# Download file and push to LXC container
+download_and_push_config() {
+    local ct_id="$1"
+    local remote_url="$2"
+    local target_path="$3"
+    local temp_file="${4:-$WORK_DIR/$(basename "$remote_url")}"
+    
+    print_info "    -> Downloading $(basename "$remote_url")"
+    if ! curl -sSL "$remote_url" -o "$temp_file"; then
+        print_error "Failed to download $(basename "$remote_url")"
+        return 1
+    fi
+    
+    print_info "    -> Pushing to LXC $ct_id ($target_path)"
+    if ! pct push "$ct_id" "$temp_file" "$target_path"; then
+        print_error "Failed to push file to container"
+        rm -f "$temp_file"
+        return 1
+    fi
+    
+    rm -f "$temp_file"
+    return 0
+}
+
+# Environment file encryption/decryption helpers
+encrypt_env_file() {
+    local input_file="$1"
+    local output_file="$2"
+    local passphrase="$3"
+    
+    if printf '%s' "$passphrase" | openssl enc -aes-256-cbc -pbkdf2 -salt -pass stdin -in "$input_file" -out "$output_file" 2>/dev/null; then
+        return 0
+    else
+        rm -f "$output_file"
+        return 1
+    fi
+}
+
+decrypt_env_file() {
+    local input_file="$1"
+    local output_file="$2"
+    local passphrase="$3"
+    
+    if printf '%s' "$passphrase" | openssl enc -aes-256-cbc -pbkdf2 -d -salt -pass stdin -in "$input_file" -out "$output_file" 2>/dev/null; then
+        return 0
+    else
+        rm -f "$output_file"
+        return 1
+    fi
+}
+
+# Download, customize template, and push to LXC container
+download_customize_and_push() {
+    local ct_id="$1"
+    local remote_url="$2"
+    local target_path="$3"
+    local hostname="$4"
+    local temp_file="${5:-$WORK_DIR/$(basename "$remote_url")}"
+    
+    print_info "  -> Downloading $(basename "$remote_url") template"
+    if ! curl -sSL "$remote_url" -o "$temp_file"; then
+        print_error "Failed to download $(basename "$remote_url")"
+        return 1
+    fi
+    
+    # Replace hostname placeholder
+    sed -i "s/REPLACE_HOST_LABEL/$hostname/g" "$temp_file"
+    
+    print_info "  -> Pushing customized $(basename "$remote_url") to LXC $ct_id ($target_path)"
+    if ! pct push "$ct_id" "$temp_file" "$target_path"; then
+        print_error "Failed to push file to container"
+        rm -f "$temp_file"
+        return 1
+    fi
+    
+    rm -f "$temp_file"
+    return 0
 }
 
 # === VALIDATION FUNCTIONS ===

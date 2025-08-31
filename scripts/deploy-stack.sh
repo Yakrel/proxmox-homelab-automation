@@ -203,15 +203,7 @@ configure_homepage_config() {
 
         for config_file in "${homepage_config_files[@]}"; do
             local remote_url="$REPO_BASE_URL/config/homepage/$config_file"
-            local temp_file="$WORK_DIR/$config_file" # Use WORK_DIR (temp dir) for download
-
-            print_info "    -> Downloading $config_file"
-            curl -sSL "$remote_url" -o "$temp_file"
-
-            print_info "    -> Pushing $config_file to LXC"
-            pct push "$CT_ID" "$temp_file" "$target_config_dir/$config_file"
-            # Clean up the temporary downloaded file
-            rm "$temp_file"
+            download_and_push_config "$CT_ID" "$remote_url" "$target_config_dir/$config_file"
         done
 
         print_success "Homepage config files configured successfully."
@@ -243,26 +235,12 @@ configure_stack_configs() {
     for config_entry in "${monitoring_config_files[@]}"; do
             IFS=':' read -r config_file target_dir <<< "$config_entry"
             local remote_url="$REPO_BASE_URL/docker/$STACK_NAME/$config_file"
-            local temp_file="$WORK_DIR/$config_file"
-
-            print_info "    -> Downloading $config_file"
-            curl -sSL "$remote_url" -o "$temp_file"
-
-            print_info "    -> Pushing $config_file to LXC ($target_dir)"
-            pct push "$CT_ID" "$temp_file" "$target_dir/$config_file"
-            rm "$temp_file"
+            download_and_push_config "$CT_ID" "$remote_url" "$target_dir/$config_file"
         done
 
-                # Download and push Loki config
+        # Download and push Loki config
         local loki_config_url="$REPO_BASE_URL/config/loki/loki.yml"
-        local temp_loki_file="$WORK_DIR/loki.yml"
-        
-        print_info "    -> Downloading loki.yml"
-        curl -sSL "$loki_config_url" -o "$temp_loki_file"
-        
-        print_info "    -> Pushing loki.yml to LXC ($loki_config_dir)"
-        pct push "$CT_ID" "$temp_loki_file" "$loki_config_dir/loki.yml"
-        rm "$temp_loki_file"
+        download_and_push_config "$CT_ID" "$loki_config_url" "$loki_config_dir/loki.yml"
 
 
         print_success "Monitoring config files configured successfully."
@@ -285,17 +263,8 @@ configure_promtail_config() {
     
     local promtail_config_dir="/datapool/config/promtail"
     local promtail_config_url="$REPO_BASE_URL/config/promtail/promtail.yml"
-    local temp_promtail_file="$WORK_DIR/promtail.yml"
     
-    print_info "  -> Downloading promtail.yml template"
-    curl -sSL "$promtail_config_url" -o "$temp_promtail_file"
-    
-    # Replace host label with the actual hostname (used in labels and positions filename)
-    sed -i "s/REPLACE_HOST_LABEL/$CT_HOSTNAME/g" "$temp_promtail_file"
-    
-    print_info "  -> Pushing customized promtail.yml to LXC ($promtail_config_dir)"
-    pct push "$CT_ID" "$temp_promtail_file" "$promtail_config_dir/promtail.yml"
-    rm "$temp_promtail_file"
+    download_customize_and_push "$CT_ID" "$promtail_config_url" "$promtail_config_dir/promtail.yml" "$CT_HOSTNAME"
     
     print_success "Promtail config configured successfully for $CT_HOSTNAME."
 }
@@ -554,12 +523,9 @@ deploy_compose() {
     print_info "(5/5) Deploying Docker Compose stack for [$STACK_NAME]..."
     get_stack_config "$STACK_NAME"
     local compose_url="$REPO_BASE_URL/docker/$STACK_NAME/docker-compose.yml"
-    local temp_compose="$WORK_DIR/docker-compose.yml"
 
     # Fetch and push docker-compose.yml to LXC
-    curl -sSL "$compose_url" -o "$temp_compose"
-    pct push "$CT_ID" "$temp_compose" "/root/docker-compose.yml"
-    rm "$temp_compose"
+    download_and_push_config "$CT_ID" "$compose_url" "/root/docker-compose.yml"
 
     print_info "Starting docker-compose up -d --remove-orphans..."
     if ! pct exec "$CT_ID" -- docker compose -f /root/docker-compose.yml up -d --remove-orphans; then
