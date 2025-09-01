@@ -2,6 +2,25 @@
 
 A simple, shell-based automation system for deploying containerized services in LXC containers on Proxmox VE.
 
+## ⚠️ **IMPORTANT: Personal Homelab Setup**
+
+**This is a highly specialized, personal homelab automation designed for a specific environment.** It is **NOT plug-and-play** and requires significant modifications for other setups:
+
+### **Hardcoded Environment Requirements:**
+- **Network**: `192.168.1.x` range with `vmbr0` bridge and `192.168.1.1` gateway
+- **Storage**: ZFS pool named exactly `datapool` 
+- **Location**: Timezone hardcoded to `Europe/Istanbul`
+- **User Mapping**: Specific UID/GID mappings (`101000:101000`, `PUID=1000`)
+
+### **⚡ Zero Configurability by Design**
+This follows the philosophy of "static/hardcoded values preferred over dynamic discovery." To use in your environment, you'll need to:
+1. **Fork the repository**
+2. **Modify hardcoded values** in scripts and config files
+3. **Update network/storage/timezone** settings throughout
+4. **Test thoroughly** in your specific Proxmox environment
+
+**This approach is intentional** - it prioritizes reliability and simplicity for THIS specific homelab over universal compatibility.
+
 ## 🎯 Design Philosophy
 
 - **Idempotent & Fail-Fast**: Operations are safely re-runnable; failures stop immediately
@@ -22,8 +41,8 @@ Each service runs in its own LXC container with dedicated resources:
 | **webtools** | 103 | Web-based utilities | 2C/6GB/15GB |
 | **monitoring** | 104 | Prometheus, Grafana stack | 4C/6GB/15GB |
 | **gameservers** | 105 | Game servers (Satisfactory, Palworld) | 8C/16GB/50GB |
-| **backup** | 150 | Proxmox Backup Server | 4C/8GB/50GB |
-| **development** | 151 | Development tools | 4C/6GB/15GB |
+| **backup** | 150 | Proxmox Backup Server (native) | 4C/8GB/50GB |
+| **development** | 151 | Development tools (minimal) | 4C/6GB/15GB |
 
 ## 🚀 Quick Start
 
@@ -40,13 +59,21 @@ Each service runs in its own LXC container with dedicated resources:
 ```
 ├── installer.sh           # Main entry point (downloads latest scripts)
 ├── scripts/               # Core deployment scripts
-│   ├── main-menu.sh      # Interactive menu
+│   ├── main-menu.sh      # Interactive main menu
 │   ├── deploy-stack.sh   # Stack deployment orchestrator
-│   └── lxc-manager.sh    # LXC container management
+│   ├── lxc-manager.sh    # LXC container management
+│   ├── helper-menu.sh    # Additional utility menu
+│   ├── gaming-menu.sh    # Game server selection menu
+│   ├── game-manager.sh   # Game server operations
+│   ├── encrypt-env.sh    # Environment file encryption
+│   └── fail2ban-manager.sh # Fail2ban configuration
 ├── docker/               # Docker compose files per stack
 │   ├── proxy/
 │   ├── media/
-│   └── ...
+│   ├── files/
+│   ├── webtools/
+│   ├── monitoring/
+│   └── gameservers/
 ├── stacks.yaml          # Central configuration
 └── config/              # Service configurations
 ```
@@ -82,8 +109,14 @@ Each service runs in its own LXC container with dedicated resources:
 
 ### Monitoring Stack (LXC 104)
 - Prometheus metrics collection
-- Grafana visualization
+- Grafana visualization  
 - Alertmanager notifications
+- **Recommended Dashboard IDs:**
+  - **1860**: Node Exporter Full (system metrics)
+  - **193**: Docker monitoring
+  - **10000**: Proxmox VE monitoring
+  - **12006**: Proxmox Backup Server
+  - **13639**: Loki log dashboard
 
 ### Game Servers Stack (LXC 105)
 - Satisfactory dedicated server

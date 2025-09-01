@@ -1,5 +1,5 @@
 # Central source of truth for LXC stacks (IDs, hostnames, IPs, resources)
-# This is a scaffold to begin consolidating repeated values. Not yet wired.
+# All scripts read from this file to maintain consistency and follow DRY principle.
 
 network:
   gateway: 192.168.1.1

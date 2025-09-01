@@ -1,5 +1,4 @@
-# CLAUDE.md - Personal development assistant file
-CLAUDE.md
+# Development guidelines now part of the repository
 
 # Environment files with secrets
 .env
@@ -47,8 +46,9 @@ setting.local.json
 
 # Other
 .gemini/
-GEMINI.md
-.env
-.env.*
-!.env.example
+*.env
+!*.env.example
+!*.env.enc
+.env.local
+.env.tmp
 .vault_pass

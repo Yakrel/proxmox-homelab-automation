@@ -16,7 +16,8 @@ set -e
 # --- Global Variables ---
 
 WORK_DIR=""
-REPO_BASE_URL="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main"
+get_repo_base_url() { echo "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main"; }
+REPO_BASE_URL=$(get_repo_base_url)
 
 # --- Helper Functions ---
 
@@ -29,7 +30,7 @@ print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
 cleanup() {
     if [ -n "$WORK_DIR" ] && [ -d "$WORK_DIR" ]; then
         print_info "Cleaning up temporary files..."
-        rm -rf "$WORK_DIR"
+        rm -rf "${WORK_DIR:?}"
     fi
 }
 
@@ -48,11 +49,15 @@ print_info "Downloading the latest scripts from the repository..."
 
 # List of files to download
 FILES_TO_DOWNLOAD=(
+    "scripts/helper-functions.sh"
     "scripts/main-menu.sh"
     "scripts/lxc-manager.sh"
     "scripts/deploy-stack.sh"
     "scripts/helper-menu.sh"
+    "scripts/gaming-menu.sh"
+    "scripts/game-manager.sh"
     "scripts/fail2ban-manager.sh"
+    "scripts/encrypt-env.sh"
     "stacks.yaml"
 )
 
@@ -63,7 +68,7 @@ for file_path in "${FILES_TO_DOWNLOAD[@]}"; do
     print_info " -> Downloading $file_path"
     curl -sSL "$REPO_BASE_URL/$file_path" -o "$file_path"
     if [ ! -s "$file_path" ]; then
-        print_error "Failed to download $file_path. Please check the URL and repository structure."
+        print_error "Failed to download $file_path"
         exit 1
     fi
     # Convert line endings to Unix format (LF) for scripts

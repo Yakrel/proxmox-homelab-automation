@@ -6,23 +6,13 @@ set -e
 
 WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 
-# --- Generic Helper Functions ---
-
-ensure_packages() {
-    echo "[INFO] Ensuring packages '$*' are installed..."
-    apt-get update >/dev/null
-    apt-get install -y "$@"
-}
-
-press_enter_to_continue() {
-    echo
-    read -p "Press Enter to continue..."
-}
+# --- Load Shared Functions ---
+source "$WORK_DIR/scripts/helper-functions.sh"
 
 # --- Core Logic Functions ---
 
 run_configure_timezone() {
-    if [ "$(id -u)" -ne 0 ]; then echo "[ERROR] Must be run as root"; return 1; fi
+    require_root
     ensure_packages chrony
 
     echo "[INFO] Setting timezone to Europe/Istanbul..."
@@ -149,23 +139,39 @@ EOF
         useradd -r -s /bin/false "$samba_username"
     fi
     
-    read -s -p "Enter new Samba password for $samba_username: " samba_password
-    echo
-
-    # 4. Idempotently manage the Samba database user.
-    if [ -n "$samba_password" ]; then
-        # First, attempt to add the user. The '-a' flag is for adding.
-        # If the user already exists, this command will fail.
-        if (echo "$samba_password"; echo "$samba_password") | smbpasswd -a -s "$samba_username" >/dev/null 2>&1; then
-            echo "[INFO] Added new user '$samba_username' to Samba."
+    # 4. Check if user exists in Samba database and handle accordingly
+    local samba_user_exists=false
+    if pdbedit -L | grep -q "^$samba_username:"; then
+        samba_user_exists=true
+        echo "[INFO] User '$samba_username' already exists in Samba database."
+        read -p "Update password for existing user? (y/N): " update_password
+        if [[ ! $update_password =~ ^[Yy]$ ]]; then
+            echo "[INFO] Skipping password update."
+            samba_password=""
         else
-            # If adding failed, assume the user exists and just update the password.
-            echo "[INFO] User '$samba_username' already exists. Updating password..."
+            read -s -p "Enter new Samba password for $samba_username: " samba_password
+            echo
+        fi
+    else
+        echo "[INFO] User '$samba_username' not found in Samba database. Will create new entry."
+        read -s -p "Enter Samba password for $samba_username: " samba_password
+        echo
+    fi
+
+    # 5. Idempotently manage the Samba database user.
+    if [ -n "$samba_password" ]; then
+        if [ "$samba_user_exists" = true ]; then
+            # Update existing user password
+            echo "[INFO] Updating password for existing user '$samba_username'..."
             (echo "$samba_password"; echo "$samba_password") | smbpasswd -s "$samba_username" >/dev/null
+        else
+            # Add new user
+            echo "[INFO] Adding new user '$samba_username' to Samba..."
+            (echo "$samba_password"; echo "$samba_password") | smbpasswd -a -s "$samba_username" >/dev/null 2>&1
         fi
     fi
 
-    # 5. Enforce the desired state for the share configuration file.
+    # 6. Enforce the desired state for the share configuration file.
     local share_conf_file="$conf_d_dir/datapool.conf"
     echo "[INFO] Writing desired state for share to $share_conf_file..."
     cat > "$share_conf_file" << EOF

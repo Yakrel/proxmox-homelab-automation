@@ -80,6 +80,10 @@
         description: Proxmox Host
         href: https://192.168.1.10:8006
         icon: proxmox.png
+    - Proxmox Backup Server:
+        description: Backup Management
+        href: https://192.168.1.150:8007
+        icon: proxmox.png
     - Homelab Repo:
         description: GitHub Repository
         href: https://github.com/Yakrel/proxmox-homelab-automation

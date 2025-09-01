@@ -20,6 +20,7 @@ scrape_configs:
         - '192.168.1.102:9323'  # files
         - '192.168.1.103:9323'  # webtools
         - '192.168.1.104:9323'  # monitoring
+        - '192.168.1.105:9323'  # gameservers
         # Note: LXC 150 (backup) and 151 (development) excluded - no Docker
     relabel_configs:
       - source_labels: [__address__]
@@ -42,6 +43,10 @@ scrape_configs:
         regex: '192.168.1.104:9323'
         target_label: instance
         replacement: 'lxc-monitoring-01'
+      - source_labels: [__address__]
+        regex: '192.168.1.105:9323'
+        target_label: instance
+        replacement: 'lxc-gameservers-01'
 
   
 

@@ -8,104 +8,56 @@ set -e
 # --- Arguments and Setup ---
 STACK_NAME=$1
 WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
-REPO_BASE_URL="https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main"
+
+# --- Load Shared Functions ---
+source "$WORK_DIR/scripts/helper-functions.sh"
+
+# --- Global Variables ---
+REPO_BASE_URL=$(get_repo_base_url)
 
 # Global variables for monitoring setup
 PVE_MONITORING_PASSWORD=""
 ENV_ENC_NAME=".env.enc"    # Encrypted env filename expected in repo per stack
 ENV_DECRYPTED_PATH=""
-ENV_PASSPHRASE_CACHE=""
 
-prompt_env_passphrase() {
-    local pass
-    while true; do
-        echo -n "Enter .env decryption passphrase: " >&2
-        read -s pass
-        echo >&2
-        if [ -z "$pass" ]; then
-            print_warning "Passphrase cannot be empty."
-        else
-            printf '%s' "$pass"  # Secure output without newline
-            return 0
-        fi
-    done
+# Use shared prompt_env_passphrase function from helper-functions.sh
+
+prompt_pbs_admin_password() {
+    prompt_password "Enter PBS admin password for root@pam (web interface): " 8
 }
 
-decrypt_repo_env_to_temp() {
-    # Downloads encrypted .env.enc from repo for the stack and decrypts it to a temp file.
-    # Expects OpenSSL available on host (present by default on Proxmox).
+decrypt_env_for_deploy() {
+    # Download and decrypt .env.enc for deployment - fail fast, no retries
     local stack="$1"
-    local enc_url="$REPO_BASE_URL/docker/$stack/$ENV_ENC_NAME"
-    local enc_tmp="$WORK_DIR/$ENV_ENC_NAME"
-    ENV_DECRYPTED_PATH="$WORK_DIR/.env.new"
+    local enc_url="$REPO_BASE_URL/docker/$stack/.env.enc"
+    local enc_tmp="$WORK_DIR/.env.enc"
+    ENV_DECRYPTED_PATH="$WORK_DIR/.env"
 
-    print_info "  -> Downloading encrypted env ($ENV_ENC_NAME) for [$stack] from repo..."
-    mkdir -p "$WORK_DIR/docker/$stack"
+    print_info "  -> Downloading encrypted env (.env.enc) for [$stack] from repo..."
     curl -sSL "$enc_url" -o "$enc_tmp"
     if [ ! -s "$enc_tmp" ]; then
         print_error "Encrypted env not found for stack [$stack] at $enc_url"
         return 1
     fi
 
-    # Ask passphrase and try to decrypt; allow up to 3 attempts
-    local attempts=0
-    while [ $attempts -lt 3 ]; do
-        attempts=$((attempts+1))
-        local pass
-        if [ -n "$ENV_PASSPHRASE_CACHE" ]; then
-            pass="$ENV_PASSPHRASE_CACHE"
-        else
-            pass=$(prompt_env_passphrase)
-            ENV_PASSPHRASE_CACHE="$pass"
-        fi
-        
-    # Pass the passphrase to openssl via stdin to avoid writing it to disk
+    # Ask passphrase - fail fast if wrong
+    local pass=$(prompt_env_passphrase)
+    
+    # Single decrypt attempt - fail fast
     if printf '%s' "$pass" | openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" 2>/dev/null; then
-            print_success ".env decrypted successfully."
-            rm -f "$enc_tmp"
-            return 0
-        else
-            print_warning "Decryption failed (attempt $attempts/3). Check passphrase or file integrity."
-            # Clear cached passphrase on first failure to force re-entry
-            if [ $attempts -eq 1 ]; then
-                ENV_PASSPHRASE_CACHE=""
-            fi
-        fi
-    done
-    rm -f "$enc_tmp" "$ENV_DECRYPTED_PATH" 2>/dev/null || true
-    print_error "Failed to decrypt .env after 3 attempts."
-    return 1
-}
-
-# --- Helper Functions ---
-print_info() { echo -e "\033[36m[INFO]\033[0m $1"; }
-print_success() { echo -e "\033[32m[SUCCESS]\033[0m $1"; }
-print_error() { echo -e "\033[31m[ERROR]\033[0m $1"; }
-print_warning() { echo -e "\033[33m[WARNING]\033[0m $1"; }
-
-# --- Stack Configuration (YAML-driven only) ---
-get_stack_config() {
-    local stack=$1
-    local stacks_file="$WORK_DIR/stacks.yaml"
-    
-    # Ensure yq is installed only if missing (faster, less network usage)
-    if ! command -v yq >/dev/null 2>&1; then
-        apt-get update -y >/dev/null 2>&1 || true
-        apt-get install -y yq >/dev/null 2>&1 || true
-    fi
-    
-    if [ ! -f "$stacks_file" ]; then
-        print_error "Stacks file not found: $stacks_file. Ensure stacks.yaml is placed there."
-        exit 1
-    fi
-    
-    CT_ID=$(yq -r ".stacks.$stack.ct_id" "$stacks_file")
-    CT_HOSTNAME=$(yq -r ".stacks.$stack.hostname" "$stacks_file")
-    if [ -z "$CT_ID" ] || [ "$CT_ID" = "null" ]; then
-        print_error "Stack '$stack' not found or incomplete in $stacks_file"
-        exit 1
+        print_success ".env decrypted successfully."
+        rm -f "$enc_tmp"
+        return 0
+    else
+        print_error "Decryption failed"
+        rm -f "$enc_tmp" "$ENV_DECRYPTED_PATH" 2>/dev/null || true
+        return 1
     fi
 }
+
+# --- Print functions now loaded from helper-functions.sh ---
+
+# --- Stack Configuration now uses shared get_stack_config function ---
 
 # --- Step 1: Host Preparation ---
 
@@ -169,26 +121,11 @@ setup_proxmox_monitoring_user() {
         print_success "  -> User '$PVE_MONITORING_USER' created."
     fi
     
-    # Prompt for password (will be used in .env configuration)
+    # Use password from .env (should be set from decrypt process above)
     if [ -z "$PVE_MONITORING_PASSWORD" ]; then
-        echo
-        print_info "Please set a password for the Proxmox monitoring user ($PVE_MONITORING_USER):"
-        while true; do
-            read -s -p "Enter password: " PVE_MONITORING_PASSWORD
-            echo " [Password entered]"  # Visual feedback
-            read -s -p "Confirm password: " PVE_MONITORING_PASSWORD_CONFIRM
-            echo " [Password confirmed]"  # Visual feedback
-            
-            if [[ "$PVE_MONITORING_PASSWORD" == "$PVE_MONITORING_PASSWORD_CONFIRM" ]]; then
-                if [[ ${#PVE_MONITORING_PASSWORD} -lt 8 ]]; then
-                    print_warning "Password must be at least 8 characters long. Please try again."
-                    continue
-                fi
-                break
-            else
-                print_warning "Passwords do not match. Please try again."
-            fi
-        done
+        print_error "PVE_PASSWORD not found in .env file"
+        print_info "Please ensure docker/monitoring/.env.enc exists and contains PVE_PASSWORD."
+        exit 1
     fi
     
     # Set user password (idempotent - will update if password changed)
@@ -227,9 +164,9 @@ configure_env() {
     get_stack_config "$STACK_NAME"
     local env_path="/root/.env"
 
-    # Decrypt if not already decrypted
+    # Decrypt .env.enc for deployment
     if [ -z "$ENV_DECRYPTED_PATH" ] || [ ! -s "$ENV_DECRYPTED_PATH" ]; then
-        decrypt_repo_env_to_temp "$STACK_NAME" || { print_error "Cannot proceed without encrypted .env for [$STACK_NAME]."; exit 1; }
+        decrypt_env_for_deploy "$STACK_NAME" || { print_error "Cannot decrypt .env for [$STACK_NAME]"; exit 1; }
     else
         print_info "  -> Using previously decrypted .env from $ENV_DECRYPTED_PATH"
     fi
@@ -268,15 +205,7 @@ configure_homepage_config() {
 
         for config_file in "${homepage_config_files[@]}"; do
             local remote_url="$REPO_BASE_URL/config/homepage/$config_file"
-            local temp_file="$WORK_DIR/$config_file" # Use WORK_DIR (temp dir) for download
-
-            print_info "    -> Downloading $config_file"
-            curl -sSL "$remote_url" -o "$temp_file"
-
-            print_info "    -> Pushing $config_file to LXC"
-            pct push "$CT_ID" "$temp_file" "$target_config_dir/$config_file"
-            # Clean up the temporary downloaded file
-            rm "$temp_file"
+            download_and_push_config "$CT_ID" "$remote_url" "$target_config_dir/$config_file"
         done
 
         print_success "Homepage config files configured successfully."
@@ -308,26 +237,12 @@ configure_stack_configs() {
     for config_entry in "${monitoring_config_files[@]}"; do
             IFS=':' read -r config_file target_dir <<< "$config_entry"
             local remote_url="$REPO_BASE_URL/docker/$STACK_NAME/$config_file"
-            local temp_file="$WORK_DIR/$config_file"
-
-            print_info "    -> Downloading $config_file"
-            curl -sSL "$remote_url" -o "$temp_file"
-
-            print_info "    -> Pushing $config_file to LXC ($target_dir)"
-            pct push "$CT_ID" "$temp_file" "$target_dir/$config_file"
-            rm "$temp_file"
+            download_and_push_config "$CT_ID" "$remote_url" "$target_dir/$config_file"
         done
 
-                # Download and push Loki config
+        # Download and push Loki config
         local loki_config_url="$REPO_BASE_URL/config/loki/loki.yml"
-        local temp_loki_file="$WORK_DIR/loki.yml"
-        
-        print_info "    -> Downloading loki.yml"
-        curl -sSL "$loki_config_url" -o "$temp_loki_file"
-        
-        print_info "    -> Pushing loki.yml to LXC ($loki_config_dir)"
-        pct push "$CT_ID" "$temp_loki_file" "$loki_config_dir/loki.yml"
-        rm "$temp_loki_file"
+        download_and_push_config "$CT_ID" "$loki_config_url" "$loki_config_dir/loki.yml"
 
 
         print_success "Monitoring config files configured successfully."
@@ -350,17 +265,8 @@ configure_promtail_config() {
     
     local promtail_config_dir="/datapool/config/promtail"
     local promtail_config_url="$REPO_BASE_URL/config/promtail/promtail.yml"
-    local temp_promtail_file="$WORK_DIR/promtail.yml"
     
-    print_info "  -> Downloading promtail.yml template"
-    curl -sSL "$promtail_config_url" -o "$temp_promtail_file"
-    
-    # Replace host label with the actual hostname (used in labels and positions filename)
-    sed -i "s/REPLACE_HOST_LABEL/$CT_HOSTNAME/g" "$temp_promtail_file"
-    
-    print_info "  -> Pushing customized promtail.yml to LXC ($promtail_config_dir)"
-    pct push "$CT_ID" "$temp_promtail_file" "$promtail_config_dir/promtail.yml"
-    rm "$temp_promtail_file"
+    download_customize_and_push "$CT_ID" "$promtail_config_url" "$promtail_config_dir/promtail.yml" "$CT_HOSTNAME"
     
     print_success "Promtail config configured successfully for $CT_HOSTNAME."
 }
@@ -379,50 +285,67 @@ configure_pbs() {
     local prom_user="prometheus@pbs"
     local prom_pass_path="/root/.prometheus_password"
 
-    print_info "  -> Waiting for PBS services to be ready..."
-    local max_attempts=30
-    local attempt=1
-    while [ $attempt -le $max_attempts ]; do
-        if pct exec "$CT_ID" -- systemctl is-active proxmox-backup >/dev/null 2>&1; then
-            print_success "  -> PBS service is active."
-            break
-        fi
-        print_info "  -> Attempt $attempt/$max_attempts: Waiting for PBS service..."
-        sleep 2
-        attempt=$((attempt + 1))
-    done
-    
-    if [ $attempt -gt $max_attempts ]; then
-        print_error "PBS service failed to start within expected time."
+    print_info "  -> Checking PBS service status..."
+    if ! pct exec "$CT_ID" -- systemctl is-active proxmox-backup >/dev/null 2>&1; then
+        print_error "PBS service is not active"
         return 1
     fi
+    print_success "  -> PBS service is active."
     
-    # --- Idempotent Prometheus User & Password Setup ---
-    if ! pct exec "$CT_ID" -- test -f "$prom_pass_path"; then
-        print_info "  -> Prometheus user credentials not found. Creating new user..."
+    # --- Idempotent PBS Admin & Prometheus User Setup ---
+    local pbs_admin_pass_path="/root/.pbs-admin.pass"
+    local pbs_admin_hash_path="/root/.pbs-admin.hash"
+    local PBS_ADMIN_PASS=""
+    
+    # Check if we need to prompt for password (first run or password change requested)
+    local need_password_setup=false
+    if ! pct exec "$CT_ID" -- test -f "$pbs_admin_pass_path"; then
+        print_info "  -> PBS admin password not found. Interactive setup required."
+        need_password_setup=true
+    else
+        # Ask user if they want to change existing password
+        print_info "  -> PBS admin password found. Do you want to change it? [y/N]"
+        read -r change_password
+        if [[ "$change_password" =~ ^[Yy]$ ]]; then
+            need_password_setup=true
+            print_info "  -> Password change requested."
+        fi
+    fi
+    
+    if [ "$need_password_setup" = true ]; then
+        print_info "  -> Prompting for PBS admin password..."
+        PBS_ADMIN_PASS=$(prompt_pbs_admin_password)
         
-        print_info "  -> Setting up PBS admin password (root@pam) to create monitoring user..."
-        local PBS_ADMIN_PASS
-        while true;
-        do
-            echo -n "Enter PBS admin (root@pam) password: " >&2
-            read -s PBS_ADMIN_PASS
-            echo >&2
-            if [ ${#PBS_ADMIN_PASS} -ge 8 ]; then
-                break
-            else
-                print_warning "Password must be at least 8 characters. Try again."
-            fi
-        done
-        echo "$PBS_ADMIN_PASS" | pct exec "$CT_ID" -- proxmox-backup-manager user passwd root@pam 2>/dev/null
+        # Create hash of the new password for idempotent checks
+        local new_hash=$(printf '%s' "$PBS_ADMIN_PASS" | sha256sum | cut -d' ' -f1)
+        
+        # Set PBS admin password and store it securely
+        print_info "  -> Setting PBS admin password..."
+        pct exec "$CT_ID" -- proxmox-backup-manager user update root@pam --password "$PBS_ADMIN_PASS"
+        
+        # Store password and hash securely
+        printf '%s' "$PBS_ADMIN_PASS" | pct exec "$CT_ID" -- sh -c "cat > $pbs_admin_pass_path && chmod 600 $pbs_admin_pass_path"
+        printf '%s' "$PBS_ADMIN_PASS" | pct exec "$CT_ID" -- sh -c "cat > /root/.pbs-admin-password && chmod 600 /root/.pbs-admin-password"
+        printf '%s' "$new_hash" | pct exec "$CT_ID" -- sh -c "cat > $pbs_admin_hash_path && chmod 600 $pbs_admin_hash_path"
+        
+        print_success "  -> PBS admin password set and stored securely (root@pam)."
+    else
+        print_info "  -> Using existing PBS admin password."
+        PBS_ADMIN_PASS=$(pct exec "$CT_ID" -- cat "$pbs_admin_pass_path")
+    fi
+    
+    # Create Prometheus user if needed
+    if ! pct exec "$CT_ID" -- test -f "$prom_pass_path"; then
+        print_info "  -> Creating Prometheus monitoring user..."
         
         pct exec "$CT_ID" -- proxmox-backup-manager user create "$prom_user" --comment "Read-only user for Prometheus monitoring" 2>/dev/null || true
         pct exec "$CT_ID" -- proxmox-backup-manager acl update /datastore/"$datastore_name" --user "$prom_user" --role DatastoreAudit 2>/dev/null || true
 
         local prom_pass=$(openssl rand -base64 16)
-        echo "$prom_pass" | pct exec "$CT_ID" -- proxmox-backup-manager user passwd "$prom_user"
-        echo "$prom_pass" | pct exec "$CT_ID" -- sh -c "cat > $prom_pass_path && chmod 600 $prom_pass_path"
-        print_success "  -> Prometheus user '$prom_user' created and password stored securely in LXC."
+        pct exec "$CT_ID" -- proxmox-backup-manager user update "$prom_user" --password "$prom_pass"
+        printf '%s' "$prom_pass" | pct exec "$CT_ID" -- sh -c "cat > $prom_pass_path && chmod 600 $prom_pass_path"
+        printf '%s' "$prom_pass" | pct exec "$CT_ID" -- sh -c "cat > /root/.prometheus-password && chmod 600 /root/.prometheus-password"
+        print_success "  -> Prometheus user '$prom_user' created and password stored securely."
     else
         print_info "  -> Prometheus user credentials found. Skipping creation."
     fi
@@ -444,7 +367,7 @@ configure_pbs() {
     username: '$prom_user'
     password: '$final_prom_pass'
 EOF
-        pct push "$monitoring_ct_id" "$pbs_job_config_temp" "/etc/prometheus/pbs_job.yml"
+        pct push "$monitoring_ct_id" "$pbs_job_config_temp" "/datapool/config/prometheus/pbs_job.yml"
         rm "$pbs_job_config_temp"
 
         print_info "  -> Restarting Prometheus to apply PBS configuration..."
@@ -454,24 +377,33 @@ EOF
         print_warning "  -> Monitoring stack not found, skipping Prometheus configuration."
     fi
     
-    print_info "  -> Creating PBS datastore '$datastore_name' நான்காவது..."
-    if pct exec "$CT_ID" -- proxmox-backup-manager datastore create "$datastore_name" /datapool/backups 2>/dev/null;
-    then
-        print_success "  -> PBS datastore created successfully."
+    print_info "  -> Creating PBS datastore '$datastore_name'..."
+    
+    # Check if datastore already exists first (idempotent)
+    if pct exec "$CT_ID" -- proxmox-backup-manager datastore list 2>/dev/null | grep -q "$datastore_name"; then
+        print_success "  -> PBS datastore already exists."
     else
-        print_warning "  -> Datastore might already exist or PBS not fully started yet."
+        # Only clean directory if datastore doesn't exist and directory looks uninitialized
+        if ! pct exec "$CT_ID" -- test -f /datapool/backups/.gc-status 2>/dev/null; then
+            print_info "  -> Cleaning uninitialized datastore directory..."
+            pct exec "$CT_ID" -- rm -rf /datapool/backups/* /datapool/backups/.* 2>/dev/null || true
+        fi
+        
+        # Create PBS datastore (fail-fast)
+        if ! pct exec "$CT_ID" -- proxmox-backup-manager datastore create "$datastore_name" /datapool/backups 2>/dev/null; then
+            print_error "Failed to create PBS datastore"
+            return 1
+        fi
+        print_success "  -> PBS datastore created successfully."
     fi
     
-    print_info "  -> Setting up garbage collection schedule..."
-    pct exec "$CT_ID" -- proxmox-backup-manager gc-schedule update "$datastore_name" --schedule "$gc_schedule" 2>/dev/null || true
-    
-    print_info "  -> Creating prune job for backup retention..."
-    pct exec "$CT_ID" -- proxmox-backup-manager prune-job create "$datastore_name" \
-        --schedule "$prune_schedule" --keep-daily 7 --keep-weekly 4 --keep-monthly 6 2>/dev/null || true
+    print_info "  -> Creating prune job for backup retention (GFS: 5-4-2)..."
+    pct exec "$CT_ID" -- proxmox-backup-manager prune-job create daily-prune \
+        --schedule "$prune_schedule" --store "$datastore_name" --keep-daily 5 --keep-weekly 4 --keep-monthly 2 2>/dev/null || true
     
     print_info "  -> Setting up verification job..."
-    pct exec "$CT_ID" -- proxmox-backup-manager verification-job create "$datastore_name" \
-        --schedule "$verify_schedule" 2>/dev/null || true
+    pct exec "$CT_ID" -- proxmox-backup-manager verify-job create daily-verify \
+        --store "$datastore_name" --schedule "$verify_schedule" 2>/dev/null || true
     
     local pbs_ip=$(yq -r ".network.ip_base" "$WORK_DIR/stacks.yaml").$(yq -r ".stacks.backup.ip_octet" "$WORK_DIR/stacks.yaml")
     print_success "PBS configuration completed. Access web interface at: https://${pbs_ip}:8007"
@@ -483,22 +415,55 @@ EOF
 
 configure_pve_backup_job() {
     print_info "(4.4/5) Configuring Proxmox VE backup job..."
-    local pbs_storage_name="lxc-backup-01" # This should match the storage added in PVE
+    local pbs_storage_name="lxc-backup-01"
     local job_config_file="/etc/pve/jobs.cfg"
     local job_id="vzdump-automated-pbs"
+    local pbs_ip=$(yq -r ".network.ip_base" "$WORK_DIR/stacks.yaml").$(yq -r ".stacks.backup.ip_octet" "$WORK_DIR/stacks.yaml")
+    local pbs_datastore=$(yq -r ".stacks.backup.pbs_datastore_name" "$WORK_DIR/stacks.yaml")
 
-    # First, ensure the PBS storage is added to PVE.
-    # This part is complex to automate securely without API tokens, so we guide the user.
-    if ! pvesm status --storage "$pbs_storage_name" >/dev/null 2>&1; then
-        print_warning "Storage '$pbs_storage_name' not found in Proxmox VE."
-        print_warning "Please add it manually before proceeding: Datacenter -> Storage -> Add -> Proxmox Backup Server"
-        local pbs_ip=$(yq -r ".network.ip_base" "$WORK_DIR/stacks.yaml").$(yq -r ".stacks.backup.ip_octet" "$WORK_DIR/stacks.yaml")
-        local pbs_datastore=$(yq -r ".stacks.backup.pbs_datastore_name" "$WORK_DIR/stacks.yaml")
-        print_info "    ID: $pbs_storage_name"
-        print_info "    Server: $pbs_ip"
-        print_info "    Username: root@pam"
-        print_info "    Datastore: $pbs_datastore"
-        read -p "Press [Enter] to continue after adding the storage..."
+    # Add or update PBS storage to PVE automatically
+    local pbs_admin_pass=$(pct exec "$CT_ID" -- cat /root/.pbs-admin.pass)
+    local pbs_fingerprint=$(echo | openssl s_client -connect "$pbs_ip:8007" 2>/dev/null | openssl x509 -fingerprint -noout -sha256 | cut -d= -f2)
+    
+    if [ -z "$pbs_fingerprint" ]; then
+        print_error "Could not get PBS certificate fingerprint"
+        exit 1
+    fi
+    
+    # Check if storage exists and needs update
+    if pvesm status --storage "$pbs_storage_name" >/dev/null 2>&1; then
+        print_info "  -> PBS storage '$pbs_storage_name' exists. Checking if update needed..."
+        
+        # Test current storage connection - if it fails, password or fingerprint changed
+        if ! pvesm list "$pbs_storage_name" >/dev/null 2>&1; then
+            print_info "  -> Storage connection test failed. Updating PBS storage configuration..."
+            pvesm set "$pbs_storage_name" \
+                --password "$pbs_admin_pass" \
+                --fingerprint "$pbs_fingerprint" || {
+                print_error "Failed to update PBS storage configuration"
+                exit 1
+            }
+            print_success "  -> PBS storage configuration updated successfully."
+        else
+            print_success "  -> PBS storage connection is working."
+        fi
+    else
+        print_info "  -> Adding PBS storage '$pbs_storage_name' to Proxmox VE..."
+        
+        # Add PBS storage using pvesm
+        if ! pvesm add pbs "$pbs_storage_name" \
+            --server "$pbs_ip" \
+            --datastore "$pbs_datastore" \
+            --username root@pam \
+            --password "$pbs_admin_pass" \
+            --content backup \
+            --port 8007 \
+            --fingerprint "$pbs_fingerprint" 2>&1; then
+            print_error "Failed to add PBS storage to Proxmox VE"
+            exit 1
+        fi
+        
+        print_success "  -> PBS storage '$pbs_storage_name' added to Proxmox VE."
     fi
 
     # Check if the job already exists
@@ -507,18 +472,19 @@ configure_pve_backup_job() {
         return 0
     fi
 
-    print_info "  -> Creating automated backup job '$job_id'..."
+    print_info "  -> Creating automated backup job '$job_id' (GFS: 5-4-2)..."
     cat >> "$job_config_file" <<EOF
 
 vzdump: $job_id
     all 1
-    comment "Automated backup for all guests to PBS"
+    comment "Automated GFS backup for all guests to PBS (5-4-2)"
     compress zstd
     enabled 1
     mailnotification failure
     mode snapshot
     node $(hostname)
-    prune-backups keep-daily=7,keep-weekly=4,keep-monthly=6
+    notes-template "{{guestname}} backup - {{cluster}} - {{node}}"
+    prune-backups keep-daily=5,keep-weekly=4,keep-monthly=2
     schedule 02:30
     storage $pbs_storage_name
 EOF
@@ -537,19 +503,13 @@ deploy_compose() {
     print_info "(5/5) Deploying Docker Compose stack for [$STACK_NAME]..."
     get_stack_config "$STACK_NAME"
     local compose_url="$REPO_BASE_URL/docker/$STACK_NAME/docker-compose.yml"
-    local temp_compose="$WORK_DIR/docker-compose.yml"
 
     # Fetch and push docker-compose.yml to LXC
-    curl -sSL "$compose_url" -o "$temp_compose"
-    pct push "$CT_ID" "$temp_compose" "/root/docker-compose.yml"
-    rm "$temp_compose"
+    download_and_push_config "$CT_ID" "$compose_url" "/root/docker-compose.yml"
 
-    print_info "Pruning unused Docker objects..."
-    pct exec "$CT_ID" -- docker system prune -af
-
-    print_info "Starting docker-compose up -d..."
-    if ! pct exec "$CT_ID" -- docker compose -f /root/docker-compose.yml up -d; then
-        print_error "Docker Compose deployment failed. Please check the output above."
+    print_info "Starting docker-compose up -d --remove-orphans..."
+    if ! pct exec "$CT_ID" -- docker compose -f /root/docker-compose.yml up -d --remove-orphans; then
+        print_error "Docker Compose deployment failed"
         exit 1
     fi
     print_success "Docker Compose stack for [$STACK_NAME] is deploying in the background."
@@ -559,12 +519,18 @@ deploy_compose() {
 
 # For monitoring stack, decrypt .env first to fetch PVE_PASSWORD, then setup Proxmox user
 if [[ "$STACK_NAME" == "monitoring" ]]; then
-    # Ensure .env is decrypted locally to read PVE_PASSWORD
-    decrypt_repo_env_to_temp "$STACK_NAME" || { print_error "Cannot decrypt env for monitoring."; exit 1; }
+    # Monitoring stack requires encrypted .env - decrypt it first
+    decrypt_env_for_deploy "$STACK_NAME" || { print_error "Cannot decrypt .env.enc for monitoring stack"; exit 1; }
+    
+    # Read PVE_PASSWORD from decrypted .env
     if [ -s "$ENV_DECRYPTED_PATH" ]; then
-        # shellcheck disable=SC1090
         PVE_MONITORING_PASSWORD=$(grep '^PVE_PASSWORD=' "$ENV_DECRYPTED_PATH" | cut -d '=' -f 2-)
+        print_info "Loaded PVE_PASSWORD from encrypted .env file"
+    else
+        print_error "Decrypted .env file is empty or missing"
+        exit 1
     fi
+    
     setup_proxmox_monitoring_user
 fi
 
@@ -574,7 +540,8 @@ create_lxc
 # --- Stack-Specific Deployment ---
 
 if [[ "$STACK_NAME" == "development" ]]; then
-    : # Do nothing, setup is handled by lxc-manager.sh
+    # Development setup is handled by lxc-manager.sh (no Docker, no datapool, no additional config)
+    print_info "(3/5) Development stack setup completed by LXC manager."
 elif [[ "$STACK_NAME" == "backup" ]]; then
     # PBS-specific deployment (no Docker, no .env)
     configure_pbs
