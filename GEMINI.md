@@ -16,7 +16,6 @@ This homelab automation follows these core principles:
 - All operations must be safely re-runnable
 - When something fails, stop immediately - don't try to recover
 - Minimal error handling - let failures bubble up for quick manual fixes
-- Exception: Critical services (like PBS) may have retry logic with proper timeouts
 - The system should work perfectly in THIS homelab, not handle every edge case
 
 ### 2. **Keep It Simple & Short**
