@@ -86,9 +86,30 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     apt-get update >/dev/null
     apt-get install -y curl gnupg2 >/dev/null
     
-    # Add Proxmox repository key and source (bookworm for Debian 12)
-    curl -fsSL https://enterprise.proxmox.com/debian/proxmox-release-bookworm.gpg -o /etc/apt/trusted.gpg.d/proxmox-release-bookworm.gpg
-    echo 'deb http://download.proxmox.com/debian/pbs bookworm pbs-no-subscription' >> /etc/apt/sources.list
+    # Upgrade Debian 12 (Bookworm) to Debian 13 (Trixie)
+    echo "  -> Upgrading Debian 12 to Debian 13 (Trixie)..."
+    
+    # Update sources.list to use trixie repositories
+    sed -i 's/bookworm/trixie/g' /etc/apt/sources.list
+    sed -i 's/bookworm/trixie/g' /etc/apt/sources.list.d/* 2>/dev/null || true
+    
+    # Minimal upgrade first
+    apt-get update >/dev/null
+    apt-get upgrade -y --without-new-pkgs >/dev/null
+    
+    # Full distribution upgrade
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get full-upgrade -y >/dev/null
+    
+    # Cleanup
+    apt-get autoremove -y >/dev/null
+    apt-get autoclean >/dev/null
+    
+    echo "  -> Debian 13 upgrade completed."
+    
+    # Add Proxmox repository key and source (trixie for Debian 13)
+    curl -fsSL https://enterprise.proxmox.com/debian/proxmox-release-trixie.gpg -o /etc/apt/trusted.gpg.d/proxmox-release-trixie.gpg
+    echo 'deb http://download.proxmox.com/debian/pbs trixie pbs-no-subscription' >> /etc/apt/sources.list
     
     # Install PBS with non-interactive mode
     apt-get update >/dev/null
