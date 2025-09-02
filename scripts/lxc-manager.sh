@@ -87,7 +87,11 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     apt-get install -y curl gnupg2 >/dev/null
     
     # Upgrade Debian 12 (Bookworm) to Debian 13 (Trixie)
-    echo "  -> Upgrading Debian 12 to Debian 13 (Trixie)..."
+    echo "  -> Upgrading Debian 12 to Debian 13 Trixie..."
+    
+    # Set non-interactive mode for entire upgrade process
+    export DEBIAN_FRONTEND=noninteractive
+    export DEBIAN_PRIORITY=critical
     
     # Update sources.list to use trixie repositories
     sed -i 's/bookworm/trixie/g' /etc/apt/sources.list
@@ -95,11 +99,10 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     
     # Minimal upgrade first
     apt-get update >/dev/null
-    apt-get upgrade -y --without-new-pkgs >/dev/null
+    apt-get upgrade -y --without-new-pkgs -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" >/dev/null
     
-    # Full distribution upgrade
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get full-upgrade -y >/dev/null
+    # Full distribution upgrade  
+    apt-get full-upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" >/dev/null
     
     # Cleanup
     apt-get autoremove -y >/dev/null
@@ -111,11 +114,12 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     curl -fsSL https://enterprise.proxmox.com/debian/proxmox-release-trixie.gpg -o /etc/apt/trusted.gpg.d/proxmox-release-trixie.gpg
     echo 'deb http://download.proxmox.com/debian/pbs trixie pbs-no-subscription' >> /etc/apt/sources.list
     
-    # Install PBS with non-interactive mode
+    # Install PBS with non-interactive mode (after Debian 13 upgrade)
     apt-get update >/dev/null
     export DEBIAN_FRONTEND=noninteractive
+    export DEBIAN_PRIORITY=critical
     export IFUPDOWN2_NO_IFRELOAD=1
-    apt-get install -y proxmox-backup-server
+    apt-get install -y proxmox-backup-server -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
     
     # Configure systemd autologin for tty1
     mkdir -p /etc/systemd/system/getty@tty1.service.d
