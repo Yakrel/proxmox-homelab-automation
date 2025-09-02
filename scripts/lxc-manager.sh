@@ -86,15 +86,41 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     apt-get update >/dev/null
     apt-get install -y curl gnupg2 >/dev/null
     
-    # Add Proxmox repository key and source (bookworm for Debian 12)
-    curl -fsSL https://enterprise.proxmox.com/debian/proxmox-release-bookworm.gpg -o /etc/apt/trusted.gpg.d/proxmox-release-bookworm.gpg
-    echo 'deb http://download.proxmox.com/debian/pbs bookworm pbs-no-subscription' >> /etc/apt/sources.list
+    # Upgrade Debian 12 (Bookworm) to Debian 13 (Trixie)
+    # Required for Proxmox Backup Server 4.0 which is natively based on Debian 13
+    echo '  -> Upgrading Debian 12 to Debian 13 Trixie for PBS 4.0 compatibility...'
     
-    # Install PBS with non-interactive mode
+    # Set non-interactive mode for entire upgrade process
+    export DEBIAN_FRONTEND=noninteractive
+    export DEBIAN_PRIORITY=critical
+    
+    # Update sources.list to use trixie repositories
+    sed -i 's/bookworm/trixie/g' /etc/apt/sources.list
+    sed -i 's/bookworm/trixie/g' /etc/apt/sources.list.d/* 2>/dev/null || true
+    
+    # Minimal upgrade first
+    apt-get update >/dev/null
+    apt-get upgrade -y --without-new-pkgs -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" >/dev/null
+    
+    # Full distribution upgrade  
+    apt-get full-upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" >/dev/null
+    
+    # Cleanup
+    apt-get autoremove -y >/dev/null
+    apt-get autoclean >/dev/null
+    
+    echo '  -> Debian 13 upgrade completed.'
+    
+    # Add Proxmox repository key and source (trixie for Debian 13)
+    curl -fsSL https://enterprise.proxmox.com/debian/proxmox-release-trixie.gpg -o /etc/apt/trusted.gpg.d/proxmox-release-trixie.gpg
+    echo 'deb http://download.proxmox.com/debian/pbs trixie pbs-no-subscription' >> /etc/apt/sources.list
+    
+    # Install Proxmox Backup Server 4.0 (Debian 13 native)
     apt-get update >/dev/null
     export DEBIAN_FRONTEND=noninteractive
+    export DEBIAN_PRIORITY=critical
     export IFUPDOWN2_NO_IFRELOAD=1
-    apt-get install -y proxmox-backup-server
+    apt-get install -y proxmox-backup-server -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
     
     # Configure systemd autologin for tty1
     mkdir -p /etc/systemd/system/getty@tty1.service.d

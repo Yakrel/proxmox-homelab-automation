@@ -371,7 +371,11 @@ EOF
         rm "$pbs_job_config_temp"
 
         print_info "  -> Restarting Prometheus to apply PBS configuration..."
-        pct exec "$monitoring_ct_id" -- docker compose restart prometheus 2>/dev/null || print_warning "Could not restart Prometheus - do it manually"
+        if pct exec "$monitoring_ct_id" -- docker compose restart prometheus 2>/dev/null; then
+            print_success "  -> Prometheus restarted successfully."
+        else
+            print_warning "Could not restart Prometheus - monitoring container might not be ready"
+        fi
         print_success "  -> Prometheus PBS monitoring configured."
     else
         print_warning "  -> Monitoring stack not found, skipping Prometheus configuration."
@@ -404,6 +408,10 @@ EOF
     print_info "  -> Setting up verification job..."
     pct exec "$CT_ID" -- proxmox-backup-manager verify-job create daily-verify \
         --store "$datastore_name" --schedule "$verify_schedule" 2>/dev/null || true
+    
+    print_info "  -> Setting up garbage collection job..."
+    pct exec "$CT_ID" -- proxmox-backup-manager datastore update "$datastore_name" \
+        --gc-schedule "$gc_schedule" 2>/dev/null || true
     
     local pbs_ip=$(yq -r ".network.ip_base" "$WORK_DIR/stacks.yaml").$(yq -r ".stacks.backup.ip_octet" "$WORK_DIR/stacks.yaml")
     print_success "PBS configuration completed. Access web interface at: https://${pbs_ip}:8007"
