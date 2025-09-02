@@ -371,7 +371,7 @@ EOF
         rm "$pbs_job_config_temp"
 
         print_info "  -> Restarting Prometheus to apply PBS configuration..."
-        if pct exec "$monitoring_ct_id" -- docker restart prometheus 2>/dev/null; then
+        if pct exec "$monitoring_ct_id" -- docker compose restart prometheus 2>/dev/null; then
             print_success "  -> Prometheus restarted successfully."
         else
             print_warning "Could not restart Prometheus - monitoring container might not be ready"
