@@ -87,7 +87,8 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     apt-get install -y curl gnupg2 >/dev/null
     
     # Upgrade Debian 12 (Bookworm) to Debian 13 (Trixie)
-    echo "  -> Upgrading Debian 12 to Debian 13 Trixie..."
+    # Required for Proxmox Backup Server 4.0 which is natively based on Debian 13
+    echo '  -> Upgrading Debian 12 to Debian 13 Trixie for PBS 4.0 compatibility...'
     
     # Set non-interactive mode for entire upgrade process
     export DEBIAN_FRONTEND=noninteractive
@@ -108,13 +109,13 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     apt-get autoremove -y >/dev/null
     apt-get autoclean >/dev/null
     
-    echo "  -> Debian 13 upgrade completed."
+    echo '  -> Debian 13 upgrade completed.'
     
     # Add Proxmox repository key and source (trixie for Debian 13)
     curl -fsSL https://enterprise.proxmox.com/debian/proxmox-release-trixie.gpg -o /etc/apt/trusted.gpg.d/proxmox-release-trixie.gpg
     echo 'deb http://download.proxmox.com/debian/pbs trixie pbs-no-subscription' >> /etc/apt/sources.list
     
-    # Install PBS with non-interactive mode (after Debian 13 upgrade)
+    # Install Proxmox Backup Server 4.0 (Debian 13 native)
     apt-get update >/dev/null
     export DEBIAN_FRONTEND=noninteractive
     export DEBIAN_PRIORITY=critical
