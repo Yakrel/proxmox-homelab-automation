@@ -73,7 +73,7 @@ for file_path in "${FILES_TO_DOWNLOAD[@]}"; do
     fi
     # Convert line endings to Unix format (LF) for scripts
     if [[ "$file_path" == *.sh ]]; then
-        sed -i 's/$//' "$file_path"
+        sed -i 's/\r$//' "$file_path"  # Remove carriage returns (CRLF -> LF)
         chmod +x "$file_path"
     fi
 done
