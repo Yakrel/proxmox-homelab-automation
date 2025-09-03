@@ -62,6 +62,7 @@ Each service runs in its own LXC container with dedicated resources:
 │   ├── main-menu.sh      # Interactive main menu
 │   ├── deploy-stack.sh   # Stack deployment orchestrator
 │   ├── lxc-manager.sh    # LXC container management
+│   ├── helper-functions.sh # Shared utility functions (DRY principle)
 │   ├── helper-menu.sh    # Additional utility menu
 │   ├── gaming-menu.sh    # Game server selection menu
 │   ├── game-manager.sh   # Game server operations
@@ -75,7 +76,9 @@ Each service runs in its own LXC container with dedicated resources:
 │   ├── monitoring/
 │   └── gameservers/
 ├── stacks.yaml          # Central configuration
-└── config/              # Service configurations
+├── config/              # Service configurations
+├── CLAUDE.md            # AI assistant development guidelines
+└── GEMINI.md            # AI assistant development guidelines (kept identical to CLAUDE.md)
 ```
 
 ## 🔧 Requirements

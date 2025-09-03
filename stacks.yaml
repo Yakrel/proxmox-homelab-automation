@@ -45,13 +45,6 @@ stacks:
     cpu_cores: 4
     memory_mb: 6144
     disk_gb: 15
-  development:
-    ct_id: 151
-    hostname: lxc-development-01
-    ip_octet: 151
-    cpu_cores: 4
-    memory_mb: 6144
-    disk_gb: 15
   gameservers:
     ct_id: 105
     hostname: lxc-gameservers-01
@@ -71,3 +64,10 @@ stacks:
     pbs_prune_schedule: "daily"
     pbs_gc_schedule: "daily"
     pbs_verify_schedule: "weekly"
+  development:
+    ct_id: 151
+    hostname: lxc-development-01
+    ip_octet: 151
+    cpu_cores: 4
+    memory_mb: 6144
+    disk_gb: 15

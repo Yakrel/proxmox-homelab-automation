@@ -59,6 +59,7 @@ This is a shell-based automation system for deploying containerized services in 
 │   ├── main-menu.sh     # Interactive stack selection
 │   ├── deploy-stack.sh  # Stack deployment orchestrator  
 │   ├── lxc-manager.sh   # LXC container operations
+│   ├── helper-functions.sh # Shared utility functions (DRY principle)
 │   ├── helper-menu.sh   # Additional utilities
 │   ├── gaming-menu.sh   # Game server management
 │   ├── game-manager.sh  # Game server operations
@@ -72,7 +73,9 @@ This is a shell-based automation system for deploying containerized services in 
 │   ├── monitoring/
 │   └── gameservers/
 ├── stacks.yaml         # Central configuration
-└── config/             # Service config templates
+├── config/             # Service config templates
+├── CLAUDE.md           # AI assistant development guidelines
+└── GEMINI.md           # AI assistant development guidelines (kept identical)
 ```
 
 ## Stack Architecture
@@ -121,7 +124,7 @@ Each stack follows this pattern:
 - Bridge: vmbr0
 - IP Range: 192.168.1.x
 - Gateway: 192.168.1.1
-- Container IP = 192.168.1.<container_id>
+- Container IP = 192.168.1.<ip_octet> (ip_octet defined in stacks.yaml, may differ from ct_id)
 
 ### Common Commands
 
