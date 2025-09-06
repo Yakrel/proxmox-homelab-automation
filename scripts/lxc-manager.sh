@@ -82,63 +82,17 @@ set -e
 STACK_NAME='$STACK_NAME'
 
 if [ \"\$STACK_NAME\" = 'backup' ]; then
-    # PBS: Debian-based setup - minimal dependencies
+    # PBS: Use latest stable Debian with standard PBS installation
     apt-get update >/dev/null
     apt-get install -y curl gnupg2 >/dev/null
     
-    # Upgrade Debian 12 (Bookworm) to Debian 13 (Trixie)
-    # Required for Proxmox Backup Server 4.0 which is natively based on Debian 13
-    echo '  -> Upgrading Debian 12 to Debian 13 Trixie for PBS 4.0 compatibility...'
+    # Add Proxmox repository key
+    curl -fsSL https://enterprise.proxmox.com/debian/proxmox-release-bookworm.gpg -o /usr/share/keyrings/proxmox-archive-keyring.gpg
     
-    # Set non-interactive mode for entire upgrade process
-    export DEBIAN_FRONTEND=noninteractive
-    export DEBIAN_PRIORITY=critical
+    # Configure Proxmox PBS repository (no-subscription) 
+    echo "deb [signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pbs bookworm pbs-no-subscription" > /etc/apt/sources.list.d/proxmox-backup.list
     
-    # Clean existing repository configurations (community script approach)
-    rm -f /etc/apt/sources.list.d/*.list
-    sed -i '/proxmox/d;/bookworm/d' /etc/apt/sources.list
-    
-    # Configure modern Debian Trixie sources using DEB822 format
-    cat >/etc/apt/sources.list.d/debian.sources <<EOF
-Types: deb
-URIs: http://deb.debian.org/debian
-Suites: trixie
-Components: main contrib
-Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-
-Types: deb
-URIs: http://security.debian.org/debian-security
-Suites: trixie-security
-Components: main contrib
-Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-
-Types: deb
-URIs: http://deb.debian.org/debian
-Suites: trixie-updates
-Components: main contrib
-Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-EOF
-    
-    # Configure Proxmox PBS repository (no-subscription)
-    cat >/etc/apt/sources.list.d/proxmox.sources <<EOF
-Types: deb
-URIs: http://download.proxmox.com/debian/pbs
-Suites: trixie
-Components: pbs-no-subscription
-Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
-EOF
-    
-    # Single distribution upgrade (community script approach)
-    apt-get update >/dev/null
-    apt-get dist-upgrade -y -o Dpkg::Options::="--force-confold" >/dev/null
-    
-    # Cleanup
-    apt-get autoremove -y >/dev/null
-    apt-get autoclean >/dev/null
-    
-    echo '  -> Debian 13 upgrade completed.'
-    
-    # Install Proxmox Backup Server 4.0 (Debian 13 native)
+    # Install Proxmox Backup Server on current Debian
     apt-get update >/dev/null
     export DEBIAN_FRONTEND=noninteractive
     export DEBIAN_PRIORITY=critical

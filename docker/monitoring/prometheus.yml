@@ -21,7 +21,7 @@ scrape_configs:
         - '192.168.1.103:9323'  # webtools
         - '192.168.1.104:9323'  # monitoring
         - '192.168.1.105:9323'  # gameservers
-        # Note: LXC 150 (backup) and 151 (development) excluded - no Docker
+        # Note: LXC 106 (backup) and 107 (development) excluded - no Docker
     relabel_configs:
       - source_labels: [__address__]
         regex: '192.168.1.100:9323'

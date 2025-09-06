@@ -41,8 +41,8 @@ Each service runs in its own LXC container with dedicated resources:
 | **webtools** | 103 | Web-based utilities | 2C/6GB/15GB |
 | **monitoring** | 104 | Prometheus, Grafana stack | 4C/6GB/15GB |
 | **gameservers** | 105 | Game servers (Satisfactory, Palworld) | 8C/16GB/50GB |
-| **backup** | 150 | Proxmox Backup Server (native) | 4C/8GB/50GB |
-| **development** | 151 | Development tools (minimal) | 4C/6GB/15GB |
+| **backup** | 106 | Proxmox Backup Server (native) | 4C/8GB/50GB |
+| **development** | 107 | Development tools (minimal) | 4C/6GB/15GB |
 
 ## 🚀 Quick Start
 
@@ -126,7 +126,7 @@ Each service runs in its own LXC container with dedicated resources:
 - Palworld server
 - Extensible for more games
 
-### Backup Stack (LXC 150)
+### Backup Stack (LXC 106)
 - Proxmox Backup Server
 - Automated backup schedules
 - Data verification

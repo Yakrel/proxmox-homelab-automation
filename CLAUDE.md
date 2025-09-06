@@ -97,8 +97,8 @@ Each stack follows this pattern:
 | webtools | 103 | Web utilities, dashboards |
 | monitoring | 104 | Prometheus, Grafana |
 | gameservers | 105 | Game servers |
-| backup | 150 | Proxmox Backup Server (native, no Docker) |
-| development | 151 | Development tools (no Docker, minimal setup) |
+| backup | 106 | Proxmox Backup Server (native, no Docker) |
+| development | 107 | Development tools (no Docker, minimal setup) |
 
 ## Key Implementation Notes
 
@@ -116,7 +116,7 @@ Each stack follows this pattern:
 - Persistent data in `/datapool/config/STACK_NAME/`
 
 ### Special Stack Handling
-- **backup**: Uses Debian + native Proxmox Backup Server (no Docker)
+- **backup**: Uses latest stable Debian + native Proxmox Backup Server (no Docker)
 - **development**: Uses Alpine + Node.js/npm (no Docker)  
 - **All others**: Use Alpine + Docker Compose
 
