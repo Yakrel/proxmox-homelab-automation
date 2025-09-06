@@ -120,6 +120,12 @@ Each stack follows this pattern:
 - **development**: Uses Alpine + Node.js/npm (no Docker)  
 - **All others**: Use Alpine + Docker Compose
 
+### Timezone Configuration
+- All containers automatically configured with `Europe/Istanbul` timezone
+- Alpine containers: `tzdata` package installed, `/etc/localtime` symlinked
+- Debian containers: `timedatectl` used for timezone setup
+- Fixes Docker log timestamp inconsistencies between host and containers
+
 ### Network Configuration
 - Bridge: vmbr0
 - IP Range: 192.168.1.x

@@ -139,8 +139,6 @@ generate_stack_menu_options() {
     local stacks_file="${1:-$WORK_DIR/stacks.yaml}"
     local -a options=()
     
-    ensure_yq
-    
     if [[ ! -f "$stacks_file" ]]; then
         print_error "Stacks file not found: $stacks_file"
         return 1

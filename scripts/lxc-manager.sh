@@ -94,26 +94,49 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     export DEBIAN_FRONTEND=noninteractive
     export DEBIAN_PRIORITY=critical
     
-    # Update sources.list to use trixie repositories
-    sed -i 's/bookworm/trixie/g' /etc/apt/sources.list
-    sed -i 's/bookworm/trixie/g' /etc/apt/sources.list.d/* 2>/dev/null || true
+    # Clean existing repository configurations (community script approach)
+    rm -f /etc/apt/sources.list.d/*.list
+    sed -i '/proxmox/d;/bookworm/d' /etc/apt/sources.list
     
-    # Minimal upgrade first
+    # Configure modern Debian Trixie sources using DEB822 format
+    cat >/etc/apt/sources.list.d/debian.sources <<EOF
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: trixie
+Components: main contrib
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+Types: deb
+URIs: http://security.debian.org/debian-security
+Suites: trixie-security
+Components: main contrib
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: trixie-updates
+Components: main contrib
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+EOF
+    
+    # Configure Proxmox PBS repository (no-subscription)
+    cat >/etc/apt/sources.list.d/proxmox.sources <<EOF
+Types: deb
+URIs: http://download.proxmox.com/debian/pbs
+Suites: trixie
+Components: pbs-no-subscription
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+EOF
+    
+    # Single distribution upgrade (community script approach)
     apt-get update >/dev/null
-    apt-get upgrade -y --without-new-pkgs -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" >/dev/null
-    
-    # Full distribution upgrade  
-    apt-get full-upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" >/dev/null
+    apt-get dist-upgrade -y -o Dpkg::Options::="--force-confold" >/dev/null
     
     # Cleanup
     apt-get autoremove -y >/dev/null
     apt-get autoclean >/dev/null
     
     echo '  -> Debian 13 upgrade completed.'
-    
-    # Add Proxmox repository key and source (trixie for Debian 13)
-    curl -fsSL https://enterprise.proxmox.com/debian/proxmox-release-trixie.gpg -o /etc/apt/trusted.gpg.d/proxmox-release-trixie.gpg
-    echo 'deb http://download.proxmox.com/debian/pbs trixie pbs-no-subscription' >> /etc/apt/sources.list
     
     # Install Proxmox Backup Server 4.0 (Debian 13 native)
     apt-get update >/dev/null
@@ -175,6 +198,15 @@ if [ \"\$STACK_NAME\" != 'backup' ]; then
     sed -i 's|^tty1::|#&|' /etc/inittab 2>/dev/null || true
     echo 'tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux' >> /etc/inittab
     kill -HUP 1 2>/dev/null || true
+    
+    # Alpine timezone setup
+    echo '  -> Setting timezone to Europe/Istanbul for Alpine...'
+    apk add --no-cache tzdata >/dev/null 2>&1 || true
+    ln -sf /usr/share/zoneinfo/Europe/Istanbul /etc/localtime 2>/dev/null || true
+else
+    # Debian timezone setup (PBS)
+    echo '  -> Setting timezone to Europe/Istanbul for Debian...'
+    timedatectl set-timezone Europe/Istanbul 2>/dev/null || true
 fi
 
 # Remove root password (allow passwordless login)

@@ -9,7 +9,7 @@ A simple, shell-based automation system for deploying containerized services in 
 ### **Hardcoded Environment Requirements:**
 - **Network**: `192.168.1.x` range with `vmbr0` bridge and `192.168.1.1` gateway
 - **Storage**: ZFS pool named exactly `datapool` 
-- **Location**: Timezone hardcoded to `Europe/Istanbul`
+- **Location**: Timezone automatically set to `Europe/Istanbul` for all containers
 - **User Mapping**: Specific UID/GID mappings (`101000:101000`, `PUID=1000`)
 
 ### **⚡ Zero Configurability by Design**
@@ -103,7 +103,7 @@ Each service runs in its own LXC container with dedicated resources:
 ### Files Stack (LXC 102)
 - Filebrowser web interface
 - Nextcloud personal cloud
-- Samba file sharing
+- File management tools
 
 ### Web Tools Stack (LXC 103)
 - Homepage dashboard

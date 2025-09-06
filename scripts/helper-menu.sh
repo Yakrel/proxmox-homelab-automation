@@ -76,7 +76,7 @@ EOT
 run_install_storage() {
     if [ "$(id -u)" -ne 0 ]; then echo "[ERROR] Must be run as root"; return 1; fi
     # Idempotent package installation
-    ensure_packages samba sanoid
+    ensure_packages sanoid
 
     # --- Sanoid Configuration (Idempotent) ---
     echo "[INFO] Ensuring Sanoid configuration is up to date..."
@@ -102,95 +102,8 @@ use_template = data
 recursive = yes
 EOT
     systemctl enable --now sanoid.timer >/dev/null 2>&1
-
-    # --- Idempotent Samba Configuration ---
     
-    # 1. Enforce the desired state for the main smb.conf file.
-    # This guarantees the 'include' directive is present and correct.
-    echo "[INFO] Enforcing desired state for main Samba config..."
-    local smb_conf="/etc/samba/smb.conf"
-    cat > "$smb_conf" << EOF
-# --- Base Samba Configuration (Managed by Automation) ---
-[global]
-    workgroup = WORKGROUP
-    server role = standalone server
-    security = user
-    log file = /var/log/samba/log.%m
-    max log size = 1000
-    socket options = TCP_NODELAY IPTOS_LOWDELAY
-    read raw = yes
-    write raw = yes
-    strict locking = no
-
-# --- Share Definitions ---
-# Modular configuration for shares.
-include = /etc/samba/conf.d/datapool.conf
-EOF
-
-    # 2. Ensure the share configuration directory exists.
-    local conf_d_dir="/etc/samba/conf.d"
-    mkdir -p "$conf_d_dir"
-
-    # 3. Get user info and ensure the system user exists.
-    echo "[INFO] Configuring Samba user and share..."
-    read -p "Enter Samba username to manage: " samba_username
-    if ! id "$samba_username" &>/dev/null; then
-        echo "[INFO] Creating new system user '$samba_username'..."
-        useradd -r -s /bin/false "$samba_username"
-    fi
-    
-    # 4. Check if user exists in Samba database and handle accordingly
-    local samba_user_exists=false
-    if pdbedit -L | grep -q "^$samba_username:"; then
-        samba_user_exists=true
-        echo "[INFO] User '$samba_username' already exists in Samba database."
-        read -p "Update password for existing user? (y/N): " update_password
-        if [[ ! $update_password =~ ^[Yy]$ ]]; then
-            echo "[INFO] Skipping password update."
-            samba_password=""
-        else
-            read -s -p "Enter new Samba password for $samba_username: " samba_password
-            echo
-        fi
-    else
-        echo "[INFO] User '$samba_username' not found in Samba database. Will create new entry."
-        read -s -p "Enter Samba password for $samba_username: " samba_password
-        echo
-    fi
-
-    # 5. Idempotently manage the Samba database user.
-    if [ -n "$samba_password" ]; then
-        if [ "$samba_user_exists" = true ]; then
-            # Update existing user password
-            echo "[INFO] Updating password for existing user '$samba_username'..."
-            (echo "$samba_password"; echo "$samba_password") | smbpasswd -s "$samba_username" >/dev/null
-        else
-            # Add new user
-            echo "[INFO] Adding new user '$samba_username' to Samba..."
-            (echo "$samba_password"; echo "$samba_password") | smbpasswd -a -s "$samba_username" >/dev/null 2>&1
-        fi
-    fi
-
-    # 6. Enforce the desired state for the share configuration file.
-    local share_conf_file="$conf_d_dir/datapool.conf"
-    echo "[INFO] Writing desired state for share to $share_conf_file..."
-    cat > "$share_conf_file" << EOF
-# --- Datapool Share Definition (Managed by Automation) ---
-[datapool]
-    path = /datapool
-    browseable = yes
-    read only = no
-    valid users = $samba_username
-    force user = root
-    force group = root
-    create mask = 0664
-    directory mask = 0775
-    guest ok = no
-EOF
-    
-    echo "[INFO] Restarting Samba service to apply changes..."
-    systemctl restart smbd
-    echo "[OK] Storage configuration applied successfully."
+    echo "[OK] Sanoid snapshot management configured successfully."
 }
 
 run_optimize_zfs() {
@@ -306,7 +219,7 @@ while true; do
     echo
     echo "   1) Configure Timezone"
     echo "   2) Install Security Tools (Fail2ban)"
-    echo "   3) Configure Storage (Samba + Sanoid)"
+    echo "   3) Configure Storage (Sanoid Snapshots)"
     echo "   4) Optimize ZFS Performance"
     echo "   5) Setup Network Bonding (Interactive)"
     echo "   6) Manage Fail2ban"
