@@ -13,12 +13,27 @@ configure_pbs_datastore() {
     
     print_info "Configuring PBS datastore: $datastore_name"
     
-    # Create datastore directory
-    pct exec "$ct_id" -- mkdir -p "/datapool/pbs-datastore"
-    pct exec "$ct_id" -- chown backup:backup "/datapool/pbs-datastore"
+    # Prepare host datastore directory with correct permissions for unprivileged LXC
+    # PBS best practice: use /datapool/backups directly for the datastore
+    local host_datastore_path="/datapool/backups"
+    print_info "Preparing host datastore directory: $host_datastore_path"
     
-    # Configure datastore in PBS
-    pct exec "$ct_id" -- proxmox-backup-manager datastore create "$datastore_name" "/datapool/pbs-datastore" 2>/dev/null || {
+    # Create directory on host if it doesn't exist
+    mkdir -p "$host_datastore_path" || { print_error "Failed to create host datastore directory"; return 1; }
+    
+    # Set ownership for unprivileged container access
+    # backup user inside container (UID 34) maps to host UID 101000
+    chown 101000:101000 "$host_datastore_path" || {
+        print_error "Failed to set proper ownership on datastore directory"
+        print_info "Manual fix: chown 101000:101000 $host_datastore_path"
+        return 1
+    }
+    
+    # Set proper permissions
+    chmod 755 "$host_datastore_path" || { print_error "Failed to set permissions"; return 1; }
+    
+    # Configure datastore in PBS using /datapool/backups (mounted as /datapool in container)
+    pct exec "$ct_id" -- proxmox-backup-manager datastore create "$datastore_name" "/datapool/backups" 2>/dev/null || {
         print_info "Datastore exists, updating configuration"
         pct exec "$ct_id" -- proxmox-backup-manager datastore update "$datastore_name" \
             --comment "Main backup datastore on ZFS pool" 2>/dev/null || true
@@ -41,18 +56,36 @@ setup_pbs_monitoring_user() {
     if ! pct exec "$ct_id" -- test -f "$prom_pass_path"; then
         print_info "Creating Prometheus monitoring user"
         
-        pct exec "$ct_id" -- proxmox-backup-manager user create "$prom_user" --comment "Read-only user for Prometheus monitoring" 2>/dev/null || true
-        pct exec "$ct_id" -- proxmox-backup-manager acl update /datastore/"$datastore_name" --user "$prom_user" --role DatastoreAudit 2>/dev/null || true
+        if ! pct exec "$ct_id" -- proxmox-backup-manager user create "$prom_user" --comment "Read-only user for Prometheus monitoring" 2>/dev/null; then
+            print_warning "Failed to create monitoring user (PBS will still work)"
+            return 1
+        fi
+        
+        if ! pct exec "$ct_id" -- proxmox-backup-manager acl update /datastore/"$datastore_name" --user "$prom_user" --role DatastoreAudit 2>/dev/null; then
+            print_warning "Failed to set ACL for monitoring user"
+            return 1
+        fi
 
         local prom_pass
         prom_pass=$(openssl rand -base64 16)
-        pct exec "$ct_id" -- proxmox-backup-manager user update "$prom_user" --password "$prom_pass"
-        printf '%s' "$prom_pass" | pct exec "$ct_id" -- sh -c "cat > $prom_pass_path && chmod 600 $prom_pass_path"
-        printf '%s' "$prom_pass" | pct exec "$ct_id" -- sh -c "cat > /root/.prometheus-password && chmod 600 /root/.prometheus-password"
+        
+        if ! pct exec "$ct_id" -- proxmox-backup-manager user update "$prom_user" --password "$prom_pass"; then
+            print_warning "Failed to set password for monitoring user"
+            return 1
+        fi
+        
+        if ! printf '%s' "$prom_pass" | pct exec "$ct_id" -- sh -c "cat > $prom_pass_path && chmod 600 $prom_pass_path"; then
+            print_warning "Failed to save monitoring user password"
+            return 1
+        fi
+        
+        printf '%s' "$prom_pass" | pct exec "$ct_id" -- sh -c "cat > /root/.prometheus-password && chmod 600 /root/.prometheus-password" 2>/dev/null || true
         print_success "Prometheus user created"
     else
         print_info "Prometheus user exists, skipping creation"
     fi
+    
+    return 0
 }
 
 # Configure PBS schedules
@@ -65,15 +98,34 @@ configure_pbs_schedules() {
     
     print_info "Configuring PBS schedules"
     
-    # Configure schedules
-    pct exec "$ct_id" -- proxmox-backup-manager datastore update "$datastore_name" \
-        --gc-schedule "$gc_schedule" 2>/dev/null || true
-    pct exec "$ct_id" -- proxmox-backup-manager datastore update "$datastore_name" \
-        --prune-schedule "$prune_schedule" 2>/dev/null || true
-    pct exec "$ct_id" -- proxmox-backup-manager datastore update "$datastore_name" \
-        --verify-schedule "$verify_schedule" 2>/dev/null || true
+    # Configure schedules - non-critical, continue if they fail
+    local schedule_errors=0
     
-    print_success "PBS schedules configured"
+    if ! pct exec "$ct_id" -- proxmox-backup-manager datastore update "$datastore_name" \
+        --gc-schedule "$gc_schedule" 2>/dev/null; then
+        print_warning "Failed to set garbage collection schedule"
+        schedule_errors=$((schedule_errors + 1))
+    fi
+    
+    if ! pct exec "$ct_id" -- proxmox-backup-manager datastore update "$datastore_name" \
+        --prune-schedule "$prune_schedule" 2>/dev/null; then
+        print_warning "Failed to set prune schedule"
+        schedule_errors=$((schedule_errors + 1))
+    fi
+    
+    if ! pct exec "$ct_id" -- proxmox-backup-manager datastore update "$datastore_name" \
+        --verify-schedule "$verify_schedule" 2>/dev/null; then
+        print_warning "Failed to set verify schedule"
+        schedule_errors=$((schedule_errors + 1))
+    fi
+    
+    if [[ $schedule_errors -eq 0 ]]; then
+        print_success "PBS schedules configured"
+        return 0
+    else
+        print_warning "Some schedule configurations failed (can be set manually later)"
+        return 1
+    fi
 }
 
 # Complete PBS configuration
@@ -93,21 +145,38 @@ configure_pbs() {
     verify_schedule=$(yq -r ".stacks.backup.pbs_verify_schedule" "$WORK_DIR/stacks.yaml")
     
     print_info "Checking PBS service status"
-    pct exec "$ct_id" -- systemctl is-active --quiet proxmox-backup || {
+    if ! pct exec "$ct_id" -- systemctl is-active --quiet proxmox-backup; then
         print_info "Starting PBS service"
-        pct exec "$ct_id" -- systemctl start proxmox-backup
+        if ! pct exec "$ct_id" -- systemctl start proxmox-backup; then
+            print_error "Failed to start proxmox-backup service"
+            return 1
+        fi
         pct exec "$ct_id" -- systemctl enable proxmox-backup
         sleep 5
-    }
+        
+        # Verify service started successfully
+        if ! pct exec "$ct_id" -- systemctl is-active --quiet proxmox-backup; then
+            print_error "PBS service failed to start properly"
+            print_info "Check logs: pct exec $ct_id -- journalctl -u proxmox-backup"
+            return 1
+        fi
+    fi
     
     # Configure datastore
-    configure_pbs_datastore "$ct_id" "$datastore_name"
+    if ! configure_pbs_datastore "$ct_id" "$datastore_name"; then
+        print_error "Failed to configure PBS datastore"
+        return 1
+    fi
     
     # Setup monitoring user
-    setup_pbs_monitoring_user "$ct_id" "$datastore_name"
+    if ! setup_pbs_monitoring_user "$ct_id" "$datastore_name"; then
+        print_warning "Failed to setup monitoring user (PBS will still work)"
+    fi
     
     # Configure schedules
-    configure_pbs_schedules "$ct_id" "$datastore_name" "$gc_schedule" "$prune_schedule" "$verify_schedule"
+    if ! configure_pbs_schedules "$ct_id" "$datastore_name" "$gc_schedule" "$prune_schedule" "$verify_schedule"; then
+        print_warning "Failed to configure schedules (can be done manually later)"
+    fi
     
     local pbs_ip
     pbs_ip=$(yq -r ".network.ip_base" "$WORK_DIR/stacks.yaml").$(yq -r ".stacks.backup.ip_octet" "$WORK_DIR/stacks.yaml")
@@ -169,7 +238,8 @@ show_backup_info() {
     print_info ""
     print_info "=== Backup Stack ==="
     print_info "PBS Web:     https://$ct_ip:8007 (root/container-password)"
-    print_info "Datastore:   $datastore_name (/datapool/pbs-datastore)"
+    print_info "Datastore:   $datastore_name (/datapool/backups)"
+    print_info "Host Path:   /datapool/backups (owned by 101000:101000)"
     print_info "Monitoring:  prometheus@pbs (password in /root/.prometheus_password)"
     print_info ""
     print_info "Container:   pct exec $ct_id -- bash"
