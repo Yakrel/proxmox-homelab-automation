@@ -22,14 +22,11 @@ configure_pbs_datastore() {
     mkdir -p "$host_datastore_path" || { print_error "Failed to create host datastore directory"; return 1; }
     
     # Set ownership for unprivileged container access
-    # backup user inside container (UID 34) maps to host UID 100034
-    chown 100034:100034 "$host_datastore_path" || { 
-        print_warning "Failed to set ownership to 100034:100034, trying 101000:101000"
-        chown 101000:101000 "$host_datastore_path" || {
-            print_error "Failed to set proper ownership on datastore directory"
-            print_info "Manual fix: chown 101000:101000 $host_datastore_path"
-            return 1
-        }
+    # backup user inside container (UID 34) maps to host UID 101000
+    chown 101000:101000 "$host_datastore_path" || {
+        print_error "Failed to set proper ownership on datastore directory"
+        print_info "Manual fix: chown 101000:101000 $host_datastore_path"
+        return 1
     }
     
     # Set proper permissions
