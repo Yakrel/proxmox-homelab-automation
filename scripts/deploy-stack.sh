@@ -150,8 +150,34 @@ case "$STACK_NAME" in
         print_info "Development stack setup completed by LXC manager"
         ;;
     "backup")
-        configure_pbs "$CT_ID" || { print_error "PBS configuration failed"; exit 1; }
-        configure_pve_backup_job || { print_error "PVE backup job failed"; exit 1; }
+        print_info "Starting PBS configuration..."
+        
+        if configure_pbs "$CT_ID"; then
+            print_success "PBS configuration completed successfully"
+            
+            if configure_pve_backup_job; then
+                print_success "PVE backup job configuration completed"
+            else
+                print_warning "PVE backup job configuration failed - you can configure it manually later"
+                print_info "This does not affect PBS functionality"
+                press_enter_to_continue
+            fi
+        else
+            print_error "PBS configuration failed!"
+            print_info ""
+            print_info "Common fixes:"
+            print_info "1. Check that /datapool/backups exists and is writable"
+            print_info "2. Verify container permissions: chown 101000:101000 /datapool/backups"
+            print_info "3. Check container logs: pct exec $CT_ID -- journalctl -u proxmox-backup"
+            print_info "4. Check PBS service: pct exec $CT_ID -- systemctl status proxmox-backup"
+            print_info ""
+            print_info "To retry configuration manually:"
+            print_info "  pct exec $CT_ID -- bash"
+            print_info "  proxmox-backup-manager datastore create backup-datastore /datapool/backups"
+            print_info ""
+            press_enter_to_continue
+            exit 1
+        fi
         ;;
     "monitoring")
         deploy_monitoring_stack "$STACK_NAME" "$CT_ID" || { print_error "Monitoring deployment failed"; exit 1; }
@@ -188,3 +214,20 @@ case "$STACK_NAME" in
 esac
 
 print_success "Stack [$STACK_NAME] ready!"
+
+# Give user time to review the deployment results
+echo
+print_info "Deployment completed successfully!"
+case "$STACK_NAME" in
+    "backup")
+        print_info "Your PBS server is ready. Take note of the connection details above."
+        ;;
+    "monitoring")
+        print_info "Your monitoring stack is ready. Access the web interfaces using the URLs above."
+        ;;
+    *)
+        print_info "Your $STACK_NAME stack is ready and running."
+        ;;
+esac
+
+press_enter_to_continue
