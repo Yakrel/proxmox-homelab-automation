@@ -177,7 +177,7 @@ configure_pbs() {
     fi
     
     local pbs_ip
-    pbs_ip=$(yq -r ".network.ip_base" "$WORK_DIR/stacks.yaml").$(yq -r ".stacks.backup.ip_octet" "$WORK_DIR/stacks.yaml")
+    pbs_ip=$(get_lxc_ip "$ct_id")
     print_success "PBS configuration completed. Access web interface at: https://${pbs_ip}:8007"
     
     print_success "PBS configured"
@@ -191,7 +191,7 @@ configure_pve_backup_job() {
     local job_config_file="/etc/pve/jobs.cfg"
     local job_id="vzdump-automated-pbs"
     local pbs_ip
-    pbs_ip=$(yq -r ".network.ip_base" "$WORK_DIR/stacks.yaml").$(yq -r ".stacks.backup.ip_octet" "$WORK_DIR/stacks.yaml")
+    pbs_ip=$(get_lxc_ip "$(yq -r '.stacks.backup.ct_id' "$WORK_DIR/stacks.yaml")")
 
     # Using existing datapool storage
     print_info "Using existing datapool storage for backup operations"

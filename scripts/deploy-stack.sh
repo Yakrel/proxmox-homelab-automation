@@ -160,7 +160,6 @@ case "$STACK_NAME" in
             else
                 print_warning "PVE backup job configuration failed - you can configure it manually later"
                 print_info "This does not affect PBS functionality"
-                press_enter_to_continue
             fi
         else
             print_error "PBS configuration failed!"

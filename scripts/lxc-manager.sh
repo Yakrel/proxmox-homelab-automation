@@ -13,41 +13,39 @@ source "$WORK_DIR/scripts/helper-functions.sh"
 # Load stack configuration using shared function
 get_stack_config "$STACK_NAME"
 
+# Get latest template based on stack type
+get_latest_template() {
+    local template_type=$1
+    pveam update > /dev/null || true
+    
+    # Try to get from local storage first
+    local template=$(pveam list "$STORAGE_POOL" | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1)
+    
+    # If not found locally, download the latest
+    if [ -z "$template" ]; then
+        print_info "Downloading latest ${template_type} template"
+        local download_template=$(pveam available | awk "system ${template_type}" | sort -V | tail -n 1 | awk '{print $2}')
+        [[ -n "$download_template" ]] || { print_error "No ${template_type} template available"; exit 1; }
+        pveam download "$STORAGE_POOL" "$download_template" || { print_error "Failed to download ${template_type} template"; exit 1; }
+        template=$(pveam list "$STORAGE_POOL" | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1)
+        print_success "Downloaded template: $template"
+    else
+        print_info "Using template: $template"
+    fi
+    
+    echo "$template"
+}
+
 # Choose template based on stack type - always use latest
 if [ "$STACK_NAME" = "backup" ]; then
-    print_info "Getting latest Debian template for PBS"
-    pveam update > /dev/null || true
-    LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-.*-standard/ {print $1}' | sort -V | tail -n 1)
-    if [ -z "$LATEST_TEMPLATE" ]; then
-        print_info "Downloading latest Debian template"
-        DOWNLOAD_TEMPLATE=$(pveam available | awk '/debian-[0-9.]+(-[0-9]+)?-standard/ {print $NF}' | sort -V | tail -n 1)
-        [[ -n "$DOWNLOAD_TEMPLATE" ]] || { print_error "No Debian template found"; exit 1; }
-        pveam download "$STORAGE_POOL" "$DOWNLOAD_TEMPLATE" || { print_error "Failed to download Debian template"; exit 1; }
-        LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-.*-standard/ {print $1}' | sort -V | tail -n 1)
-        print_success "Downloaded Debian template: $LATEST_TEMPLATE"
-    else
-        print_info "Using Debian template: $LATEST_TEMPLATE"
-    fi
+    LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
 else
-    print_info "Getting latest Alpine template"
-    pveam update > /dev/null || true
-    LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/alpine-.*-default/ {print $1}' | sort -V | tail -n 1)
-    if [ -z "$LATEST_TEMPLATE" ]; then
-        print_info "Downloading latest Alpine template"
-        DOWNLOAD_TEMPLATE=$(pveam available | awk '/alpine-[0-9.]+(-[0-9]+)?-default/ {print $NF}' | sort -V | tail -n 1)
-        [[ -n "$DOWNLOAD_TEMPLATE" ]] || { print_error "No Alpine template found"; exit 1; }
-        pveam download "$STORAGE_POOL" "$DOWNLOAD_TEMPLATE" || { print_error "Failed to download Alpine template"; exit 1; }
-        LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/alpine-.*-default/ {print $1}' | sort -V | tail -n 1)
-        print_success "Downloaded Alpine template: $LATEST_TEMPLATE"
-    else
-        print_info "Using Alpine template: $LATEST_TEMPLATE"
-    fi
+    LATEST_TEMPLATE=$(get_latest_template "alpine-.*-default")
 fi
 
 # Container exists check
 if check_container_exists "$CT_ID"; then
     print_error "Container $CT_ID already exists"
-    press_enter_to_continue
     exit 1
 fi
 
@@ -63,16 +61,16 @@ pct create "$CT_ID" "$LATEST_TEMPLATE" \
     --net0 name=eth0,bridge="$NETWORK_BRIDGE",ip="$CT_IP"/24,gw="$NETWORK_GATEWAY" \
     --onboot 1 \
     --unprivileged 1 \
-    --rootfs "$STORAGE_POOL":"$CT_DISK_GB" || { print_error "Failed to create container"; press_enter_to_continue; exit 1; }
+    --rootfs "$STORAGE_POOL":"$CT_DISK_GB" || { print_error "Failed to create container"; exit 1; }
 
 # Mount datapool for all stacks except development
 if [ "$STACK_NAME" != "development" ]; then
     print_info "Mounting datapool"
-    pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; press_enter_to_continue; exit 1; }
+    pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; exit 1; }
 fi
 
 print_info "Starting container"
-pct start "$CT_ID" || { print_error "Failed to start container"; press_enter_to_continue; exit 1; }
+pct start "$CT_ID" || { print_error "Failed to start container"; exit 1; }
 
 print_info "Verifying container is ready"
 pct exec "$CT_ID" -- test -f /sbin/init >/dev/null 2>&1 || { print_error "Container failed to initialize properly"; exit 1; }
@@ -96,11 +94,14 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     apt-get update >/dev/null 2>&1
     apt-get install -y curl gnupg2 >/dev/null 2>&1
     
-    # Add Proxmox repository key  
-    curl -fsSL https://enterprise.proxmox.com/debian/proxmox-release-bookworm.gpg -o /usr/share/keyrings/proxmox-archive-keyring.gpg
+    # Get Debian codename dynamically
+    DEBIAN_CODENAME=\$(lsb_release -cs 2>/dev/null || cat /etc/os-release | grep VERSION_CODENAME | cut -d= -f2)
     
-    # Configure Proxmox PBS repository (no-subscription for latest)
-    echo \"deb [signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pbs bookworm pbs-no-subscription\" > /etc/apt/sources.list.d/proxmox-backup.list
+    # Add Proxmox repository key for current Debian version
+    curl -fsSL \"https://enterprise.proxmox.com/debian/proxmox-release-\${DEBIAN_CODENAME}.gpg\" -o /usr/share/keyrings/proxmox-archive-keyring.gpg
+    
+    # Configure Proxmox PBS repository for current Debian version
+    echo \"deb [signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pbs \${DEBIAN_CODENAME} pbs-no-subscription\" > /etc/apt/sources.list.d/proxmox-backup.list
     
     # Install latest Proxmox Backup Server
     apt-get update >/dev/null 2>&1
@@ -179,7 +180,7 @@ touch /root/.hushlogin
 if [ \"\$STACK_NAME\" != 'backup' ]; then
     apk del openssh || true
 fi
-" || { print_error "Provisioning failed"; press_enter_to_continue; exit 1; }
+" || { print_error "Provisioning failed"; exit 1; }
 
 print_success "Container [$STACK_NAME] created and ready"
 press_enter_to_continue
