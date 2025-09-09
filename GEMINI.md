@@ -15,39 +15,29 @@ This homelab automation follows these core principles:
 ### 1. **Fail Fast & Simple**
 - All operations must be safely re-runnable
 - When something fails, show basic error message and exit immediately
-- No retry logic anywhere in the codebase - everything works first time or fails fast
-- No complex error recovery - just fail and let user fix the issue
+- No retry logic, waiting loops, or complex error recovery - everything works first time or fails fast
+- Let commands fail naturally - user reads error output and debugs themselves
 - Focus on THIS homelab's main scenario, not edge cases
 
 ### 2. **Homelab-First Approach**
 - Prefer short, direct code over complex abstractions
-- Minimal error handling - just enough to know what failed
 - Static/hardcoded values are PREFERRED over dynamic discovery
 - If code is getting long, we're probably over-engineering
-- Edge cases cause failures - this is acceptable for homelab use
-
-### 3. **DRY (Don't Repeat Yourself)**
-- Avoid duplicating the same logic across scripts
-- Use shared functions for common functionality
-
-### 4. **Latest Everything**
-- Always use latest versions: Debian, Alpine, Docker images, etc.
-- No version pinning - we want the newest features and security updates
-- This is intentional - we accept the risk for a homelab environment
-
-### 5. **Minimal Dependencies**
-- Keep external dependencies to minimum
-- Prefer bash built-ins over external tools where possible
-- Direct approach over complex abstractions
-
-### 6. **Fail Fast Philosophy**
-- Use `latest` tags for all container images and software packages
 - Pre-defined network topology: Proxmox at 192.168.1.10, LXCs at 192.168.1.{lxc_id}
 - Pre-configured storage pool (datapool) - no discovery needed
-- Minimal interactivity: Only prompt for .env.enc decryption passphrase
+- No additional documentation files beyond main README - keep it simple
+
+### 3. **Latest Everything**
+- Always use `latest` tags: Debian, Alpine, Docker images, software packages
+- No version pinning - we want newest features and security updates
 - Manual version rollback when needed (homelab tolerance for breakage)
-- Centralized configuration without complex discovery mechanisms
-- **Scripts optimize for single main scenario - edge cases should fail fast**
+- This is intentional - we accept the risk for a homelab environment
+
+### 4. **Minimal Dependencies & DRY**
+- Keep external dependencies to minimum
+- Prefer bash built-ins over external tools where possible
+- Avoid duplicating logic across scripts - use shared functions
+- Minimal interactivity: Only prompt for .env.enc decryption passphrase
 
 ## Project Overview
 
@@ -62,15 +52,6 @@ This is a shell-based automation system for deploying containerized services in 
 - **Static Configuration**: All settings in `stacks.yaml`
 - **Modular Structure**: Specialized modules for different deployment types
 
-## Stack Architecture
-
-Each stack follows this pattern:
-1. **Create LXC container** using `pct create`
-2. **Set feature flags** with `pct set --features keyctl=1,nesting=1`
-3. **Install Docker** if docker-compose.yml exists
-4. **Deploy services** with docker-compose
-5. **Configure networking** and storage mounts
-
 ## Key Implementation Notes
 
 ### LXC Container Management
@@ -83,7 +64,6 @@ Each stack follows this pattern:
 - Only install Docker if docker-compose.yml exists in stack
 - Use latest Alpine/Debian base images for Docker stacks
 - Use latest Debian for native services (PBS)
-- No version pinning - always pull latest
 - Persistent data in `/datapool/config/STACK_NAME/`
 
 ### Special Stack Handling
@@ -91,39 +71,9 @@ Each stack follows this pattern:
 - **development**: Uses Alpine + Node.js/npm (no Docker)  
 - **All others**: Use Alpine + Docker Compose
 
-### Modular Deployment
-- **modules/config-validator.sh**: Basic configuration validation - fail fast on critical errors only
-- **modules/docker-deployment.sh**: Standard Docker stack deployment - fail immediately on errors
-- **modules/monitoring-deployment.sh**: Monitoring specialization (Grafana + Prometheus)
-- **modules/backup-deployment.sh**: PBS specialization
-
-### Error Handling Pattern
-```bash
-# Homelab fail-fast approach - simple and direct
-function deploy_something() {
-    local step="$1"
-    
-    print_info "Starting: $step"
-    
-    # Fail fast - no recovery attempts
-    if ! some_command; then
-        print_error "Failed: $step"
-        exit 1
-    fi
-    
-    print_success "Completed: $step"
-}
-```
-
 ### Development Guidelines
-- Test all changes on actual Proxmox environment
 - Ensure idempotency - scripts should be re-runnable
-- Use fail-fast approach - scripts exit immediately on errors
-- No retry loops, waiting loops, or recovery attempts in any function
-- Basic error messages sufficient for homelab debugging
-- Use `set -euo pipefail` for automatic error detection and exit
-- Document any assumptions or requirements
-- Use descriptive variable names
+- No custom error handling or verbose error messages - keep it minimal
 - Optimize for main scenario - edge cases should fail fast
 
 ### Security Considerations
@@ -131,7 +81,6 @@ function deploy_something() {
 - Use unprivileged containers
 - Set minimal required feature flags
 - Regular updates via latest image pulls
-- Network isolation between stacks where needed
 
 ### Working Environment Notes
 - **Current Context**: Claude Code runs in an LXC container (`/root/proxmox-homelab-automation`), NOT on the Proxmox host
@@ -146,5 +95,5 @@ function deploy_something() {
 ### Git Commit Guidelines
 - **NEVER** use "Generated with Claude Code" or similar AI attribution in commits
 - **ALWAYS** commit as the actual developer (Yakrel), not as Claude
-- Keep commit messages professional and focused on the actual changes
+- **Keep commit messages professional and focused on the actual changes
 - Author should always be the human developer, not the AI assistant
