@@ -13,40 +13,34 @@ source "$WORK_DIR/scripts/helper-functions.sh"
 # Load stack configuration using shared function
 get_stack_config "$STACK_NAME"
 
+# Get latest template based on stack type
+get_latest_template() {
+    local template_type=$1
+    pveam update > /dev/null || true
+    
+    # Try to get from local storage first
+    local template=$(pveam list "$STORAGE_POOL" | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1)
+    
+    # If not found locally, download the latest
+    if [ -z "$template" ]; then
+        print_info "Downloading latest ${template_type} template"
+        local download_template=$(pveam available | awk "system ${template_type}" | sort -V | tail -n 1 | awk '{print $2}')
+        [[ -n "$download_template" ]] || { print_error "No ${template_type} template available"; exit 1; }
+        pveam download "$STORAGE_POOL" "$download_template" || { print_error "Failed to download ${template_type} template"; exit 1; }
+        template=$(pveam list "$STORAGE_POOL" | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1)
+        print_success "Downloaded template: $template"
+    else
+        print_info "Using template: $template"
+    fi
+    
+    echo "$template"
+}
+
 # Choose template based on stack type - always use latest
 if [ "$STACK_NAME" = "backup" ]; then
-    print_info "Getting Debian 13 template for PBS 4"
-    pveam update > /dev/null || true
-    # Prefer Debian 13 (trixie) for PBS 4 compatibility
-    LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-13.*-standard/ {print $1}' | sort -V | tail -n 1)
-    if [ -z "$LATEST_TEMPLATE" ]; then
-        # Fallback to any Debian 13 template
-        LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-13/ {print $1}' | sort -V | tail -n 1)
-    fi
-    if [ -z "$LATEST_TEMPLATE" ]; then
-        print_info "Downloading Debian 13 template"
-        DOWNLOAD_TEMPLATE=$(pveam available | awk '/debian-13.*-standard/ {print $NF}' | sort -V | tail -n 1)
-        [[ -n "$DOWNLOAD_TEMPLATE" ]] || { print_error "No Debian 13 template found"; exit 1; }
-        pveam download "$STORAGE_POOL" "$DOWNLOAD_TEMPLATE" || { print_error "Failed to download Debian 13 template"; exit 1; }
-        LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-13.*-standard/ {print $1}' | sort -V | tail -n 1)
-        print_success "Downloaded Debian 13 template: $LATEST_TEMPLATE"
-    else
-        print_info "Using Debian 13 template: $LATEST_TEMPLATE"
-    fi
+    LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
 else
-    print_info "Getting latest Alpine template"
-    pveam update > /dev/null || true
-    LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/alpine-.*-default/ {print $1}' | sort -V | tail -n 1)
-    if [ -z "$LATEST_TEMPLATE" ]; then
-        print_info "Downloading latest Alpine template"
-        DOWNLOAD_TEMPLATE=$(pveam available | awk '/alpine-[0-9.]+(-[0-9]+)?-default/ {print $NF}' | sort -V | tail -n 1)
-        [[ -n "$DOWNLOAD_TEMPLATE" ]] || { print_error "No Alpine template found"; exit 1; }
-        pveam download "$STORAGE_POOL" "$DOWNLOAD_TEMPLATE" || { print_error "Failed to download Alpine template"; exit 1; }
-        LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/alpine-.*-default/ {print $1}' | sort -V | tail -n 1)
-        print_success "Downloaded Alpine template: $LATEST_TEMPLATE"
-    else
-        print_info "Using Alpine template: $LATEST_TEMPLATE"
-    fi
+    LATEST_TEMPLATE=$(get_latest_template "alpine-.*-default")
 fi
 
 # Container exists check
@@ -100,11 +94,14 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     apt-get update >/dev/null 2>&1
     apt-get install -y curl gnupg2 >/dev/null 2>&1
     
-    # Add Proxmox repository key  
-    curl -fsSL https://enterprise.proxmox.com/debian/proxmox-release-trixie.gpg -o /usr/share/keyrings/proxmox-archive-keyring.gpg
+    # Get Debian codename dynamically
+    DEBIAN_CODENAME=\$(lsb_release -cs 2>/dev/null || cat /etc/os-release | grep VERSION_CODENAME | cut -d= -f2)
     
-    # Configure Proxmox PBS repository (no-subscription for latest PBS 4)
-    echo \"deb [signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pbs trixie pbs-no-subscription\" > /etc/apt/sources.list.d/proxmox-backup.list
+    # Add Proxmox repository key for current Debian version
+    curl -fsSL \"https://enterprise.proxmox.com/debian/proxmox-release-\${DEBIAN_CODENAME}.gpg\" -o /usr/share/keyrings/proxmox-archive-keyring.gpg
+    
+    # Configure Proxmox PBS repository for current Debian version
+    echo \"deb [signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pbs \${DEBIAN_CODENAME} pbs-no-subscription\" > /etc/apt/sources.list.d/proxmox-backup.list
     
     # Install latest Proxmox Backup Server
     apt-get update >/dev/null 2>&1
