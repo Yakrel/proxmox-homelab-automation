@@ -152,9 +152,8 @@ configure_pbs() {
             return 1
         fi
         pct exec "$ct_id" -- systemctl enable proxmox-backup
-        sleep 5
         
-        # Verify service started successfully
+        # Verify service started successfully - fail fast
         if ! pct exec "$ct_id" -- systemctl is-active --quiet proxmox-backup; then
             print_error "PBS service failed to start properly"
             print_info "Check logs: pct exec $ct_id -- journalctl -u proxmox-backup"

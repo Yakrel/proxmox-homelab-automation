@@ -40,15 +40,8 @@ install_docker() {
     pct exec "$ct_id" -- service docker start || { print_error "Failed to start Docker"; exit 1; }
     pct exec "$ct_id" -- rc-update add docker default
     
-    # Wait for Docker to be ready
-    local retries=10
-    while [[ $retries -gt 0 ]]; do
-        pct exec "$ct_id" -- docker info >/dev/null 2>&1 && break
-        sleep 2
-        retries=$((retries - 1))
-    done
-    
-    [[ $retries -eq 0 ]] && { print_error "Docker failed to start"; exit 1; }
+    # Verify Docker is ready - fail fast
+    pct exec "$ct_id" -- docker info >/dev/null 2>&1 || { print_error "Docker failed to start"; exit 1; }
     
     print_success "Docker installed"
 }
@@ -66,15 +59,8 @@ deploy_docker_services() {
         exit 1
     }
     
-    # Verify services are running
-    local retries=5
-    while [[ $retries -gt 0 ]]; do
-        pct exec "$ct_id" -- sh -c "cd /root && docker-compose ps -q" | grep -q . && break
-        sleep 5
-        retries=$((retries - 1))
-    done
-    
-    [[ $retries -eq 0 ]] && { print_error "Services failed to start"; exit 1; }
+    # Verify services are running - fail fast
+    pct exec "$ct_id" -- sh -c "cd /root && docker-compose ps -q" | grep -q . || { print_error "Services failed to start"; exit 1; }
     
     print_success "Docker services deployed"
 }

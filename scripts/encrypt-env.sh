@@ -70,7 +70,6 @@ encrypt_stack_handler() {
         press_enter_to_continue
     else
         print_error "Failed to get stack for index $index"
-        sleep 2
     fi
 }
 

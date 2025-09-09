@@ -17,7 +17,7 @@ deploy_stack_handler() {
     local index="$1"
     local stack
     
-    stack=$(get_stack_from_menu_index "$index") || { print_error "Failed to get stack for index $index"; sleep 2; return; }
+    stack=$(get_stack_from_menu_index "$index") || { print_error "Failed to get stack for index $index"; return; }
     
     if [[ "$stack" == "gameservers" ]]; then
         bash "$WORK_DIR/scripts/gaming-menu.sh"

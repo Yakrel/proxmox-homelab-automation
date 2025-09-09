@@ -249,6 +249,6 @@ while true; do
         6) bash "$WORK_DIR/scripts/fail2ban-manager.sh"; press_enter_to_continue ;;
         b|B) exec bash "$WORK_DIR/scripts/main-menu.sh" ;;
         q|Q) echo "Exiting."; exit 0 ;;
-        *) echo "[ERROR] Invalid choice. Please try again."; sleep 2 ;;
+        *) print_error "Invalid choice. Please try again." ;;
     esac
 done

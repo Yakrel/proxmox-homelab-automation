@@ -74,10 +74,8 @@ fi
 print_info "Starting container"
 pct start "$CT_ID" || { print_error "Failed to start container"; press_enter_to_continue; exit 1; }
 
-print_info "Waiting for container"
-while ! pct exec "$CT_ID" -- test -f /sbin/init >/dev/null 2>&1; do
-    sleep 2
-done
+print_info "Verifying container is ready"
+pct exec "$CT_ID" -- test -f /sbin/init >/dev/null 2>&1 || { print_error "Container failed to initialize properly"; exit 1; }
 print_success "Container ready"
 
 print_info "Provisioning container (stack: $STACK_NAME)"
