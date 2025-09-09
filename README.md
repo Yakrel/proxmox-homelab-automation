@@ -176,34 +176,6 @@ stacks:
     disk_gb: 10
 ```
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Test on a Proxmox environment
-4. Submit a pull request
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Troubleshooting
-
-### Container Creation Fails
-- Ensure ZFS pool `datapool` exists
-- Check network bridge `vmbr0` is configured
-- Verify IP range doesn't conflict
-
-### Docker Services Don't Start
-- Check LXC features: `pct config <id>`
-- Verify keyctl=1 and nesting=1 are set
-- Check container logs: `pct exec <id> -- docker logs <service>`
-
-### Network Issues
-- Verify gateway and bridge configuration
-- Check firewall rules on Proxmox host
-- Ensure IP addresses don't conflict
-
----
-
-**Made for homelabs, by homelabbers** 🏠
