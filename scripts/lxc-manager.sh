@@ -47,6 +47,7 @@ fi
 # Container exists check
 if check_container_exists "$CT_ID"; then
     print_error "Container $CT_ID already exists"
+    press_enter_to_continue
     exit 1
 fi
 
@@ -62,16 +63,16 @@ pct create "$CT_ID" "$LATEST_TEMPLATE" \
     --net0 name=eth0,bridge="$NETWORK_BRIDGE",ip="$CT_IP"/24,gw="$NETWORK_GATEWAY" \
     --onboot 1 \
     --unprivileged 1 \
-    --rootfs "$STORAGE_POOL":"$CT_DISK_GB" || { print_error "Failed to create container"; exit 1; }
+    --rootfs "$STORAGE_POOL":"$CT_DISK_GB" || { print_error "Failed to create container"; press_enter_to_continue; exit 1; }
 
 # Mount datapool for all stacks except development
 if [ "$STACK_NAME" != "development" ]; then
     print_info "Mounting datapool"
-    pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; exit 1; }
+    pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; press_enter_to_continue; exit 1; }
 fi
 
 print_info "Starting container"
-pct start "$CT_ID" || { print_error "Failed to start container"; exit 1; }
+pct start "$CT_ID" || { print_error "Failed to start container"; press_enter_to_continue; exit 1; }
 
 print_info "Waiting for container"
 while ! pct exec "$CT_ID" -- test -f /sbin/init >/dev/null 2>&1; do
@@ -180,6 +181,7 @@ touch /root/.hushlogin
 if [ \"\$STACK_NAME\" != 'backup' ]; then
     apk del openssh || true
 fi
-" || { print_error "Provisioning failed"; exit 1; }
+" || { print_error "Provisioning failed"; press_enter_to_continue; exit 1; }
 
 print_success "Container [$STACK_NAME] created and ready"
+press_enter_to_continue
