@@ -250,6 +250,6 @@ while true; do
         4) show_statistics; press_enter_to_continue ;;
         b|B) break ;;
         q|Q) echo "Exiting."; exit 0 ;;
-        *) echo "[ERROR] Invalid choice. Please try again."; sleep 2 ;;
+        *) print_error "Invalid choice. Please try again." ;;
     esac
 done

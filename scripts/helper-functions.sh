@@ -203,22 +203,15 @@ check_container_running() {
     [[ "$(pct status "$ct_id" 2>/dev/null)" == "status: running" ]]
 }
 
-wait_for_container() {
+# Check if container is ready - fail fast
+check_container_ready() {
     local ct_id="$1"
-    local max_wait="${2:-30}"
-    local count=0
     
-    print_info "Waiting for container $ct_id..."
+    print_info "Checking container $ct_id status"
     
-    while ! check_container_running "$ct_id" && [[ $count -lt $max_wait ]]; do
-        sleep 2
-        count=$((count + 2))
-        echo -n "."
-    done
-    echo
-    
-    if [[ $count -ge $max_wait ]]; then
-        print_error "Container $ct_id failed to start"
+    # Check if running
+    if ! check_container_running "$ct_id"; then
+        print_error "Container $ct_id is not running"
         exit 1
     fi
     
@@ -276,7 +269,6 @@ show_interactive_menu() {
                     ${handlers_ref[$index]} $index
                 else
                     print_error "Invalid choice. Please try again."
-                    sleep 2
                 fi
                 ;;
             b|B)
@@ -297,7 +289,6 @@ show_interactive_menu() {
                 ;;
             *)
                 print_error "Invalid choice. Please try again."
-                sleep 2
                 ;;
         esac
     done

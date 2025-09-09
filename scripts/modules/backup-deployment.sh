@@ -25,7 +25,6 @@ configure_pbs_datastore() {
     # backup user inside container (UID 34) maps to host UID 101000
     chown 101000:101000 "$host_datastore_path" || {
         print_error "Failed to set proper ownership on datastore directory"
-        print_info "Manual fix: chown 101000:101000 $host_datastore_path"
         return 1
     }
     
@@ -152,9 +151,8 @@ configure_pbs() {
             return 1
         fi
         pct exec "$ct_id" -- systemctl enable proxmox-backup
-        sleep 5
         
-        # Verify service started successfully
+        # Verify service started successfully - fail fast
         if ! pct exec "$ct_id" -- systemctl is-active --quiet proxmox-backup; then
             print_error "PBS service failed to start properly"
             print_info "Check logs: pct exec $ct_id -- journalctl -u proxmox-backup"

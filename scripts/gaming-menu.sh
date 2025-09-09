@@ -39,8 +39,7 @@ manage_games() {
     
     if ! check_container_running "$CONTAINER_ID"; then
         print_warning "Container $CONTAINER_ID is not running. Starting it..."
-        pct start "$CONTAINER_ID"
-        sleep 3
+        pct start "$CONTAINER_ID" || { print_error "Failed to start container"; return 1; }
     fi
     
     # Copy game manager to container if needed
@@ -91,6 +90,6 @@ while true; do
         3) show_gaming_status ;;
         b|B) exec bash "$WORK_DIR/scripts/main-menu.sh" ;;
         q|Q) echo "Exiting."; exit 0 ;;
-        *) echo "[ERROR] Invalid choice. Please try again."; sleep 2 ;;
+        *) print_error "Invalid choice. Please try again." ;;
     esac
 done
