@@ -70,7 +70,6 @@ for file_path in "${FILES_TO_DOWNLOAD[@]}"; do
     # Create the directory structure if it doesn't exist
     mkdir -p "$(dirname "$file_path")"
 
-    print_info "Downloading $file_path"
     curl -sSL "$REPO_BASE_URL/$file_path" -o "$file_path" || { print_error "Failed to download $file_path"; exit 1; }
     [[ ! -s "$file_path" ]] && { print_error "Downloaded file is empty: $file_path"; exit 1; }
     # Convert line endings to Unix format (LF) for scripts
@@ -82,6 +81,12 @@ done
 
 
 print_success "All scripts downloaded successfully."
+
+# Ensure yq is available before running menus
+if ! command -v yq >/dev/null 2>&1; then
+    apt-get update -q >/dev/null 2>&1 || { print_error "Failed to update package lists"; exit 1; }
+    apt-get install -y yq >/dev/null 2>&1 || { print_error "Failed to install yq"; exit 1; }
+fi
 
 # 3. Execute the Main Menu
 print_info "Starting main application"

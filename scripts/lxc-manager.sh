@@ -87,8 +87,15 @@ STACK_NAME='${STACK_NAME}'
 
 if [ \"\$STACK_NAME\" = 'backup' ]; then
     # PBS: Use latest Debian with latest PBS packages
-    apt-get update >/dev/null
-    apt-get install -y curl gnupg2 >/dev/null
+    # Set environment to prevent interactive prompts and locale issues
+    export DEBIAN_FRONTEND=noninteractive
+    export DEBIAN_PRIORITY=critical
+    export IFUPDOWN2_NO_IFRELOAD=1
+    export LC_ALL=C
+    export LANG=C
+    
+    apt-get update >/dev/null 2>&1
+    apt-get install -y curl gnupg2 >/dev/null 2>&1
     
     # Add Proxmox repository key  
     curl -fsSL https://enterprise.proxmox.com/debian/proxmox-release-bookworm.gpg -o /usr/share/keyrings/proxmox-archive-keyring.gpg
@@ -97,11 +104,8 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     echo \"deb [signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pbs bookworm pbs-no-subscription\" > /etc/apt/sources.list.d/proxmox-backup.list
     
     # Install latest Proxmox Backup Server
-    apt-get update >/dev/null
-    export DEBIAN_FRONTEND=noninteractive
-    export DEBIAN_PRIORITY=critical
-    export IFUPDOWN2_NO_IFRELOAD=1
-    apt-get install -y proxmox-backup-server -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold
+    apt-get update >/dev/null 2>&1
+    apt-get install -y proxmox-backup-server -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold >/dev/null 2>&1
     
     # Configure systemd autologin for tty1
     mkdir -p /etc/systemd/system/getty@tty1.service.d
