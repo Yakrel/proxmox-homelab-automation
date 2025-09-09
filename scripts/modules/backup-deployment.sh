@@ -25,7 +25,6 @@ configure_pbs_datastore() {
     # backup user inside container (UID 34) maps to host UID 101000
     chown 101000:101000 "$host_datastore_path" || {
         print_error "Failed to set proper ownership on datastore directory"
-        print_info "Manual fix: chown 101000:101000 $host_datastore_path"
         return 1
     }
     

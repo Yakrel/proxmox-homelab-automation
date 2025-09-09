@@ -59,7 +59,6 @@ FILES_TO_DOWNLOAD=(
     "scripts/game-manager.sh"
     "scripts/fail2ban-manager.sh"
     "scripts/encrypt-env.sh"
-    "scripts/modules/config-validator.sh"
     "scripts/modules/docker-deployment.sh"
     "scripts/modules/monitoring-deployment.sh"
     "scripts/modules/backup-deployment.sh"

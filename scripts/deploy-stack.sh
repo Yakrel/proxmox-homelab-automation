@@ -164,18 +164,7 @@ case "$STACK_NAME" in
             fi
         else
             print_error "PBS configuration failed!"
-            print_info ""
-            print_info "Common fixes:"
-            print_info "1. Check that /datapool/backups exists and is writable"
-            print_info "2. Verify container permissions: chown 101000:101000 /datapool/backups"
-            print_info "3. Check container logs: pct exec $CT_ID -- journalctl -u proxmox-backup"
-            print_info "4. Check PBS service: pct exec $CT_ID -- systemctl status proxmox-backup"
-            print_info ""
-            print_info "To retry configuration manually:"
-            print_info "  pct exec $CT_ID -- bash"
-            print_info "  proxmox-backup-manager datastore create backup-datastore /datapool/backups"
-            print_info ""
-            press_enter_to_continue
+            print_info "Check container logs: pct exec $CT_ID -- journalctl -u proxmox-backup"
             exit 1
         fi
         ;;
