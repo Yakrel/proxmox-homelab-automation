@@ -61,9 +61,6 @@ helper_menu_handler() {
 
 # --- Main Menu ---
 main_menu() {
-    # Ensure yq is installed before generating menu
-    ensure_yq
-    
     # Generate dynamic stack options
     local -a stack_options=()
     while IFS= read -r option; do
