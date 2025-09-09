@@ -88,7 +88,7 @@ setup_proxmox_monitoring_user() {
     # Check if user already exists
     if pveum user list | grep -q "$pve_user"; then
         print_info "Updating PVE monitoring user password"
-        pveum user set "$pve_user" --password "$PVE_MONITORING_PASSWORD"
+        pveum user modify "$pve_user" --password "$PVE_MONITORING_PASSWORD"
     else
         print_info "Creating PVE monitoring user: $pve_user"
         pveum user add "$pve_user" --password "$PVE_MONITORING_PASSWORD" --comment "Prometheus monitoring user"
