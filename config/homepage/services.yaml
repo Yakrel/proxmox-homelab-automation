@@ -1,0 +1,118 @@
+
+---
+# services.yaml
+# https://gethomepage.dev/latest/configs/services
+- Applications:
+    - Sonarr:
+        description: TV Show Management
+        href: http://192.168.1.101:8989
+        icon: sonarr.png
+        widget:
+          type: sonarr
+          url: http://192.168.1.101:8989
+          key: "{{HOMEPAGE_VAR_SONARR_API_KEY}}"
+    - Radarr:
+        description: Movie Management
+        href: http://192.168.1.101:7878
+        icon: radarr.png
+        widget:
+          type: radarr
+          url: http://192.168.1.101:7878
+          key: "{{HOMEPAGE_VAR_RADARR_API_KEY}}"
+    - Bazarr:
+        description: Subtitle Management
+        href: http://192.168.1.101:6767
+        icon: bazarr.png
+        widget:
+          type: bazarr
+          url: http://192.168.1.101:6767
+          key: "{{HOMEPAGE_VAR_BAZARR_API_KEY}}"
+    - Jellyfin:
+        description: Media Server
+        href: http://192.168.1.101:8096
+        icon: jellyfin.png
+        widget:
+          type: jellyfin
+          url: http://192.168.1.101:8096
+          key: "{{HOMEPAGE_VAR_JELLYFIN_API_KEY}}"
+    - Jellyseerr:
+        description: Media Request Manager
+        href: http://192.168.1.101:5055
+        icon: jellyseerr.png
+        widget:
+          type: jellyseerr
+          url: http://192.168.1.101:5055
+          key: "{{HOMEPAGE_VAR_JELLYSEERR_API_KEY}}"
+    - Prowlarr:
+        description: Indexer Manager
+        href: http://192.168.1.101:9696
+        icon: prowlarr.png
+        widget:
+          type: prowlarr
+          url: http://192.168.1.101:9696
+          key: "{{HOMEPAGE_VAR_PROWLARR_API_KEY}}"
+    - qBittorrent:
+        description: Torrent Client
+        href: http://192.168.1.101:8080
+        icon: qbittorrent.png
+        widget:
+          type: qbittorrent
+          url: http://192.168.1.101:8080
+          user: "{{HOMEPAGE_VAR_QB_USERNAME}}"
+          pass: "{{HOMEPAGE_VAR_QB_PASSWORD}}"
+
+- Monitoring:
+    - Grafana:
+        description: Monitoring Dashboard
+        href: http://192.168.1.104:3000
+        icon: grafana.png
+    - Prometheus:
+        description: Metrics & Alerting
+        href: http://192.168.1.104:9090
+        icon: prometheus.png
+    - PVE Exporter:
+        description: Proxmox VE Exporter
+        href: http://192.168.1.104:9221
+        icon: prometheus.png
+
+- Tools:
+    - Proxmox VE:
+        description: Proxmox Host
+        href: https://192.168.1.10:8006
+        icon: proxmox.png
+    - Proxmox Backup Server:
+        description: Backup Management
+        href: https://192.168.1.106:8007
+        icon: proxmox.png
+    - Homelab Repo:
+        description: GitHub Repository
+        href: https://github.com/Yakrel/proxmox-homelab-automation
+        icon: github.png
+    - Firefox:
+        description: Remote Browser
+        href: http://192.168.1.103:5800
+        icon: firefox.png
+    - Flaresolverr:
+        description: Cloudflare Bypass
+        href: http://192.168.1.101:8191
+        icon: flaresolverr.png
+    - Cleanuperr:
+        description: Sonarr/Radarr Cleaner
+        href: http://192.168.1.101:11011
+        icon: cleanuperr.png
+    - Palmr:
+        description: S3-like Storage
+        href: http://192.168.1.102:5487
+        icon: mdi-folder-multiple
+
+- Download:
+    - JDownloader 2:
+        description: Download Manager
+        href: http://192.168.1.102:5800
+        icon: jdownloader.png
+    - Metube:
+        description: YouTube Downloader
+        href: http://192.168.1.102:8081
+        icon: metube.png
+
+

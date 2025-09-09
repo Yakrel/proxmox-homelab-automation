@@ -1,0 +1,16 @@
+
+---
+# settings.yaml
+# https://gethomepage.dev/latest/configs/settings
+headerStyle: clean
+title: Proxmox Homelab
+
+layout:
+  Applications:
+    tab: Local
+  Monitoring:
+    tab: Local
+  Tools:
+    tab: Local
+  Download:
+    tab: Local

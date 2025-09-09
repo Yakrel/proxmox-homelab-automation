@@ -1,0 +1,71 @@
+
+
+networks:
+  proxy-net:
+    driver: bridge
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --protocol http2 run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARED_TOKEN:?Cloudflare tunnel token must be defined}
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-Europe/Istanbul}
+    
+    networks:
+      - proxy-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail-proxy
+    restart: unless-stopped
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - /datapool/config/promtail:/etc/promtail:ro
+      - /datapool/config/promtail/positions:/var/lib/promtail/positions:rw
+    command: -config.file=/etc/promtail/promtail.yml
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=1000
+      - PGID=1000
+    ports:
+      - "9080:9080"
+    networks:
+      - proxy-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower-proxy
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - WATCHTOWER_CLEANUP=true
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+    command: ["--schedule", "0 0 2,8,14,20 * * *"]
+    networks:
+      - proxy-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
