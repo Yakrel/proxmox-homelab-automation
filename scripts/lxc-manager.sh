@@ -15,18 +15,23 @@ get_stack_config "$STACK_NAME"
 
 # Choose template based on stack type - always use latest
 if [ "$STACK_NAME" = "backup" ]; then
-    print_info "Getting latest Debian template for PBS"
+    print_info "Getting Debian 13 template for PBS 4"
     pveam update > /dev/null || true
-    LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-.*-standard/ {print $1}' | sort -V | tail -n 1)
+    # Prefer Debian 13 (trixie) for PBS 4 compatibility
+    LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-13.*-standard/ {print $1}' | sort -V | tail -n 1)
     if [ -z "$LATEST_TEMPLATE" ]; then
-        print_info "Downloading latest Debian template"
-        DOWNLOAD_TEMPLATE=$(pveam available | awk '/debian-[0-9.]+(-[0-9]+)?-standard/ {print $NF}' | sort -V | tail -n 1)
-        [[ -n "$DOWNLOAD_TEMPLATE" ]] || { print_error "No Debian template found"; exit 1; }
-        pveam download "$STORAGE_POOL" "$DOWNLOAD_TEMPLATE" || { print_error "Failed to download Debian template"; exit 1; }
-        LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-.*-standard/ {print $1}' | sort -V | tail -n 1)
-        print_success "Downloaded Debian template: $LATEST_TEMPLATE"
+        # Fallback to any Debian 13 template
+        LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-13/ {print $1}' | sort -V | tail -n 1)
+    fi
+    if [ -z "$LATEST_TEMPLATE" ]; then
+        print_info "Downloading Debian 13 template"
+        DOWNLOAD_TEMPLATE=$(pveam available | awk '/debian-13.*-standard/ {print $NF}' | sort -V | tail -n 1)
+        [[ -n "$DOWNLOAD_TEMPLATE" ]] || { print_error "No Debian 13 template found"; exit 1; }
+        pveam download "$STORAGE_POOL" "$DOWNLOAD_TEMPLATE" || { print_error "Failed to download Debian 13 template"; exit 1; }
+        LATEST_TEMPLATE=$(pveam list "$STORAGE_POOL" | awk '/debian-13.*-standard/ {print $1}' | sort -V | tail -n 1)
+        print_success "Downloaded Debian 13 template: $LATEST_TEMPLATE"
     else
-        print_info "Using Debian template: $LATEST_TEMPLATE"
+        print_info "Using Debian 13 template: $LATEST_TEMPLATE"
     fi
 else
     print_info "Getting latest Alpine template"
@@ -47,7 +52,6 @@ fi
 # Container exists check
 if check_container_exists "$CT_ID"; then
     print_error "Container $CT_ID already exists"
-    press_enter_to_continue
     exit 1
 fi
 
@@ -63,16 +67,16 @@ pct create "$CT_ID" "$LATEST_TEMPLATE" \
     --net0 name=eth0,bridge="$NETWORK_BRIDGE",ip="$CT_IP"/24,gw="$NETWORK_GATEWAY" \
     --onboot 1 \
     --unprivileged 1 \
-    --rootfs "$STORAGE_POOL":"$CT_DISK_GB" || { print_error "Failed to create container"; press_enter_to_continue; exit 1; }
+    --rootfs "$STORAGE_POOL":"$CT_DISK_GB" || { print_error "Failed to create container"; exit 1; }
 
 # Mount datapool for all stacks except development
 if [ "$STACK_NAME" != "development" ]; then
     print_info "Mounting datapool"
-    pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; press_enter_to_continue; exit 1; }
+    pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; exit 1; }
 fi
 
 print_info "Starting container"
-pct start "$CT_ID" || { print_error "Failed to start container"; press_enter_to_continue; exit 1; }
+pct start "$CT_ID" || { print_error "Failed to start container"; exit 1; }
 
 print_info "Verifying container is ready"
 pct exec "$CT_ID" -- test -f /sbin/init >/dev/null 2>&1 || { print_error "Container failed to initialize properly"; exit 1; }
@@ -97,10 +101,10 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     apt-get install -y curl gnupg2 >/dev/null 2>&1
     
     # Add Proxmox repository key  
-    curl -fsSL https://enterprise.proxmox.com/debian/proxmox-release-bookworm.gpg -o /usr/share/keyrings/proxmox-archive-keyring.gpg
+    curl -fsSL https://enterprise.proxmox.com/debian/proxmox-release-trixie.gpg -o /usr/share/keyrings/proxmox-archive-keyring.gpg
     
-    # Configure Proxmox PBS repository (no-subscription for latest)
-    echo \"deb [signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pbs bookworm pbs-no-subscription\" > /etc/apt/sources.list.d/proxmox-backup.list
+    # Configure Proxmox PBS repository (no-subscription for latest PBS 4)
+    echo \"deb [signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pbs trixie pbs-no-subscription\" > /etc/apt/sources.list.d/proxmox-backup.list
     
     # Install latest Proxmox Backup Server
     apt-get update >/dev/null 2>&1
@@ -179,7 +183,7 @@ touch /root/.hushlogin
 if [ \"\$STACK_NAME\" != 'backup' ]; then
     apk del openssh || true
 fi
-" || { print_error "Provisioning failed"; press_enter_to_continue; exit 1; }
+" || { print_error "Provisioning failed"; exit 1; }
 
 print_success "Container [$STACK_NAME] created and ready"
 press_enter_to_continue
