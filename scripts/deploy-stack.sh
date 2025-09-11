@@ -131,12 +131,12 @@ if [[ "$STACK_NAME" == "development" ]]; then
     print_info "No .env file needed for $STACK_NAME"
 elif [[ "$STACK_NAME" == "backup" ]]; then
     decrypt_env_for_deploy "$STACK_NAME"
-    PBS_ADMIN_PASSWORD=$(grep "^PBS_ADMIN_PASSWORD=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2)
+    PBS_ADMIN_PASSWORD=$(grep "^PBS_ADMIN_PASSWORD=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
     [[ -z "$PBS_ADMIN_PASSWORD" ]] && { print_error "PBS_ADMIN_PASSWORD not found in .env file"; exit 1; }
     print_info "Using PBS admin password from .env"
 elif [[ "$STACK_NAME" == "monitoring" ]]; then
     decrypt_env_for_deploy "$STACK_NAME"
-    PVE_MONITORING_PASSWORD=$(grep "^PVE_MONITORING_PASSWORD=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2)
+    PVE_MONITORING_PASSWORD=$(grep "^PVE_MONITORING_PASSWORD=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
     [[ -z "$PVE_MONITORING_PASSWORD" ]] && { print_error "PVE_MONITORING_PASSWORD not found in .env file"; exit 1; }
     print_info "Using fixed PVE monitoring password from .env"
     setup_proxmox_monitoring_user

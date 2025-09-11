@@ -53,7 +53,7 @@ setup_pbs_monitoring_user() {
     
     # Get password from .env
     local prom_pass
-    prom_pass=$(grep "^PBS_PROMETHEUS_PASSWORD=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2)
+    prom_pass=$(grep "^PBS_PROMETHEUS_PASSWORD=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
     [[ -z "$prom_pass" ]] && { print_error "PBS_PROMETHEUS_PASSWORD not found in .env file"; return 1; }
     
     # Check if monitoring user already exists

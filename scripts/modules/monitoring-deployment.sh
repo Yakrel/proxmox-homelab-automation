@@ -54,7 +54,7 @@ setup_monitoring_environment() {
     
     # Read Grafana admin password from .env.enc (already decrypted)
     local gf_admin_password
-    gf_admin_password=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2)
+    gf_admin_password=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
     [[ -z "$gf_admin_password" ]] && {
         print_error "GF_SECURITY_ADMIN_PASSWORD not found in .env file"
         exit 1
@@ -62,9 +62,9 @@ setup_monitoring_environment() {
     
     # Read additional config values from .env
     local pve_url pve_user pve_verify_ssl
-    pve_url=$(grep '^PVE_URL=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2)
-    pve_user=$(grep '^PVE_USER=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2)
-    pve_verify_ssl=$(grep '^PVE_VERIFY_SSL=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2)
+    pve_url=$(grep '^PVE_URL=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
+    pve_user=$(grep '^PVE_USER=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
+    pve_verify_ssl=$(grep '^PVE_VERIFY_SSL=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
     
     # Create temporary file with static + dynamic values
     local temp_env="/tmp/monitoring_env_temp"
