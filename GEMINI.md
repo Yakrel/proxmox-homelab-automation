@@ -95,5 +95,5 @@ This is a shell-based automation system for deploying containerized services in 
 ### Git Commit Guidelines
 - **NEVER** use "Generated with Claude Code" or similar AI attribution in commits
 - **ALWAYS** commit as the actual developer (Yakrel), not as Claude
-- **Keep commit messages professional and focused on the actual changes
+- **Keep commit messages professional and focused on the actual changes**
 - Author should always be the human developer, not the AI assistant

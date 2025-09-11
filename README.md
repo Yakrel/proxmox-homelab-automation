@@ -42,7 +42,7 @@ Each service runs in its own LXC container with dedicated resources:
 | **monitoring** | 104 | Prometheus, Grafana, Loki stack + auto dashboards | 4C/6GB/15GB |
 | **gameservers** | 105 | Game servers (Satisfactory, Palworld) | 8C/16GB/50GB |
 | **backup** | 106 | Proxmox Backup Server (native) | 4C/8GB/50GB |
-| **development** | 107 | Development tools (minimal) | 4C/6GB/15GB |
+| **development** | 107 | Development environment (Node.js, AI CLIs, dev tools) | 4C/6GB/15GB |
 
 ## 🚀 Quick Start
 
