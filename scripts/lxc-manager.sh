@@ -23,14 +23,14 @@ get_latest_template() {
     
     # If not found locally, download the latest
     if [ -z "$template" ]; then
-        print_info "Downloading latest ${template_type} template"
+        print_info "Downloading latest ${template_type} template" >&2
         local download_template=$(pveam available | awk "system ${template_type}" | sort -V | tail -n 1 | awk '{print $2}')
         [[ -n "$download_template" ]] || { print_error "No ${template_type} template available"; exit 1; }
         pveam download "$STORAGE_POOL" "$download_template" || { print_error "Failed to download ${template_type} template"; exit 1; }
         template=$(pveam list "$STORAGE_POOL" | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1)
-        print_success "Downloaded template: $template"
+        print_success "Downloaded template: $template" >&2
     else
-        print_info "Using template: $template"
+        print_info "Using template: $template" >&2
     fi
     
     echo "$template"
