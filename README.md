@@ -11,13 +11,15 @@ A simple, shell-based automation system for deploying containerized services in 
 - **Storage**: ZFS pool named exactly `datapool` 
 - **Location**: Timezone automatically set to `Europe/Istanbul` for all containers
 - **User Mapping**: Specific UID/GID mappings (`101000:101000`, `PUID=1000`)
+- **Passwords**: Pre-configured encrypted passwords for specific services and patterns
 
 ### **⚡ Zero Configurability by Design**
 This follows the philosophy of "static/hardcoded values preferred over dynamic discovery." To use in your environment, you'll need to:
 1. **Fork the repository**
 2. **Modify hardcoded values** in scripts and config files
 3. **Update network/storage/timezone** settings throughout
-4. **Test thoroughly** in your specific Proxmox environment
+4. **Re-encrypt .env.enc files** with your own passwords and encryption key
+5. **Test thoroughly** in your specific Proxmox environment
 
 **This approach is intentional** - it prioritizes reliability and simplicity for THIS specific homelab over universal compatibility.
 
@@ -52,7 +54,14 @@ Each service runs in its own LXC container with dedicated resources:
    ```
 
 2. **Select stack from menu**
-3. **Wait for deployment**
+3. **Enter encryption password when prompted** (decrypts `.env.enc` files)
+4. **Wait for deployment** - all passwords and services configured automatically
+
+### 🔑 **Password Setup**
+- **Single Input**: Only the master encryption password is required during deployment
+- **Web Access**: Use your pre-configured passwords to access web interfaces:
+  - **Grafana**: `http://<lxc-ip>:3000` (admin / your-grafana-password)
+  - **PBS**: `https://<lxc-ip>:8007` (root / your-pbs-password)
 
 ## 📁 Project Structure
 
@@ -131,10 +140,11 @@ Each service runs in its own LXC container with dedicated resources:
 - **Log Pipeline**: Container logs + system logs with proper labeling and parsing
 
 #### ⚙️ **Automated Setup:**
-- **PVE User**: Auto-creates `pve-exporter@pve` with `PVEAuditor` role and random password
-- **Environment**: All credentials auto-generated and configured
+- **PVE User**: Auto-creates `pve-exporter@pve` with `PVEAuditor` role and fixed password
+- **PBS User**: Auto-creates `prometheus@pbs` with monitoring permissions and fixed password
+- **Credentials**: All passwords loaded from encrypted `.env.enc` files
 - **Dashboard Provisioning**: Downloads latest dashboards from grafana.com during deployment
-- **Idempotent**: Re-runnable deployment with password updates
+- **Idempotent**: Re-runnable deployment with consistent passwords
 
 ### Game Servers Stack (LXC 105)
 - Satisfactory dedicated server
@@ -152,6 +162,28 @@ Each service runs in its own LXC container with dedicated resources:
 - **Feature flags** (nesting, keyctl) set post-creation
 - **Network isolation** with dedicated VLANs
 - **Regular security updates** via automated processes
+
+### 🔐 **Password Management**
+
+**Single Interaction Security Model**: Only one password required from you.
+
+#### User Passwords (You Set These):
+```bash
+Encryption Master: <your-master-password>  # Decrypts all .env.enc files
+Grafana Admin:     <your-grafana-password> # Web dashboard access  
+PBS Admin:         <your-pbs-password>     # Backup server web access
+```
+
+#### System Passwords (Automated):
+- **PVE Monitoring**: Fixed random password for Prometheus → PVE API access
+- **PBS Prometheus**: Fixed random password for Prometheus → PBS API access  
+- **Service Keys**: All API keys and inter-service credentials managed automatically
+
+#### Implementation:
+- **Encrypted Storage**: All passwords stored in `.env.enc` files using AES-256-CBC
+- **Idempotent**: Same passwords every deployment, re-runnable and predictable
+- **No Secrets in Code**: Zero hardcoded passwords or keys in repository
+- **Fail-Fast**: Missing passwords cause immediate deployment failure
 
 ## 📝 Configuration
 
