@@ -95,7 +95,7 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     apt-get install -y curl gnupg2 >/dev/null 2>&1
     
     # Get Debian codename dynamically
-    DEBIAN_CODENAME=\$(lsb_release -cs 2>/dev/null || cat /etc/os-release | grep VERSION_CODENAME | cut -d= -f2)
+    DEBIAN_CODENAME=\$(lsb_release -cs 2>/dev/null || cat /etc/os-release | grep VERSION_CODENAME | cut -d= -f2-)
     
     # Add Proxmox repository key for current Debian version
     curl -fsSL \"https://enterprise.proxmox.com/debian/proxmox-release-\${DEBIAN_CODENAME}.gpg\" -o /usr/share/keyrings/proxmox-archive-keyring.gpg
@@ -183,4 +183,3 @@ fi
 " || { print_error "Provisioning failed"; exit 1; }
 
 print_success "Container [$STACK_NAME] created and ready"
-press_enter_to_continue
