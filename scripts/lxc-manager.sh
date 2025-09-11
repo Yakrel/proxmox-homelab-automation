@@ -183,4 +183,3 @@ fi
 " || { print_error "Provisioning failed"; exit 1; }
 
 print_success "Container [$STACK_NAME] created and ready"
-press_enter_to_continue

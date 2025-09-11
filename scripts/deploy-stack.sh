@@ -201,10 +201,7 @@ case "$STACK_NAME" in
         print_info "Proxy Stack: http://$CT_IP"
         ;;
     *)
-        print_info "Stack deployed at: http://$CT_IP"
-        print_info "Container ID: $CT_ID | Hostname: $CT_HOSTNAME"
-        print_info "Access: pct exec $CT_ID -- bash"
-        ;;
+        ;;  # No additional info needed for standard stacks
 esac
 
 print_success "Stack [$STACK_NAME] ready!"
