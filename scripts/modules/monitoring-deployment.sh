@@ -54,22 +54,29 @@ setup_monitoring_environment() {
     
     # Read Grafana admin password from .env.enc (already decrypted)
     local gf_admin_password
-    gf_admin_password=$(grep '^GF_ADMIN_PASSWORD=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2)
+    gf_admin_password=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
     [[ -z "$gf_admin_password" ]] && {
-        print_error "GF_ADMIN_PASSWORD not found in .env file"
+        print_error "GF_SECURITY_ADMIN_PASSWORD not found in .env file"
         exit 1
     }
+    
+    # Read additional config values from .env
+    local pve_url pve_user pve_verify_ssl
+    pve_url=$(grep '^PVE_URL=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
+    pve_user=$(grep '^PVE_USER=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
+    pve_verify_ssl=$(grep '^PVE_VERIFY_SSL=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
     
     # Create temporary file with static + dynamic values
     local temp_env="/tmp/monitoring_env_temp"
     cat > "$temp_env" << EOF
 # Grafana configuration
-GF_ADMIN_PASSWORD=$gf_admin_password
+GF_SECURITY_ADMIN_PASSWORD=$gf_admin_password
 
 # Prometheus configuration  
-PVE_USER=pve-exporter@pve
+PVE_USER=${pve_user:-pve-exporter@pve}
 PVE_PASSWORD=$PVE_MONITORING_PASSWORD
-PVE_VERIFY_SSL=false
+PVE_URL=${pve_url:-https://192.168.1.10:8006}
+PVE_VERIFY_SSL=${pve_verify_ssl:-false}
 
 # Timezone
 TZ=Europe/Istanbul
