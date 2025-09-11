@@ -117,7 +117,7 @@ update_docker_services() {
     
     # Pull latest images and recreate containers
     pct exec "$ct_id" -- sh -c "cd /root && docker-compose pull" || { print_error "Failed to pull images"; exit 1; }
-    pct exec "$ct_id" -- sh -c "cd /root && docker-compose up -d --force-recreate --remove-orphans" || { print_error "Failed to recreate containers"; exit 1; }
+    pct exec "$ct_id" -- sh -c "cd /root && docker-compose up -d --remove-orphans" || { print_error "Failed to recreate containers"; exit 1; }
     
     # Clean up old images
     pct exec "$ct_id" -- docker image prune -f

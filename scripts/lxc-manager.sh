@@ -43,38 +43,47 @@ else
     LATEST_TEMPLATE=$(get_latest_template "alpine-.*-default")
 fi
 
-# Container exists check
+# Container exists check - handle gracefully for idempotency
 if check_container_exists "$CT_ID"; then
-    print_error "Container $CT_ID already exists"
-    exit 1
+    print_info "Container $CT_ID already exists, verifying state"
+    SKIP_CREATION=true
+else
+    SKIP_CREATION=false
 fi
 
-# Create container
-print_info "Creating LXC container $CT_ID ($CT_HOSTNAME)"
-pct create "$CT_ID" "$LATEST_TEMPLATE" \
-    --hostname "$CT_HOSTNAME" \
-    --storage "$STORAGE_POOL" \
-    --cores "$CT_CPU_CORES" \
-    --memory "$CT_MEMORY_MB" \
-    --swap 0 \
-    --features keyctl=1,nesting=1 \
-    --net0 name=eth0,bridge="$NETWORK_BRIDGE",ip="$CT_IP"/24,gw="$NETWORK_GATEWAY" \
-    --onboot 1 \
-    --unprivileged 1 \
-    --rootfs "$STORAGE_POOL":"$CT_DISK_GB" || { print_error "Failed to create container"; exit 1; }
+# Create container only if it doesn't exist
+if [[ "$SKIP_CREATION" == "false" ]]; then
+    print_info "Creating LXC container $CT_ID ($CT_HOSTNAME)"
+    pct create "$CT_ID" "$LATEST_TEMPLATE" \
+        --hostname "$CT_HOSTNAME" \
+        --storage "$STORAGE_POOL" \
+        --cores "$CT_CPU_CORES" \
+        --memory "$CT_MEMORY_MB" \
+        --swap 0 \
+        --features keyctl=1,nesting=1 \
+        --net0 name=eth0,bridge="$NETWORK_BRIDGE",ip="$CT_IP"/24,gw="$NETWORK_GATEWAY" \
+        --onboot 1 \
+        --unprivileged 1 \
+        --rootfs "$STORAGE_POOL":"$CT_DISK_GB" || { print_error "Failed to create container"; exit 1; }
 
-# Mount datapool for all stacks except development
-if [ "$STACK_NAME" != "development" ]; then
-    print_info "Mounting datapool"
-    pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; exit 1; }
+    # Mount datapool for all stacks except development
+    if [ "$STACK_NAME" != "development" ]; then
+        print_info "Mounting datapool"
+        pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; exit 1; }
+    fi
 fi
 
-print_info "Starting container"
-pct start "$CT_ID" || { print_error "Failed to start container"; exit 1; }
+# Ensure container is running (both new and existing containers)
+print_info "Ensuring container is running"
+if ! pct status "$CT_ID" >/dev/null 2>&1 || [[ "$(pct status "$CT_ID" 2>/dev/null | awk '{print $2}')" != "running" ]]; then
+    print_info "Starting container"
+    pct start "$CT_ID" || { print_error "Failed to start container"; exit 1; }
+fi
 
+# Verify container is ready (both new and existing containers)
 print_info "Verifying container is ready"
 pct exec "$CT_ID" -- test -f /sbin/init >/dev/null 2>&1 || { print_error "Container failed to initialize properly"; exit 1; }
-print_success "Container ready"
+print_success "Container $CT_ID is ready"
 
 print_info "Provisioning container (stack: $STACK_NAME)"
 

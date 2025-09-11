@@ -98,14 +98,14 @@ setup_proxmox_monitoring_user() {
     print_success "PVE monitoring user configured"
 }
 
-# Create LXC container
+# Create or verify LXC container
 create_lxc() {
     print_info "Creating LXC container for $STACK_NAME"
     
-    # Use lxc-manager.sh to create and configure the container
-    bash "$WORK_DIR/scripts/lxc-manager.sh" "$STACK_NAME" || { print_error "LXC creation failed"; exit 1; }
+    # Use lxc-manager.sh to create and configure the container (now idempotent)
+    bash "$WORK_DIR/scripts/lxc-manager.sh" "$STACK_NAME" || { print_error "LXC setup failed"; exit 1; }
     
-    print_success "LXC container created"
+    print_success "LXC container ready"
 }
 
 # Configure environment file for standard Docker stacks
@@ -178,7 +178,6 @@ case "$STACK_NAME" in
         ;;
     *)
         configure_env
-        configure_promtail_config "$CT_ID"
         deploy_docker_stack "$STACK_NAME" "$CT_ID" || { print_error "Docker deployment failed"; exit 1; }
         ;;
 esac
