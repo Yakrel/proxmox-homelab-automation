@@ -46,18 +46,6 @@ fi
 # Container exists check - handle gracefully for idempotency
 if check_container_exists "$CT_ID"; then
     print_info "Container $CT_ID already exists, verifying state"
-    
-    # Check if container is running, start if stopped
-    if ! pct status "$CT_ID" | grep -q "status: running"; then
-        print_info "Starting existing container"
-        pct start "$CT_ID" || { print_error "Failed to start existing container"; exit 1; }
-    fi
-    
-    # Verify container is ready
-    print_info "Verifying container is ready"
-    pct exec "$CT_ID" -- test -f /sbin/init >/dev/null 2>&1 || { print_error "Existing container failed to initialize properly"; exit 1; }
-    print_info "Container $CT_ID is ready, proceeding with provisioning"
-    
     SKIP_CREATION=true
 else
     SKIP_CREATION=false
@@ -83,14 +71,19 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
         print_info "Mounting datapool"
         pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; exit 1; }
     fi
+fi
 
+# Ensure container is running (both new and existing containers)
+print_info "Ensuring container is running"
+if ! pct status "$CT_ID" >/dev/null 2>&1 || [[ "$(pct status "$CT_ID" 2>/dev/null | awk '{print $2}')" != "running" ]]; then
     print_info "Starting container"
     pct start "$CT_ID" || { print_error "Failed to start container"; exit 1; }
-
-    print_info "Verifying container is ready"
-    pct exec "$CT_ID" -- test -f /sbin/init >/dev/null 2>&1 || { print_error "Container failed to initialize properly"; exit 1; }
-    print_success "Container ready"
 fi
+
+# Verify container is ready (both new and existing containers)
+print_info "Verifying container is ready"
+pct exec "$CT_ID" -- test -f /sbin/init >/dev/null 2>&1 || { print_error "Container failed to initialize properly"; exit 1; }
+print_success "Container $CT_ID is ready"
 
 print_info "Provisioning container (stack: $STACK_NAME)"
 

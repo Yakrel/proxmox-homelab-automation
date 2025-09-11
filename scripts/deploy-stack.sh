@@ -178,7 +178,6 @@ case "$STACK_NAME" in
         ;;
     *)
         configure_env
-        configure_promtail_config "$CT_ID"
         deploy_docker_stack "$STACK_NAME" "$CT_ID" || { print_error "Docker deployment failed"; exit 1; }
         ;;
 esac
