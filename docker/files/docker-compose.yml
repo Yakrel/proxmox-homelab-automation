@@ -1,0 +1,126 @@
+
+
+networks:
+  files-net:
+    driver: bridge
+
+services:
+  jdownloader2:
+    image: jlesage/jdownloader-2:latest
+    container_name: jdownloader2
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+      - KEEP_APP_RUNNING=1
+      - DISPLAY_WIDTH=1280
+      - DISPLAY_HEIGHT=768
+      - VNC_PASSWORD=${JDOWNLOADER_VNC_PASSWORD:?JDownloader VNC password must be defined}
+    volumes:
+      - /datapool/config/jdownloader2:/config
+      - /datapool/torrents/other:/output
+    ports:
+      - "5800:5800"
+    networks:
+      - files-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  metube:
+    image: ghcr.io/alexta69/metube:latest
+    container_name: metube
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/metube:/config
+      - /datapool/media/youtube:/downloads
+    ports:
+      - "8081:8081"
+    networks:
+      - files-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  palmr:
+    image: kyantech/palmr:latest
+    container_name: palmr
+    environment:
+      - PALMR_UID=1000
+      - PALMR_GID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+      - ENABLE_S3=false
+      - ENCRYPTION_KEY=${PALMR_ENCRYPTION_KEY:?Palmr encryption key must be defined (min 32 chars)}
+      - APP_URL=${PALMR_APP_URL:?Palmr App URL must be defined}
+    volumes:
+      - /datapool/config/palmr:/app/server
+      - /datapool/config/palmr/uploads:/app/uploads
+    ports:
+      - "5487:5487"
+      - "3333:3333"
+    networks:
+      - files-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail-files
+    restart: unless-stopped
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - /datapool/config/promtail:/etc/promtail:ro
+      - /datapool/config/promtail/positions:/var/lib/promtail/positions:rw
+    command: -config.file=/etc/promtail/promtail.yml
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=1000
+      - PGID=1000
+    ports:
+      - "9080:9080"
+    networks:
+      - files-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower-files
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - WATCHTOWER_CLEANUP=true
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+    command: ["--schedule", "0 0 2,8,14,20 * * *"]
+    networks:
+      - files-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

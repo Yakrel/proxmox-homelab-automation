@@ -1,0 +1,110 @@
+
+
+networks:
+  webtools-net:
+    driver: bridge
+
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+       - /datapool/config/homepage:/app/config:rw
+       - /var/run/docker.sock:/var/run/docker.sock:ro
+       - /datapool:/datapool:ro # Added for datapool access
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=1000
+      - PGID=1000
+      - HOMEPAGE_ALLOWED_HOSTS=192.168.1.103:3000,192.168.1.103,localhost,0.0.0.0
+      - HOMEPAGE_VAR_SONARR_API_KEY=${HOMEPAGE_VAR_SONARR_API_KEY}
+      - HOMEPAGE_VAR_RADARR_API_KEY=${HOMEPAGE_VAR_RADARR_API_KEY}
+      - HOMEPAGE_VAR_PROWLARR_API_KEY=${HOMEPAGE_VAR_PROWLARR_API_KEY}
+      - HOMEPAGE_VAR_BAZARR_API_KEY=${HOMEPAGE_VAR_BAZARR_API_KEY}
+      - HOMEPAGE_VAR_JELLYFIN_API_KEY=${HOMEPAGE_VAR_JELLYFIN_API_KEY}
+      - HOMEPAGE_VAR_JELLYSEERR_API_KEY=${HOMEPAGE_VAR_JELLYSEERR_API_KEY}
+      - HOMEPAGE_VAR_QB_USERNAME=${HOMEPAGE_VAR_QB_USERNAME}
+      - HOMEPAGE_VAR_QB_PASSWORD=${HOMEPAGE_VAR_QB_PASSWORD}
+      - HOMEPAGE_VAR_GRAFANA_USERNAME=${HOMEPAGE_VAR_GRAFANA_USERNAME}
+      - HOMEPAGE_VAR_GRAFANA_PASSWORD=${HOMEPAGE_VAR_GRAFANA_PASSWORD}
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  firefox:
+    image: jlesage/firefox:latest
+    container_name: firefox
+    restart: unless-stopped
+    ports:
+      - "5800:5800"
+      - "5900:5900"
+    volumes:
+      - /datapool/config/firefox:/config:rw
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - VNC_PASSWORD=${FIREFOX_VNC_PASSWORD:?Firefox VNC password must be defined}
+      - PUID=1000
+      - PGID=1000
+      - KEEP_APP_RUNNING=1
+      - DISPLAY_WIDTH=1920
+      - DISPLAY_HEIGHT=1080
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail-webtools
+    restart: unless-stopped
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - /datapool/config/promtail:/etc/promtail:ro
+      - /datapool/config/promtail/positions:/var/lib/promtail/positions:rw
+    command: -config.file=/etc/promtail/promtail.yml
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=1000
+      - PGID=1000
+    ports:
+      - "9080:9080"
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower-webtools
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - WATCHTOWER_CLEANUP=true
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+    command: ["--schedule", "0 0 2,8,14,20 * * *"]
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
