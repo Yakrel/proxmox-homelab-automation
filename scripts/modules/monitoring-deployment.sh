@@ -269,70 +269,50 @@ EOF
     print_success "Grafana datasources (Prometheus + Loki) and dashboard provisioning configured"
 }
 
-# Wait for service to be ready - fail fast approach
-wait_for_service() {
-    local service_url="$1"
-    local service_name="$2"
-    local max_attempts=30
-    local attempt=1
-    
-    print_info "Waiting for $service_name to be ready"
-    
-    while [[ $attempt -le $max_attempts ]]; do
-        if curl -s -f "$service_url" >/dev/null 2>&1; then
-            print_success "$service_name is ready"
-            return 0
-        fi
-        
-        sleep 2
-        attempt=$((attempt + 1))
-    done
-    
-    print_error "$service_name failed to become ready after $max_attempts attempts"
-    return 1
+# Ensure all configuration files are ready before service startup
+validate_monitoring_configs() {
+    local ct_id="$1"
+
+    print_info "Validating monitoring configuration files"
+
+    # Ensure prometheus config is copied to container
+    pct push "$ct_id" "$WORK_DIR/docker/monitoring/prometheus.yml" "/datapool/config/prometheus/prometheus.yml" || {
+        print_error "Failed to copy prometheus.yml to container"
+        exit 1
+    }
+
+    # Ensure loki config is copied to container
+    pct push "$ct_id" "$WORK_DIR/config/loki/loki.yml" "/datapool/config/loki/loki.yml" || {
+        print_error "Failed to copy loki.yml to container"
+        exit 1
+    }
+
+    # Ensure promtail config is copied to container (replace placeholder with container hostname)
+    local hostname="lxc-monitoring-01"
+    sed "s/REPLACE_HOST_LABEL/$hostname/g" "$WORK_DIR/config/promtail/promtail.yml" > /tmp/promtail_temp.yml
+    pct push "$ct_id" "/tmp/promtail_temp.yml" "/datapool/config/promtail/promtail.yml" || {
+        print_error "Failed to copy promtail.yml to container"
+        rm -f /tmp/promtail_temp.yml
+        exit 1
+    }
+    rm -f /tmp/promtail_temp.yml
+
+    # Ensure PBS password file exists (created in configure_pbs_monitoring)
+    local password_file="/datapool/config/prometheus/.prometheus-password"
+    [[ -f "$password_file" ]] || {
+        print_error "PBS prometheus password file missing: $password_file"
+        exit 1
+    }
+
+    # Ensure pbs_job.yml exists (created in configure_pbs_monitoring)
+    [[ -f "/datapool/config/prometheus/pbs_job.yml" ]] || {
+        print_error "PBS job configuration missing: /datapool/config/prometheus/pbs_job.yml"
+        exit 1
+    }
+
+    print_success "All configuration files validated"
 }
 
-# Verify data source connectivity
-verify_data_sources() {
-    local ct_ip="$1"
-    local gf_admin_user="$2"
-    local gf_admin_password="$3"
-    
-    print_info "Verifying data source connectivity"
-    
-    # Check Prometheus data source
-    local prometheus_result
-    prometheus_result=$(curl -s -u "$gf_admin_user:$gf_admin_password" \
-        "http://$ct_ip:3000/api/datasources/proxy/1/api/v1/query?query=up" 2>/dev/null) || {
-        print_error "Failed to verify Prometheus data source"
-        return 1
-    }
-    
-    if echo "$prometheus_result" | grep -q '"status":"success"'; then
-        print_success "Prometheus data source is working"
-    else
-        print_error "Prometheus data source check failed"
-        return 1
-    fi
-    
-    # Check Loki data source  
-    local loki_result
-    loki_result=$(curl -s -u "$gf_admin_user:$gf_admin_password" \
-        "http://$ct_ip:3000/api/datasources/proxy/2/ready" 2>/dev/null) || {
-        print_error "Failed to verify Loki data source"
-        return 1
-    }
-    
-    if echo "$loki_result" | grep -q "ready"; then
-        print_success "Loki data source is working"
-    else
-        print_error "Loki data source check failed"
-        return 1
-    fi
-    
-    print_success "All data sources verified successfully"
-    return 0
-}
 
 # Import recommended dashboards
 import_grafana_dashboards() {
@@ -381,13 +361,14 @@ deploy_monitoring_stack() {
     # Setup monitoring-specific environment
     setup_monitoring_environment "$ct_id"
 
-    # Deploy Docker services
-    deploy_docker_stack "$stack_name" "$ct_id"
-
-    # Note: Promtail configuration is handled by deploy_docker_stack flow
-
-    # Configure PBS monitoring if backup stack exists
+    # Configure PBS monitoring if backup stack exists (before Docker deployment)
     configure_pbs_monitoring "$ct_id"
+
+    # Validate all configurations are ready before starting services
+    validate_monitoring_configs "$ct_id"
+
+    # Deploy Docker services (configurations are now ready)
+    deploy_docker_stack "$stack_name" "$ct_id"
 
     # Configure Grafana datasources and dashboards
     configure_grafana_automation "$ct_id"
@@ -401,13 +382,8 @@ deploy_monitoring_stack() {
     gf_admin_password=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-) || { print_error "GF_SECURITY_ADMIN_PASSWORD not found"; exit 1; }
     ct_ip=$(get_lxc_ip "$ct_id")
 
-    # Wait for services to be ready
-    wait_for_service "http://$ct_ip:9090/-/ready" "Prometheus" || { print_error "Prometheus failed to start"; exit 1; }
-    wait_for_service "http://$ct_ip:3100/ready" "Loki" || { print_error "Loki failed to start"; exit 1; }
-    wait_for_service "http://$ct_ip:3000/api/health" "Grafana" || { print_error "Grafana failed to start"; exit 1; }
-
-    # Verify data source connectivity
-    verify_data_sources "$ct_ip" "$gf_admin_user" "$gf_admin_password" || { print_error "Data source verification failed"; exit 1; }
+    # No health checks - Docker Compose will handle service startup
+    # If containers fail to start, docker-compose will show the error immediately
 
     print_success "Monitoring stack deployed and verified"
 

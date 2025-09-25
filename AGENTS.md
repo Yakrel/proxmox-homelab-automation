@@ -1,7 +1,7 @@
-# CLAUDE.md
+# AGENTS.md
 
 <!--
-    CRITICAL: This file must be kept identical to AGENTS.md
+    CRITICAL: This file must be kept identical to CLAUDE.md
     Both files need the same context and guidelines for all AI assistants.
     Any changes made to one file must be mirrored in the other exactly.
 -->
