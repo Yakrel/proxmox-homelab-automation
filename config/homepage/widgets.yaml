@@ -1,0 +1,21 @@
+
+---
+# widgets.yaml
+# https://gethomepage.dev/latest/configs/service-widgets
+- resources:
+    cpu: true
+    disk:
+      - /datapool
+    diskUnits: bytes
+    expanded: true
+    label: System
+    memory: true
+    refresh: 3000
+    units: metric
+    uptime: true
+
+- search:
+    provider: google
+    target: _blank
+
+
