@@ -163,11 +163,11 @@ Task T019: "Create deployment verification checklist"
 - [x] Docker Compose integration contract defined
 
 ### Entity Implementation
-- [ ] ServiceStack entity management (T010, T008)
-- [ ] LXCContainer lifecycle management (T005)
-- [ ] EnvironmentConfig encryption handling (T006)
-- [ ] DockerService deployment handling (T008, T013)
-- [ ] GrafanaDashboard import automation (T007)
+- [x] ServiceStack entity management (T010, T008)
+- [x] LXCContainer lifecycle management (T005)
+- [x] EnvironmentConfig encryption handling (T006)
+- [x] DockerService deployment handling (T008, T013)
+- [x] GrafanaDashboard import automation (T007)
 
 ### Integration Points
 - [ ] Proxmox pct command integration (T005)
