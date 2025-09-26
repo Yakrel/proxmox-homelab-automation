@@ -27,14 +27,16 @@ cleanup_env_files() {
     local cleaned_count=0
     
     for pattern in "${temp_files[@]}"; do
-        if ls $pattern 2>/dev/null | head -10 | while read -r file; do
+        # Use shell globbing to expand pattern, and process up to 10 files
+        local count=0
+        for file in $(compgen -G "$pattern" | head -10); do
             if [[ -f "$file" ]]; then
                 rm -f "$file" && log_info "Removed: $file"
                 ((cleaned_count++))
+                ((count++))
             fi
-        done; then
-            true # Pattern found files
-        fi
+        done
+        # If no files matched, compgen returns nothing, so nothing happens
     done
     
     log_success "Environment cleanup completed"
