@@ -73,13 +73,13 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
     print_info "Mounting datapool"
     pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; exit 1; }
     
-    # Configure GPU passthrough for media stack if NVIDIA GPU is available
-    if [[ "$STACK_NAME" == "media" ]] && [[ -e "/dev/nvidia0" ]]; then
-        print_info "Configuring GPU passthrough for media container"
-        pct set "$CT_ID" -dev0 "/dev/nvidia0,path=/dev/nvidia0" || print_warning "Failed to add GPU device mapping"
-        [[ -e "/dev/nvidiactl" ]] && pct set "$CT_ID" -dev1 "/dev/nvidiactl,path=/dev/nvidiactl" || true
-        [[ -e "/dev/nvidia-uvm" ]] && pct set "$CT_ID" -dev2 "/dev/nvidia-uvm,path=/dev/nvidia-uvm" || true
-        print_success "GPU devices mapped to media container"
+    # GPU passthrough for media stack - hardcoded GTX 970 setup
+    if [[ "$STACK_NAME" == "media" ]]; then
+        print_info "Configuring GTX 970 passthrough for media container"
+        pct set "$CT_ID" -dev0 "/dev/nvidia0,path=/dev/nvidia0" || true
+        pct set "$CT_ID" -dev1 "/dev/nvidiactl,path=/dev/nvidiactl" || true  
+        pct set "$CT_ID" -dev2 "/dev/nvidia-uvm,path=/dev/nvidia-uvm" || true
+        print_info "GTX 970 devices mapped to media container"
     fi
 fi
 
