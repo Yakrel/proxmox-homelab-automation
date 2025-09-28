@@ -53,14 +53,14 @@ remove_stack_container() {
     get_stack_config "$stack_name"
     
     # Check if container exists
-    if ! pct status "$CT_ID" >/dev/null 2>&1; then
+    if ! pct status "$CT_ID" >/dev/null; then
         log_warning "Container $CT_ID ($stack_name) not found"
         return 0
     fi
     
     # Get current status
     local status
-    status=$(pct status "$CT_ID" 2>/dev/null | awk '{print $2}')
+    status=$(pct status "$CT_ID" | awk '{print $2}')
     
     # Stop container if running
     if [[ "$status" == "running" ]]; then
@@ -68,7 +68,7 @@ remove_stack_container() {
         if [[ "$force" == "true" ]]; then
             pct stop "$CT_ID" || log_warning "Failed to gracefully stop container $CT_ID"
         else
-            if ! pct stop "$CT_ID" 2>/dev/null; then
+            if ! pct stop "$CT_ID"; then
                 log_error "Failed to stop container $CT_ID - use 'force' option if needed"
                 return 1
             fi
@@ -77,7 +77,7 @@ remove_stack_container() {
     
     # Remove container
     log_info "Destroying container $CT_ID ($CT_HOSTNAME)"
-    if pct destroy "$CT_ID" 2>/dev/null; then
+    if pct destroy "$CT_ID"; then
         log_success "Container $CT_ID removed successfully"
     else
         log_error "Failed to destroy container $CT_ID"
@@ -101,31 +101,31 @@ cleanup_docker_resources() {
     fi
     
     # Check if Docker is available
-    if ! pct exec "$ct_id" -- docker info >/dev/null 2>&1; then
+    if ! pct exec "$ct_id" -- docker info >/dev/null; then
         log_info "Docker not running in container $ct_id - skipping cleanup"
         return 0
     fi
     
     # Stop all containers
     log_info "Stopping Docker containers"
-    pct exec "$ct_id" -- docker stop \$(docker ps -q) 2>/dev/null || log_info "No running containers to stop"
+    pct exec "$ct_id" -- sh -c 'docker stop $(docker ps -q)' || log_info "No running containers to stop"
     
     # Remove stopped containers
     log_info "Removing stopped containers"
-    pct exec "$ct_id" -- docker container prune -f >/dev/null 2>&1 || true
+    pct exec "$ct_id" -- docker container prune -f || true
     
     if [[ "$aggressive" == "true" ]]; then
         # Remove unused images
         log_info "Removing unused Docker images"
-        pct exec "$ct_id" -- docker image prune -f >/dev/null 2>&1 || true
+        pct exec "$ct_id" -- docker image prune -f || true
         
         # Remove unused volumes
-        log_info "Removing unused Docker volumes"  
-        pct exec "$ct_id" -- docker volume prune -f >/dev/null 2>&1 || true
+        log_info "Removing unused Docker volumes"
+        pct exec "$ct_id" -- docker volume prune -f || true
         
         # Remove unused networks
         log_info "Removing unused Docker networks"
-        pct exec "$ct_id" -- docker network prune -f >/dev/null 2>&1 || true
+        pct exec "$ct_id" -- docker network prune -f || true
     fi
     
     log_success "Docker cleanup completed for container $ct_id"
@@ -166,20 +166,20 @@ cleanup_logs() {
     log_info "Cleaning up system logs (max size: $max_size, max age: ${max_age} days)"
     
     # Clean journald logs
-    if command -v journalctl >/dev/null 2>&1; then
+    if command -v journalctl >/dev/null; then
         log_info "Rotating journald logs"
-        journalctl --vacuum-size="$max_size" >/dev/null 2>&1 || true
-        journalctl --vacuum-time="${max_age}d" >/dev/null 2>&1 || true
+        journalctl --vacuum-size="$max_size" || true
+        journalctl --vacuum-time="${max_age}d" || true
     fi
     
     # Clean old log files in /var/log
     log_info "Cleaning old log files"
-    find /var/log -name "*.log.*" -type f -mtime +"$max_age" -delete 2>/dev/null || true
-    find /var/log -name "*.gz" -type f -mtime +"$max_age" -delete 2>/dev/null || true
+    find /var/log -name "*.log.*" -type f -mtime +"$max_age" -delete || true
+    find /var/log -name "*.gz" -type f -mtime +"$max_age" -delete || true
     
     # Clean container-specific logs
     if [[ -d /var/lib/lxc ]]; then
-        find /var/lib/lxc -name "*.log*" -type f -mtime +"$max_age" -delete 2>/dev/null || true
+        find /var/lib/lxc -name "*.log*" -type f -mtime +"$max_age" -delete || true
     fi
     
     log_success "Log cleanup completed"
@@ -192,12 +192,12 @@ run_system_maintenance() {
     
     # Update package cache
     log_info "Updating package cache"
-    apt-get update -q >/dev/null 2>&1 || log_warning "Failed to update package cache"
+    apt-get update -q || log_warning "Failed to update package cache"
     
     # Clean package cache
     log_info "Cleaning package cache"
-    apt-get autoclean >/dev/null 2>&1 || true
-    apt-get autoremove -y >/dev/null 2>&1 || true
+    apt-get autoclean || true
+    apt-get autoremove -y || true
     
     # Clean temporary files
     cleanup_env_files
@@ -207,7 +207,7 @@ run_system_maintenance() {
     
     # Check disk usage
     log_info "Disk usage summary:"
-    df -h / /datapool 2>/dev/null || df -h /
+    df -h / /datapool || df -h /
     
     log_success "System maintenance completed"
 }
@@ -221,7 +221,7 @@ interactive_cleanup() {
     local deployed_stacks=()
     while IFS= read -r stack; do
         get_stack_config "$stack"
-        if pct status "$CT_ID" >/dev/null 2>&1; then
+        if pct status "$CT_ID" >/dev/null; then
             deployed_stacks+=("$stack")
         fi
     done < <(get_available_stacks)
@@ -235,7 +235,7 @@ interactive_cleanup() {
     for i in "${!deployed_stacks[@]}"; do
         local stack="${deployed_stacks[$i]}"
         get_stack_config "$stack"
-        local status=$(pct status "$CT_ID" 2>/dev/null | awk '{print $2}')
+        local status=$(pct status "$CT_ID" | awk '{print $2}')
         echo "$((i+1)). $stack (CT:$CT_ID, Status:$status)"
     done
     

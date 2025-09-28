@@ -20,13 +20,13 @@ validate_container_status() {
     
     log_info "Validating container $ct_id status"
     
-    if ! pct status "$ct_id" >/dev/null 2>&1; then
+    if ! pct status "$ct_id" >/dev/null; then
         log_error "Container $ct_id does not exist"
         return 1
     fi
     
     local current_status
-    current_status=$(pct status "$ct_id" 2>/dev/null | awk '{print $2}')
+    current_status=$(pct status "$ct_id" | awk '{print $2}')
     
     if [[ "$current_status" != "$expected_status" ]]; then
         log_error "Container $ct_id status: $current_status (expected: $expected_status)"
