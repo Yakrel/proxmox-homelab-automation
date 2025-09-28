@@ -72,6 +72,15 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
     # Mount datapool for all stacks
     print_info "Mounting datapool"
     pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; exit 1; }
+    
+    # GPU passthrough for media stack - hardcoded GTX 970 setup
+    if [[ "$STACK_NAME" == "media" ]]; then
+        print_info "Configuring GTX 970 passthrough for media container"
+        pct set "$CT_ID" -dev0 "/dev/nvidia0,path=/dev/nvidia0" || true
+        pct set "$CT_ID" -dev1 "/dev/nvidiactl,path=/dev/nvidiactl" || true  
+        pct set "$CT_ID" -dev2 "/dev/nvidia-uvm,path=/dev/nvidia-uvm" || true
+        print_info "GTX 970 devices mapped to media container"
+    fi
 fi
 
 # Ensure container is running (both new and existing containers)

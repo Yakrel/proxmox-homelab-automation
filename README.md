@@ -96,6 +96,27 @@ Each service runs in its own LXC container with dedicated resources:
 - **ZFS pool named `datapool`**
 - **Network bridge `vmbr0`**
 - **IP range `192.168.1.x`**
+- **NVIDIA GPU** (optional, for Jellyfin hardware transcoding)
+
+## 🎮 GPU Support (NVIDIA)
+
+For enhanced media transcoding performance in Jellyfin:
+
+### Supported Hardware
+- **NVIDIA GTX 970** (tested configuration)
+- Other NVIDIA GPUs with similar driver support
+
+### Automatic Setup
+The helper scripts provide automated GPU passthrough configuration:
+1. **`7) Setup GPU Passthrough (NVIDIA)`** - Configures host system for GPU passthrough
+2. **`8) Configure Media Container GPU`** - Maps GPU devices to media LXC container  
+3. **`9) Install NVIDIA Drivers in Container`** - Installs required drivers inside container
+
+### Manual Verification
+After setup, verify GPU is accessible in Jellyfin:
+- Navigate to Jellyfin Admin → Playback → Transcoding
+- Select **NVIDIA NVENC** for hardware acceleration
+- Monitor GPU usage during transcoding operations
 
 ## 📋 Stack Details
 
@@ -105,9 +126,10 @@ Each service runs in its own LXC container with dedicated resources:
 - Watchtower for updates
 
 ### Media Stack (LXC 101)
-- Jellyfin media server
+- Jellyfin media server **with GPU transcoding support (NVIDIA)**
 - Sonarr/Radarr for automation
 - Transmission torrent client
+- **GPU Hardware Acceleration**: Configured for NVIDIA GTX 970 with automatic passthrough
 
 ### Files Stack (LXC 102)
 - Filebrowser web interface

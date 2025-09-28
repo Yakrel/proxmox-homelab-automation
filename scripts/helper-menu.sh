@@ -220,6 +220,75 @@ EOF
     echo "[OK] Network bonding setup applied. Please verify connectivity."
 }
 
+run_setup_gpu_passthrough() {
+    if [ "$(id -u)" -ne 0 ]; then echo "[ERROR] Must be run as root"; return 1; fi
+
+    echo "[INFO] Setting up NVIDIA GTX 970 GPU passthrough..."
+    
+    # Install NVIDIA drivers - fail fast
+    echo "deb http://deb.debian.org/debian $(lsb_release -cs) main contrib non-free" > /etc/apt/sources.list.d/contrib-non-free.list
+    apt-get update -q >/dev/null 2>&1
+    apt-get install -y nvidia-driver firmware-misc-nonfree >/dev/null 2>&1
+    
+    # Configure IOMMU - hardcoded for homelab
+    local grub_file="/etc/default/grub"
+    cp "$grub_file" "${grub_file}.backup"
+    sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt pcie_acs_override=downstream,multifunction nofb nomodeset video=vesafb:off,efifb:off"/' "$grub_file"
+    update-grub >/dev/null 2>&1
+    
+    # Configure VFIO modules
+    cat > /etc/modules << 'EOF'
+vfio
+vfio_iommu_type1
+vfio_pci
+vfio_virqfd
+EOF
+
+    # Hardcoded GTX 970 PCI IDs
+    echo "options vfio-pci ids=10de:13c2,10de:0fbb" > /etc/modprobe.d/vfio.conf
+    
+    # Blacklist nouveau
+    cat > /etc/modprobe.d/blacklist-nouveau.conf << 'EOF'
+blacklist nouveau
+blacklist lbm-nouveau
+options nouveau modeset=0
+alias nouveau off
+alias lbm-nouveau off
+EOF
+
+    # Update initramfs
+    update-initramfs -u >/dev/null 2>&1
+    
+    echo "[OK] GTX 970 passthrough configured. Reboot required."
+}
+
+run_configure_media_gpu() {
+    if [ "$(id -u)" -ne 0 ]; then echo "[ERROR] Must be run as root"; return 1; fi
+
+    local media_ct_id="101"
+    
+    echo "[INFO] Configuring media container for GTX 970..."
+    
+    # Stop container
+    pct stop "$media_ct_id"
+    
+    # Add GPU devices - hardcoded paths
+    pct set "$media_ct_id" -dev0 "/dev/nvidia0,path=/dev/nvidia0"
+    pct set "$media_ct_id" -dev1 "/dev/nvidiactl,path=/dev/nvidiactl" 
+    pct set "$media_ct_id" -dev2 "/dev/nvidia-uvm,path=/dev/nvidia-uvm"
+    pct set "$media_ct_id" -features keyctl=1,nesting=1
+    
+    # Start container
+    pct start "$media_ct_id"
+    
+    echo "[OK] Media container configured for GTX 970."
+}
+
+run_install_nvidia_drivers_container() {
+    echo "[ERROR] This function is deprecated. Use run_configure_media_gpu instead."
+    return 1
+}
+
 # --- Main Menu ---
 
 while true; do
@@ -234,6 +303,8 @@ while true; do
     echo "   4) Optimize ZFS Performance"
     echo "   5) Setup Network Bonding (Interactive)"
     echo "   6) Manage Fail2ban"
+    echo "   7) Setup GPU Passthrough (NVIDIA GTX 970)"
+    echo "   8) Configure Media Container GPU"
     echo "---------------------------------------"
     echo "   b) Back to Main Menu"
     echo "   q) Quit"
@@ -247,6 +318,8 @@ while true; do
         4) run_optimize_zfs; press_enter_to_continue ;;
         5) run_setup_bonding; press_enter_to_continue ;;
         6) bash "$WORK_DIR/scripts/fail2ban-manager.sh"; press_enter_to_continue ;;
+        7) run_setup_gpu_passthrough; press_enter_to_continue ;;
+        8) run_configure_media_gpu; press_enter_to_continue ;;
         b|B) exec bash "$WORK_DIR/scripts/main-menu.sh" ;;
         q|Q) echo "Exiting."; exit 0 ;;
         *) print_error "Invalid choice. Please try again." ;;
