@@ -69,15 +69,16 @@ require_root() {
 
 ensure_packages() {
     print_info "Installing packages: $*"
-    apt-get update -q >/dev/null 2>&1 || { print_error "Failed to update package lists"; exit 1; }
-    apt-get install -y "$@" >/dev/null 2>&1 || { print_error "Failed to install packages: $*"; exit 1; }
+    apt-get update -q || { print_error "Failed to update package lists"; exit 1; }
+    apt-get install -y "$@" || { print_error "Failed to install packages: $*"; exit 1; }
     print_success "Installed packages: $*"
 }
 
 ensure_yq() {
-    if ! command -v yq >/dev/null 2>&1; then
-        apt-get update -q >/dev/null 2>&1 || { print_error "Failed to update package lists"; exit 1; }
-        apt-get install -y yq >/dev/null 2>&1 || { print_error "Failed to install yq"; exit 1; }
+    if ! command -v yq >/dev/null; then
+        print_info "Installing yq YAML processor"
+        apt-get update -q || { print_error "Failed to update package lists"; exit 1; }
+        apt-get install -y yq || { print_error "Failed to install yq"; exit 1; }
     fi
 }
 
@@ -106,7 +107,7 @@ get_available_stacks() {
     [[ ! -f "$stacks_file" ]] && { print_error "Stacks file not found: $stacks_file"; exit 1; }
     
     # Get stacks with their CT IDs, sort by CT ID, then return stack names only
-    yq -r '.stacks | to_entries | map(select(.value.ct_id != null)) | sort_by(.value.ct_id) | .[].key' "$stacks_file" 2>/dev/null || {
+    yq -r '.stacks | to_entries | map(select(.value.ct_id != null)) | sort_by(.value.ct_id) | .[].key' "$stacks_file" || {
         print_error "Failed to parse stacks from $stacks_file"
         exit 1
     }
@@ -122,8 +123,8 @@ generate_stack_menu_options() {
     while IFS= read -r stack; do
         local ct_id
         local hostname
-        ct_id=$(yq -r ".stacks.$stack.ct_id" "$stacks_file" 2>/dev/null)
-        hostname=$(yq -r ".stacks.$stack.hostname" "$stacks_file" 2>/dev/null)
+        ct_id=$(yq -r ".stacks.$stack.ct_id" "$stacks_file")
+        hostname=$(yq -r ".stacks.$stack.hostname" "$stacks_file")
         
         if [[ "$ct_id" != "null" && -n "$ct_id" ]]; then
             options+=("Deploy [$stack] Stack -> LXC $ct_id ($hostname)")
@@ -161,23 +162,23 @@ get_stack_config() {
     [[ ! -f "$stacks_file" ]] && { print_error "Stacks file not found: $stacks_file"; exit 1; }
     
     # Read configuration - all common fields in one place
-    CT_ID=$(yq -r ".stacks.$stack.ct_id" "$stacks_file" 2>/dev/null)
-    CT_HOSTNAME=$(yq -r ".stacks.$stack.hostname" "$stacks_file" 2>/dev/null)
-    CT_CPU_CORES=$(yq -r ".stacks.$stack.cpu_cores" "$stacks_file" 2>/dev/null)
-    CT_MEMORY_MB=$(yq -r ".stacks.$stack.memory_mb" "$stacks_file" 2>/dev/null)
-    CT_DISK_GB=$(yq -r ".stacks.$stack.disk_gb" "$stacks_file" 2>/dev/null)
+    CT_ID=$(yq -r ".stacks.$stack.ct_id" "$stacks_file")
+    CT_HOSTNAME=$(yq -r ".stacks.$stack.hostname" "$stacks_file")
+    CT_CPU_CORES=$(yq -r ".stacks.$stack.cpu_cores" "$stacks_file")
+    CT_MEMORY_MB=$(yq -r ".stacks.$stack.memory_mb" "$stacks_file")
+    CT_DISK_GB=$(yq -r ".stacks.$stack.disk_gb" "$stacks_file")
     
     # Storage configuration (use datapool default)
-    STORAGE_POOL=$(yq -r ".storage.pool" "$stacks_file" 2>/dev/null)
+    STORAGE_POOL=$(yq -r ".storage.pool" "$stacks_file")
     
     # Backup-specific configuration (if needed)
     if [[ "$stack" == "backup" ]]; then
-        PBS_DATASTORE_NAME=$(yq -r ".stacks.$stack.pbs_datastore_name" "$stacks_file" 2>/dev/null)
-        PBS_KEEP_DAILY=$(yq -r ".stacks.$stack.pbs_keep_daily" "$stacks_file" 2>/dev/null)
-        PBS_KEEP_WEEKLY=$(yq -r ".stacks.$stack.pbs_keep_weekly" "$stacks_file" 2>/dev/null)
-        PBS_KEEP_MONTHLY=$(yq -r ".stacks.$stack.pbs_keep_monthly" "$stacks_file" 2>/dev/null)
-        PBS_GC_SCHEDULE=$(yq -r ".stacks.$stack.pbs_gc_schedule" "$stacks_file" 2>/dev/null)
-        PBS_VERIFY_SCHEDULE=$(yq -r ".stacks.$stack.pbs_verify_schedule" "$stacks_file" 2>/dev/null)
+        PBS_DATASTORE_NAME=$(yq -r ".stacks.$stack.pbs_datastore_name" "$stacks_file")
+        PBS_KEEP_DAILY=$(yq -r ".stacks.$stack.pbs_keep_daily" "$stacks_file")
+        PBS_KEEP_WEEKLY=$(yq -r ".stacks.$stack.pbs_keep_weekly" "$stacks_file")
+        PBS_KEEP_MONTHLY=$(yq -r ".stacks.$stack.pbs_keep_monthly" "$stacks_file")
+        PBS_GC_SCHEDULE=$(yq -r ".stacks.$stack.pbs_gc_schedule" "$stacks_file")
+        PBS_VERIFY_SCHEDULE=$(yq -r ".stacks.$stack.pbs_verify_schedule" "$stacks_file")
     fi
     
     # Validate required fields
@@ -197,12 +198,12 @@ get_stack_config() {
 
 check_container_exists() {
     local ct_id="$1"
-    pct status "$ct_id" >/dev/null 2>&1
+    pct status "$ct_id" >/dev/null
 }
 
 check_container_running() {
     local ct_id="$1"
-    [[ "$(pct status "$ct_id" 2>/dev/null)" == "status: running" ]]
+    [[ "$(pct status "$ct_id")" == "status: running" ]]
 }
 
 # Check if container is ready - fail fast
@@ -308,7 +309,7 @@ ensure_directory() {
         print_info "Created directory: $dir_path"
     fi
     
-    [[ -n "$owner" ]] && chown "$owner" "$dir_path" 2>/dev/null
+    [[ -n "$owner" ]] && chown "$owner" "$dir_path"
 }
 
 backup_file() {
@@ -342,7 +343,7 @@ encrypt_env_file() {
     local output_file="$2"
     local passphrase="$3"
     
-    printf '%s' "$passphrase" | openssl enc -aes-256-cbc -pbkdf2 -salt -pass stdin -in "$input_file" -out "$output_file" 2>/dev/null || {
+    printf '%s' "$passphrase" | openssl enc -aes-256-cbc -pbkdf2 -salt -pass stdin -in "$input_file" -out "$output_file" || {
         rm -f "$output_file"
         print_error "Failed to encrypt file"
         exit 1
@@ -354,7 +355,7 @@ decrypt_env_file() {
     local output_file="$2"
     local passphrase="$3"
     
-    printf '%s' "$passphrase" | openssl enc -aes-256-cbc -pbkdf2 -d -salt -pass stdin -in "$input_file" -out "$output_file" 2>/dev/null || {
+    printf '%s' "$passphrase" | openssl enc -aes-256-cbc -pbkdf2 -d -salt -pass stdin -in "$input_file" -out "$output_file" || {
         rm -f "$output_file"
         print_error "Failed to decrypt file"
         exit 1
