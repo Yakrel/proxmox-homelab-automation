@@ -102,7 +102,7 @@ recursive = yes
 use_template = data
 recursive = yes
 EOT
-    systemctl enable --now sanoid.timer >/dev/null 2>&1
+    systemctl enable --now sanoid.timer
     
     echo "[OK] Sanoid snapshot management configured successfully."
 }
@@ -227,14 +227,14 @@ run_setup_gpu_passthrough() {
     
     # Install NVIDIA drivers - fail fast
     echo "deb http://deb.debian.org/debian $(lsb_release -cs) main contrib non-free" > /etc/apt/sources.list.d/contrib-non-free.list
-    apt-get update -q >/dev/null 2>&1
-    apt-get install -y nvidia-driver firmware-misc-nonfree >/dev/null 2>&1
+    apt-get update -q
+    apt-get install -y nvidia-driver firmware-misc-nonfree
     
     # Configure IOMMU - hardcoded for homelab
     local grub_file="/etc/default/grub"
     cp "$grub_file" "${grub_file}.backup"
     sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt pcie_acs_override=downstream,multifunction nofb nomodeset video=vesafb:off,efifb:off"/' "$grub_file"
-    update-grub >/dev/null 2>&1
+    update-grub
     
     # Configure VFIO modules
     cat > /etc/modules << 'EOF'
@@ -257,7 +257,7 @@ alias lbm-nouveau off
 EOF
 
     # Update initramfs
-    update-initramfs -u >/dev/null 2>&1
+    update-initramfs -u
     
     echo "[OK] GTX 970 passthrough configured. Reboot required."
 }

@@ -34,7 +34,7 @@ stop_all_games() {
         compose_file="${GAMES[$game]}"
         if docker-compose -f "$DOCKER_DIR/$compose_file" ps -q 2>/dev/null | grep -q .; then
             echo "  Stopping $game..."
-            docker-compose -f "$DOCKER_DIR/$compose_file" down --remove-orphans >/dev/null 2>&1
+            docker-compose -f "$DOCKER_DIR/$compose_file" down --remove-orphans
         fi
     done
     

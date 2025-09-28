@@ -69,15 +69,15 @@ require_root() {
 
 ensure_packages() {
     print_info "Installing packages: $*"
-    apt-get update -q >/dev/null 2>&1 || { print_error "Failed to update package lists"; exit 1; }
-    apt-get install -y "$@" >/dev/null 2>&1 || { print_error "Failed to install packages: $*"; exit 1; }
+    apt-get update -q || { print_error "Failed to update package lists"; exit 1; }
+    apt-get install -y "$@" || { print_error "Failed to install packages: $*"; exit 1; }
     print_success "Installed packages: $*"
 }
 
 ensure_yq() {
     if ! command -v yq >/dev/null 2>&1; then
-        apt-get update -q >/dev/null 2>&1 || { print_error "Failed to update package lists"; exit 1; }
-        apt-get install -y yq >/dev/null 2>&1 || { print_error "Failed to install yq"; exit 1; }
+        apt-get update -q || { print_error "Failed to update package lists"; exit 1; }
+        apt-get install -y yq || { print_error "Failed to install yq"; exit 1; }
     fi
 }
 

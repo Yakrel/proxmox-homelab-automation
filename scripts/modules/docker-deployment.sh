@@ -33,15 +33,15 @@ install_docker() {
     print_info "Installing Docker"
     
     # Update and install Docker
-    pct exec "$ct_id" -- apk update >/dev/null 2>&1
-    pct exec "$ct_id" -- apk add --no-cache docker docker-compose docker-cli-compose >/dev/null 2>&1
+    pct exec "$ct_id" -- apk update
+    pct exec "$ct_id" -- apk add --no-cache docker docker-compose docker-cli-compose
     
     # Start Docker service
     pct exec "$ct_id" -- service docker start || { print_error "Failed to start Docker"; exit 1; }
     pct exec "$ct_id" -- rc-update add docker default
     
     # Verify Docker is ready - fail fast
-    pct exec "$ct_id" -- docker info >/dev/null 2>&1 || { print_error "Docker failed to start"; exit 1; }
+    pct exec "$ct_id" -- docker info || { print_error "Docker failed to start"; exit 1; }
     
     print_success "Docker installed"
 }
@@ -90,7 +90,7 @@ check_docker_health() {
     print_info "Checking Docker health"
     
     # Check if Docker daemon is running
-    pct exec "$ct_id" -- docker info >/dev/null 2>&1 || { print_error "Docker daemon not running"; exit 1; }
+    pct exec "$ct_id" -- docker info || { print_error "Docker daemon not running"; exit 1; }
     
     # Check running containers
     local container_count

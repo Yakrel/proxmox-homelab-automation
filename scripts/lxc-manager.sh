@@ -92,7 +92,7 @@ fi
 
 # Verify container is ready (both new and existing containers)
 print_info "Verifying container is ready"
-pct exec "$CT_ID" -- test -f /sbin/init >/dev/null 2>&1 || { print_error "Container failed to initialize properly"; exit 1; }
+pct exec "$CT_ID" -- test -f /sbin/init || { print_error "Container failed to initialize properly"; exit 1; }
 print_success "Container $CT_ID is ready"
 
 # Fix config permissions for LXC containers (idempotent)
@@ -113,8 +113,8 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     export LC_ALL=C
     export LANG=C
     
-    apt-get update >/dev/null 2>&1
-    apt-get install -y curl gnupg2 >/dev/null 2>&1
+    apt-get update
+    apt-get install -y curl gnupg2
     
     # Get Debian codename dynamically
     DEBIAN_CODENAME=\$(lsb_release -cs 2>/dev/null || cat /etc/os-release | grep VERSION_CODENAME | cut -d= -f2)
@@ -126,8 +126,8 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     echo \"deb [signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pbs \${DEBIAN_CODENAME} pbs-no-subscription\" > /etc/apt/sources.list.d/proxmox-backup.list
     
     # Install latest Proxmox Backup Server
-    apt-get update >/dev/null 2>&1
-    apt-get install -y proxmox-backup-server -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold >/dev/null 2>&1
+    apt-get update
+    apt-get install -y proxmox-backup-server -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold
     
     # Configure systemd autologin for tty1
     mkdir -p /etc/systemd/system/getty@tty1.service.d
@@ -153,8 +153,8 @@ else
     if [ \"\$STACK_NAME\" = 'development' ]; then
         # Development: NO Docker; only latest AI CLI tools and development packages
         apk add --no-cache util-linux nodejs npm git curl python3 py3-pip bash nano vim htop openssh-client ca-certificates github-cli
-        npm config set fund false >/dev/null 2>&1 || true
-        npm config set update-notifier false >/dev/null 2>&1 || true
+        npm config set fund false || true
+        npm config set update-notifier false || true
         # Install latest AI CLI tools
         npm install -g @anthropic-ai/claude-code
         npm install -g @google/gemini-cli
@@ -185,7 +185,7 @@ if [ \"\$STACK_NAME\" != 'backup' ]; then
     kill -HUP 1 2>/dev/null || true
     
     # Alpine timezone setup
-    apk add --no-cache tzdata >/dev/null 2>&1 || true
+    apk add --no-cache tzdata || true
     ln -sf /usr/share/zoneinfo/Europe/Istanbul /etc/localtime 2>/dev/null || true
 else
     # Debian timezone setup (PBS)
