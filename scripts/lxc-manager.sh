@@ -155,17 +155,12 @@ EOFLOGIN
     apt-get -y autoclean >/dev/null
     
 elif [ \"$STACK_NAME\" = 'media' ]; then
-    # Media Stack: Debian with Docker, Nvidia Drivers
+    # Media Stack: Debian with Docker (GPU passthrough configured via LXC)
     apt-get update
     apt-get upgrade -y
     
-    # Add non-free repos for Nvidia drivers
-    sed -i -e 's/Components: main/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources
-    
-    apt-get update
-    
-    # Install Docker, Nvidia drivers, and toolkit
-    apt-get install -y nvidia-driver nvidia-container-toolkit docker.io docker-compose-plugin util-linux
+    # Install Docker and essential packages (latest available versions)
+    apt-get install -y docker.io curl wget util-linux
     
     # Configure Docker daemon with metrics and enable service
     mkdir -p /etc/docker
@@ -177,6 +172,11 @@ elif [ \"$STACK_NAME\" = 'media' ]; then
 EOFDOCKER
     systemctl enable docker
     systemctl start docker
+    
+    # Install latest Docker Compose standalone
+    curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
+    ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
     
     # Configure systemd autologin for tty1
     mkdir -p /etc/systemd/system/getty@tty1.service.d
