@@ -85,8 +85,6 @@ services:
       - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
       - /datapool/config/jellyfin:/config
       - /datapool:/datapool
@@ -95,10 +93,13 @@ services:
     networks:
       - media-net
     restart: unless-stopped
-    devices:
-      - /dev/nvidia0:/dev/nvidia0
-      - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-uvm:/dev/nvidia-uvm
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     logging:
       driver: "json-file"
       options:

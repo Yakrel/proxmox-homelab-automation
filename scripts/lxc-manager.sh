@@ -40,7 +40,7 @@ get_latest_template() {
 }
 
 # Choose template based on stack type - always use latest
-if [ "$STACK_NAME" = "backup" ]; then
+if [ "$STACK_NAME" = "backup" ] || [ "$STACK_NAME" = "media" ]; then
     LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
 else
     LATEST_TEMPLATE=$(get_latest_template "alpine-.*-default")
@@ -73,13 +73,22 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
     print_info "Mounting datapool"
     pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; exit 1; }
     
-    # GPU passthrough for media stack - hardcoded GTX 970 setup
+    # GPU passthrough for media stack - cgroup v2 method
     if [[ "$STACK_NAME" == "media" ]]; then
-        print_info "Configuring GTX 970 passthrough for media container"
-        pct set "$CT_ID" -dev0 "/dev/nvidia0,path=/dev/nvidia0" || true
-        pct set "$CT_ID" -dev1 "/dev/nvidiactl,path=/dev/nvidiactl" || true  
-        pct set "$CT_ID" -dev2 "/dev/nvidia-uvm,path=/dev/nvidia-uvm" || true
-        print_info "GTX 970 devices mapped to media container"
+        print_info "Configuring GPU passthrough for media container (cgroup v2 method)"
+        LXC_CONFIG_PATH="/etc/pve/lxc/${CT_ID}.conf"
+        {
+            echo ''
+            echo '# GPU Passthrough (cgroup v2)'
+            echo 'lxc.cgroup2.devices.allow: c 195:* rwm'
+            echo 'lxc.cgroup2.devices.allow: c 511:* rwm'
+            echo 'lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file'
+            echo 'lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file'
+            echo 'lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file'
+            echo 'lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file'
+            echo 'lxc.mount.entry: /dev/nvidia-modeset dev/nvidia-modeset none bind,optional,create=file'
+        } >> "$LXC_CONFIG_PATH"
+        print_success "GPU passthrough configured for $CT_ID"
     fi
 fi
 
@@ -145,6 +154,30 @@ EOFLOGIN
     apt-get -y autoremove >/dev/null
     apt-get -y autoclean >/dev/null
     
+elif [ \"$STACK_NAME\" = 'media' ]; then
+    # Media Stack: Debian with Docker, Nvidia Drivers
+    apt-get update
+    apt-get upgrade -y
+    
+    # Add non-free repos for Nvidia drivers
+    sed -i 's/ main/ main contrib non-free non-free-firmware/g' /etc/apt/sources.list
+    
+    apt-get update
+    
+    # Install Docker, Nvidia drivers, and toolkit
+    apt-get install -y nvidia-driver nvidia-container-toolkit docker.io docker-compose-plugin util-linux
+    
+    # Configure Docker daemon with metrics and enable service
+    mkdir -p /etc/docker
+    cat > /etc/docker/daemon.json << 'EOFDOCKER'
+{
+    \"metrics-addr\": \"0.0.0.0:9323\",
+    \"experimental\": true
+}
+EOFDOCKER
+    systemctl enable docker
+    systemctl start docker
+
 else
     # Common Alpine setup - use latest packages
     apk update

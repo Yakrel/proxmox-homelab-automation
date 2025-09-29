@@ -223,31 +223,12 @@ EOF
 run_setup_gpu_passthrough() {
     if [ "$(id -u)" -ne 0 ]; then echo "[ERROR] Must be run as root"; return 1; fi
 
-    echo "[INFO] Setting up NVIDIA GTX 970 GPU passthrough..."
-    
-    # Install NVIDIA drivers - fail fast
-    echo "deb http://deb.debian.org/debian $(lsb_release -cs) main contrib non-free" > /etc/apt/sources.list.d/contrib-non-free.list
-    apt-get update -q
-    apt-get install -y nvidia-driver firmware-misc-nonfree
-    
-    # Configure IOMMU - hardcoded for homelab
-    local grub_file="/etc/default/grub"
-    cp "$grub_file" "${grub_file}.backup"
-    sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt pcie_acs_override=downstream,multifunction nofb nomodeset video=vesafb:off,efifb:off"/' "$grub_file"
-    update-grub
-    
-    # Configure VFIO modules
-    cat > /etc/modules << 'EOF'
-vfio
-vfio_iommu_type1
-vfio_pci
-vfio_virqfd
-EOF
+    echo "[INFO] Setting up NVIDIA GTX 970 for LXC container passthrough..."
 
-    # Hardcoded GTX 970 PCI IDs
-    echo "options vfio-pci ids=10de:13c2,10de:0fbb" > /etc/modprobe.d/vfio.conf
-    
-    # Blacklist nouveau
+    # Install required packages for compilation
+    ensure_packages build-essential dkms linux-headers-$(uname -r)
+
+    # Blacklist nouveau first
     cat > /etc/modprobe.d/blacklist-nouveau.conf << 'EOF'
 blacklist nouveau
 blacklist lbm-nouveau
@@ -256,10 +237,18 @@ alias nouveau off
 alias lbm-nouveau off
 EOF
 
-    # Update initramfs
+    # Configure IOMMU - hardcoded for homelab
+    local grub_file="/etc/default/grub"
+    cp "$grub_file" "${grub_file}.backup"
+    sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT=.*/GRUB_CMDLINE_LINUX_DEFAULT="quiet intel_iommu=on iommu=pt"/' "$grub_file"
+    update-grub
+
+    # Update initramfs and suggest reboot first
     update-initramfs -u
-    
-    echo "[OK] GTX 970 passthrough configured. Reboot required."
+
+    echo "[INFO] Phase 1 complete. System needs reboot to disable nouveau."
+    echo "[WARN] Please reboot and run this option again to install NVIDIA drivers."
+    echo "[INFO] After reboot, NVIDIA driver will be downloaded and installed automatically."
 }
 
 run_configure_media_gpu() {
