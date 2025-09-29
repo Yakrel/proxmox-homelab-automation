@@ -155,21 +155,44 @@ EOFLOGIN
     apt-get -y autoclean >/dev/null
     
 elif [ \"$STACK_NAME\" = 'media' ]; then
-    # Media Stack: Debian with Docker (GPU passthrough configured via LXC)
+    # Media Stack: Debian with Docker and NVIDIA drivers for GTX 970 transcoding
     apt-get update
     apt-get upgrade -y
     
-    # Install Docker and essential packages (latest available versions)
-    apt-get install -y docker.io curl wget util-linux
+    # Add non-free repos for NVIDIA drivers
+    sed -i -e 's/Components: main/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources
+    apt-get update
     
-    # Configure Docker daemon with metrics and enable service
+    # Install NVIDIA drivers for GTX 970 (legacy drivers)
+    apt-get install -y nvidia-legacy-390xx-driver nvidia-legacy-390xx-kernel-dkms
+    
+    # Add NVIDIA Container Toolkit repository
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+    apt-get update
+    
+    # Install Docker and NVIDIA Container Toolkit
+    apt-get install -y docker.io nvidia-container-toolkit curl wget util-linux
+    
+    # Configure Docker daemon with NVIDIA runtime and metrics
     mkdir -p /etc/docker
     cat > /etc/docker/daemon.json << 'EOFDOCKER'
 {
     \"metrics-addr\": \"0.0.0.0:9323\",
-    \"experimental\": true
+    \"experimental\": true,
+    \"runtimes\": {
+        \"nvidia\": {
+            \"path\": \"nvidia-container-runtime\",
+            \"runtimeArgs\": []
+        }
+    },
+    \"default-runtime\": \"nvidia\"
 }
 EOFDOCKER
+    
+    # Configure NVIDIA Container Toolkit
+    nvidia-ctk runtime configure --runtime=docker
+    
     systemctl enable docker
     systemctl start docker
     
