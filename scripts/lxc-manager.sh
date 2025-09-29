@@ -160,7 +160,7 @@ elif [ \"$STACK_NAME\" = 'media' ]; then
     apt-get upgrade -y
     
     # Add non-free repos for Nvidia drivers
-    sed -i 's/ main/ main contrib non-free non-free-firmware/g' /etc/apt/sources.list
+    sed -i -e 's/Components: main/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources
     
     apt-get update
     
