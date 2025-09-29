@@ -160,7 +160,17 @@ elif [ \"$STACK_NAME\" = 'media' ]; then
     apt-get upgrade -y
     
     # Add non-free repos for NVIDIA drivers
-    sed -i -e 's/Components: main/Components: main contrib non-free non-free-firmware/' /etc/apt/sources.list.d/debian.sources
+    cat > /etc/apt/sources.list.d/debian.sources <<'EOS'
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: trixie trixie-updates
+Components: main contrib non-free non-free-firmware
+
+Types: deb
+URIs: http://security.debian.org/debian-security
+Suites: trixie-security
+Components: main contrib non-free non-free-firmware
+EOS
     apt-get update
     
     # Install latest NVIDIA drivers (GTX 970 is supported by modern drivers)
