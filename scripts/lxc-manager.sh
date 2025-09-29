@@ -156,6 +156,12 @@ EOFLOGIN
     
 elif [ \"$STACK_NAME\" = 'media' ]; then
     # Media Stack: Debian with Docker and latest NVIDIA drivers for GTX 970 transcoding
+    # Set environment to prevent interactive prompts and locale issues
+    export DEBIAN_FRONTEND=noninteractive
+    export DEBIAN_PRIORITY=critical
+    export LC_ALL=C
+    export LANG=C
+    
     apt-get update
     apt-get upgrade -y
     
@@ -173,23 +179,28 @@ Components: main contrib non-free non-free-firmware
 EOS
     apt-get update
     
-    # Install latest NVIDIA drivers (GTX 970 is supported by modern drivers)
-    apt-get install -y nvidia-driver nvidia-kernel-dkms
+    # Install latest NVIDIA drivers, Docker, and NVIDIA Container Toolkit
+    apt-get install -y nvidia-driver nvidia-kernel-dkms docker.io curl wget util-linux nvidia-container-toolkit
     
-    # Install Docker and essential packages
-    apt-get install -y docker.io curl wget util-linux
-    
-    # Configure Docker daemon with metrics and enable service
+    # Configure Docker daemon to use NVIDIA runtime
     mkdir -p /etc/docker
     cat > /etc/docker/daemon.json << 'EOFDOCKER'
 {
+    \"runtimes\": {
+        \"nvidia\": {
+            \"path\": \"/usr/bin/nvidia-container-runtime\",
+            \"runtimeArgs\": []
+        }
+    },
+    \"default-runtime\": \"nvidia\",
     \"metrics-addr\": \"0.0.0.0:9323\",
     \"experimental\": true
 }
 EOFDOCKER
-    
+
+    # Enable and restart Docker to apply changes
     systemctl enable docker
-    systemctl start docker
+    systemctl restart docker
     
     # Install latest Docker Compose standalone
     curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose

@@ -76,7 +76,13 @@ deploy_docker_stack() {
         return 0
     fi
     
-    install_docker "$ct_id"
+    if [[ "$stack_name" != "media" ]]; then
+        install_docker "$ct_id"
+    else
+        print_info "Docker is pre-installed for stack '$stack_name'. Verifying..."
+        pct exec "$ct_id" -- docker info >/dev/null || { print_error "Docker verification failed for $stack_name"; exit 1; }
+        print_success "Docker verification passed for $stack_name"
+    fi
     setup_docker_compose "$stack_name" "$ct_id"
     deploy_docker_services "$stack_name" "$ct_id"
     
