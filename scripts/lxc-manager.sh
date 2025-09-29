@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Unified Alpine-based LXC creation + minimal provisioning
+# Unified LXC creation + minimal provisioning (Alpine/Debian)
 # Fail fast approach
 set -euo pipefail
 
