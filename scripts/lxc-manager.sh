@@ -177,6 +177,18 @@ elif [ \"$STACK_NAME\" = 'media' ]; then
 EOFDOCKER
     systemctl enable docker
     systemctl start docker
+    
+    # Configure systemd autologin for tty1
+    mkdir -p /etc/systemd/system/getty@tty1.service.d
+    cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'EOFLOGIN'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin root --noclear %I \$TERM
+EOFLOGIN
+    
+    # Disable SSH for security
+    systemctl disable ssh || true
+    systemctl stop ssh || true
 
 else
     # Common Alpine setup - use latest packages
@@ -211,7 +223,7 @@ EOFDOCKER
 fi
 
 # Common setup for all containers  
-if [ \"\$STACK_NAME\" != 'backup' ]; then
+if [ \"\$STACK_NAME\" != 'backup' ] && [ \"\$STACK_NAME\" != 'media' ]; then
     # Alpine autologin
     sed -i 's|^tty1::|#&|' /etc/inittab 2>/dev/null || true
     echo 'tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux' >> /etc/inittab
@@ -221,7 +233,7 @@ if [ \"\$STACK_NAME\" != 'backup' ]; then
     apk add --no-cache tzdata || true
     ln -sf /usr/share/zoneinfo/Europe/Istanbul /etc/localtime 2>/dev/null || true
 else
-    # Debian timezone setup (PBS)
+    # Debian timezone setup (PBS and Media)
     timedatectl set-timezone Europe/Istanbul 2>/dev/null || true
 fi
 
@@ -236,8 +248,10 @@ passwd -d root || true
 touch /root/.hushlogin
 
 # Remove openssh if present (reduce attack surface)
-if [ \"\$STACK_NAME\" != 'backup' ]; then
+if [ \"\$STACK_NAME\" != 'backup' ] && [ \"\$STACK_NAME\" != 'media' ]; then
     apk del openssh || true
+else
+    apt-get remove -y openssh-server || true
 fi
 " || { print_error "Provisioning failed"; exit 1; }
 
