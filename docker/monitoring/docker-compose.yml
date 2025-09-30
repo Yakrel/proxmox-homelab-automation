@@ -58,8 +58,6 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
       - GF_SECURITY_ALLOW_EMBEDDING=true
-      - PUID=1000
-      - PGID=1000
     networks:
       - monitoring-net
     depends_on:
@@ -135,8 +133,6 @@ services:
       - PVE_PASSWORD=${PVE_PASSWORD}
       - PVE_URL=${PVE_URL}
       - PVE_VERIFY_SSL=${PVE_VERIFY_SSL}
-      - PUID=1000
-      - PGID=1000
     networks:
       - monitoring-net
     logging:

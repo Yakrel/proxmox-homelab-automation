@@ -118,7 +118,7 @@ configure_pbs_monitoring() {
     local backup_ct_id
     backup_ct_id=$(yq -r ".stacks.backup.ct_id" "$WORK_DIR/stacks.yaml")
 
-    if pct status "$backup_ct_id" >/dev/null 2>&1; then
+    if pct status "$backup_ct_id" 2>&1 | grep -q "status: running"; then
         # Cache network values to avoid repeated yq calls
         local ip_base ip_octet pbs_ip_address
         ip_base=$(yq -r ".network.ip_base" "$WORK_DIR/stacks.yaml")

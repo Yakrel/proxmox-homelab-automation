@@ -4,7 +4,11 @@
 #                      Backup Stack Module
 # =================================================================
 # Specialized deployment for Proxmox Backup Server - fail fast approach
-set -euo pipefail
+set -euo    # Verify datapool storage exists
+    if ! pvesm status --storage "$pbs_storage_name" 2>&1 | grep -q "$pbs_storage_name"; then
+        print_info "Storage '$pbs_storage_name' not found. Configure PBS storage manually."
+        return 0
+    fifail
 
 # Configure PBS datastore and settings
 configure_pbs_datastore() {
@@ -105,7 +109,6 @@ setup_pbs_monitoring_user() {
         return 1
     fi
     
-    printf '%s' "$prom_pass" | pct exec "$ct_id" -- sh -c "cat > /root/.prometheus-password && chmod 600 /root/.prometheus-password" 2>/dev/null || true
     print_success "PBS prometheus user configured"
     
     return 0
@@ -271,10 +274,10 @@ configure_pve_backup_job() {
     print_info "Using existing datapool storage for backup operations"
     
     # Verify datapool storage exists
-    pvesm status --storage "$pbs_storage_name" >/dev/null 2>&1 || {
+    if ! pvesm status --storage "$pbs_storage_name" 2>&1 | grep -q "$pbs_storage_name"; then
         print_info "Storage '$pbs_storage_name' not found. Configure PBS storage manually."
         return 0
-    }
+    fi
     
     # Check if backup job already exists
     if grep -q "^vzdump: $job_id" "$job_config_file" 2>/dev/null; then

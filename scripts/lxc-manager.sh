@@ -84,8 +84,12 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
         # CRITICAL: Load nvidia-uvm kernel module on Proxmox host
         # nvidia-uvm (Unified Memory) is required for CUDA initialization
         # Without this, CUDA will fail with "CUDA_ERROR_UNKNOWN"
-        modprobe nvidia-uvm || true
-        nvidia-modprobe -c0 -u || true
+        if ! modprobe nvidia-uvm; then
+            print_warning "nvidia-uvm module could not be loaded - GPU transcoding may not work"
+        fi
+        if ! nvidia-modprobe -c0 -u; then
+            print_warning "nvidia-modprobe failed - GPU initialization may not work"
+        fi
         
         LXC_CONFIG_PATH="/etc/pve/lxc/${CT_ID}.conf"
         [[ -f "$LXC_CONFIG_PATH" ]] || touch "$LXC_CONFIG_PATH"

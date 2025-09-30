@@ -71,7 +71,7 @@ deploy_docker_stack() {
     
     # Check if docker-compose.yml exists for this stack
     local compose_url="$REPO_BASE_URL/docker/$stack_name/docker-compose.yml"
-    if ! curl -sSf --head "$compose_url" >/dev/null 2>&1; then
+    if ! curl -sSf --head "$compose_url" 2>&1 | grep -q "200 OK"; then
         print_info "No docker-compose.yml found for $stack_name, skipping Docker deployment"
         return 0
     fi
