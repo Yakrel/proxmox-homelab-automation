@@ -17,7 +17,22 @@ setup_docker_compose() {
     local compose_url="$REPO_BASE_URL/docker/$stack_name/docker-compose.yml"
     local temp_compose="/tmp/docker-compose.yml"
     
-    curl -sSL "$compose_url" -o "$temp_compose" || { print_error "Failed to download docker-compose.yml"; exit 1; }
+    print_info "Downloading from: $compose_url"
+    
+    if ! curl -sSL "$compose_url" -o "$temp_compose"; then
+        print_error "Failed to download docker-compose.yml from $compose_url"
+        print_error "Check if the file exists in the repository"
+        exit 1
+    fi
+    
+    # Verify downloaded file is not empty
+    if [[ ! -s "$temp_compose" ]]; then
+        print_error "Downloaded docker-compose.yml is empty"
+        rm -f "$temp_compose"
+        exit 1
+    fi
+    
+    print_info "Successfully downloaded $(wc -l < "$temp_compose") lines"
     
     # Copy to container root directory directly
     pct push "$ct_id" "$temp_compose" "/root/docker-compose.yml" || { print_error "Failed to push compose file"; exit 1; }
@@ -71,18 +86,25 @@ deploy_docker_stack() {
     
     # Check if docker-compose.yml exists for this stack
     local compose_url="$REPO_BASE_URL/docker/$stack_name/docker-compose.yml"
-    if ! curl -sSf --head "$compose_url" 2>&1 | grep -q "200 OK"; then
-        print_info "No docker-compose.yml found for $stack_name, skipping Docker deployment"
+    local http_code
+    http_code=$(curl -sSL -w "%{http_code}" -o /dev/null "$compose_url" || echo "000")
+    
+    if [[ "$http_code" != "200" ]]; then
+        print_warning "No docker-compose.yml found for $stack_name (HTTP $http_code)"
+        print_info "Skipping Docker deployment for this stack"
         return 0
     fi
     
-    if [[ "$stack_name" != "media" ]]; then
-        install_docker "$ct_id"
+    # Docker installation/verification
+    if [[ "$stack_name" == "media" ]]; then
+        print_info "Docker is pre-installed for media stack, verifying..."
+        pct exec "$ct_id" -- systemctl start docker || { print_error "Failed to start Docker"; exit 1; }
+        pct exec "$ct_id" -- docker info || { print_error "Docker not responding"; exit 1; }
+        print_success "Docker verification passed for media stack"
     else
-        print_info "Docker is pre-installed for stack '$stack_name'. Verifying..."
-        pct exec "$ct_id" -- docker info >/dev/null || { print_error "Docker verification failed for $stack_name"; exit 1; }
-        print_success "Docker verification passed for $stack_name"
+        install_docker "$ct_id"
     fi
+    
     setup_docker_compose "$stack_name" "$ct_id"
     deploy_docker_services "$stack_name" "$ct_id"
     

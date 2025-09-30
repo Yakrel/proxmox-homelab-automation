@@ -8,7 +8,17 @@ STACK_NAME=$1
 WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 
 # --- Load Shared Functions ---
-source "$WORK_DIR/scripts/helper-functions.sh"
+source "$WORK_DIR/scr    # Configure NVIDIA Container Toolkit for unprivileged containers
+    nvidia-ctk runtime configure \
+        --runtime=docker \
+        --config=/etc/docker/daemon.json \
+        --set-as-default=false || trueigure NVIDIA runtime config if it exists
+        if [ -f /etc/nvidia-container-runtime/config.toml ]; then
+            # Explicitly set no-cgroups = true for unprivileged LXC
+            sed -i 's|^#no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
+            sed -i 's|^no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
+            sed -i 's#^debug = .*#debug = \"/var/log/nvidia-container-runtime.log\"#' /etc/nvidia-container-runtime/config.toml || true
+        fier-functions.sh"
 
 # Load stack configuration using shared function
 get_stack_config "$STACK_NAME"
@@ -199,17 +209,22 @@ elif [ \"$STACK_NAME\" = 'media' ]; then
     apt-get update
     apt-get upgrade -y
     
-    # Add non-free repos for NVIDIA drivers
+    # Add non-free repos for NVIDIA drivers with proper signing
+    # Get the Debian archive keyring for signed repositories
+    apt-get install -y debian-archive-keyring
+    
     cat > /etc/apt/sources.list.d/debian.sources <<'EOS'
 Types: deb
 URIs: http://deb.debian.org/debian
 Suites: trixie trixie-updates
 Components: main contrib non-free non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 
 Types: deb
 URIs: http://security.debian.org/debian-security
 Suites: trixie-security
 Components: main contrib non-free non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOS
     apt-get update
     
@@ -231,22 +246,20 @@ EOS
     apt-get install -y nvidia-driver nvidia-kernel-dkms docker.io curl wget util-linux nvidia-container-toolkit
 
     # Relax NVIDIA runtime cgroup requirements for unprivileged LXC containers using nvidia-ctk
-    if command -v nvidia-ctk; then
+    if command -v nvidia-ctk >/dev/null 2>&1; then
+        # Configure NVIDIA Container Toolkit for unprivileged containers
         nvidia-ctk runtime configure \
-            --config-file /etc/nvidia-container-runtime/config.toml \
-            --no-cgroups \
-            --accept-nvidia-visible-devices-envvar-when-unprivileged \
-            --accept-nvidia-visible-devices-as-volume-mounts \
-            --set-as-default=false \
-            --force || true
+            --runtime=docker \
+            --config=/etc/docker/daemon.json \
+            --set-as-default=false 2>/dev/null || true
         
-        # Explicitly set no-cgroups = true (nvidia-ctk leaves it commented)
-        sed -i 's|^#no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
-        sed -i 's|^no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
-        
-        sed -i 's#^debug = .*#debug = "/var/log/nvidia-container-runtime.log"#' /etc/nvidia-container-runtime/config.toml || true
-        sed -i 's#^disable-require = .*#disable-require = false#' /etc/nvidia-container-runtime/config.toml || true
-        sed -i 's#^ldcache = .*#ldcache = "/etc/ld.so.cache"#' /etc/nvidia-container-runtime/config.toml || true
+        # Configure NVIDIA runtime config if it exists
+        if [ -f /etc/nvidia-container-runtime/config.toml ]; then
+            # Explicitly set no-cgroups = true for unprivileged LXC
+            sed -i 's|^#no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
+            sed -i 's|^no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
+            sed -i 's#^#debug = .*#debug = "/var/log/nvidia-container-runtime.log"#' /etc/nvidia-container-runtime/config.toml || true
+        fi
     fi
 
     # Configure Docker daemon with NVIDIA runtime available (default stays runc)
