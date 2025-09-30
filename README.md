@@ -96,6 +96,29 @@ Each service runs in its own LXC container with dedicated resources:
 - **ZFS pool named `datapool`**
 - **Network bridge `vmbr0`**
 - **IP range `192.168.1.x`**
+- **NVIDIA GPU** (optional, for Jellyfin hardware transcoding)
+
+## 🎮 GPU Support (NVIDIA)
+
+For enhanced media transcoding performance in Jellyfin:
+
+### Supported Hardware
+- **NVIDIA GTX 970** (tested configuration)
+- Other NVIDIA GPUs with similar driver support
+
+### Automatic Setup
+The helper scripts provide automated GPU passthrough configuration:
+1. **`7) Setup GPU Passthrough (NVIDIA)`** - Configures host system for GPU passthrough
+2. **`8) Configure Media Container GPU`** - Maps GPU devices to media LXC container  
+3. **`9) Install NVIDIA Drivers in Container`** - Installs required drivers inside container
+4. **Automatic NVIDIA toolkit tuning** - Container provisioning now forces `no-cgroups = true` and enables unprivileged device visibility so Docker GPU workloads run cleanly in unprivileged LXC environments (fixes `nvidia-container-cli` device filter errors)
+5. **Targeted Jellyfin runtime** - Docker keeps `runc` as the default runtime while Jellyfin explicitly requests the `nvidia` runtime with GPU env vars, so only the media server touches the GPU stack
+
+### Manual Verification
+After setup, verify GPU is accessible in Jellyfin:
+- Navigate to Jellyfin Admin → Playback → Transcoding
+- Select **NVIDIA NVENC** for hardware acceleration
+- Monitor GPU usage during transcoding operations
 
 ## 📋 Stack Details
 
@@ -105,9 +128,12 @@ Each service runs in its own LXC container with dedicated resources:
 - Watchtower for updates
 
 ### Media Stack (LXC 101)
-- Jellyfin media server
+- Jellyfin media server **with GPU transcoding support (NVIDIA)**
 - Sonarr/Radarr for automation
 - Transmission torrent client
+- **GPU Hardware Acceleration**: Configured for NVIDIA GTX 970 with automatic passthrough
+
+> ℹ️ The media stack automatically patches the NVIDIA container runtime to skip cgroup manipulations inside unprivileged LXCs. If you previously hit `nvidia-container-cli: mount error: failed to add device rules`, redeploy with the updated scripts to pick up the fix.
 
 ### Files Stack (LXC 102)
 - Filebrowser web interface

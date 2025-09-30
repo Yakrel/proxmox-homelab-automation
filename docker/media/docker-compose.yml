@@ -85,9 +85,29 @@ services:
       - PGID=1000
       - UMASK=002
       - TZ=Europe/Istanbul
+      # NVIDIA GPU environment variables for hardware acceleration
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      # Library path for CUDA libraries (required for GPU transcoding in unprivileged LXC)
+      - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu
     volumes:
       - /datapool/config/jellyfin:/config
       - /datapool:/datapool
+      # CRITICAL: Manual CUDA library mounting for unprivileged LXC containers
+      # nvidia-container-runtime doesn't work properly in unprivileged LXC, so we mount libs directly
+      # This bypasses the runtime and provides direct access to CUDA libraries
+      - /usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu/nvidia/current:ro
+      - /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:ro
+      - /usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:/usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:ro
+    devices:
+      # Direct device mounting for NVIDIA GPU (GTX 970)
+      # This approach works better than 'runtime: nvidia' in unprivileged LXC containers
+      # Provides hardware transcoding: decode (cuvid) -> scale (cuda) -> encode (nvenc)
+      - /dev/nvidia0:/dev/nvidia0              # GPU device
+      - /dev/nvidiactl:/dev/nvidiactl          # GPU control device
+      - /dev/nvidia-uvm:/dev/nvidia-uvm        # CUDA Unified Memory (required for CUDA init)
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools  # UVM tools
+      - /dev/nvidia-modeset:/dev/nvidia-modeset      # Mode setting
     ports:
       - "8096:8096"
     networks:

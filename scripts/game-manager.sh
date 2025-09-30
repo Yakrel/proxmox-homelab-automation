@@ -17,7 +17,7 @@ show_current_game() {
     
     for game in "${!GAMES[@]}"; do
         compose_file="${GAMES[$game]}"
-        if docker-compose -f "$DOCKER_DIR/$compose_file" ps -q 2>/dev/null | grep -q .; then
+        if docker-compose -f "$DOCKER_DIR/$compose_file" ps -q | grep -q .; then
             echo "✓ $game is RUNNING"
             return 0
         fi
@@ -32,9 +32,9 @@ stop_all_games() {
     
     for game in "${!GAMES[@]}"; do
         compose_file="${GAMES[$game]}"
-        if docker-compose -f "$DOCKER_DIR/$compose_file" ps -q 2>/dev/null | grep -q .; then
+        if docker-compose -f "$DOCKER_DIR/$compose_file" ps -q | grep -q .; then
             echo "  Stopping $game..."
-            docker-compose -f "$DOCKER_DIR/$compose_file" down --remove-orphans >/dev/null 2>&1
+            docker-compose -f "$DOCKER_DIR/$compose_file" down --remove-orphans
         fi
     done
     
@@ -53,7 +53,7 @@ start_game() {
     compose_file="${GAMES[$game]}"
 
     # Check if base gaming stack is running (gameserver-net network must exist)
-    if ! docker network inspect gameserver-net >/dev/null 2>&1; then
+    if ! docker network inspect gameserver-net &>/dev/null; then
         echo "✗ Error: Base gaming stack is not running!"
         echo "  Please run 'docker-compose up -d' in $DOCKER_DIR first to start:"
         echo "  - Watchtower (auto-updates)"
@@ -68,19 +68,19 @@ start_game() {
     # Start the selected game
     echo "Starting $game server..."
     
-    # Check if we're in the container
-    if [[ "$HOSTNAME" == *"$CONTAINER_ID"* ]] || pct status "$CONTAINER_ID" >/dev/null 2>&1; then
-        # We're in container or container exists
-        cd "$DOCKER_DIR" || return 1
-        if docker-compose -f "$compose_file" up -d; then
+    # Simple detection: if 'pct' command exists, we're on PVE host
+    if command -v pct &>/dev/null; then
+        # We're on PVE host, execute in container
+        if pct exec "$CONTAINER_ID" -- bash -c "cd $DOCKER_DIR && docker-compose -f $compose_file up -d"; then
             echo "✓ $game server started successfully"
         else
             echo "✗ Failed to start $game server"
             return 1
         fi
     else
-        # We're on PVE host, execute in container
-        if pct exec "$CONTAINER_ID" -- bash -c "cd $DOCKER_DIR && docker-compose -f $compose_file up -d"; then
+        # We're inside container
+        cd "$DOCKER_DIR" || return 1
+        if docker-compose -f "$compose_file" up -d; then
             echo "✓ $game server started successfully"
         else
             echo "✗ Failed to start $game server"

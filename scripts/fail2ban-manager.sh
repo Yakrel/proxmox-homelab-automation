@@ -45,12 +45,12 @@ list_jails_and_bans() {
                 if [ -z "$ban_time" ]; then
                     ban_time="unknown time"
                 else
-                    ban_time="$(date -d "$ban_time" '+%H:%M %d/%m' 2>/dev/null || echo "$ban_time")"
+                    ban_time="$(date -d "$ban_time" '+%H:%M %d/%m' || echo "$ban_time")"
                 fi
                 
                 # Get attempt count
                 local attempts
-                attempts=$(journalctl -u fail2ban.service --since "7 days ago" -q | grep -c "$ip" 2>/dev/null || echo "?")
+                attempts=$(journalctl -u fail2ban.service --since "7 days ago" -q | grep -c "$ip" || echo "?")
                 
                 printf "  %-15s (%-8s jail) - Banned: %-12s [%s attempts]\n" "$ip" "$jail" "$ban_time" "$attempts"
             done
@@ -93,11 +93,11 @@ unban_ip() {
         local currently_banned
         currently_banned=$(echo "$jail_status" | grep "Currently banned:" | sed -E 's/.*Currently banned:\s*//')
         
-        if [ -n "$banned_ips" ] && [ "$currently_banned" -gt 0 ] 2>/dev/null; then
+        if [ -n "$banned_ips" ] && [ "$currently_banned" -gt 0 ]; then
             for ip in $banned_ips; do
                 # Get attempt count from logs
                 local attempts
-                attempts=$(journalctl -u fail2ban.service --since "7 days ago" -q | grep -c "$ip" 2>/dev/null || echo "?")
+                attempts=$(journalctl -u fail2ban.service --since "7 days ago" -q | grep -c "$ip" || echo "?")
                 
                 # Get ban time
                 local ban_time
@@ -105,7 +105,7 @@ unban_ip() {
                 if [ -z "$ban_time" ]; then
                     ban_time="unknown"
                 else
-                    ban_time="$(date -d "$ban_time" '+%H:%M %d/%m' 2>/dev/null || echo "$ban_time")"
+                    ban_time="$(date -d "$ban_time" '+%H:%M %d/%m' || echo "$ban_time")"
                 fi
                 
                 printf "  %d) %-15s (%-8s jail) - %s attempts - Banned %s\n" "$counter" "$ip" "$jail" "$attempts" "$ban_time"

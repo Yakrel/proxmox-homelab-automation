@@ -68,7 +68,7 @@ show_gaming_status() {
     
     if check_container_running "$CONTAINER_ID"; then
         echo "  Current Game:"
-        exec_in_container "$CONTAINER_ID" /root/game-manager.sh status 2>/dev/null || echo "    Game manager not installed"
+        exec_in_container "$CONTAINER_ID" /root/game-manager.sh status || echo "    Game manager not installed"
     fi
     
     press_enter_to_continue

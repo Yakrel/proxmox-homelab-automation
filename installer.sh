@@ -83,8 +83,8 @@ print_success "All scripts downloaded successfully."
 
 # Ensure yq is available before running menus
 if ! command -v yq >/dev/null 2>&1; then
-    apt-get update -q >/dev/null 2>&1 || { print_error "Failed to update package lists"; exit 1; }
-    apt-get install -y yq >/dev/null 2>&1 || { print_error "Failed to install yq"; exit 1; }
+    apt-get update -q || { print_error "Failed to update package lists"; exit 1; }
+    apt-get install -y yq || { print_error "Failed to install yq"; exit 1; }
 fi
 
 # 3. Execute the Main Menu
