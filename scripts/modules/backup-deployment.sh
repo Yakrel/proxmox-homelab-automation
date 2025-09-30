@@ -4,11 +4,7 @@
 #                      Backup Stack Module
 # =================================================================
 # Specialized deployment for Proxmox Backup Server - fail fast approach
-set -euo    # Verify datapool storage exists
-    if ! pvesm status --storage "$pbs_storage_name" 2>&1 | grep -q "$pbs_storage_name"; then
-        print_info "Storage '$pbs_storage_name' not found. Configure PBS storage manually."
-        return 0
-    fifail
+set -euo pipefail
 
 # Configure PBS datastore and settings
 configure_pbs_datastore() {
@@ -39,20 +35,20 @@ configure_pbs_datastore() {
     if pct exec "$ct_id" -- proxmox-backup-manager datastore list 2>/dev/null | grep -q "^$datastore_name"; then
         print_info "Datastore '$datastore_name' already exists, updating configuration"
         pct exec "$ct_id" -- proxmox-backup-manager datastore update "$datastore_name" \
-            --comment "Main backup datastore on ZFS pool" 2>/dev/null || true
+            --comment "Main backup datastore on existing ZFS datapool" 2>/dev/null || true
     else
         # Check if backup data already exists (chunks directory present)
         if pct exec "$ct_id" -- test -d "/datapool/backups/.chunks" 2>/dev/null; then
             print_info "Existing backup data found, creating datastore with reuse option"
             pct exec "$ct_id" -- proxmox-backup-manager datastore create "$datastore_name" "/datapool/backups" \
-                --comment "Main backup datastore on ZFS pool" --reuse-datastore true || {
+                --comment "Main backup datastore on existing ZFS datapool" --reuse-datastore true || {
                 print_error "Failed to create PBS datastore with existing data"
                 return 1
             }
         else
             print_info "Creating new datastore '$datastore_name'"
             pct exec "$ct_id" -- proxmox-backup-manager datastore create "$datastore_name" "/datapool/backups" \
-                --comment "Main backup datastore on ZFS pool" || {
+                --comment "Main backup datastore on existing ZFS datapool" || {
                 print_error "Failed to create PBS datastore"
                 return 1
             }
@@ -122,6 +118,7 @@ configure_pbs_schedules() {
     local keep_daily="$4"
     local keep_weekly="$5"
     local keep_monthly="$6"
+    local verify_schedule="$7"
     
     print_info "Configuring PBS schedules"
     
@@ -164,16 +161,16 @@ configure_pbs_schedules() {
     fi
     
     # Create or update verify job (check if it already exists)
-    local verify_job_id="verify-daily"
+    local verify_job_id="verify-weekly"
     if pct exec "$ct_id" -- proxmox-backup-manager verify-job list 2>/dev/null | grep -q "^$verify_job_id"; then
         # Update existing verify job
-        if ! pct exec "$ct_id" -- proxmox-backup-manager verify-job update "$verify_job_id" --schedule "daily" --store "$datastore_name" --comment "Daily backup verification"; then
+        if ! pct exec "$ct_id" -- proxmox-backup-manager verify-job update "$verify_job_id" --schedule "$verify_schedule" --store "$datastore_name" --comment "${verify_schedule^} backup verification"; then
             print_warning "Failed to update verify job"
             schedule_errors=$((schedule_errors + 1))
         fi
     else
         # Create new verify job
-        if ! pct exec "$ct_id" -- proxmox-backup-manager verify-job create "$verify_job_id" --schedule "daily" --store "$datastore_name" --comment "Daily backup verification"; then
+        if ! pct exec "$ct_id" -- proxmox-backup-manager verify-job create "$verify_job_id" --schedule "$verify_schedule" --store "$datastore_name" --comment "${verify_schedule^} backup verification"; then
             print_warning "Failed to create verify job"
             schedule_errors=$((schedule_errors + 1))
         fi
@@ -249,7 +246,7 @@ configure_pbs() {
     fi
     
     # Configure schedules
-    if ! configure_pbs_schedules "$ct_id" "$datastore_name" "$gc_schedule" "$keep_daily" "$keep_weekly" "$keep_monthly"; then
+    if ! configure_pbs_schedules "$ct_id" "$datastore_name" "$gc_schedule" "$keep_daily" "$keep_weekly" "$keep_monthly" "$verify_schedule"; then
         print_warning "Failed to configure schedules (can be done manually later)"
     fi
     
@@ -270,12 +267,12 @@ configure_pve_backup_job() {
     local pbs_ip
     pbs_ip=$(get_lxc_ip "$(yq -r '.stacks.backup.ct_id' "$WORK_DIR/stacks.yaml")")
 
-    # Using existing datapool storage
-    print_info "Using existing datapool storage for backup operations"
+    # Using existing datapool directory storage for backup operations
+    print_info "Using existing datapool directory storage for backup operations"
     
-    # Verify datapool storage exists
+    # Verify datapool storage exists in PVE
     if ! pvesm status --storage "$pbs_storage_name" 2>&1 | grep -q "$pbs_storage_name"; then
-        print_info "Storage '$pbs_storage_name' not found. Configure PBS storage manually."
+        print_warning "Storage '$pbs_storage_name' not found in PVE. Configure PBS storage manually if needed."
         return 0
     fi
     
@@ -300,14 +297,4 @@ vzdump: $job_id
 EOF
     
     print_success "Backup job created (daily 03:00, zstd compression)"
-}
-
-# Show backup stack information
-show_backup_info() {
-    local ct_id="$1"
-    local ct_ip="$2"
-    
-    local datastore_name
-    datastore_name=$(yq -r ".stacks.backup.pbs_datastore_name" "$WORK_DIR/stacks.yaml")
-    
 }

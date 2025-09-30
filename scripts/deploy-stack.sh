@@ -237,24 +237,7 @@ rm -f "$ENV_DECRYPTED_PATH" 2>/dev/null || true
 
 print_success "Deployment completed: $STACK_NAME"
 print_success "============================================"
-
-# Show stack information
-case "$STACK_NAME" in
-    "monitoring")
-        # Monitoring info already shown during deployment verification
-        ;;
-    "backup")
-        show_backup_info "$CT_ID" "$CT_IP"
-        ;;
-    "proxy")
-        ;;
-    *)
-        ;;  # No additional info needed for standard stacks
-esac
-
 print_success "Stack [$STACK_NAME] ready!"
-
-# Final deployment status already shown above
 
 # IMPORTANT: Keep this interactive prompt - allows user to review deployment results
 # and see any error messages before returning to main menu. This is a desired feature.
