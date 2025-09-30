@@ -75,7 +75,7 @@ ensure_packages() {
 }
 
 ensure_yq() {
-    if ! command -v yq; then
+    if ! command -v yq &>/dev/null; then
         apt-get update -q
         apt-get install -y yq
     fi

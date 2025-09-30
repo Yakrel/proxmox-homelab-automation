@@ -79,7 +79,7 @@ main_menu() {
     while IFS= read -r stack; do
         handlers+=("deploy_stack_handler")
         stack_count=$((stack_count + 1))
-    done < <(get_available_stacks)
+    done < <(get_available_stacks "$WORK_DIR/stacks.yaml")
     
     # Add additional handlers
     handlers+=("encrypt_env_handler")
