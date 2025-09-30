@@ -17,24 +17,25 @@ get_stack_config "$STACK_NAME"
 get_latest_template() {
     local template_type=$1
     
-    # Update template list (output redirected to stderr to not interfere with variable capture)
-    pveam update >&2 || true
+    # Update template list silently (output would interfere with variable capture below)
+    # This is an exception to no-suppression rule as we're in a function that returns via echo
+    pveam update >/dev/null 2>&1 || true
 
     # Get the latest available template name from repository
     local latest_available
-    latest_available=$(pveam available | awk "/${template_type}/ {print \$2}" | sort -V | tail -n 1)
+    latest_available=$(pveam available 2>/dev/null | awk "/${template_type}/ {print \$2}" | sort -V | tail -n 1)
     [[ -n "$latest_available" ]] || { print_error "No ${template_type} template available"; exit 1; }
 
     # Check if we already have this exact template locally
     local local_template
-    local_template=$(pveam list "$STORAGE_POOL" | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1 | sed "s|^${STORAGE_POOL}:vztmpl/||")
+    local_template=$(pveam list "$STORAGE_POOL" 2>/dev/null | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1 | sed "s|^${STORAGE_POOL}:vztmpl/||")
 
     # If local template doesn't match latest available, download the new one
     if [[ "$local_template" != "$latest_available" ]]; then
         print_info "Downloading latest ${template_type} template: $latest_available" >&2
-        pveam download "$STORAGE_POOL" "$latest_available"
+        pveam download "$STORAGE_POOL" "$latest_available" >&2
         # After download, get the actual filename from local storage
-        local_template=$(pveam list "$STORAGE_POOL" | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1 | sed "s|^${STORAGE_POOL}:vztmpl/||")
+        local_template=$(pveam list "$STORAGE_POOL" 2>/dev/null | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1 | sed "s|^${STORAGE_POOL}:vztmpl/||")
         print_success "Downloaded template: $local_template" >&2
     else
         print_info "Using up-to-date template: $local_template" >&2
