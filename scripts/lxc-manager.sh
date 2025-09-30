@@ -16,7 +16,9 @@ get_stack_config "$STACK_NAME"
 # Get latest template based on stack type - ensures we always use the newest available
 get_latest_template() {
     local template_type=$1
-    pveam update || true
+    
+    # Update template list (output redirected to stderr to not interfere with variable capture)
+    pveam update >&2 || true
 
     # Get the latest available template name from repository
     local latest_available
@@ -128,7 +130,8 @@ fi
 
 # Ensure container is running (both new and existing containers)
 print_info "Ensuring container is running"
-if ! pct status "$CT_ID" || [[ "$(pct status "$CT_ID" | awk '{print $2}')" != "running" ]]; then
+CT_STATUS=$(pct status "$CT_ID" | awk '{print $2}')
+if [[ "$CT_STATUS" != "running" ]]; then
     print_info "Starting container"
     pct start "$CT_ID"
 fi
@@ -241,7 +244,7 @@ EOS
         nvidia-ctk runtime configure \
             --runtime=docker \
             --config=/etc/docker/daemon.json \
-            --set-as-default=false 2>/dev/null || true
+            --set-as-default=false || true
         
         # Configure NVIDIA runtime config if it exists
         if [ -f /etc/nvidia-container-runtime/config.toml ]; then
