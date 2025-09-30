@@ -8,17 +8,7 @@ STACK_NAME=$1
 WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 
 # --- Load Shared Functions ---
-source "$WORK_DIR/scr    # Configure NVIDIA Container Toolkit for unprivileged containers
-    nvidia-ctk runtime configure \
-        --runtime=docker \
-        --config=/etc/docker/daemon.json \
-        --set-as-default=false || trueigure NVIDIA runtime config if it exists
-        if [ -f /etc/nvidia-container-runtime/config.toml ]; then
-            # Explicitly set no-cgroups = true for unprivileged LXC
-            sed -i 's|^#no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
-            sed -i 's|^no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
-            sed -i 's#^debug = .*#debug = \"/var/log/nvidia-container-runtime.log\"#' /etc/nvidia-container-runtime/config.toml || true
-        fier-functions.sh"
+source "$WORK_DIR/scripts/helper-functions.sh"
 
 # Load stack configuration using shared function
 get_stack_config "$STACK_NAME"
