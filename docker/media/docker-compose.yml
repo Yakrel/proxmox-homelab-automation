@@ -105,9 +105,8 @@ services:
       # Provides hardware transcoding: decode (cuvid) -> scale (cuda) -> encode (nvenc)
       - /dev/nvidia0:/dev/nvidia0              # GPU device
       - /dev/nvidiactl:/dev/nvidiactl          # GPU control device
-      - /dev/nvidia-uvm:/dev/nvidia-uvm        # CUDA Unified Memory (required for CUDA init)
-      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools  # UVM tools
       - /dev/nvidia-modeset:/dev/nvidia-modeset      # Mode setting
+      # Note: nvidia-uvm and nvidia-uvm-tools removed - not needed for video transcoding in unprivileged LXC
     ports:
       - "8096:8096"
     networks:
