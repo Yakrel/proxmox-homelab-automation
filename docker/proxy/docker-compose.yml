@@ -32,8 +32,8 @@ services:
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
-      - /datapool/config/promtail:/etc/promtail:ro
-      - /datapool/config/promtail/positions:/var/lib/promtail/positions:rw
+      - /etc/promtail:/etc/promtail:ro
+      - /var/lib/promtail/positions:/var/lib/promtail/positions:rw
     command: -config.file=/etc/promtail/promtail.yml
     environment:
       - TZ=${TZ:-Europe/Istanbul}

@@ -33,9 +33,6 @@ query_range:
         enabled: true
         max_size_mb: 100
 
-ruler:
-  alertmanager_url: http://alertmanager:9093
-
 limits_config:
   retention_period: 30d
   ingestion_rate_mb: 15

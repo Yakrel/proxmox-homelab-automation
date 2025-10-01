@@ -170,7 +170,6 @@ setup_monitoring_directories() {
     mkdir -p /datapool/config/prometheus/data
     mkdir -p /datapool/config/grafana/data
     mkdir -p /datapool/config/loki/data
-    mkdir -p /datapool/config/promtail/positions
     mkdir -p /datapool/config/grafana/provisioning/datasources
     mkdir -p /datapool/config/grafana/provisioning/dashboards
 
@@ -287,15 +286,21 @@ validate_monitoring_configs() {
         exit 1
     }
 
-    # Ensure promtail config is copied to container (replace placeholder with container hostname)
+    # Setup promtail config for monitoring LXC
     local hostname="lxc-monitoring-01"
-    sed "s/REPLACE_HOST_LABEL/$hostname/g" "$WORK_DIR/config/promtail/promtail.yml" > /tmp/promtail_temp.yml
-    pct push "$ct_id" "/tmp/promtail_temp.yml" "/datapool/config/promtail/promtail.yml" || {
+    pct exec "$ct_id" -- mkdir -p /etc/promtail /var/lib/promtail/positions
+    
+    local temp_promtail="/tmp/promtail_monitoring.yml"
+    sed "s/REPLACE_HOST_LABEL/$hostname/g" "$WORK_DIR/config/promtail/promtail.yml" > "$temp_promtail"
+    pct push "$ct_id" "$temp_promtail" "/etc/promtail/promtail.yml" || {
         print_error "Failed to copy promtail.yml to container"
-        rm -f /tmp/promtail_temp.yml
+        rm -f "$temp_promtail"
         exit 1
     }
-    rm -f /tmp/promtail_temp.yml
+    rm -f "$temp_promtail"
+    
+    # Fix permissions
+    pct exec "$ct_id" -- chown -R 101000:101000 /etc/promtail /var/lib/promtail
 
     # Ensure PBS password file exists (created in configure_pbs_monitoring)
     local password_file="/datapool/config/prometheus/.prometheus-password"

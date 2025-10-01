@@ -6,6 +6,34 @@
 # Handles Docker-based stack deployments - fail fast approach
 set -euo pipefail
 
+# Setup Promtail configuration for log aggregation
+setup_promtail_config() {
+    local ct_id="$1"
+    local hostname="$2"
+    
+    print_info "Setting up Promtail configuration for $hostname"
+    
+    # Create promtail directories in LXC
+    pct exec "$ct_id" -- mkdir -p /etc/promtail /var/lib/promtail/positions
+    
+    # Create promtail config with correct hostname and Loki endpoint
+    local temp_promtail="/tmp/promtail_${ct_id}.yml"
+    sed "s/REPLACE_HOST_LABEL/$hostname/g" "$WORK_DIR/config/promtail/promtail.yml" > "$temp_promtail"
+    
+    # Copy to container
+    pct push "$ct_id" "$temp_promtail" "/etc/promtail/promtail.yml" || {
+        print_error "Failed to copy promtail config"
+        rm -f "$temp_promtail"
+        exit 1
+    }
+    rm -f "$temp_promtail"
+    
+    # Set proper permissions
+    pct exec "$ct_id" -- chown -R 1000:1000 /etc/promtail /var/lib/promtail
+    
+    print_success "Promtail configuration ready"
+}
+
 # Download and configure Docker Compose files
 setup_docker_compose() {
     local stack_name="$1"
@@ -103,6 +131,13 @@ deploy_docker_stack() {
         print_success "Docker verification passed for media stack"
     else
         install_docker "$ct_id"
+    fi
+    
+    # Setup Promtail for log aggregation (all Docker stacks except monitoring)
+    if [[ "$stack_name" != "monitoring" ]]; then
+        local hostname
+        hostname=$(yq -r ".stacks.${stack_name}.hostname" "$WORK_DIR/stacks.yaml")
+        setup_promtail_config "$ct_id" "$hostname"
     fi
     
     setup_docker_compose "$stack_name" "$ct_id"
