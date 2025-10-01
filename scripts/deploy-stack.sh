@@ -129,6 +129,9 @@ configure_promtail_config() {
 
     print_info "Configuring Promtail"
 
+    # Ensure the target directory exists inside the container
+    pct exec "$ct_id" -- mkdir -p /etc/promtail || { print_error "Failed to create Promtail config directory in container"; exit 1; }
+
     # Create Promtail configuration
     local promtail_config="/tmp/promtail_config.yml"
     cat > "$promtail_config" << 'EOF'
@@ -161,7 +164,7 @@ scrape_configs:
 EOF
 
     # Copy to container
-    pct push "$ct_id" "$promtail_config" "/datapool/config/promtail/promtail.yml" || { print_error "Failed to configure Promtail"; exit 1; }
+    pct push "$ct_id" "$promtail_config" "/etc/promtail/promtail.yml" || { print_error "Failed to configure Promtail"; exit 1; }
     rm -f "$promtail_config"
 
     print_success "Promtail configured"
