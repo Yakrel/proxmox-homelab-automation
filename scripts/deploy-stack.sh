@@ -127,47 +127,28 @@ configure_env() {
 configure_promtail_config() {
     local ct_id="$1"
 
-    print_info "Configuring Promtail"
+    print_info "Configuring Promtail for $STACK_NAME"
 
-    # Ensure the target directory exists inside the container
-    pct exec "$ct_id" -- mkdir -p /etc/promtail || { print_error "Failed to create Promtail config directory in container"; exit 1; }
+    # Get hostname from stacks.yaml
+    local hostname
+    hostname=$(yq -r ".stacks.$STACK_NAME.hostname" "$WORK_DIR/stacks.yaml")
+    [[ -n "$hostname" ]] || { print_error "Could not find hostname for $STACK_NAME in stacks.yaml"; exit 1; }
 
-    # Create Promtail configuration
-    local promtail_config="/tmp/promtail_config.yml"
-    cat > "$promtail_config" << 'EOF'
-server:
-  http_listen_port: 9080
-  grpc_listen_port: 0
+    # Ensure the target directories exist inside the container
+    pct exec "$ct_id" -- mkdir -p /etc/promtail /var/lib/promtail/positions || { print_error "Failed to create Promtail directories in container"; exit 1; }
 
-positions:
-  filename: /tmp/positions.yaml
-
-clients:
-  - url: http://loki:3100/loki/api/v1/push
-
-scrape_configs:
-  - job_name: containers
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: containerlogs
-          __path__: /var/lib/docker/containers/*/*log
-
-  - job_name: syslog
-    static_configs:
-      - targets:
-          - localhost
-        labels:
-          job: syslog
-          __path__: /var/log/*log
-EOF
+    # Create a temporary, customized promtail config from the template
+    local temp_promtail="/tmp/promtail_${hostname}.yml"
+    sed "s/REPLACE_HOST_LABEL/$hostname/g" "$WORK_DIR/config/promtail/promtail.yml" > "$temp_promtail"
 
     # Copy to container
-    pct push "$ct_id" "$promtail_config" "/etc/promtail/promtail.yml" || { print_error "Failed to configure Promtail"; exit 1; }
-    rm -f "$promtail_config"
+    pct push "$ct_id" "$temp_promtail" "/etc/promtail/promtail.yml" || { print_error "Failed to push Promtail config for $hostname"; rm -f "$temp_promtail"; exit 1; }
+    rm -f "$temp_promtail"
 
-    print_success "Promtail configured"
+    # Set correct ownership for the directories (user 1000 is the standard PUID/PGID inside the container)
+    pct exec "$ct_id" -- chown -R 1000:1000 /etc/promtail /var/lib/promtail/positions || { print_warning "Could not set ownership for Promtail dirs"; }
+
+    print_success "Promtail configured for $hostname"
 }
 
 
