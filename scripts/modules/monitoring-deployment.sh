@@ -119,11 +119,8 @@ configure_pbs_monitoring() {
     backup_ct_id=$(yq -r ".stacks.backup.ct_id" "$WORK_DIR/stacks.yaml")
 
     if pct status "$backup_ct_id" 2>&1 | grep -q "status: running"; then
-        # Cache network values to avoid repeated yq calls
-        local ip_base ip_octet pbs_ip_address
-        ip_base=$(yq -r ".network.ip_base" "$WORK_DIR/stacks.yaml")
-        ip_octet=$(yq -r ".stacks.backup.ip_octet" "$WORK_DIR/stacks.yaml")
-        pbs_ip_address="${ip_base}.${ip_octet}"
+        # Fixed network topology: 192.168.1.{ct_id}
+        local pbs_ip_address="192.168.1.${backup_ct_id}"
 
         # Create PBS targets configuration for file service discovery (array format required)
         local pbs_job_config_temp="$WORK_DIR/pbs_targets.yml"

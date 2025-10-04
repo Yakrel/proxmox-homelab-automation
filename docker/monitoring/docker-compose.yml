@@ -48,6 +48,7 @@ services:
     volumes:
       - /datapool/config/grafana/data:/var/lib/grafana
       - /datapool/config/grafana/provisioning:/etc/grafana/provisioning
+      - /datapool/config/grafana/dashboards:/datapool/config/grafana/dashboards
     user: "1000:1000"
     environment:
       - TZ=${TZ:-Europe/Istanbul}
