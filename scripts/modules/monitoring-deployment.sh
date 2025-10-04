@@ -179,42 +179,38 @@ setup_monitoring_directories() {
     print_success "Monitoring directories created with proper permissions"
 }
 
-# Restart Grafana container to reload configuration
-restart_grafana_container() {
+# Provision Grafana dashboards as JSON files
+provision_grafana_dashboards() {
     local ct_id="$1"
-
-    print_info "Restarting Grafana to reload datasource configuration"
-
-    # Restart Grafana container
-    pct exec "$ct_id" -- docker restart grafana || {
-        print_error "Failed to restart Grafana container"
-        return 1
+    
+    print_info "Provisioning Grafana dashboards"
+    
+    # Create dashboards directory on host
+    local dashboards_dir="/datapool/config/grafana/dashboards"
+    mkdir -p "$dashboards_dir"
+    
+    # Download Proxmox dashboard
+    curl -s "https://grafana.com/api/dashboards/10347/revisions/latest/download" | \
+    jq '. | del(.id) | del(.__inputs) | del(.__requires)' > "$dashboards_dir/proxmox-dashboard.json" || {
+        print_warning "Failed to download Proxmox dashboard"
     }
-
-    print_success "Grafana restarted successfully"
-}
-
-# Wait for Grafana API to be ready
-wait_for_grafana_api() {
-    local ct_ip="$1"
-    local gf_admin_user="$2"
-    local gf_admin_password="$3"
-    local max_attempts=30
-    local attempt=0
-
-    print_info "Waiting for Grafana API to be ready"
-
-    while [[ $attempt -lt $max_attempts ]]; do
-        if curl -s -u "$gf_admin_user:$gf_admin_password" "http://$ct_ip:3000/api/health" | grep -q "ok"; then
-            print_success "Grafana API is ready"
-            return 0
-        fi
-        attempt=$((attempt + 1))
-        sleep 2
-    done
-
-    print_warning "Grafana API did not become ready in time"
-    return 1
+    
+    # Download Docker dashboard
+    curl -s "https://grafana.com/api/dashboards/893/revisions/latest/download" | \
+    jq '. | del(.id) | del(.__inputs) | del(.__requires)' > "$dashboards_dir/docker-dashboard.json" || {
+        print_warning "Failed to download Docker dashboard"
+    }
+    
+    # Download Loki dashboard
+    curl -s "https://grafana.com/api/dashboards/12611/revisions/latest/download" | \
+    jq '. | del(.id) | del(.__inputs) | del(.__requires)' > "$dashboards_dir/loki-dashboard.json" || {
+        print_warning "Failed to download Loki dashboard"
+    }
+    
+    # Fix ownership for Grafana container
+    chown -R 101000:101000 "$dashboards_dir"
+    
+    print_success "Grafana dashboards provisioned"
 }
 
 # Configure Grafana datasource provisioning and dashboard automation
@@ -277,7 +273,7 @@ providers:
     updateIntervalSeconds: 10
     allowUiUpdates: true
     options:
-      path: /var/lib/grafana/dashboards
+      path: /datapool/config/grafana/dashboards
 EOF
     
     # Copy dashboard provider config to container (overwrites existing)
@@ -342,37 +338,7 @@ validate_monitoring_configs() {
 }
 
 
-# Import recommended dashboards
-import_grafana_dashboards() {
-    local ct_ip="$1"
-    local gf_admin_user="$2"
-    local gf_admin_password="$3"
 
-    print_info "Importing recommended Grafana dashboards"
-
-    # Import Proxmox dashboard
-    curl -s "https://grafana.com/api/dashboards/10347/revisions/latest/download" | \
-    jq '{dashboard: (. | del(.id) | del(.__inputs) | del(.__requires)), folderId: 0, overwrite: true, inputs: [{name: "DS_PROMETHEUS", type: "datasource", pluginId: "prometheus", value: "Prometheus"}]}' | \
-    curl -s -X POST -H "Content-Type: application/json" -u "$gf_admin_user:$gf_admin_password" -d @- "http://$ct_ip:3000/api/dashboards/import" || {
-        print_warning "Failed to import Proxmox dashboard"
-    }
-
-    # Import Docker dashboard
-    curl -s "https://grafana.com/api/dashboards/893/revisions/latest/download" | \
-    jq '{dashboard: (. | del(.id) | del(.__inputs) | del(.__requires)), folderId: 0, overwrite: true, inputs: [{name: "DS_PROMETHEUS", type: "datasource", pluginId: "prometheus", value: "Prometheus"}]}' | \
-    curl -s -X POST -H "Content-Type: application/json" -u "$gf_admin_user:$gf_admin_password" -d @- "http://$ct_ip:3000/api/dashboards/import" || {
-        print_warning "Failed to import Docker dashboard"
-    }
-
-    # Import Loki dashboard
-    curl -s "https://grafana.com/api/dashboards/12611/revisions/latest/download" | \
-    jq '{dashboard: (. | del(.id) | del(.__inputs) | del(.__requires)), folderId: 0, overwrite: true, inputs: [{name: "DS_LOKI", type: "datasource", pluginId: "loki", value: "Loki"}]}' | \
-    curl -s -X POST -H "Content-Type: application/json" -u "$gf_admin_user:$gf_admin_password" -d @- "http://$ct_ip:3000/api/dashboards/import" || {
-        print_warning "Failed to import Loki dashboard"
-    }
-    
-    print_success "Dashboard import completed"
-}
 
 
 
@@ -395,33 +361,15 @@ deploy_monitoring_stack() {
     # Validate all configurations are ready before starting services
     validate_monitoring_configs "$ct_id"
 
+    # Configure Grafana datasources and dashboards (before starting Docker)
+    configure_grafana_automation "$ct_id"
+    
+    # Provision Grafana dashboard JSON files (before starting Docker)
+    provision_grafana_dashboards "$ct_id"
+
     # Deploy Docker services (configurations are now ready)
     deploy_docker_stack "$stack_name" "$ct_id"
 
-    # Configure Grafana datasources and dashboards
-    configure_grafana_automation "$ct_id"
-
-    # Restart Grafana to reload datasource configuration
-    restart_grafana_container "$ct_id"
-
-    # Get container IP and credentials for verification
-    local gf_admin_user gf_admin_password ct_ip
-    gf_admin_user=$(grep '^GF_SECURITY_ADMIN_USER=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-) || { print_error "GF_SECURITY_ADMIN_USER not found"; exit 1; }
-    gf_admin_password=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-) || { print_error "GF_SECURITY_ADMIN_PASSWORD not found"; exit 1; }
-    ct_ip=$(get_lxc_ip "$ct_id")
-
-    # No health checks - Docker Compose will handle service startup
-    # If containers fail to start, docker-compose will show the error immediately
-
     print_success "Monitoring stack deployed and verified"
-
-    # Wait for Grafana API to be ready before importing dashboards
-    wait_for_grafana_api "$ct_ip" "$gf_admin_user" "$gf_admin_password" || {
-        print_warning "Grafana API not ready, skipping dashboard import"
-        return 0
-    }
-
-    # Import dashboards (non-critical, continue if it fails)
-    import_grafana_dashboards "$ct_ip" "$gf_admin_user" "$gf_admin_password"
 }
 
