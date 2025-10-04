@@ -194,6 +194,29 @@ restart_grafana_container() {
     print_success "Grafana restarted successfully"
 }
 
+# Wait for Grafana API to be ready
+wait_for_grafana_api() {
+    local ct_ip="$1"
+    local gf_admin_user="$2"
+    local gf_admin_password="$3"
+    local max_attempts=30
+    local attempt=0
+
+    print_info "Waiting for Grafana API to be ready"
+
+    while [[ $attempt -lt $max_attempts ]]; do
+        if curl -s -u "$gf_admin_user:$gf_admin_password" "http://$ct_ip:3000/api/health" | grep -q "ok"; then
+            print_success "Grafana API is ready"
+            return 0
+        fi
+        attempt=$((attempt + 1))
+        sleep 2
+    done
+
+    print_warning "Grafana API did not become ready in time"
+    return 1
+}
+
 # Configure Grafana datasource provisioning and dashboard automation
 configure_grafana_automation() {
     local ct_id="$1"
@@ -330,21 +353,21 @@ import_grafana_dashboards() {
     # Import Proxmox dashboard
     curl -s "https://grafana.com/api/dashboards/10347/revisions/latest/download" | \
     jq '{dashboard: (. | del(.id) | del(.__inputs) | del(.__requires)), folderId: 0, overwrite: true, inputs: [{name: "DS_PROMETHEUS", type: "datasource", pluginId: "prometheus", value: "Prometheus"}]}' | \
-    curl -s -X POST -H "Content-Type: application/json" -u "$gf_admin_user:$gf_admin_password" -d @- "http://$ct_ip:3000/api/dashboards/import" >/dev/null || {
+    curl -s -X POST -H "Content-Type: application/json" -u "$gf_admin_user:$gf_admin_password" -d @- "http://$ct_ip:3000/api/dashboards/import" || {
         print_warning "Failed to import Proxmox dashboard"
     }
 
     # Import Docker dashboard
     curl -s "https://grafana.com/api/dashboards/893/revisions/latest/download" | \
     jq '{dashboard: (. | del(.id) | del(.__inputs) | del(.__requires)), folderId: 0, overwrite: true, inputs: [{name: "DS_PROMETHEUS", type: "datasource", pluginId: "prometheus", value: "Prometheus"}]}' | \
-    curl -s -X POST -H "Content-Type: application/json" -u "$gf_admin_user:$gf_admin_password" -d @- "http://$ct_ip:3000/api/dashboards/import" >/dev/null || {
+    curl -s -X POST -H "Content-Type: application/json" -u "$gf_admin_user:$gf_admin_password" -d @- "http://$ct_ip:3000/api/dashboards/import" || {
         print_warning "Failed to import Docker dashboard"
     }
 
     # Import Loki dashboard
     curl -s "https://grafana.com/api/dashboards/12611/revisions/latest/download" | \
     jq '{dashboard: (. | del(.id) | del(.__inputs) | del(.__requires)), folderId: 0, overwrite: true, inputs: [{name: "DS_LOKI", type: "datasource", pluginId: "loki", value: "Loki"}]}' | \
-    curl -s -X POST -H "Content-Type: application/json" -u "$gf_admin_user:$gf_admin_password" -d @- "http://$ct_ip:3000/api/dashboards/import" >/dev/null || {
+    curl -s -X POST -H "Content-Type: application/json" -u "$gf_admin_user:$gf_admin_password" -d @- "http://$ct_ip:3000/api/dashboards/import" || {
         print_warning "Failed to import Loki dashboard"
     }
     
@@ -391,6 +414,12 @@ deploy_monitoring_stack() {
     # If containers fail to start, docker-compose will show the error immediately
 
     print_success "Monitoring stack deployed and verified"
+
+    # Wait for Grafana API to be ready before importing dashboards
+    wait_for_grafana_api "$ct_ip" "$gf_admin_user" "$gf_admin_password" || {
+        print_warning "Grafana API not ready, skipping dashboard import"
+        return 0
+    }
 
     # Import dashboards (non-critical, continue if it fails)
     import_grafana_dashboards "$ct_ip" "$gf_admin_user" "$gf_admin_password"
