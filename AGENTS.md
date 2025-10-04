@@ -33,6 +33,15 @@ Shell-based automation for deploying containerized services in LXC containers on
 - Always use `latest` for everything in homelab context
 - Version pinning only if absolutely required for compatibility
 
+## Documentation Guidelines
+
+- **MINIMAL DOCUMENTATION**: Avoid creating separate documentation or test files
+- **NO test scripts**: Do not create validation or health check scripts
+- **NO extra .md files**: Keep documentation minimal - only in README.md or inline comments
+- **EXCEPTION**: Critical technical notes (like GPU configuration) can have a dedicated README.md in the specific stack directory (e.g., `docker/media/README.md`)
+- **Inline comments**: For important notes, use comments in the actual scripts where relevant
+- **README.md**: General project documentation goes in the main README.md only
+
 ## Git Guidelines
 
 - **NEVER** use "Generated with [AI Tool]" in commits
