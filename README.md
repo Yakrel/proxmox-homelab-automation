@@ -38,7 +38,7 @@ Each service runs in its own LXC container with dedicated resources:
 | Stack | ID | Purpose | Resources |
 |-------|----|---------|---------  |
 | **proxy** | 100 | Reverse proxy, monitoring agents | 2C/2GB/10GB |
-| **media** | 101 | Media server (Jellyfin, Sonarr, Radarr) | 6C/10GB/20GB |
+| **media** | 101 | Media server (Jellyfin, Immich, Sonarr, Radarr) + GPU acceleration | 6C/10GB/20GB |
 | **files** | 102 | File management services | 2C/3GB/15GB |
 | **webtools** | 103 | Web-based utilities | 2C/6GB/15GB |
 | **monitoring** | 104 | Prometheus, Grafana, Loki stack + auto dashboards | 4C/6GB/15GB |
@@ -128,10 +128,40 @@ After setup, verify GPU is accessible in Jellyfin:
 - Watchtower for updates
 
 ### Media Stack (LXC 101)
-- Jellyfin media server **with GPU transcoding support (NVIDIA)**
-- Sonarr/Radarr for automation
-- Transmission torrent client
-- **GPU Hardware Acceleration**: Configured for NVIDIA GTX 970 with automatic passthrough
+**GPU-Accelerated Media Services with NVIDIA GTX 970:**
+
+#### 🎬 **Media Streaming & Management:**
+- **Jellyfin**: Media server with GPU-accelerated video transcoding
+- **Immich**: Self-hosted Google Photos with AI-powered features
+- **Sonarr/Radarr/Bazarr**: Automated media management
+- **Jellyseerr**: Media request management
+- **qBittorrent**: Torrent client
+- **Prowlarr**: Indexer management
+
+#### 🚀 **GPU Hardware Acceleration:**
+- **Video Transcoding (Jellyfin, Immich):**
+  - NVIDIA CUVID decoding (h264, hevc)
+  - CUDA scaling and filters
+  - NVIDIA NVENC encoding
+  - 11-15x real-time transcoding speed
+  
+- **AI/ML Processing (Immich):**
+  - CUDA-accelerated machine learning
+  - Face detection & recognition (5-10x faster)
+  - Smart object search
+  - Semantic image search (CLIP embeddings)
+  - GTX 970 Compute Capability 5.2 ✅
+
+#### 📊 **Services & Ports:**
+| Service | Port | Description |
+|---------|------|-------------|
+| Jellyfin | 8096 | Media streaming |
+| Immich | 2283 | Photo/video management |
+| Sonarr | 8989 | TV show automation |
+| Radarr | 7878 | Movie automation |
+| Jellyseerr | 5055 | Media requests |
+| qBittorrent | 8080 | Torrent client |
+| Prowlarr | 9696 | Indexer manager |
 
 > ℹ️ The media stack automatically patches the NVIDIA container runtime to skip cgroup manipulations inside unprivileged LXCs. If you previously hit `nvidia-container-cli: mount error: failed to add device rules`, redeploy with the updated scripts to pick up the fix.
 

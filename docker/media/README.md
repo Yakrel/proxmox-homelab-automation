@@ -1,15 +1,50 @@
-# Media Stack - Jellyfin with NVIDIA GPU Hardware Transcoding
+# Media Stack - GPU-Accelerated Media Services
 
 ## Overview
 
-This media stack runs Jellyfin with NVIDIA GPU (GTX 970) hardware acceleration for video transcoding in an unprivileged LXC container on Proxmox VE.
+This media stack runs multiple media services with NVIDIA GPU (GTX 970) hardware acceleration in an unprivileged LXC container on Proxmox VE:
 
-## Hardware Transcoding Pipeline
+- **Jellyfin**: Video streaming with GPU-accelerated transcoding
+- **Immich**: Self-hosted Google Photos with GPU-accelerated AI/ML features
+- **Media Management**: Sonarr, Radarr, Bazarr, Prowlarr, Jellyseerr
+- **Download Tools**: qBittorrent, FlareSolverr, Recyclarr, Cleanuperr
 
-Jellyfin uses full GPU pipeline for video transcoding:
+## Services and Ports
+
+| Service | Port | Description |
+|---------|------|-------------|
+| Jellyfin | 8096 | Media streaming server |
+| Immich | 2283 | Photo/video management (AI-powered) |
+| Sonarr | 8989 | TV show management |
+| Radarr | 7878 | Movie management |
+| Bazarr | 6767 | Subtitle management |
+| Jellyseerr | 5055 | Media requests |
+| qBittorrent | 8080 | Torrent client |
+| Prowlarr | 9696 | Indexer manager |
+| FlareSolverr | 8191 | Cloudflare bypass |
+| Cleanuperr | 11011 | Automated cleanup |
+| Promtail | 9080 | Log aggregation |
+
+## GPU Acceleration Features
+
+### Jellyfin - Hardware Video Transcoding
+Full GPU pipeline for video transcoding:
 - **Decode:** NVIDIA CUVID (h264_cuvid, hevc_cuvid)
 - **Scale:** CUDA (scale_cuda)
 - **Encode:** NVIDIA NVENC (h264_nvenc, hevc_nvenc)
+
+### Immich - AI/ML Hardware Acceleration
+CUDA-accelerated machine learning for:
+- **Face Detection & Recognition:** Automatic face detection and grouping
+- **Object Recognition:** Smart object detection in photos
+- **Smart Search:** Semantic search (e.g., "beach sunset", "dog playing")
+- **Image Classification:** Automatic photo categorization
+- **CLIP Embeddings:** Advanced AI-powered search capabilities
+
+**GTX 970 Compatibility:**
+- Compute Capability: 5.2 ✅ (Required: 5.2+)
+- CUDA Support: Full CUDA 12.3+ support
+- Performance: 5-10x faster than CPU-only ML processing
 
 ## Special Configuration for Unprivileged LXC
 
@@ -25,12 +60,21 @@ NVIDIA container runtime (`runtime: nvidia`) doesn't work properly in unprivileg
 We bypass the NVIDIA runtime and use direct device + library mounting:
 
 #### 1. Device Mounting (docker-compose.yml)
+
+**For Video Transcoding (Jellyfin, Immich):**
 ```yaml
 devices:
   - /dev/nvidia0:/dev/nvidia0
   - /dev/nvidiactl:/dev/nvidiactl
-  - /dev/nvidia-uvm:/dev/nvidia-uvm           # CRITICAL for CUDA
-  - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+  - /dev/nvidia-modeset:/dev/nvidia-modeset
+```
+
+**For ML/CUDA Operations (Immich ML):**
+```yaml
+devices:
+  - /dev/nvidia0:/dev/nvidia0
+  - /dev/nvidiactl:/dev/nvidiactl
+  - /dev/nvidia-uvm:/dev/nvidia-uvm           # CRITICAL for CUDA unified memory
   - /dev/nvidia-modeset:/dev/nvidia-modeset
 ```
 
@@ -110,8 +154,89 @@ The script automatically:
 2. Verify ffmpeg during transcoding: `docker exec jellyfin ps aux | grep ffmpeg`
 3. Should see: `-hwaccel cuda -hwaccel_output_format cuda -codec:v:0 h264_nvenc`
 
+## Immich Setup & Configuration
+
+### Initial Setup
+
+1. **Access Immich:** `http://<lxc-ip>:2283`
+2. **Create Admin Account:** First user becomes admin
+3. **Configure ML Settings:**
+   - Go to Administration → Settings → Machine Learning
+   - Verify "Hardware Acceleration: CUDA" is active
+   - Check logs for `CUDAExecutionProvider` confirmation
+
+### Mobile App Setup
+
+**Official apps available:**
+- iOS: [App Store](https://apps.apple.com/app/immich/id1613945652)
+- Android: [Play Store](https://play.google.com/store/apps/details?id=app.alextran.immich)
+
+**Auto-Upload Configuration:**
+1. Install mobile app
+2. Enter server URL: `http://<lxc-ip>:2283`
+3. Login with credentials
+4. Enable background upload
+5. Select albums to backup
+
+### Storage Structure
+
+```
+/datapool/
+├── config/
+│   └── immich/
+│       ├── postgres/      # PostgreSQL database (metadata)
+│       └── ml-cache/      # ML models (~5-10GB)
+└── media/
+    └── immich/            # Uploaded photos/videos
+```
+
+### Verifying GPU Acceleration
+
+**Check ML service logs:**
+```bash
+docker logs immich-machine-learning
+```
+
+Look for:
+- ✅ `Available ORT providers: ['CUDAExecutionProvider', ...]`
+- ✅ `Loaded ANN model` (without errors)
+
+**Monitor GPU usage during ML jobs:**
+```bash
+nvidia-smi -l 1
+```
+
+You should see GPU utilization during:
+- Face detection jobs
+- Smart search indexing
+- Object recognition tasks
+
+### Performance Expectations
+
+**CPU-only ML processing:**
+- Face detection: ~2-5 photos/sec
+- Smart search: ~1-3 photos/sec
+
+**GPU-accelerated (GTX 970):**
+- Face detection: ~10-25 photos/sec (5-10x faster)
+- Smart search: ~5-15 photos/sec (5-10x faster)
+- Lower CPU usage and power consumption
+
+### Backup Recommendations
+
+**Critical data to backup:**
+1. **PostgreSQL database:** `/datapool/config/immich/postgres/` (metadata)
+2. **Photo library:** `/datapool/media/immich/` (originals)
+3. **Optional:** `/datapool/config/immich/ml-cache/` (can be redownloaded)
+
+**Backup strategy:**
+- Use Proxmox Backup Server for LXC snapshots
+- Consider separate photo library backup (e.g., rclone to cloud)
+
 ## References
 
 - [Jellyfin Hardware Acceleration](https://jellyfin.org/docs/general/administration/hardware-acceleration/)
+- [Immich Documentation](https://docs.immich.app/)
+- [Immich ML Hardware Acceleration](https://docs.immich.app/features/ml-hardware-acceleration)
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/)
 - [Proxmox LXC GPU Passthrough](https://pve.proxmox.com/wiki/LXC#_bind_mount_points)
