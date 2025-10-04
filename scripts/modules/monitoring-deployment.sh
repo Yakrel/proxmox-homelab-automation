@@ -177,6 +177,8 @@ setup_monitoring_directories() {
 }
 
 # Provision Grafana dashboards as JSON files
+# CRITICAL: Grafana docker-compose.yml must have volume mount for /datapool/config/grafana/dashboards
+# This allows Grafana to auto-load dashboard JSON files on startup
 provision_grafana_dashboards() {
     local ct_id="$1"
     
