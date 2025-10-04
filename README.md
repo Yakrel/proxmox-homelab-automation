@@ -136,8 +136,10 @@ After setup, verify GPU is accessible in Jellyfin:
 > ℹ️ The media stack automatically patches the NVIDIA container runtime to skip cgroup manipulations inside unprivileged LXCs. If you previously hit `nvidia-container-cli: mount error: failed to add device rules`, redeploy with the updated scripts to pick up the fix.
 
 ### Files Stack (LXC 102)
-- Filebrowser web interface
-- Nextcloud personal cloud
+- **Immich**: Self-hosted photo and video management solution with mobile apps
+- JDownloader 2: Download manager with VNC access
+- MeTube: YouTube downloader
+- Palmr: Password manager
 - File management tools
 
 ### Web Tools Stack (LXC 103)
