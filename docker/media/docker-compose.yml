@@ -236,6 +236,98 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  immich-server:
+    container_name: immich-server
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    volumes:
+      - ${IMMICH_UPLOAD_LOCATION}:/data
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+    ports:
+      - "2283:2283"
+    depends_on:
+      - immich-redis
+      - immich-database
+    networks:
+      - media-net
+    restart: unless-stopped
+    healthcheck:
+      disable: false
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  immich-machine-learning:
+    container_name: immich-machine-learning
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}-cuda
+    volumes:
+      - immich-model-cache:/cache
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
+    networks:
+      - media-net
+    restart: unless-stopped
+    healthcheck:
+      disable: false
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  immich-redis:
+    container_name: immich-redis
+    image: docker.io/valkey/valkey:8-bookworm@sha256:fea8b3e67b15729d4bb70589eb03367bab9ad1ee89c876f54327fc7c6e618571
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+    networks:
+      - media-net
+    restart: unless-stopped
+    healthcheck:
+      test: redis-cli ping || exit 1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  immich-database:
+    container_name: immich-database
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:41eacbe83eca995561fe43814fd4891e16e39632806253848efaf04d3c8a8b84
+    environment:
+      - POSTGRES_PASSWORD=${IMMICH_DB_PASSWORD}
+      - POSTGRES_USER=${IMMICH_DB_USERNAME}
+      - POSTGRES_DB=${IMMICH_DB_DATABASE_NAME}
+      - POSTGRES_INITDB_ARGS=--data-checksums
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+    volumes:
+      - ${IMMICH_DB_DATA_LOCATION}:/var/lib/postgresql/data
+    networks:
+      - media-net
+    shm_size: 128mb
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   promtail:
     image: grafana/promtail:latest
@@ -309,3 +401,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  immich-model-cache:

@@ -128,10 +128,13 @@ After setup, verify GPU is accessible in Jellyfin:
 - Watchtower for updates
 
 ### Media Stack (LXC 101)
+- **Immich**: Self-hosted photo and video management with **GPU-accelerated ML** (face recognition, object detection)
 - Jellyfin media server **with GPU transcoding support (NVIDIA)**
-- Sonarr/Radarr for automation
-- Transmission torrent client
-- **GPU Hardware Acceleration**: Configured for NVIDIA GTX 970 with automatic passthrough
+- Sonarr/Radarr/Bazarr for media automation
+- qBittorrent torrent client
+- Jellyseerr request management
+- Prowlarr indexer management
+- **GPU Hardware Acceleration**: Configured for NVIDIA GTX 970 with automatic passthrough for both Jellyfin transcoding and Immich ML
 
 > ℹ️ The media stack automatically patches the NVIDIA container runtime to skip cgroup manipulations inside unprivileged LXCs. If you previously hit `nvidia-container-cli: mount error: failed to add device rules`, redeploy with the updated scripts to pick up the fix.
 
