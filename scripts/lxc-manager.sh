@@ -192,7 +192,7 @@ EOFLOGIN
     apt-get -y autoremove
     apt-get -y autoclean
     
-elif [ \"$STACK_NAME\" = 'media' ]; then
+elif [ \"\$STACK_NAME\" = 'media' ]; then
     # Media Stack: Debian with Docker and latest NVIDIA drivers for GTX 970 transcoding
     # Set environment to prevent interactive prompts and locale issues
     export DEBIAN_FRONTEND=noninteractive
