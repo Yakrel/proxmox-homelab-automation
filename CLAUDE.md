@@ -20,8 +20,9 @@ Shell-based automation for deploying containerized services in LXC containers on
 - Ensure idempotency
 - Let commands fail naturally with their original error messages
 - **NEVER** use `>/dev/null 2>&1` - all output must be visible for debugging
-- No retry logic or waiting loops in deployment scripts
+- **EXCEPTION:** Suppress output when it interferes with command parsing (e.g., `apt-get update` output mixing with `yq`/`jq` parsing)
 - **EXCEPTION:** Basic health checks are allowed when immediately needed (e.g., waiting for service to be ready before API call)
+- No retry logic or waiting loops in deployment scripts
 - Focus on main scenario - edge cases should fail fast
 
 ### **Idempotency Without Manual Checks**

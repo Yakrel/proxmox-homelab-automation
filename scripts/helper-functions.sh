@@ -75,8 +75,8 @@ ensure_packages() {
 }
 
 ensure_yq() {
-    apt-get update -qq
-    apt-get install -y -qq yq
+    apt-get update -qq >/dev/null 2>&1
+    apt-get install -y -qq yq >/dev/null 2>&1
 }
 
 # === HOMELAB INFRASTRUCTURE CONSTANTS ===
