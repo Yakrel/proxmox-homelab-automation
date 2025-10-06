@@ -192,7 +192,7 @@ EOFLOGIN
     apt-get -y autoremove
     apt-get -y autoclean
     
-elif [ \"$STACK_NAME\" = 'media' ]; then
+elif [ \"\$STACK_NAME\" = 'media' ]; then
     # Media Stack: Debian with Docker and latest NVIDIA drivers for GTX 970 transcoding
     # Set environment to prevent interactive prompts and locale issues
     export DEBIAN_FRONTEND=noninteractive
@@ -222,32 +222,39 @@ Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOS
     apt-get update
     
-    # Install dependencies for adding repos
-    apt-get install -y gnupg curl
+    # Install dependencies
+    apt-get install -y ca-certificates curl gnupg wget util-linux
+    
+    # Add Docker's official GPG key
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+    chmod a+r /etc/apt/keyrings/docker.asc
+    
+    # Add Docker repository
+    DEBIAN_CODENAME=\$(. /etc/os-release && echo \$VERSION_CODENAME)
+    echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \$DEBIAN_CODENAME stable\" | tee /etc/apt/sources.list.d/docker.list > /dev/null
     
     # Add NVIDIA container toolkit repository
-    # Remove existing keyring first to avoid interactive prompt
     rm -f /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
-    && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
     sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
     tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
     
-    # Update package list again for NVIDIA repo
+    # Update package lists
     apt-get update
     
-    # Install latest NVIDIA drivers, Docker, and NVIDIA Container Toolkit
-    apt-get install -y nvidia-driver nvidia-kernel-dkms docker.io curl wget util-linux nvidia-container-toolkit
+    # Install NVIDIA drivers, Docker CE with Compose plugin, and NVIDIA Container Toolkit
+    apt-get install -y nvidia-driver nvidia-kernel-dkms docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nvidia-container-toolkit
 
     # Relax NVIDIA runtime cgroup requirements for unprivileged LXC containers using nvidia-ctk
-    if command -v nvidia-ctk >/dev/null 2>&1; then
-        # Configure NVIDIA Container Toolkit for unprivileged containers
-        nvidia-ctk runtime configure \
-            --runtime=docker \
-            --config=/etc/docker/daemon.json \
-            --set-as-default=false || true
-        
-        # Configure NVIDIA runtime config if it exists
+    # Configure NVIDIA Container Toolkit for unprivileged containers
+    nvidia-ctk runtime configure \
+        --runtime=docker \
+        --config=/etc/docker/daemon.json \
+        --set-as-default=false || true
+    
+    # Configure NVIDIA runtime config if it exists
         if [ -f /etc/nvidia-container-runtime/config.toml ]; then
             # Explicitly set no-cgroups = true for unprivileged LXC
             sed -i 's|^#no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
@@ -272,13 +279,8 @@ EOS
 EOFDOCKER
 
     # Enable and restart Docker to apply changes
-    systemctl enable docker --now || true
+    systemctl enable docker --now
     systemctl restart docker
-    
-    # Install latest Docker Compose standalone
-    curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
-    ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
     
     # Configure systemd autologin for tty1
     mkdir -p /etc/systemd/system/getty@tty1.service.d
@@ -291,6 +293,10 @@ EOFLOGIN
     # Disable SSH for security
     systemctl disable ssh || true
     systemctl stop ssh || true
+    
+    # Cleanup
+    apt-get -y autoremove
+    apt-get -y autoclean
 
 else
     # Common Alpine setup - use latest packages

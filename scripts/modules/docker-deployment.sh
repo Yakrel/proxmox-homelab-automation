@@ -69,22 +69,18 @@ setup_docker_compose() {
     print_success "Docker Compose ready"
 }
 
-# Install latest Docker in container
+# Install Docker in container (idempotent)
 install_docker() {
     local ct_id="$1"
     
     print_info "Installing Docker"
     
-    # Update and install Docker
-    pct exec "$ct_id" -- apk update
-    pct exec "$ct_id" -- apk add --no-cache docker docker-compose docker-cli-compose
+    # Install Docker using official script (works for both Debian/Ubuntu)
+    pct exec "$ct_id" -- bash -c "curl -fsSL https://get.docker.com | sh" || { print_error "Failed to install Docker"; exit 1; }
     
-    # Start Docker service
-    pct exec "$ct_id" -- service docker start || { print_error "Failed to start Docker"; exit 1; }
-    pct exec "$ct_id" -- rc-update add docker default
-    
-    # Verify Docker is ready - fail fast
-    pct exec "$ct_id" -- docker info || { print_error "Docker failed to start"; exit 1; }
+    # Start and enable Docker service
+    pct exec "$ct_id" -- systemctl start docker || { print_error "Failed to start Docker"; exit 1; }
+    pct exec "$ct_id" -- systemctl enable docker
     
     print_success "Docker installed"
 }
@@ -96,8 +92,8 @@ deploy_docker_services() {
     
     print_info "Deploying Docker services for $stack_name"
     
-    # Deploy services
-    pct exec "$ct_id" -- sh -c "cd /root && docker-compose pull --quiet && docker-compose up -d --remove-orphans" || {
+    # Deploy services using Docker Compose v2 (plugin)
+    pct exec "$ct_id" -- sh -c "cd /root && docker compose pull --quiet && docker compose up -d --remove-orphans" || {
         print_error "Failed to deploy Docker services"
         exit 1
     }
@@ -123,15 +119,9 @@ deploy_docker_stack() {
         return 0
     fi
     
-    # Docker installation/verification
-    if [[ "$stack_name" == "media" ]]; then
-        print_info "Docker is pre-installed for media stack, verifying..."
-        pct exec "$ct_id" -- systemctl start docker || { print_error "Failed to start Docker"; exit 1; }
-        pct exec "$ct_id" -- docker info || { print_error "Docker not responding"; exit 1; }
-        print_success "Docker verification passed for media stack"
-    else
-        install_docker "$ct_id"
-    fi
+    # Docker installation/verification - always use install_docker function
+    # (it will handle both fresh installs and verification of existing installations)
+    install_docker "$ct_id"
     
     # Setup Promtail for log aggregation (all Docker stacks except monitoring)
     if [[ "$stack_name" != "monitoring" ]]; then
@@ -146,38 +136,15 @@ deploy_docker_stack() {
     print_success "Docker deployment completed: $stack_name"
 }
 
-# Check Docker container health
-check_docker_health() {
-    local ct_id="$1"
-    
-    print_info "Checking Docker health"
-    
-    # Check if Docker daemon is running
-    pct exec "$ct_id" -- docker info || { print_error "Docker daemon not running"; exit 1; }
-    
-    # Check running containers
-    local container_count
-    container_count=$(pct exec "$ct_id" -- docker ps -q | wc -l)
-    
-    print_info "Docker daemon: Running"
-    print_info "Active containers: $container_count"
-    
-    # Show container status
-    if [[ $container_count -gt 0 ]]; then
-        print_info "Container status:"
-        pct exec "$ct_id" -- docker ps --format "table {{.Names}}\t{{.Status}}"
-    fi
-}
-
 # Update Docker services
 update_docker_services() {
     local ct_id="$1"
     
     print_info "Updating Docker services"
     
-    # Pull latest images and recreate containers
-    pct exec "$ct_id" -- sh -c "cd /root && docker-compose pull" || { print_error "Failed to pull images"; exit 1; }
-    pct exec "$ct_id" -- sh -c "cd /root && docker-compose up -d --remove-orphans" || { print_error "Failed to recreate containers"; exit 1; }
+    # Pull latest images and recreate containers using Docker Compose v2 (plugin)
+    pct exec "$ct_id" -- sh -c "cd /root && docker compose pull" || { print_error "Failed to pull images"; exit 1; }
+    pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --remove-orphans" || { print_error "Failed to recreate containers"; exit 1; }
     
     # Clean up old images
     pct exec "$ct_id" -- docker image prune -f

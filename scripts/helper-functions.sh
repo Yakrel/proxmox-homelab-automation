@@ -75,10 +75,8 @@ ensure_packages() {
 }
 
 ensure_yq() {
-    if ! command -v yq &>/dev/null; then
-        apt-get update -q
-        apt-get install -y yq
-    fi
+    apt-get update -qq
+    apt-get install -y -qq yq
 }
 
 # === HOMELAB INFRASTRUCTURE CONSTANTS ===
@@ -287,10 +285,7 @@ ensure_directory() {
     local dir_path="$1"
     local owner="${2:-}"
     
-    if [[ ! -d "$dir_path" ]]; then
-        mkdir -p "$dir_path"
-        print_info "Created directory: $dir_path"
-    fi
+    mkdir -p "$dir_path"
     
     if [[ -n "$owner" ]]; then
         chown "$owner" "$dir_path" || true

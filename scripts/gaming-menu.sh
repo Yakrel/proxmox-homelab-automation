@@ -42,12 +42,10 @@ manage_games() {
         pct start "$CONTAINER_ID" || { print_error "Failed to start container"; return 1; }
     fi
     
-    # Copy game manager to container if needed
-    if ! pct exec "$CONTAINER_ID" -- test -f /root/game-manager.sh; then
-        print_info "Installing game manager in container..."
-        pct push "$CONTAINER_ID" "$WORK_DIR/scripts/game-manager.sh" "/root/game-manager.sh"
-        pct exec "$CONTAINER_ID" -- chmod +x /root/game-manager.sh
-    fi
+    # Copy game manager to container
+    print_info "Installing game manager in container..."
+    pct push "$CONTAINER_ID" "$WORK_DIR/scripts/game-manager.sh" "/root/game-manager.sh"
+    pct exec "$CONTAINER_ID" -- chmod +x /root/game-manager.sh
     
     # Run interactive game manager inside container
     print_info "Starting Game Manager (inside LXC $CONTAINER_ID)..."
