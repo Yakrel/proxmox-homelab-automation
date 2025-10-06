@@ -96,8 +96,8 @@ deploy_docker_services() {
     
     print_info "Deploying Docker services for $stack_name"
     
-    # Deploy services
-    pct exec "$ct_id" -- sh -c "cd /root && docker-compose pull --quiet && docker-compose up -d --remove-orphans" || {
+    # Deploy services using Docker Compose v2 (plugin)
+    pct exec "$ct_id" -- sh -c "cd /root && docker compose pull --quiet && docker compose up -d --remove-orphans" || {
         print_error "Failed to deploy Docker services"
         exit 1
     }
@@ -175,9 +175,9 @@ update_docker_services() {
     
     print_info "Updating Docker services"
     
-    # Pull latest images and recreate containers
-    pct exec "$ct_id" -- sh -c "cd /root && docker-compose pull" || { print_error "Failed to pull images"; exit 1; }
-    pct exec "$ct_id" -- sh -c "cd /root && docker-compose up -d --remove-orphans" || { print_error "Failed to recreate containers"; exit 1; }
+    # Pull latest images and recreate containers using Docker Compose v2 (plugin)
+    pct exec "$ct_id" -- sh -c "cd /root && docker compose pull" || { print_error "Failed to pull images"; exit 1; }
+    pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --remove-orphans" || { print_error "Failed to recreate containers"; exit 1; }
     
     # Clean up old images
     pct exec "$ct_id" -- docker image prune -f

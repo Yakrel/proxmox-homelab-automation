@@ -1,4 +1,4 @@
-
+name: media
 
 networks:
   media-net:
@@ -264,7 +264,7 @@ services:
     container_name: immich-machine-learning
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}-cuda
     volumes:
-      - immich-model-cache:/cache
+      - model-cache:/cache
     env_file:
       - .env
     environment:
@@ -393,4 +393,4 @@ services:
         max-file: "3"
 
 volumes:
-  immich-model-cache:
+  model-cache:
