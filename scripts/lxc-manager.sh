@@ -255,12 +255,11 @@ EOS
         --set-as-default=false || true
     
     # Configure NVIDIA runtime config if it exists
-        if [ -f /etc/nvidia-container-runtime/config.toml ]; then
-            # Explicitly set no-cgroups = true for unprivileged LXC
-            sed -i 's|^#no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
-            sed -i 's|^no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
-            sed -i 's#^debug = .*#debug = "/var/log/nvidia-container-runtime.log"#' /etc/nvidia-container-runtime/config.toml || true
-        fi
+    if [ -f /etc/nvidia-container-runtime/config.toml ]; then
+        # Explicitly set no-cgroups = true for unprivileged LXC
+        sed -i 's|^#no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
+        sed -i 's|^no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
+        sed -i 's#^debug = .*#debug = "/var/log/nvidia-container-runtime.log"#' /etc/nvidia-container-runtime/config.toml || true
     fi
 
     # Configure Docker daemon with NVIDIA runtime available (default stays runc)
