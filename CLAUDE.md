@@ -42,6 +42,11 @@ Shell-based automation for deploying containerized services in LXC containers on
 - **Inline comments**: For important notes, use comments in the actual scripts where relevant
 - **README.md**: General project documentation goes in the main README.md only
 
+---
+**Technical Note:**
+Always use `-pbkdf2` and `-salt` with openssl for env file encryption/decryption.
+---
+
 ## Git Guidelines
 
 - **NEVER** use "Generated with [AI Tool]" in commits
