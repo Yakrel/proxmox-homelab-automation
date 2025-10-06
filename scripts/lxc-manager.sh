@@ -295,6 +295,10 @@ EOFLOGIN
     # Disable SSH for security
     systemctl disable ssh || true
     systemctl stop ssh || true
+    
+    # Cleanup
+    apt-get -y autoremove
+    apt-get -y autoclean
 
 else
     # Common Alpine setup - use latest packages
