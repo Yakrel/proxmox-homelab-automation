@@ -188,21 +188,42 @@ provision_grafana_dashboards() {
     local dashboards_dir="/datapool/config/grafana/dashboards"
     mkdir -p "$dashboards_dir"
     
-    # Download Proxmox dashboard
+    # Download Proxmox dashboard and fix datasource references
     curl -s "https://grafana.com/api/dashboards/10347/revisions/latest/download" | \
-    jq '. | del(.id) | del(.__inputs) | del(.__requires)' > "$dashboards_dir/proxmox-dashboard.json" || {
+    jq 'del(.id) | del(.__inputs) | del(.__requires) | 
+        walk(if type == "object" and has("datasource") then 
+            if .datasource | type == "object" then 
+                .datasource = {"type": "prometheus", "uid": "prometheus"} 
+            elif .datasource | type == "string" and (.datasource | startswith("${DS_") or .datasource == "Prometheus") then 
+                .datasource = {"type": "prometheus", "uid": "prometheus"} 
+            else . end 
+        else . end)' > "$dashboards_dir/proxmox-dashboard.json" || {
         print_warning "Failed to download Proxmox dashboard"
     }
     
-    # Download Docker dashboard
+    # Download Docker dashboard and fix datasource references
     curl -s "https://grafana.com/api/dashboards/893/revisions/latest/download" | \
-    jq '. | del(.id) | del(.__inputs) | del(.__requires)' > "$dashboards_dir/docker-dashboard.json" || {
+    jq 'del(.id) | del(.__inputs) | del(.__requires) | 
+        walk(if type == "object" and has("datasource") then 
+            if .datasource | type == "object" then 
+                .datasource = {"type": "prometheus", "uid": "prometheus"} 
+            elif .datasource | type == "string" and (.datasource | startswith("${DS_") or .datasource == "Prometheus") then 
+                .datasource = {"type": "prometheus", "uid": "prometheus"} 
+            else . end 
+        else . end)' > "$dashboards_dir/docker-dashboard.json" || {
         print_warning "Failed to download Docker dashboard"
     }
     
-    # Download Loki dashboard
+    # Download Loki dashboard and fix datasource references
     curl -s "https://grafana.com/api/dashboards/12611/revisions/latest/download" | \
-    jq '. | del(.id) | del(.__inputs) | del(.__requires)' > "$dashboards_dir/loki-dashboard.json" || {
+    jq 'del(.id) | del(.__inputs) | del(.__requires) | 
+        walk(if type == "object" and has("datasource") then 
+            if .datasource | type == "object" and .datasource.type == "loki" then 
+                .datasource = {"type": "loki", "uid": "loki"} 
+            elif .datasource | type == "string" and (.datasource | contains("Loki") or .datasource | startswith("${DS_")) then 
+                .datasource = {"type": "loki", "uid": "loki"} 
+            else . end 
+        else . end)' > "$dashboards_dir/loki-dashboard.json" || {
         print_warning "Failed to download Loki dashboard"
     }
     
@@ -227,6 +248,7 @@ apiVersion: 1
 datasources:
   - name: Prometheus
     type: prometheus
+    uid: prometheus
     access: proxy
     url: http://prometheus:9090
     isDefault: true
@@ -242,6 +264,7 @@ datasources:
 
   - name: Loki
     type: loki
+    uid: loki
     access: proxy
     url: http://loki:3100
     isDefault: false
