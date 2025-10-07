@@ -21,12 +21,6 @@ services:
     networks:
       - media-net
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8989/ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -162,12 +156,6 @@ services:
     networks:
       - media-net
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v2/app/version"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -252,8 +240,6 @@ services:
     networks:
       - media-net
     restart: unless-stopped
-    healthcheck:
-      disable: false
     logging:
       driver: "json-file"
       options:
@@ -277,8 +263,6 @@ services:
     networks:
       - media-net
     restart: unless-stopped
-    healthcheck:
-      disable: false
     logging:
       driver: "json-file"
       options:
@@ -291,8 +275,6 @@ services:
     networks:
       - media-net
     restart: unless-stopped
-    healthcheck:
-      test: redis-cli ping || exit 1
     logging:
       driver: "json-file"
       options:
