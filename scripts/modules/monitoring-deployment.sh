@@ -135,8 +135,8 @@ configure_pbs_monitoring() {
 ]
 EOF
 
-        # Copy PBS targets to monitoring container datapool (prometheus file_sd_configs will read this)
-        pct push "$monitoring_ct_id" "$pbs_job_config_temp" "/datapool/config/prometheus/pbs_job.yml" || {
+        # Copy PBS targets to host datapool (prometheus file_sd_configs will read this via host mount)
+        cp "$pbs_job_config_temp" "/datapool/config/prometheus/pbs_job.yml" || {
             print_error "Failed to configure PBS targets"
             return 1
         }
@@ -144,10 +144,10 @@ EOF
 
         print_success "PBS monitoring configured with target: $pbs_ip_address:8007"
     else
-        # Create empty targets file so prometheus doesn't fail (consistent with pct push pattern)
+        # Create empty targets file on host so prometheus doesn't fail
         local empty_targets_temp="$WORK_DIR/pbs_empty_targets.yml"
         echo "[]" > "$empty_targets_temp"
-        pct push "$monitoring_ct_id" "$empty_targets_temp" "/datapool/config/prometheus/pbs_job.yml" || {
+        cp "$empty_targets_temp" "/datapool/config/prometheus/pbs_job.yml" || {
             print_error "Failed to create empty PBS targets file"
             rm -f "$empty_targets_temp"
             return 1
@@ -250,8 +250,8 @@ datasources:
     editable: true
 EOF
     
-    # Copy datasource config to container (overwrites existing)
-    pct push "$ct_id" "$datasource_config" "/datapool/config/grafana/provisioning/datasources/datasources.yml" || {
+    # Copy datasource config to host (overwrites existing, /datapool is host-mounted)
+    cp "$datasource_config" "/datapool/config/grafana/provisioning/datasources/datasources.yml" || {
         print_error "Failed to configure datasources"
         rm -f "$datasource_config"
         return 1
@@ -275,8 +275,8 @@ providers:
       path: /datapool/config/grafana/dashboards
 EOF
     
-    # Copy dashboard provider config to container (overwrites existing)
-    pct push "$ct_id" "$dashboard_provider_config" "/datapool/config/grafana/provisioning/dashboards/provider.yml" || {
+    # Copy dashboard provider config to host (overwrites existing, /datapool is host-mounted)
+    cp "$dashboard_provider_config" "/datapool/config/grafana/provisioning/dashboards/provider.yml" || {
         print_error "Failed to configure dashboard provider"
         rm -f "$dashboard_provider_config"
         return 1
@@ -292,15 +292,15 @@ validate_monitoring_configs() {
 
     print_info "Validating monitoring configuration files"
 
-    # Ensure prometheus config is copied to container
-    pct push "$ct_id" "$WORK_DIR/docker/monitoring/prometheus.yml" "/datapool/config/prometheus/prometheus.yml" || {
-        print_error "Failed to copy prometheus.yml to container"
+    # Copy prometheus config to host filesystem (not pct push, since /datapool is host-mounted)
+    cp "$WORK_DIR/docker/monitoring/prometheus.yml" "/datapool/config/prometheus/prometheus.yml" || {
+        print_error "Failed to copy prometheus.yml to host"
         exit 1
     }
 
-    # Ensure loki config is copied to container
-    pct push "$ct_id" "$WORK_DIR/config/loki/loki.yml" "/datapool/config/loki/loki.yml" || {
-        print_error "Failed to copy loki.yml to container"
+    # Copy loki config to host filesystem (not pct push, since /datapool is host-mounted)
+    cp "$WORK_DIR/config/loki/loki.yml" "/datapool/config/loki/loki.yml" || {
+        print_error "Failed to copy loki.yml to host"
         exit 1
     }
 
