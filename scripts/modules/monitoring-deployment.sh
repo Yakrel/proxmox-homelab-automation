@@ -292,15 +292,15 @@ validate_monitoring_configs() {
 
     print_info "Validating monitoring configuration files"
 
-    # Ensure prometheus config is copied to container
-    pct push "$ct_id" "$WORK_DIR/docker/monitoring/prometheus.yml" "/datapool/config/prometheus/prometheus.yml" || {
-        print_error "Failed to copy prometheus.yml to container"
+    # Copy prometheus config to host filesystem (not pct push, since /datapool is host-mounted)
+    cp "$WORK_DIR/docker/monitoring/prometheus.yml" "/datapool/config/prometheus/prometheus.yml" || {
+        print_error "Failed to copy prometheus.yml to host"
         exit 1
     }
 
-    # Ensure loki config is copied to container
-    pct push "$ct_id" "$WORK_DIR/config/loki/loki.yml" "/datapool/config/loki/loki.yml" || {
-        print_error "Failed to copy loki.yml to container"
+    # Copy loki config to host filesystem (not pct push, since /datapool is host-mounted)
+    cp "$WORK_DIR/config/loki/loki.yml" "/datapool/config/loki/loki.yml" || {
+        print_error "Failed to copy loki.yml to host"
         exit 1
     }
 
