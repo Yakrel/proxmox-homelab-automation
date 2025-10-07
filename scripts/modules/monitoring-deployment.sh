@@ -317,8 +317,8 @@ validate_monitoring_configs() {
     }
     rm -f "$temp_promtail"
     
-    # Fix permissions
-    pct exec "$ct_id" -- chown -R 101000:101000 /etc/promtail /var/lib/promtail
+    # Fix permissions (use UID 1000 inside container, which maps to 101000 on host for unprivileged containers)
+    pct exec "$ct_id" -- chown -R 1000:1000 /etc/promtail /var/lib/promtail
 
     # Ensure PBS password file exists (created in configure_pbs_monitoring)
     local password_file="/datapool/config/prometheus/.prometheus-password"

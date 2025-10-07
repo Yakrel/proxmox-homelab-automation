@@ -69,20 +69,22 @@ setup_docker_compose() {
     print_success "Docker Compose ready"
 }
 
-# Install Docker in container (idempotent)
+# Verify Docker is available in container (already installed during LXC provisioning)
 install_docker() {
     local ct_id="$1"
     
-    print_info "Installing Docker"
+    print_info "Verifying Docker installation"
     
-    # Install Docker using official script (works for both Debian/Ubuntu)
-    pct exec "$ct_id" -- bash -c "curl -fsSL https://get.docker.com | sh" || { print_error "Failed to install Docker"; exit 1; }
+    # Docker is already installed during LXC provisioning:
+    # - Alpine: via apk in lxc-manager.sh
+    # - Debian: via docker-ce in lxc-manager.sh (media stack)
+    # Just verify it's available
+    if ! pct exec "$ct_id" -- docker --version >/dev/null 2>&1; then
+        print_error "Docker not found in container - this should not happen"
+        exit 1
+    fi
     
-    # Start and enable Docker service
-    pct exec "$ct_id" -- systemctl start docker || { print_error "Failed to start Docker"; exit 1; }
-    pct exec "$ct_id" -- systemctl enable docker
-    
-    print_success "Docker installed"
+    print_success "Docker is available"
 }
 
 # Deploy Docker Compose services - pull latest images
