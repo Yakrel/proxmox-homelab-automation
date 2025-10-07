@@ -319,8 +319,7 @@ validate_monitoring_configs() {
     
     # Note: No chown needed inside LXC for /etc/promtail files
     # Files pushed with pct push automatically get correct ownership from root context
-    # For /datapool/config files, chown 101000:101000 is done on host in setup_monitoring_directories()
-
+    
     # Ensure PBS password file exists (created in configure_pbs_monitoring)
     local password_file="/datapool/config/prometheus/.prometheus-password"
     [[ -f "$password_file" ]] || {
@@ -333,6 +332,10 @@ validate_monitoring_configs() {
         print_error "PBS job configuration missing: /datapool/config/prometheus/pbs_job.yml"
         exit 1
     }
+
+    # Fix permissions for config files pushed with pct push (they get root ownership)
+    # Must be done after pct push commands to ensure Docker containers can read them
+    chown -R 101000:101000 /datapool/config/prometheus /datapool/config/loki
 
     print_success "All configuration files validated"
 }
