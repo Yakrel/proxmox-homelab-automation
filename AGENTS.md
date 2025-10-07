@@ -66,3 +66,11 @@ This is a personal homelab automation with:
 - Network bridge: `vmbr0`
 - Timezone: `Europe/Istanbul`
 - Unprivileged LXC containers with UID/GID mapping (101000:101000 on host → 1000:1000 in container)
+
+### LXC File Permissions
+**CRITICAL: Never do chown inside LXC containers**
+- Always set permissions on Proxmox host with `chown 101000:101000`
+- For shared config files: `chown -R 101000:101000 /datapool/config` (this is sufficient for all LXC containers)
+- **Never** chown to `/datapool` itself (parent directory) - only to `/datapool/config` or subdirectories
+- Files in `/datapool/config` with host UID 101000 automatically map to UID 1000 inside unprivileged LXC containers
+- Docker containers using `user: "1000:1000"` can access these files correctly without additional chown operations
