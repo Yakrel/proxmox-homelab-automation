@@ -292,15 +292,15 @@ validate_monitoring_configs() {
 
     print_info "Validating monitoring configuration files"
 
-    # Copy prometheus config to host filesystem (not pct push, since /datapool is host-mounted)
-    cp "$WORK_DIR/docker/monitoring/prometheus.yml" "/datapool/config/prometheus/prometheus.yml" || {
-        print_error "Failed to copy prometheus.yml to host"
+    # Download prometheus config directly from GitHub to host filesystem
+    curl -sSL "$REPO_BASE_URL/docker/monitoring/prometheus.yml" -o "/datapool/config/prometheus/prometheus.yml" || {
+        print_error "Failed to download prometheus.yml from GitHub"
         exit 1
     }
 
-    # Copy loki config to host filesystem (not pct push, since /datapool is host-mounted)
-    cp "$WORK_DIR/config/loki/loki.yml" "/datapool/config/loki/loki.yml" || {
-        print_error "Failed to copy loki.yml to host"
+    # Download loki config directly from GitHub to host filesystem
+    curl -sSL "$REPO_BASE_URL/config/loki/loki.yml" -o "/datapool/config/loki/loki.yml" || {
+        print_error "Failed to download loki.yml from GitHub"
         exit 1
     }
 

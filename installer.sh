@@ -63,7 +63,6 @@ FILES_TO_DOWNLOAD=(
     "scripts/modules/monitoring-deployment.sh"
     "scripts/modules/backup-deployment.sh"
     "config/promtail/promtail.yml"
-    "config/loki/loki.yml"
     "stacks.yaml"
 )
 
