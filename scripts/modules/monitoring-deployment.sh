@@ -317,8 +317,9 @@ validate_monitoring_configs() {
     }
     rm -f "$temp_promtail"
     
-    # Fix permissions
-    pct exec "$ct_id" -- chown -R 101000:101000 /etc/promtail /var/lib/promtail
+    # Note: No chown needed inside LXC for /etc/promtail files
+    # Files pushed with pct push automatically get correct ownership from root context
+    # For /datapool/config files, chown 101000:101000 is done on host in setup_monitoring_directories()
 
     # Ensure PBS password file exists (created in configure_pbs_monitoring)
     local password_file="/datapool/config/prometheus/.prometheus-password"
