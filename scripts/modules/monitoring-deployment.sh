@@ -188,44 +188,31 @@ provision_grafana_dashboards() {
     local dashboards_dir="/datapool/config/grafana/dashboards"
     mkdir -p "$dashboards_dir"
     
-    # Download Proxmox dashboard and fix datasource references
+    # Simple approach: Download dashboards and replace all datasource references with our UID
+    # This is more reliable than complex jq walk operations
+    
+    # Proxmox dashboard (ID: 10347)
     curl -s "https://grafana.com/api/dashboards/10347/revisions/latest/download" | \
-    jq 'del(.id) | del(.__inputs) | del(.__requires) | 
-        walk(if type == "object" and has("datasource") then 
-            if .datasource | type == "object" then 
-                .datasource = {"type": "prometheus", "uid": "prometheus"} 
-            elif .datasource | type == "string" and (.datasource | startswith("${DS_") or .datasource == "Prometheus") then 
-                .datasource = {"type": "prometheus", "uid": "prometheus"} 
-            else . end 
-        else . end)' > "$dashboards_dir/proxmox-dashboard.json" || {
-        print_warning "Failed to download Proxmox dashboard"
-    }
+    jq 'del(.id) | del(.__inputs) | del(.__requires)' | \
+    sed 's/"datasource":\s*"[^"]*\${DS_[^"]*}"/"datasource":{"type":"prometheus","uid":"prometheus"}/g' | \
+    sed 's/"datasource":\s*{\s*"type":\s*"prometheus"[^}]*}/"datasource":{"type":"prometheus","uid":"prometheus"}/g' \
+    > "$dashboards_dir/proxmox-dashboard.json" || print_warning "Failed to download Proxmox dashboard"
     
-    # Download Docker dashboard and fix datasource references
+    # Docker dashboard (ID: 893)
     curl -s "https://grafana.com/api/dashboards/893/revisions/latest/download" | \
-    jq 'del(.id) | del(.__inputs) | del(.__requires) | 
-        walk(if type == "object" and has("datasource") then 
-            if .datasource | type == "object" then 
-                .datasource = {"type": "prometheus", "uid": "prometheus"} 
-            elif .datasource | type == "string" and (.datasource | startswith("${DS_") or .datasource == "Prometheus") then 
-                .datasource = {"type": "prometheus", "uid": "prometheus"} 
-            else . end 
-        else . end)' > "$dashboards_dir/docker-dashboard.json" || {
-        print_warning "Failed to download Docker dashboard"
-    }
+    jq 'del(.id) | del(.__inputs) | del(.__requires)' | \
+    sed 's/"datasource":\s*"[^"]*\${DS_[^"]*}"/"datasource":{"type":"prometheus","uid":"prometheus"}/g' | \
+    sed 's/"datasource":\s*"Prometheus"/"datasource":{"type":"prometheus","uid":"prometheus"}/g' | \
+    sed 's/"datasource":\s*{\s*"type":\s*"prometheus"[^}]*}/"datasource":{"type":"prometheus","uid":"prometheus"}/g' \
+    > "$dashboards_dir/docker-dashboard.json" || print_warning "Failed to download Docker dashboard"
     
-    # Download Loki dashboard and fix datasource references
+    # Loki dashboard (ID: 12611)
     curl -s "https://grafana.com/api/dashboards/12611/revisions/latest/download" | \
-    jq 'del(.id) | del(.__inputs) | del(.__requires) | 
-        walk(if type == "object" and has("datasource") then 
-            if .datasource | type == "object" and .datasource.type == "loki" then 
-                .datasource = {"type": "loki", "uid": "loki"} 
-            elif .datasource | type == "string" and (.datasource | contains("Loki") or .datasource | startswith("${DS_")) then 
-                .datasource = {"type": "loki", "uid": "loki"} 
-            else . end 
-        else . end)' > "$dashboards_dir/loki-dashboard.json" || {
-        print_warning "Failed to download Loki dashboard"
-    }
+    jq 'del(.id) | del(.__inputs) | del(.__requires)' | \
+    sed 's/"datasource":\s*"[^"]*\${DS_[^"]*Loki[^"]*}"/"datasource":{"type":"loki","uid":"loki"}/g' | \
+    sed 's/"datasource":\s*"Loki"/"datasource":{"type":"loki","uid":"loki"}/g' | \
+    sed 's/"datasource":\s*{\s*"type":\s*"loki"[^}]*}/"datasource":{"type":"loki","uid":"loki"}/g' \
+    > "$dashboards_dir/loki-dashboard.json" || print_warning "Failed to download Loki dashboard"
     
     # Fix ownership for Grafana container
     chown -R 101000:101000 "$dashboards_dir"
