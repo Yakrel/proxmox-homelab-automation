@@ -6,9 +6,20 @@ This directory contains pre-configured Grafana dashboards for the Proxmox homela
 
 ### 1. Proxmox via Prometheus (`proxmox-dashboard.json`)
 
-**Source:** Grafana Dashboard ID 10347 (modified)
+**Custom-built dashboard** with improved visualization and comprehensive system monitoring using only PVE exporter metrics.
+
+**Design Philosophy:**
+- Clean Proxmox host - no additional software installation required
+- Uses only Prometheus PVE Exporter metrics
+- Enhanced visualization with gradients, colors, and thresholds
+- Professional layout with logical organization
+
+**Required Data Source:**
+- Prometheus PVE Exporter (port 9221)
 
 **Required Metrics:**
+
+*From PVE Exporter:*
 - `pve_cpu_usage_limit` - CPU allocation limits
 - `pve_cpu_usage_ratio` - CPU usage ratios
 - `pve_memory_size_bytes` - Memory allocation
@@ -23,22 +34,64 @@ This directory contains pre-configured Grafana dashboards for the Proxmox homela
 - `pve_guest_info` - Guest/container information (labels)
 - `pve_storage_info` - Storage information (labels)
 - `pve_up` - Resource up/down status
-- `pve_uptime_seconds` - Uptime metrics
 
 **Prometheus Configuration Required:**
 ```yaml
+# Proxmox VE Exporter
 - job_name: 'proxmox'
   static_configs:
-    - targets: ['prometheus-pve-exporter:9221']
+    - targets:
+      - '192.168.1.10'
+  metrics_path: /pve
+  params:
+    module: [default]
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: prometheus-pve-exporter:9221
 ```
 
-**Features:**
-- CPU, Memory, Disk, Network usage for all nodes
-- Per-LXC/VM resource monitoring
-- Storage utilization by type
-- Uptime tracking
+**Dashboard Structure:**
 
-**Note:** Storage type labels may not show filesystem type (e.g., ZFS). This is a limitation of the PVE exporter's `pve_storage_info` metric which doesn't expose detailed storage backend information.
+**Section 1: System Overview**
+- **Guest Overview Table**: Status, CPU %, Memory % with visual bars and color coding
+- **Node CPU Usage**: Time series with smooth lines and threshold areas
+- **Node Memory Usage**: Used vs Total with visual distinction
+- **Current CPU/Memory**: Gauges with color-coded thresholds
+- **Storage Usage**: Horizontal bar gauges for all storage pools
+
+**Section 2: Guest Resources**
+- **Guest CPU Usage**: Per-LXC/VM time series with legends showing mean/max
+- **Guest Memory Usage**: Per-LXC/VM memory consumption
+- **Guest Disk I/O**: Read/write with mirror effect (read below, write above)
+- **Guest Network I/O**: TX/RX with mirror effect
+
+**Features:**
+- **Enhanced Table**: Guest overview with status (Running/Stopped), CPU and memory shown as gradient bars
+- **Color-Coded Thresholds**: Green/yellow/red for quick status assessment
+- **Smooth Visualizations**: Line interpolation for cleaner graphs
+- **Mirror Effects**: Bidirectional metrics (disk I/O, network) use negative-Y for reads/receives
+- **Sortable Legends**: Table legends with mean/max values, sortable by usage
+- **Professional Layout**: Row separators for clear visual hierarchy
+- **Variable Support**: Node instance variable for easy switching
+
+**Memory Monitoring Note:**
+
+This dashboard uses PVE exporter's memory metrics (`pve_memory_usage_bytes` / `pve_memory_size_bytes`). 
+
+**Important:** On ZFS systems, the reported "used" memory includes ZFS ARC cache. ZFS ARC is reclaimable memory used for disk caching - it's not truly "used" in the sense that applications can reclaim it when needed.
+
+If you see high memory usage on a ZFS system:
+- Check `/proc/spl/kstat/zfs/arcstats` on Proxmox host for ARC size
+- This is normal behavior for ZFS - ARC uses available RAM for performance
+- The system will automatically free ARC when applications need memory
+
+**Setup:**
+
+Dashboard auto-loads when placed in `/datapool/config/grafana/dashboards/`. No additional setup required beyond the existing PVE exporter configuration.
 
 ---
 
