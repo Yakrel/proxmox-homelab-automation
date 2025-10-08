@@ -1,0 +1,92 @@
+{
+  "__comments": [
+    "=================================================================",
+    "Docker Container Logs via Loki",
+    "=================================================================",
+    "",
+    "REQUIRED SETUP:",
+    "- Loki datasource configured in Grafana",
+    "- Promtail scraping Docker container logs",
+    "",
+    "PROMTAIL CONFIGURATION:",
+    "Promtail must be configured to scrape Docker logs:",
+    "  scrape_configs:",
+    "    - job_name: docker",
+    "      docker_sd_configs:",
+    "        - host: unix:///var/run/docker.sock",
+    "      relabel_configs:",
+    "        - source_labels: ['__meta_docker_container_name']",
+    "          target_label: 'container'",
+    "",
+    "NOTES:",
+    "- Simple log viewer for all Docker containers",
+    "- Use Grafana's log panel filters for searching",
+    "- Adjust time range as needed",
+    "================================================================="
+  ],
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "All Docker container logs streamed via Loki",
+      "gridPos": {
+        "h": 20,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"docker\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Docker Container Logs",
+      "type": "logs"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["loki", "logs", "docker"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Docker Logs (Loki)",
+  "uid": "loki-docker-logs-homelab",
+  "version": 1,
+  "weekStart": ""
+}

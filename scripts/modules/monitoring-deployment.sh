@@ -188,33 +188,25 @@ provision_grafana_dashboards() {
     local dashboards_dir="/datapool/config/grafana/dashboards"
     mkdir -p "$dashboards_dir"
     
-    # Simple approach: Download dashboards and replace all datasource references with our UID
-    # This is more reliable than complex jq walk operations
+    # Download custom dashboards from our repo (already have correct datasource UIDs)
+    # These dashboards are maintained in config/grafana/dashboards/ with full documentation
     
-    # Proxmox dashboard (ID: 10347)
-    curl -s "https://grafana.com/api/dashboards/10347/revisions/latest/download" | \
-    jq 'del(.id) | del(.__inputs) | del(.__requires)' | \
-    sed 's/"datasource":\s*"[^"]*\${DS_[^"]*}"/"datasource":{"type":"prometheus","uid":"prometheus"}/g' | \
-    sed 's/"datasource":\s*{\s*"type":\s*"prometheus"[^}]*}/"datasource":{"type":"prometheus","uid":"prometheus"}/g' \
-    > "$dashboards_dir/proxmox-dashboard.json" || print_warning "Failed to download Proxmox dashboard"
+    # Proxmox dashboard - Modified version of Grafana ID 10347 with fixed datasource UIDs
+    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/proxmox-dashboard.json" \
+        -o "$dashboards_dir/proxmox-dashboard.json" || \
+        print_warning "Failed to download Proxmox dashboard"
     
-    # Docker dashboard (ID: 893)
-    curl -s "https://grafana.com/api/dashboards/893/revisions/latest/download" | \
-    jq 'del(.id) | del(.__inputs) | del(.__requires)' | \
-    sed 's/"datasource":\s*"[^"]*\${DS_[^"]*}"/"datasource":{"type":"prometheus","uid":"prometheus"}/g' | \
-    sed 's/"datasource":\s*"Prometheus"/"datasource":{"type":"prometheus","uid":"prometheus"}/g' | \
-    sed 's/"datasource":\s*{\s*"type":\s*"prometheus"[^}]*}/"datasource":{"type":"prometheus","uid":"prometheus"}/g' \
-    > "$dashboards_dir/docker-dashboard.json" || print_warning "Failed to download Docker dashboard"
+    # Docker Engine dashboard - Custom dashboard for Docker Engine native metrics
+    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/docker-engine-dashboard.json" \
+        -o "$dashboards_dir/docker-engine-dashboard.json" || \
+        print_warning "Failed to download Docker Engine dashboard"
     
-    # Loki dashboard (ID: 12611)
-    curl -s "https://grafana.com/api/dashboards/12611/revisions/latest/download" | \
-    jq 'del(.id) | del(.__inputs) | del(.__requires)' | \
-    sed 's/"datasource":\s*"[^"]*\${DS_[^"]*Loki[^"]*}"/"datasource":{"type":"loki","uid":"loki"}/g' | \
-    sed 's/"datasource":\s*"Loki"/"datasource":{"type":"loki","uid":"loki"}/g' | \
-    sed 's/"datasource":\s*{\s*"type":\s*"loki"[^}]*}/"datasource":{"type":"loki","uid":"loki"}/g' \
-    > "$dashboards_dir/loki-dashboard.json" || print_warning "Failed to download Loki dashboard"
+    # Loki logs dashboard - Simple log viewer for Docker containers
+    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/loki-logs-dashboard.json" \
+        -o "$dashboards_dir/loki-logs-dashboard.json" || \
+        print_warning "Failed to download Loki logs dashboard"
     
-    # Fix ownership for Grafana container
+    # Fix ownership for Grafana container (unprivileged LXC mapping: 1000 -> 101000)
     chown -R 101000:101000 "$dashboards_dir"
     
     print_success "Grafana dashboards provisioned"
