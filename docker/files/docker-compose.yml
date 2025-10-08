@@ -84,6 +84,7 @@ services:
     image: grafana/promtail:latest
     container_name: promtail-files
     restart: unless-stopped
+    network_mode: "host"
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
@@ -92,12 +93,6 @@ services:
     command: -config.file=/etc/promtail/promtail.yml
     environment:
       - TZ=${TZ:-Europe/Istanbul}
-      - PUID=1000
-      - PGID=1000
-    ports:
-      - "9080:9080"
-    networks:
-      - files-net
     logging:
       driver: "json-file"
       options:
