@@ -1,31 +1,26 @@
 {
   "__comments": [
     "=================================================================",
-    "Docker Engine Metrics Dashboard",
+    "Docker Engine Metrics Dashboard - Enhanced",
     "=================================================================",
     "",
     "REQUIRED METRICS (from Docker Engine API - exposed via /metrics):",
     "- engine_daemon_container_states_containers : Container states (running, paused, stopped)",
-    "- engine_daemon_container_actions_seconds_* : Container action durations (create, start, stop)",
+    "- engine_daemon_container_actions_seconds_* : Container action durations",
     "- engine_daemon_health_checks_total : Total health checks performed",
     "- engine_daemon_health_checks_failed_total : Failed health checks",
-    "- engine_daemon_health_check_start_duration_seconds_* : Health check durations",
     "- engine_daemon_events_total : Total Docker events",
-    "- engine_daemon_image_actions_seconds_* : Image action durations (pull, push, delete)",
-    "- engine_daemon_network_actions_seconds_* : Network action durations",
-    "- engine_daemon_engine_cpus_cpus : Number of CPUs available to engine",
-    "- engine_daemon_engine_memory_bytes : Memory available to engine",
+    "- engine_daemon_image_actions_seconds_* : Image operations",
+    "- engine_daemon_network_actions_seconds_* : Network operations",
+    "- engine_daemon_engine_cpus_cpus : CPU allocation",
+    "- engine_daemon_engine_memory_bytes : Memory allocation",
     "",
-    "PROMETHEUS CONFIGURATION:",
-    "Ensure your prometheus.yml has Docker Engine jobs configured:",
-    "  - job_name: 'docker_engine'",
-    "    static_configs:",
-    "      - targets: ['<docker_host>:9323']",
-    "",
-    "NOTES:",
-    "- This dashboard works with Docker Engine's native metrics endpoint",
-    "- Does NOT require cAdvisor (Alpine LXC incompatible)",
-    "- Metrics exposed by enabling experimental features in Docker daemon",
+    "FEATURES:",
+    "- Per-LXC container breakdown with color coding",
+    "- Real-time metrics and rates",
+    "- Resource allocation tracking",
+    "- Health check monitoring",
+    "- Action timing analysis",
     "================================================================="
   ],
   "annotations": {
@@ -42,41 +37,15 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Current number of containers by state across all Docker hosts",
+      "description": "Container states breakdown by LXC host",
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
           "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "Containers",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "opacity",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
             },
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "inspect": false
           },
           "mappings": [],
           "thresholds": {
@@ -87,21 +56,31 @@
                 "value": null
               }
             ]
-          },
-          "unit": "short"
+          }
         },
         "overrides": [
           {
             "matcher": {
               "id": "byName",
-              "options": "running"
+              "options": "Running"
             },
             "properties": [
               {
-                "id": "color",
+                "id": "custom.cellOptions",
                 "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    }
+                  ]
                 }
               }
             ]
@@ -109,29 +88,25 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "paused"
+              "options": "Stopped"
             },
             "properties": [
               {
-                "id": "color",
+                "id": "custom.cellOptions",
                 "value": {
-                  "fixedColor": "yellow",
-                  "mode": "fixed"
+                  "type": "color-text"
                 }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "stopped"
-            },
-            "properties": [
+              },
               {
-                "id": "color",
+                "id": "thresholds",
                 "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    }
+                  ]
                 }
               }
             ]
@@ -139,24 +114,23 @@
         ]
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
+        "h": 7,
+        "w": 10,
         "x": 0,
         "y": 0
       },
       "id": 1,
       "options": {
-        "legend": {
-          "calcs": ["last", "max"],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "showHeader": true
       },
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
@@ -164,21 +138,82 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "engine_daemon_container_states_containers",
-          "legendFormat": "{{state}} @ {{instance}}",
-          "range": true,
-          "refId": "A"
+          "exemplar": false,
+          "expr": "engine_daemon_container_states_containers{state=\"running\"}",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "Running"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "engine_daemon_container_states_containers{state=\"stopped\"}",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "Stopped"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "engine_daemon_container_states_containers{state=\"paused\"}",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "Paused"
         }
       ],
-      "title": "Container States Over Time",
-      "type": "timeseries"
+      "title": "Container Overview by LXC",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true
+            },
+            "indexByName": {
+              "instance": 0,
+              "Value #Running": 1,
+              "Value #Stopped": 2,
+              "Value #Paused": 3
+            },
+            "renameByName": {
+              "Value #Paused": "Paused",
+              "Value #Running": "Running",
+              "Value #Stopped": "Stopped",
+              "instance": "LXC Host"
+            }
+          }
+        }
+      ],
+      "type": "table"
     },
     {
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Total number of running containers across all hosts",
+      "description": "Total running containers",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -194,11 +229,11 @@
               },
               {
                 "color": "yellow",
-                "value": 10
+                "value": 30
               },
               {
                 "color": "red",
-                "value": 20
+                "value": 50
               }
             ]
           },
@@ -207,16 +242,16 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 12,
+        "h": 7,
+        "w": 3,
+        "x": 10,
         "y": 0
       },
       "id": 2,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "justifyMode": "auto",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "values": false,
@@ -247,72 +282,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Number of paused containers",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 1
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 16,
-        "y": 0
-      },
-      "id": 3,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "values": false,
-          "calcs": ["lastNotNull"],
-          "fields": ""
-        },
-        "textMode": "value_and_name"
-      },
-      "pluginVersion": "10.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(engine_daemon_container_states_containers{state=\"paused\"} or vector(0))",
-          "legendFormat": "Paused",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Paused Containers",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "Number of stopped containers",
+      "description": "Stopped containers",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -325,6 +295,10 @@
               {
                 "color": "blue",
                 "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5
               }
             ]
           },
@@ -333,16 +307,16 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 20,
+        "h": 7,
+        "w": 3,
+        "x": 13,
         "y": 0
       },
-      "id": 4,
+      "id": 3,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "justifyMode": "auto",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "values": false,
@@ -373,7 +347,68 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Total failed health checks across all containers",
+      "description": "Total health checks performed",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(engine_daemon_health_checks_total or vector(0))",
+          "legendFormat": "Health Checks",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Health Checks Total",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Failed health checks",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -398,16 +433,16 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 12,
-        "y": 4
+        "h": 7,
+        "w": 4,
+        "x": 20,
+        "y": 0
       },
       "id": 5,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "justifyMode": "auto",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "values": false,
@@ -438,68 +473,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Total Docker daemon events",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 5,
-        "w": 6,
-        "x": 18,
-        "y": 4
-      },
-      "id": 6,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "values": false,
-          "calcs": ["lastNotNull"],
-          "fields": ""
-        },
-        "textMode": "value_and_name"
-      },
-      "pluginVersion": "10.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(engine_daemon_events_total)",
-          "legendFormat": "Events",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Total Events",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "Rate of container actions (create, start, stop, delete) per second",
+      "description": "Container states timeline per LXC",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -508,25 +482,160 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "Actions/s",
+            "axisLabel": "Containers",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
+            "fillOpacity": 25,
+            "gradientMode": "opacity",
             "hideFrom": {
               "tooltip": false,
               "viz": false,
               "legend": false
             },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
             "showPoints": "never",
             "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/.*running.*/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/.*stopped.*/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": ["last", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Last",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "engine_daemon_container_states_containers{state=\"running\"}",
+          "legendFormat": "{{instance}} - running",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "engine_daemon_container_states_containers{state=\"stopped\"}",
+          "hide": false,
+          "legendFormat": "{{instance}} - stopped",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Container States Timeline",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Rate of container operations",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Operations/s",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -552,16 +661,18 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 9
+        "x": 12,
+        "y": 7
       },
       "id": 7,
       "options": {
         "legend": {
           "calcs": ["mean", "max"],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -589,7 +700,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Average duration of container actions",
+      "description": "Average operation duration by type",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -598,25 +709,25 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "Duration",
+            "axisLabel": "Seconds",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
             "hideFrom": {
               "tooltip": false,
               "viz": false,
               "legend": false
             },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": false,
+            "spanNulls": true,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -632,6 +743,14 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
               }
             ]
           },
@@ -642,16 +761,18 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 9
+        "x": 0,
+        "y": 15
       },
       "id": 8,
       "options": {
         "legend": {
           "calcs": ["mean", "max"],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -671,7 +792,7 @@
           "refId": "A"
         }
       ],
-      "title": "Container Action Duration (Avg)",
+      "title": "Container Action Duration (Average)",
       "type": "timeseries"
     },
     {
@@ -679,7 +800,99 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Rate of image operations (pull, push, delete)",
+      "description": "Docker events rate across hosts",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Events/s",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(engine_daemon_events_total[5m])",
+          "legendFormat": "{{instance}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Docker Events Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Image operations (pull, push, delete)",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -692,21 +905,21 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
             "hideFrom": {
               "tooltip": false,
               "viz": false,
               "legend": false
             },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": false,
+            "spanNulls": true,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -733,15 +946,17 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 17
+        "y": 23
       },
-      "id": 9,
+      "id": 10,
       "options": {
         "legend": {
           "calcs": ["mean", "max"],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -761,7 +976,7 @@
           "refId": "A"
         }
       ],
-      "title": "Image Action Rate",
+      "title": "Image Operation Rate",
       "type": "timeseries"
     },
     {
@@ -769,7 +984,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Rate of network operations",
+      "description": "Network operations rate",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -782,21 +997,21 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
             "hideFrom": {
               "tooltip": false,
               "viz": false,
               "legend": false
             },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
             "showPoints": "never",
-            "spanNulls": false,
+            "spanNulls": true,
             "stacking": {
               "group": "A",
               "mode": "none"
@@ -823,15 +1038,17 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 17
+        "y": 23
       },
-      "id": 10,
+      "id": 11,
       "options": {
         "legend": {
           "calcs": ["mean", "max"],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -851,7 +1068,7 @@
           "refId": "A"
         }
       ],
-      "title": "Network Action Rate",
+      "title": "Network Operation Rate",
       "type": "timeseries"
     }
   ],
