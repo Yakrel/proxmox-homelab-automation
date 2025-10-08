@@ -61,9 +61,6 @@ services:
       - GF_SECURITY_ALLOW_EMBEDDING=true
     networks:
       - monitoring-net
-    depends_on:
-      - prometheus
-      - loki
     logging:
       driver: "json-file"
       options:
@@ -112,8 +109,6 @@ services:
       - "9080:9080"
     networks:
       - monitoring-net
-    depends_on:
-      - loki
     logging:
       driver: "json-file"
       options:

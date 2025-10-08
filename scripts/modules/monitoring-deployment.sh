@@ -232,32 +232,35 @@ configure_grafana_automation() {
     cat > "$datasource_config" << 'EOF'
 apiVersion: 1
 
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+  - name: Loki
+    orgId: 1
+
 datasources:
   - name: Prometheus
     type: prometheus
     uid: prometheus
     access: proxy
+    orgId: 1
     url: http://prometheus:9090
     isDefault: true
     jsonData:
       httpMethod: POST
-      manageAlerts: true
-      prometheusType: Prometheus
-      prometheusVersion: 2.40.0
-      cacheLevel: 'High'
-      disableRecordingRules: false
-      incrementalQueryOverlapWindow: 10m
-    editable: true
+      timeInterval: 30s
+    editable: false
 
   - name: Loki
     type: loki
     uid: loki
     access: proxy
+    orgId: 1
     url: http://loki:3100
     isDefault: false
     jsonData:
       maxLines: 1000
-    editable: true
+    editable: false
 EOF
     
     # Copy datasource config to host (overwrites existing, /datapool is host-mounted)
@@ -379,6 +382,11 @@ deploy_monitoring_stack() {
     
     # Provision Grafana dashboard JSON files (before starting Docker)
     provision_grafana_dashboards "$ct_id"
+
+    # Fix all permissions one final time before starting services (ensure new files have correct ownership)
+    print_info "Setting final permissions on all config files"
+    chown -R 101000:101000 /datapool/config
+    print_success "All permissions set correctly"
 
     # Deploy Docker services (configurations are now ready)
     deploy_docker_stack "$stack_name" "$ct_id"
