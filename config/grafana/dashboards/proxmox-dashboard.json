@@ -1252,7 +1252,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Overview of storage pools including datapool and rpool (ZFS pools)",
+      "description": "Overview of all storage pools including rpool (Proxmox boot pool), datapool, and other ZFS storage. Pools are automatically sorted by name.",
       "fieldConfig": {
         "defaults": {
           "custom": {
