@@ -6,11 +6,16 @@ This directory contains pre-configured Grafana dashboards for the Proxmox homela
 
 ### 1. Proxmox via Prometheus (`proxmox-dashboard.json`)
 
-**Custom-built dashboard** with proper ZFS ARC memory accounting and comprehensive system monitoring.
+**Custom-built dashboard** with improved visualization and comprehensive system monitoring using only PVE exporter metrics.
 
-**Required Data Sources:**
+**Design Philosophy:**
+- Clean Proxmox host - no additional software installation required
+- Uses only Prometheus PVE Exporter metrics
+- Enhanced visualization with gradients, colors, and thresholds
+- Professional layout with logical organization
+
+**Required Data Source:**
 - Prometheus PVE Exporter (port 9221)
-- Node Exporter on Proxmox host (port 9100)
 
 **Required Metrics:**
 
@@ -30,31 +35,9 @@ This directory contains pre-configured Grafana dashboards for the Proxmox homela
 - `pve_storage_info` - Storage information (labels)
 - `pve_up` - Resource up/down status
 
-*From Node Exporter (ZFS-aware):*
-- `node_memory_MemTotal_bytes` - Total system memory
-- `node_memory_MemAvailable_bytes` - Available memory (accounts for reclaimable cache)
-- `node_zfs_arc_size` - Current ZFS ARC size
-- `node_zfs_arc_hits_total` - ZFS ARC cache hits
-- `node_zfs_arc_misses_total` - ZFS ARC cache misses
-- `node_cpu_seconds_total` - CPU usage by mode
-- `node_load1/5/15` - System load averages
-- `node_network_*_bytes_total` - Network statistics
-- `node_boot_time_seconds` - System boot time
-
 **Prometheus Configuration Required:**
 ```yaml
-# Node Exporter for Proxmox host system metrics
-- job_name: 'node_exporter'
-  static_configs:
-    - targets:
-      - '192.168.1.10:9100'
-  relabel_configs:
-    - source_labels: [__address__]
-      regex: '192.168.1.10:9100'
-      target_label: instance
-      replacement: 'proxmox-host'
-
-# Proxmox VE Exporter for guest metrics
+# Proxmox VE Exporter
 - job_name: 'proxmox'
   static_configs:
     - targets:
@@ -71,39 +54,44 @@ This directory contains pre-configured Grafana dashboards for the Proxmox homela
       replacement: prometheus-pve-exporter:9221
 ```
 
+**Dashboard Structure:**
+
+**Section 1: System Overview**
+- **Guest Overview Table**: Status, CPU %, Memory % with visual bars and color coding
+- **Node CPU Usage**: Time series with smooth lines and threshold areas
+- **Node Memory Usage**: Used vs Total with visual distinction
+- **Current CPU/Memory**: Gauges with color-coded thresholds
+- **Storage Usage**: Horizontal bar gauges for all storage pools
+
+**Section 2: Guest Resources**
+- **Guest CPU Usage**: Per-LXC/VM time series with legends showing mean/max
+- **Guest Memory Usage**: Per-LXC/VM memory consumption
+- **Guest Disk I/O**: Read/write with mirror effect (read below, write above)
+- **Guest Network I/O**: TX/RX with mirror effect
+
 **Features:**
-- **ZFS-Aware Memory Monitoring**: Properly accounts for ZFS ARC as reclaimable cache
-- **System Overview**: Guest status, uptime, CPU/Memory gauges
-- **Detailed System Metrics**: CPU by mode, memory breakdown with ZFS ARC visibility
-- **ZFS Monitoring**: ARC size, hit rate, and efficiency tracking
-- **Storage Usage**: All storage pools with usage percentage
-- **Network I/O**: Host network throughput on bridge interface
-- **Guest Resources**: Per-LXC/VM CPU, memory, disk I/O, and network I/O
-- **Best Practice Design**: Organized layout with row separators and clear visualizations
+- **Enhanced Table**: Guest overview with status (Running/Stopped), CPU and memory shown as gradient bars
+- **Color-Coded Thresholds**: Green/yellow/red for quick status assessment
+- **Smooth Visualizations**: Line interpolation for cleaner graphs
+- **Mirror Effects**: Bidirectional metrics (disk I/O, network) use negative-Y for reads/receives
+- **Sortable Legends**: Table legends with mean/max values, sortable by usage
+- **Professional Layout**: Row separators for clear visual hierarchy
+- **Variable Support**: Node instance variable for easy switching
 
-**ZFS ARC Memory Accounting:**
+**Memory Monitoring Note:**
 
-Traditional memory monitoring shows ZFS ARC as "used" memory, which is misleading because ARC is reclaimable cache. This dashboard uses `node_memory_MemAvailable_bytes` which properly accounts for reclaimable memory including ZFS ARC.
+This dashboard uses PVE exporter's memory metrics (`pve_memory_usage_bytes` / `pve_memory_size_bytes`). 
 
-**Memory calculation:**
-- **Actual Used Memory** = `MemTotal - MemAvailable`
-- **Available Memory** = `MemAvailable` (includes reclaimable ARC)
-- **ZFS ARC Size** = Displayed separately for visibility
+**Important:** On ZFS systems, the reported "used" memory includes ZFS ARC cache. ZFS ARC is reclaimable memory used for disk caching - it's not truly "used" in the sense that applications can reclaim it when needed.
 
-This gives accurate representation of actual memory pressure vs cache usage.
+If you see high memory usage on a ZFS system:
+- Check `/proc/spl/kstat/zfs/arcstats` on Proxmox host for ARC size
+- This is normal behavior for ZFS - ARC uses available RAM for performance
+- The system will automatically free ARC when applications need memory
 
-**Setup Requirements:**
+**Setup:**
 
-1. Install node_exporter on Proxmox host:
-   ```bash
-   # Use helper menu option 9, or manually:
-   apt install prometheus-node-exporter
-   systemctl enable --now prometheus-node-exporter
-   ```
-
-2. Configure Prometheus to scrape both exporters (see configuration above)
-
-3. Dashboard will auto-load when placed in `/datapool/config/grafana/dashboards/`
+Dashboard auto-loads when placed in `/datapool/config/grafana/dashboards/`. No additional setup required beyond the existing PVE exporter configuration.
 
 ---
 
