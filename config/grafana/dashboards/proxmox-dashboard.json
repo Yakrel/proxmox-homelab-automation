@@ -282,7 +282,8 @@
               "job 1": true,
               "job 2": true,
               "job 3": true,
-              "job 4": true
+              "job 4": true,
+              "template": true
             },
             "indexByName": {
               "id": 0,
@@ -1251,7 +1252,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Detailed storage information with usage percentages",
+      "description": "Overview of all storage pools including rpool (Proxmox boot pool), datapool, and other ZFS storage. Pools are automatically sorted by name.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1370,7 +1371,9 @@
         "footer": {
           "countRows": false,
           "fields": "",
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "show": false
         },
         "showHeader": true,
@@ -1549,7 +1552,10 @@
       "id": 104,
       "options": {
         "legend": {
-          "calcs": ["last", "max"],
+          "calcs": [
+            "last",
+            "max"
+          ],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true,
@@ -1593,8 +1599,8 @@
           "text": "192.168.1.10",
           "value": "192.168.1.10"
         },
-        "description": "Proxmox node instance",
-        "hide": 0,
+        "description": "Proxmox node instance (hardcoded for homelab)",
+        "hide": 2,
         "includeAll": false,
         "label": "Node",
         "multi": false,
@@ -1609,7 +1615,7 @@
         "query": "192.168.1.10",
         "queryValue": "",
         "skipUrlSync": false,
-        "type": "textbox"
+        "type": "constant"
       }
     ]
   },

@@ -9,18 +9,15 @@
     "- Promtail scraping Docker container logs",
     "",
     "PROMTAIL CONFIGURATION:",
-    "Promtail must be configured to scrape Docker logs:",
-    "  scrape_configs:",
-    "    - job_name: docker",
-    "      docker_sd_configs:",
-    "        - host: unix:///var/run/docker.sock",
-    "      relabel_configs:",
-    "        - source_labels: ['__meta_docker_container_name']",
-    "          target_label: 'container'",
+    "Promtail is configured to scrape Docker logs from /var/lib/docker/containers/",
+    "with job label 'containerlogs'",
+    "",
+    "QUERY: {job=\"containerlogs\"}",
     "",
     "NOTES:",
-    "- Simple log viewer for all Docker containers",
+    "- Simple log viewer for all Docker containers across all LXC hosts",
     "- Use Grafana's log panel filters for searching",
+    "- Filter by container_name, host, or stream labels",
     "- Adjust time range as needed",
     "================================================================="
   ],
@@ -63,7 +60,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{job=\"docker\"}",
+          "expr": "{job=\"containerlogs\"}",
           "queryType": "range",
           "refId": "A"
         }
@@ -75,7 +72,11 @@
   "refresh": "10s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["loki", "logs", "docker"],
+  "tags": [
+    "loki",
+    "logs",
+    "docker"
+  ],
   "templating": {
     "list": []
   },

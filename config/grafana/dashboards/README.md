@@ -57,7 +57,7 @@ This directory contains pre-configured Grafana dashboards for the Proxmox homela
 **Dashboard Structure:**
 
 **Section 1: System Overview**
-- **Guest Overview Table**: Status, CPU %, Memory % with visual bars and color coding
+- **Guest Overview Table**: Status, CPU %, Memory % with visual bars and color coding (template field hidden)
 - **Node CPU Usage**: Time series with smooth lines and threshold areas
 - **Node Memory Usage**: Used vs Total with visual distinction
 - **Current CPU/Memory**: Gauges with color-coded thresholds
@@ -69,6 +69,10 @@ This directory contains pre-configured Grafana dashboards for the Proxmox homela
 - **Guest Disk I/O**: Read/write with mirror effect (read below, write above)
 - **Guest Network I/O**: TX/RX with mirror effect
 
+**Section 3: Storage Details**
+- **Storage Pools Overview**: Table showing all storage pools including rpool (Proxmox boot pool), datapool, and any other ZFS or directory storage configured in Proxmox
+- **Storage Usage Trend**: Historical storage usage over time
+
 **Features:**
 - **Enhanced Table**: Guest overview with status (Running/Stopped), CPU and memory shown as gradient bars
 - **Color-Coded Thresholds**: Green/yellow/red for quick status assessment
@@ -76,7 +80,8 @@ This directory contains pre-configured Grafana dashboards for the Proxmox homela
 - **Mirror Effects**: Bidirectional metrics (disk I/O, network) use negative-Y for reads/receives
 - **Sortable Legends**: Table legends with mean/max values, sortable by usage
 - **Professional Layout**: Row separators for clear visual hierarchy
-- **Variable Support**: Node instance variable for easy switching
+- **Hardcoded Node**: Node instance (192.168.1.10) is hardcoded for homelab use (hidden variable)
+- **Storage Monitoring**: Automatically displays all Proxmox storage including ZFS pools (rpool, datapool) and directory storage
 
 **Memory Monitoring Note:**
 
@@ -285,7 +290,10 @@ pve_node_info, pve_onboot_status, pve_storage_info, pve_storage_shared, pve_up,
 pve_uptime_seconds, pve_version_info
 ```
 
-**Note:** Storage metrics use `pve_disk_*` (not `pve_storage_*`) with filter `id=~"storage/.*"`
+**Note:** Storage metrics use `pve_disk_*` (not `pve_storage_*`) with filter `id=~"storage/.*"` which matches all storage configured in Proxmox including:
+- ZFS pools (rpool, datapool)
+- Directory storage (local, local-zfs if enabled)
+- Any other configured storage backends
 
 ### Docker Engine Metrics (21 total)
 ```
