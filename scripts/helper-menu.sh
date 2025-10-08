@@ -279,6 +279,45 @@ run_configure_media_gpu() {
     print_success "Media container configured for GTX 970."
 }
 
+run_install_node_exporter() {
+    require_root
+    
+    print_info "Installing Prometheus Node Exporter for system metrics (including ZFS ARC)"
+    
+    # Check if already installed
+    if systemctl is-active --quiet node_exporter; then
+        print_warning "Node Exporter is already running"
+        print_info "Current version: $(node_exporter --version 2>&1 | head -1)"
+        return 0
+    fi
+    
+    # Install node_exporter from Debian repos (latest available)
+    ensure_packages prometheus-node-exporter
+    
+    # Enable ZFS collector by default
+    print_info "Enabling ZFS collector in node_exporter"
+    mkdir -p /etc/default
+    cat > /etc/default/prometheus-node-exporter << 'EOF'
+# Enable ZFS metrics collection
+ARGS="--collector.zfs"
+EOF
+    
+    # Enable and start service
+    systemctl enable prometheus-node-exporter
+    systemctl restart prometheus-node-exporter
+    
+    # Verify it's working
+    sleep 2
+    if curl -s http://localhost:9100/metrics | grep -q "node_"; then
+        print_success "Node Exporter installed and running on port 9100"
+        print_info "ZFS ARC metrics will be available for Grafana dashboards"
+    else
+        print_warning "Node Exporter started but metrics may not be available yet"
+    fi
+    
+    print_info "Remember to update Prometheus configuration to scrape this endpoint"
+}
+
 # --- Main Menu ---
 
 while true; do
@@ -295,6 +334,7 @@ while true; do
     echo "   6) Manage Fail2ban"
     echo "   7) Setup GPU Passthrough (NVIDIA GTX 970)"
     echo "   8) Configure Media Container GPU"
+    echo "   9) Install Node Exporter (System Metrics)"
     echo "---------------------------------------"
     echo "   b) Back to Main Menu"
     echo "   q) Quit"
@@ -310,6 +350,7 @@ while true; do
         6) bash "$WORK_DIR/scripts/fail2ban-manager.sh"; press_enter_to_continue ;;
         7) run_setup_gpu_passthrough; press_enter_to_continue ;;
         8) run_configure_media_gpu; press_enter_to_continue ;;
+        9) run_install_node_exporter; press_enter_to_continue ;;
         b|B) exec bash "$WORK_DIR/scripts/main-menu.sh" ;;
         q|Q) echo "Exiting."; exit 0 ;;
         *) print_error "Invalid choice. Please try again." ;;
