@@ -53,6 +53,30 @@ Shell-based automation for deploying containerized services in LXC containers on
 ### Security and Encryption
 Always use `-pbkdf2` and `-salt` with openssl for env file encryption/decryption.
 
+### Environment Secrets
+The repository uses encrypted `.env.enc` files in each stack directory (`docker/*/. env.enc`). When making changes that require editing environment variables:
+
+1. **GitHub Environment Secret**: The `ENV_ENC_KEY` environment variable is available as a GitHub environment secret
+2. **Decrypting**: Use `printf '%s' "$ENV_ENC_KEY" | openssl enc -d -aes-256-cbc -pbkdf2 -salt -pass stdin -in <file>.env.enc -out <file>.env`
+3. **Editing**: Modify the decrypted `.env` file as needed
+4. **Re-encrypting**: Use `printf '%s' "$ENV_ENC_KEY" | openssl enc -aes-256-cbc -pbkdf2 -salt -pass stdin -in <file>.env -out <file>.env.enc`
+5. **Cleanup**: Remove temporary decrypted files after re-encryption
+6. **Commit**: Only commit the `.env.enc` files, never the decrypted `.env` files
+
+**Example workflow for adding an API key:**
+```bash
+# Decrypt
+printf '%s' "$ENV_ENC_KEY" | openssl enc -d -aes-256-cbc -pbkdf2 -salt -pass stdin -in docker/webtools/.env.enc -out /tmp/webtools.env
+
+# Edit /tmp/webtools.env (add your key)
+
+# Re-encrypt
+printf '%s' "$ENV_ENC_KEY" | openssl enc -aes-256-cbc -pbkdf2 -salt -pass stdin -in /tmp/webtools.env -out docker/webtools/.env.enc
+
+# Cleanup
+rm /tmp/webtools.env
+```
+
 ### Version Control
 - **NEVER** use "Generated with [AI Tool]" in commits
 - Commit as the actual developer (Yakrel), not as AI
