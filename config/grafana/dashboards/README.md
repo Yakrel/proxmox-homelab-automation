@@ -1,4 +1,4 @@
-# Grafana Dashboards
+kleri# Grafana Dashboards
 
 This directory contains pre-configured Grafana dashboards for the Proxmox homelab monitoring stack.
 
@@ -274,6 +274,30 @@ sed -i 's/"uid": "${DS_LOKI}"/"uid": "loki"/g' dashboard.json
    curl http://192.168.1.104:9080/targets
    ```
 
+## Available Metrics Summary
+
+### Proxmox VE Metrics (20 total)
+```
+pve_cpu_usage_limit, pve_cpu_usage_ratio, pve_disk_read_bytes, pve_disk_size_bytes,
+pve_disk_usage_bytes, pve_disk_write_bytes, pve_guest_info, pve_ha_state, pve_lock_state,
+pve_memory_size_bytes, pve_memory_usage_bytes, pve_network_receive_bytes, pve_network_transmit_bytes,
+pve_node_info, pve_onboot_status, pve_storage_info, pve_storage_shared, pve_up,
+pve_uptime_seconds, pve_version_info
+```
+
+**Note:** Storage metrics use `pve_disk_*` (not `pve_storage_*`) with filter `id=~"storage/.*"`
+
+### Docker Engine Metrics (21 total)
+```
+engine_daemon_container_states_containers (running/paused/stopped)
+engine_daemon_container_actions_seconds_* (create/start/stop/delete)
+engine_daemon_engine_cpus_cpus, engine_daemon_engine_memory_bytes
+engine_daemon_events_total, engine_daemon_health_checks_total, engine_daemon_health_checks_failed_total
+engine_daemon_health_check_start_duration_seconds_*
+engine_daemon_image_actions_seconds_* (pull/push/delete)
+engine_daemon_network_actions_seconds_* (create/remove/connect)
+```
+
 ## Contributing
 
 If you improve these dashboards or create new ones:
@@ -283,4 +307,7 @@ If you improve these dashboards or create new ones:
 3. Add documentation comments at the top of the JSON
 4. Update this README with metrics required and features
 5. Commit to the repo
+
+
+````
 
