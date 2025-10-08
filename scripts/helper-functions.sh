@@ -40,6 +40,13 @@ press_enter_to_continue() {
 }
 
 prompt_env_passphrase() {
+    # Use ENV_ENC_KEY environment variable if available
+    if [[ -n "${ENV_ENC_KEY:-}" ]]; then
+        print_info "Using passphrase from ENV_ENC_KEY environment variable"
+        printf '%s' "$ENV_ENC_KEY"
+        return
+    fi
+    
     local pass
     while true; do
         echo -n "Enter encryption passphrase: " >&2

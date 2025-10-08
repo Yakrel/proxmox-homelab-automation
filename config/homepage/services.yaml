@@ -60,6 +60,14 @@
           url: http://192.168.1.101:8080
           user: "{{HOMEPAGE_VAR_QB_USERNAME}}"
           pass: "{{HOMEPAGE_VAR_QB_PASSWORD}}"
+    - Immich:
+        description: Photo & Video Management
+        href: http://192.168.1.101:2283
+        icon: immich.png
+        widget:
+          type: immich
+          url: http://192.168.1.101:2283
+          key: "{{HOMEPAGE_VAR_IMMICH_API_KEY}}"
 
 - Monitoring:
     - Grafana:

@@ -238,6 +238,12 @@ services:
       - UMASK=002
     ports:
       - "8191:8191"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8191/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - media-net
     restart: unless-stopped
@@ -279,6 +285,12 @@ services:
     depends_on:
       - redis
       - database
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2283/api/server-info/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
       - media-net
     restart: unless-stopped
@@ -302,6 +314,12 @@ services:
       - /dev/nvidia0:/dev/nvidia0
       - /dev/nvidiactl:/dev/nvidiactl
       - /dev/nvidia-modeset:/dev/nvidia-modeset
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:3003/ping', timeout=10)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
       - media-net
     restart: unless-stopped
@@ -314,6 +332,12 @@ services:
   redis:
     container_name: immich-redis
     image: docker.io/valkey/valkey:8-bookworm@sha256:fea8b3e67b15729d4bb70589eb03367bab9ad1ee89c876f54327fc7c6e618571
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     networks:
       - media-net
     restart: unless-stopped
@@ -333,6 +357,12 @@ services:
       POSTGRES_INITDB_ARGS: '--data-checksums'
     volumes:
       - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE_NAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - media-net
     shm_size: 128mb
@@ -398,6 +428,12 @@ services:
       - /datapool:/datapool
     ports:
       - "11011:11011"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11011"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - media-net
     restart: unless-stopped
