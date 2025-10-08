@@ -22,6 +22,12 @@ services:
       - /datapool/torrents/other:/output
     ports:
       - "5800:5800"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "5800"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - files-net
     restart: unless-stopped
@@ -44,6 +50,12 @@ services:
       - /datapool/media/youtube:/downloads
     ports:
       - "8081:8081"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - files-net
     restart: unless-stopped
@@ -70,6 +82,12 @@ services:
     ports:
       - "5487:5487"
       - "3333:3333"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5487"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - files-net
     restart: unless-stopped

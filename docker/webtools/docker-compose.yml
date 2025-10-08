@@ -61,6 +61,12 @@ services:
       - KEEP_APP_RUNNING=1
       - DISPLAY_WIDTH=1920
       - DISPLAY_HEIGHT=1080
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "5800"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - webtools-net
     logging:

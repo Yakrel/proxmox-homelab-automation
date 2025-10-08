@@ -152,6 +152,12 @@ services:
       - 8.8.8.8
     ports:
       - "5055:5055"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5055"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - media-net
     restart: unless-stopped
