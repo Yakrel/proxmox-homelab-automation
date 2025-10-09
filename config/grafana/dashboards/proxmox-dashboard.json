@@ -78,8 +78,12 @@
               {
                 "id": "custom.cellOptions",
                 "value": {
-                  "type": "color-background"
+                  "type": "color-text"
                 }
+              },
+              {
+                "id": "custom.align",
+                "value": "center"
               },
               {
                 "id": "mappings",
@@ -161,6 +165,22 @@
                 "value": "percentunit"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Uptime"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
           }
         ]
       },
@@ -185,7 +205,7 @@
         "sortBy": [
           {
             "desc": true,
-            "displayName": "Status"
+            "displayName": "CPU %"
           }
         ]
       },
@@ -249,6 +269,21 @@
           "legendFormat": "__auto",
           "range": false,
           "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "pve_uptime_seconds{instance=\"$instance\"}",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "E"
         }
       ],
       "title": "Guest Overview",
@@ -273,6 +308,7 @@
               "__name__ 2": true,
               "__name__ 3": true,
               "__name__ 4": true,
+              "Value": true,
               "instance": true,
               "instance 1": true,
               "instance 2": true,
@@ -291,12 +327,14 @@
               "type": 2,
               "Value #B": 3,
               "Value #C": 4,
-              "Value #D": 5
+              "Value #D": 5,
+              "Value #E": 6
             },
             "renameByName": {
               "Value #B": "Status",
               "Value #C": "CPU %",
               "Value #D": "Memory %",
+              "Value #E": "Uptime",
               "id": "ID",
               "name": "Name",
               "type": "Type"

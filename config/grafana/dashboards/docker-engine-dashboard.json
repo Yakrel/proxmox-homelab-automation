@@ -130,7 +130,13 @@
           ],
           "show": false
         },
-        "showHeader": true
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Running"
+          }
+        ]
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -205,6 +211,35 @@
               "Value #Running": "Running",
               "Value #Stopped": "Stopped",
               "instance": "LXC Host"
+            }
+          }
+        },
+        {
+          "id": "groupBy",
+          "options": {
+            "fields": {
+              "LXC Host": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "Paused": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Running": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              },
+              "Stopped": {
+                "aggregations": [
+                  "lastNotNull"
+                ],
+                "operation": "aggregate"
+              }
             }
           }
         }
