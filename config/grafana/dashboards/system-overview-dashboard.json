@@ -30,9 +30,9 @@
         "x": 0,
         "y": 0
       },
-      "id": 200,
+      "id": 100,
       "panels": [],
-      "title": "Node Health",
+      "title": "Host Health",
       "type": "row"
     },
     {
@@ -40,7 +40,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Current CPU usage of the Proxmox node.",
+      "description": "Proxmox node CPU usage",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -71,12 +71,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 8,
+        "h": 6,
+        "w": 6,
         "x": 0,
         "y": 1
       },
-      "id": 4,
+      "id": 1,
       "options": {
         "orientation": "auto",
         "reduceOptions": {
@@ -87,8 +87,7 @@
           "values": false
         },
         "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "text": {}
+        "showThresholdMarkers": true
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -99,7 +98,7 @@
           },
           "editorMode": "code",
           "expr": "pve_cpu_usage_ratio{id=~\"node/.*\"}",
-          "legendFormat": "__auto",
+          "legendFormat": "CPU",
           "range": true,
           "refId": "A"
         }
@@ -112,7 +111,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Current memory usage of the Proxmox node. High usage may be due to ZFS ARC cache, which is normal.",
+      "description": "Proxmox node memory usage",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -143,12 +142,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
+        "h": 6,
+        "w": 6,
+        "x": 6,
         "y": 1
       },
-      "id": 5,
+      "id": 2,
       "options": {
         "orientation": "auto",
         "reduceOptions": {
@@ -159,8 +158,7 @@
           "values": false
         },
         "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "text": {}
+        "showThresholdMarkers": true
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -171,7 +169,7 @@
           },
           "editorMode": "code",
           "expr": "pve_memory_usage_bytes{id=~\"node/.*\"} / pve_memory_size_bytes{id=~\"node/.*\"}",
-          "legendFormat": "__auto",
+          "legendFormat": "Memory",
           "range": true,
           "refId": "A"
         }
@@ -184,48 +182,38 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Storage pool usage. Automatically discovers all storage pools configured in Proxmox.",
+      "description": "Total running LXC containers and VMs",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
           "mappings": [],
-          "max": 1,
-          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 0.7
-              },
-              {
-                "color": "red",
-                "value": 0.9
               }
             ]
           },
-          "unit": "percentunit"
+          "unit": "none"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
+        "h": 6,
+        "w": 4,
+        "x": 12,
         "y": 1
       },
-      "id": 6,
+      "id": 3,
       "options": {
-        "displayMode": "lcd",
-        "minVizHeight": 10,
-        "minVizWidth": 0,
-        "orientation": "horizontal",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -233,8 +221,7 @@
           "fields": "",
           "values": false
         },
-        "showUnfilled": true,
-        "text": {}
+        "textMode": "auto"
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -244,14 +231,144 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "pve_disk_usage_bytes{id=~\"storage/.*\"} / pve_disk_size_bytes{id=~\"storage/.*\"}",
-          "legendFormat": "{{id}}",
+          "expr": "count(pve_up{id=~\"lxc/.*|qemu/.*\"} == 1)",
+          "legendFormat": "Running",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Storage Usage",
-      "type": "bargauge"
+      "title": "Running Guests",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Total running Docker containers across all hosts",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(engine_daemon_container_states_containers{state=\"running\"})",
+          "legendFormat": "Running",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Docker Containers",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Failed health checks in last 5 minutes",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(engine_daemon_health_checks_failed_total[5m]))",
+          "legendFormat": "Failed",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Failed Health Checks (5m)",
+      "type": "stat"
     },
     {
       "collapsed": false,
@@ -259,11 +376,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 7
       },
-      "id": 100,
+      "id": 200,
       "panels": [],
-      "title": "Guest Overview",
+      "title": "LXC Resources",
       "type": "row"
     },
     {
@@ -271,7 +388,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Overview of all guests (LXC and VM) with their resource allocation and status.",
+      "description": "Overview of all LXC containers and VMs with resource usage",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -342,7 +459,12 @@
                 }
               },
               {
-                "id": "unit": "percentunit"
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "max",
+                "value": 1
               }
             ]
           },
@@ -360,31 +482,24 @@
                 }
               },
               {
-                "id": "unit": "percentunit"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Uptime"
-            },
-            "properties": [
-              {
                 "id": "unit",
-                "value": "s"
+                "value": "percentunit"
+              },
+              {
+                "id": "max",
+                "value": 1
               }
             ]
           }
         ]
       },
       "gridPos": {
-        "h": 12,
+        "h": 10,
         "w": 24,
         "x": 0,
-        "y": 10
+        "y": 8
       },
-      "id": 1,
+      "id": 6,
       "options": {
         "cellHeight": "sm",
         "footer": {
@@ -448,20 +563,9 @@
           "format": "table",
           "instant": true,
           "refId": "D"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "pve_uptime_seconds",
-          "format": "table",
-          "instant": true,
-          "refId": "E"
         }
       ],
-      "title": "Guest Details",
+      "title": "Guest Overview",
       "transformations": [
         {
           "id": "seriesToColumns",
@@ -472,13 +576,40 @@
         {
           "id": "organize",
           "options": {
-            "excludeByName": {},
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "__name__": true,
+              "__name__ 1": true,
+              "__name__ 2": true,
+              "__name__ 3": true,
+              "__name__ 4": true,
+              "id": true,
+              "instance": true,
+              "instance 1": true,
+              "instance 2": true,
+              "instance 3": true,
+              "instance 4": true,
+              "job": true,
+              "job 1": true,
+              "job 2": true,
+              "job 3": true,
+              "job 4": true,
+              "node": true,
+              "node 1": true,
+              "node 2": true,
+              "node 3": true,
+              "node 4": true,
+              "template": true
+            },
             "indexByName": {},
             "renameByName": {
               "Value #B": "Status",
               "Value #C": "CPU %",
               "Value #D": "Memory %",
-              "Value #E": "Uptime",
               "name": "Name",
               "type": "Type"
             }
@@ -492,7 +623,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "CPU usage by guest (LXC/VM).\n",
+      "description": "CPU usage per LXC/VM",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -506,14 +637,14 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 20,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
             "lineInterpolation": "smooth",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -545,10 +676,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 12,
         "x": 0,
-        "y": 22
+        "y": 18
       },
       "id": 7,
       "options": {
@@ -589,7 +720,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Memory usage by guest (LXC/VM).\n",
+      "description": "Memory usage per LXC/VM",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -603,14 +734,14 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 20,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
             "lineInterpolation": "smooth",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -641,10 +772,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 12,
         "x": 12,
-        "y": 22
+        "y": 18
       },
       "id": 8,
       "options": {
@@ -681,11 +812,24 @@
       "type": "timeseries"
     },
     {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "id": 300,
+      "panels": [],
+      "title": "Disk & Network I/O",
+      "type": "row"
+    },
+    {
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Disk I/O by guest (LXC/VM).\n",
+      "description": "Disk I/O per LXC/VM - Read (negative) and Write (positive)",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -699,14 +843,14 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 20,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
             "lineInterpolation": "smooth",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -749,10 +893,10 @@
         ]
       },
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 28
       },
       "id": 9,
       "options": {
@@ -791,7 +935,6 @@
           },
           "editorMode": "code",
           "expr": "rate(pve_disk_write_bytes{id=~\"lxc/.*|qemu/.*\"}[5m]) * on(id) group_left(name) pve_guest_info",
-          "hide": false,
           "legendFormat": "{{name}} write",
           "range": true,
           "refId": "B"
@@ -805,7 +948,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Network I/O by guest (LXC/VM).\n",
+      "description": "Network I/O per LXC/VM - RX (negative) and TX (positive)",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -819,14 +962,14 @@
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 20,
-            "gradientMode": "none",
+            "gradientMode": "opacity",
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
             "lineInterpolation": "smooth",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -869,10 +1012,10 @@
         ]
       },
       "gridPos": {
-        "h": 10,
+        "h": 9,
         "w": 12,
         "x": 12,
-        "y": 32
+        "y": 28
       },
       "id": 10,
       "options": {
@@ -911,7 +1054,6 @@
           },
           "editorMode": "code",
           "expr": "rate(pve_network_transmit_bytes{id=~\"lxc/.*|qemu/.*\"}[5m]) * on(id) group_left(name) pve_guest_info",
-          "hide": false,
           "legendFormat": "{{name}} transmit",
           "range": true,
           "refId": "B"
@@ -919,14 +1061,256 @@
       ],
       "title": "Guest Network I/O",
       "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
+      "id": 400,
+      "panels": [],
+      "title": "Docker Containers",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Container states over time per Docker host",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Containers",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 30,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/.*running.*/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/.*stopped.*/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 38
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "engine_daemon_container_states_containers{state=\"running\"}",
+          "legendFormat": "{{instance}} - running",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "engine_daemon_container_states_containers{state=\"stopped\"}",
+          "legendFormat": "{{instance}} - stopped",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Container States",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Container action rates (start/stop/restart) per Docker host",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Operations/s",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 38
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "rate(engine_daemon_container_actions_seconds_count[5m])",
+          "legendFormat": "{{action}} @ {{instance}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Container Actions",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
   "tags": [
+    "homelab",
     "proxmox",
-    "infrastructure"
+    "docker",
+    "overview"
   ],
   "templating": {
     "list": []
@@ -936,8 +1320,8 @@
     "to": "now"
   },
   "timepicker": {},
-  "timezone": "",
-  "title": "Proxmox System Monitor",
-  "uid": "proxmox-improved",
+  "timezone": "browser",
+  "title": "System Overview",
+  "uid": "system-overview",
   "version": 1
 }

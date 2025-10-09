@@ -1,134 +1,157 @@
-kleri# Grafana Dashboards
+# Grafana Dashboards
 
-This directory contains pre-configured Grafana dashboards for the Proxmox homelab monitoring stack.
+This directory contains minimalist, practical Grafana dashboards for the Proxmox homelab monitoring stack.
+
+## Design Philosophy
+
+- **Minimalist**: Only essential metrics that matter
+- **Practical**: Focused on real homelab monitoring needs
+- **Unified**: Single dashboard for infrastructure + workloads
+- **Clean**: Well-organized with clear visual hierarchy
 
 ## Available Dashboards
 
-### 1. Proxmox via Prometheus (`proxmox-dashboard.json`)
+### 1. System Overview (`system-overview-dashboard.json`)
 
-**Custom-built dashboard** with improved visualization and comprehensive system monitoring using only PVE exporter metrics.
-
-**Design Philosophy:**
-- Clean Proxmox host - no additional software installation required
-- Uses only Prometheus PVE Exporter metrics
-- Enhanced visualization with gradients, colors, and thresholds
-- Professional layout with logical organization
-
-**Required Data Source:**
-- Prometheus PVE Exporter (port 9221)
-
-**Required Metrics:**
-
-*From PVE Exporter:*
-- `pve_cpu_usage_limit` - CPU allocation limits
-- `pve_cpu_usage_ratio` - CPU usage ratios
-- `pve_memory_size_bytes` - Memory allocation
-- `pve_memory_usage_bytes` - Memory usage
-- `pve_disk_size_bytes` - Disk/storage sizes
-- `pve_disk_usage_bytes` - Disk/storage usage
-- `pve_disk_read_bytes` - Disk read statistics
-- `pve_disk_write_bytes` - Disk write statistics
-- `pve_network_receive_bytes` - Network receive statistics
-- `pve_network_transmit_bytes` - Network transmit statistics
-- `pve_node_info` - Node information (labels)
-- `pve_guest_info` - Guest/container information (labels)
-- `pve_storage_info` - Storage information (labels)
-- `pve_up` - Resource up/down status
-
-**Prometheus Configuration Required:**
-```yaml
-# Proxmox VE Exporter
-- job_name: 'proxmox'
-  static_configs:
-    - targets:
-      - '192.168.1.10'
-  metrics_path: /pve
-  params:
-    module: [default]
-  relabel_configs:
-    - source_labels: [__address__]
-      target_label: __param_target
-    - source_labels: [__param_target]
-      target_label: instance
-    - target_label: __address__
-      replacement: prometheus-pve-exporter:9221
-```
+**Unified dashboard** combining Proxmox infrastructure and Docker workload metrics.
 
 **Dashboard Structure:**
 
-**Section 1: System Overview**
-- **Guest Overview Table**: Status, CPU %, Memory % with visual bars and color coding (template field hidden)
-- **Node CPU Usage**: Time series with smooth lines and threshold areas
-- **Node Memory Usage**: Used vs Total with visual distinction
-- **Current CPU/Memory**: Gauges with color-coded thresholds
-- **Storage Usage**: Horizontal bar gauges for all storage pools
+#### Section 1: Host Health (Stat Panels)
+- **Node CPU/Memory**: Proxmox host resource gauges with color thresholds
+- **Running Guests**: Total count of running LXC/VMs
+- **Docker Containers**: Total running containers across all hosts
+- **Failed Health Checks**: Docker health check failures (5m window)
 
-**Section 2: Guest Resources**
-- **Guest CPU Usage**: Per-LXC/VM time series with legends showing mean/max
-- **Guest Memory Usage**: Per-LXC/VM memory consumption
-- **Guest Disk I/O**: Read/write with mirror effect (read below, write above)
-- **Guest Network I/O**: TX/RX with mirror effect
+#### Section 2: LXC Resources
+- **Guest Overview Table**:
+  - All LXC/VM with status (Running/Stopped)
+  - CPU and Memory usage as gradient gauges
+  - Sortable by resource usage
+- **Guest CPU Usage**: Time series per LXC/VM with mean/max in legend
+- **Guest Memory Usage**: Time series per LXC/VM with mean/max in legend
 
-**Section 3: Storage Details**
-- **Storage Pools Overview**: Table showing all storage pools including rpool (Proxmox boot pool), datapool, and any other ZFS or directory storage configured in Proxmox
-- **Storage Usage Trend**: Historical storage usage over time
+#### Section 3: Disk & Network I/O ⭐
+- **Guest Disk I/O**: Read (negative) and Write (positive) per LXC/VM
+  - Sorted by max I/O in legend - **instantly see which LXC is hammering the disk**
+- **Guest Network I/O**: RX (negative) and TX (positive) per LXC/VM
+  - Sorted by max throughput - **identify network bottlenecks**
 
-**Features:**
-- **Enhanced Table**: Guest overview with status (Running/Stopped), CPU and memory shown as gradient bars
-- **Color-Coded Thresholds**: Green/yellow/red for quick status assessment
-- **Smooth Visualizations**: Line interpolation for cleaner graphs
-- **Mirror Effects**: Bidirectional metrics (disk I/O, network) use negative-Y for reads/receives
-- **Sortable Legends**: Table legends with mean/max values, sortable by usage
-- **Professional Layout**: Row separators for clear visual hierarchy
-- **Hardcoded Node**: Node instance (192.168.1.10) is hardcoded for homelab use (hidden variable)
-- **Storage Monitoring**: Automatically displays all Proxmox storage including ZFS pools (rpool, datapool) and directory storage
+#### Section 4: Docker Containers
+- **Container States**: Running/stopped over time (stacked area chart)
+- **Container Actions**: Start/stop/restart rates per Docker host
 
-**Memory Monitoring Note:**
+**Required Metrics:**
 
-This dashboard uses PVE exporter's memory metrics (`pve_memory_usage_bytes` / `pve_memory_size_bytes`). 
+*Proxmox VE Exporter (PVE):*
+- `pve_cpu_usage_ratio` - CPU usage
+- `pve_memory_usage_bytes` / `pve_memory_size_bytes` - Memory
+- `pve_disk_read_bytes` / `pve_disk_write_bytes` - Disk I/O (rate)
+- `pve_network_receive_bytes` / `pve_network_transmit_bytes` - Network I/O (rate)
+- `pve_guest_info` - Guest metadata (names, types)
+- `pve_up` - Guest status
 
-**Important:** On ZFS systems, the reported "used" memory includes ZFS ARC cache. ZFS ARC is reclaimable memory used for disk caching - it's not truly "used" in the sense that applications can reclaim it when needed.
+*Docker Engine Metrics:*
+- `engine_daemon_container_states_containers` - Container states (running/stopped)
+- `engine_daemon_container_actions_seconds_count` - Container action rates
+- `engine_daemon_health_checks_failed_total` - Failed health checks
 
-If you see high memory usage on a ZFS system:
-- Check `/proc/spl/kstat/zfs/arcstats` on Proxmox host for ARC size
-- This is normal behavior for ZFS - ARC uses available RAM for performance
-- The system will automatically free ARC when applications need memory
+**Why Disk I/O matters:**
+When an LXC freezes or becomes unresponsive, it's often disk-related. This dashboard shows:
+- Which LXC is doing heavy disk writes (backup/download/build)
+- Which LXC is reading excessively (database/media streaming)
+- Legend sorted by max values - culprit is at the top
 
-**Setup:**
-
-Dashboard auto-loads when placed in `/datapool/config/grafana/dashboards/`. No additional setup required beyond the existing PVE exporter configuration.
+**Use Cases:**
+- Quick system health check in one view
+- Identify resource hogs (CPU/Memory/Disk/Network)
+- Monitor Docker container lifecycle
+- Track health check failures
 
 ---
 
-### 2. Docker Engine Metrics (`docker-engine-dashboard.json`)
+### 2. Logs Monitor (`logs-dashboard.json`)
 
-**Custom dashboard** designed for Docker Engine's native metrics endpoint.
+**Improved log viewer** with better filtering and search capabilities.
 
-**Required Metrics:**
-- `engine_daemon_container_states_containers` - Container states (running/paused/stopped)
-- `engine_daemon_container_actions_seconds_*` - Container action durations (create/start/stop/delete)
-- `engine_daemon_health_checks_total` - Total health checks
-- `engine_daemon_health_checks_failed_total` - Failed health checks
-- `engine_daemon_health_check_start_duration_seconds_*` - Health check durations
-- `engine_daemon_events_total` - Total Docker events
-- `engine_daemon_image_actions_seconds_*` - Image operations (pull/push/delete)
-- `engine_daemon_network_actions_seconds_*` - Network operations
-- `engine_daemon_engine_cpus_cpus` - Available CPUs
-- `engine_daemon_engine_memory_bytes` - Available memory
+**Features:**
+- **Log Volume Chart**: Stacked histogram showing log volume per container
+- **Real-time Log Panel**: Live log streaming with filtering
+- **Advanced Filtering**:
+  - **Host**: Select which LXC host
+  - **Container**: Filter by Docker container name
+  - **Stream**: stdout/stderr selection
+  - **Level**: Quick filter by log level (info/warn/error/debug)
+  - **Search**: Free-text regex search
+- **Auto-refresh**: 10s interval for live monitoring
 
-**Prometheus Configuration Required:**
+**Required Setup:**
+- Loki datasource configured in Grafana
+- Promtail scraping Docker logs from all hosts
+
+**Use Cases:**
+- Troubleshoot container issues in real-time
+- Filter logs by severity (errors only)
+- Search across all containers for specific events
+- Monitor log volume spikes
+
+---
+
+## Data Sources
+
+### Prometheus (UID: `prometheus`)
+Collects metrics from:
+- **Proxmox VE Exporter** (port 9221): Host and guest metrics
+- **Docker Engine** (port 9323): Native Docker daemon metrics from 6 LXC hosts
+
+### Loki (UID: `loki`)
+Centralized log aggregation:
+- **Promtail agents** on each Docker host shipping container logs
+- 30-day retention policy
+
+---
+
+## Prometheus Configuration
+
+The monitoring stack requires these scrape configs:
+
 ```yaml
-- job_name: 'docker_engine'
-  static_configs:
-    - targets: 
-        - '192.168.1.100:9323'  # LXC 100
-        - '192.168.1.101:9323'  # LXC 101
-        # Add all Docker hosts
+scrape_configs:
+  # Proxmox VE Exporter
+  - job_name: 'proxmox'
+    static_configs:
+      - targets: ['192.168.1.10']
+    metrics_path: /pve
+    params:
+      module: [default]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: prometheus-pve-exporter:9221
+
+  # Docker Engine metrics
+  - job_name: 'docker_engine'
+    static_configs:
+      - targets:
+        - '192.168.1.100:9323'  # lxc-proxy-01
+        - '192.168.1.101:9323'  # lxc-media-01
+        - '192.168.1.102:9323'  # lxc-files-01
+        - '192.168.1.103:9323'  # lxc-webtools-01
+        - '192.168.1.104:9323'  # lxc-monitoring-01
+        - '192.168.1.105:9323'  # lxc-gameservers-01
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '192.168.1.(\d+):9323'
+        target_label: instance
+        replacement: 'lxc-${1}'
 ```
 
 **Docker Configuration Required:**
 
-Each Docker host must expose metrics on port 9323. Add to `/etc/docker/daemon.json`:
+Each Docker host must expose metrics. Add to `/etc/docker/daemon.json`:
 ```json
 {
   "metrics-addr": "0.0.0.0:9323",
@@ -136,186 +159,164 @@ Each Docker host must expose metrics on port 9323. Add to `/etc/docker/daemon.js
 }
 ```
 
-**Features:**
-- Container state tracking over time
-- Container action rates and durations
-- Health check monitoring
-- Image and network operation rates
-- Per-host breakdown
-
-**Why not cAdvisor?**
-
-This dashboard uses Docker Engine's native metrics instead of cAdvisor because:
-- cAdvisor has compatibility issues with Alpine Linux in LXC containers
-- Docker Engine metrics are simpler and built-in (no extra container needed)
-- Sufficient for homelab monitoring needs
-
----
-
-### 3. Docker Logs via Loki (`loki-logs-dashboard.json`)
-
-**Custom simple log viewer** for Docker container logs.
-
-**Required Setup:**
-- Loki datasource configured
-- Promtail scraping Docker logs
-
-**Promtail Configuration:**
-
-The deployment script automatically configures Promtail to scrape Docker container logs from `/var/lib/docker/containers`.
-
-**Features:**
-- Real-time log streaming
-- Searchable and filterable
-- Shows all Docker containers on the host
-- Auto-refresh every 10 seconds
-
-**Usage:**
-- Use Grafana's built-in log panel filters to search
-- Click on log lines to expand details
-- Adjust time range as needed
-
 ---
 
 ## Deployment
 
-These dashboards are automatically deployed by the monitoring stack deployment script:
+Dashboards are automatically deployed by the monitoring stack:
 
 ```bash
 ./installer.sh
-# Select option 5: Deploy monitoring stack
+# Select: Deploy monitoring stack
 ```
 
-The script will:
-1. Download dashboard JSONs from this repo
-2. Fix datasource UIDs to match your setup (`prometheus` and `loki`)
-3. Place them in `/datapool/config/grafana/dashboards/`
-4. Grafana auto-loads them via provisioning
+The deployment script:
+1. Places dashboard JSONs in `/datapool/config/grafana/dashboards/`
+2. Grafana auto-loads them via provisioning
+3. Datasource UIDs are pre-configured (`prometheus` and `loki`)
+
+---
 
 ## Manual Installation
 
-If you want to manually import a dashboard:
+To manually import a dashboard:
 
-1. Copy the JSON file to the Grafana host
-2. Open Grafana UI → Dashboards → Import
-3. Upload the JSON file or paste its contents
-4. Select the appropriate datasources (Prometheus/Loki)
+1. Open Grafana UI → Dashboards → Import
+2. Upload the JSON file or paste contents
+3. Select datasources: `prometheus` and `loki`
+4. Click Import
 
-## Customization
-
-All dashboards are editable in Grafana. After making changes:
-
-1. Click the dashboard settings (gear icon)
-2. Go to "JSON Model"
-3. Copy the JSON
-4. Save it back to this repo to preserve changes
-
-## Metrics Reference
-
-### Proxmox VE Exporter
-
-Metrics are collected by `prometheus-pve-exporter` which queries the Proxmox VE API.
-
-- **Documentation:** https://github.com/prometheus-pve/prometheus-pve-exporter
-- **Metrics exposed:** All PVE API metrics for nodes, guests, and storage
-
-### Docker Engine Metrics
-
-Metrics are native to Docker Engine when experimental features are enabled.
-
-- **Documentation:** https://docs.docker.com/config/daemon/prometheus/
-- **Port:** 9323 (default)
-- **Requires:** `"experimental": true` in daemon.json
+---
 
 ## Troubleshooting
 
 ### "No data" in panels
 
-1. **Check datasources:**
-   ```bash
-   # In Grafana UI: Configuration → Data Sources
-   # Test each datasource connection
-   ```
-
-2. **Verify Prometheus targets:**
-   ```bash
-   curl http://192.168.1.104:9090/api/v1/targets
-   ```
-
-3. **Check metric availability:**
-   ```bash
-   # List all PVE metrics
-   curl -s http://192.168.1.104:9090/api/v1/label/__name__/values | jq -r '.data[]' | grep "^pve_"
-   
-   # List all Docker metrics
-   curl -s http://192.168.1.104:9090/api/v1/label/__name__/values | jq -r '.data[]' | grep "^engine_"
-   ```
-
-### Datasource UID mismatch
-
-If you see "Datasource not found" errors, the dashboard's datasource UID doesn't match your setup.
-
-**Fix:**
+**Check Prometheus targets:**
 ```bash
-# Replace datasource UIDs in dashboard JSON
-sed -i 's/"uid": "${DS_PROMETHEUS}"/"uid": "prometheus"/g' dashboard.json
-sed -i 's/"uid": "${DS_LOKI}"/"uid": "loki"/g' dashboard.json
+curl http://192.168.1.104:9090/api/v1/targets
+```
+
+All targets should show `"health":"up"`.
+
+**Verify metrics availability:**
+```bash
+# Check PVE metrics
+curl -s http://192.168.1.104:9090/api/v1/label/__name__/values | jq -r '.data[]' | grep "^pve_"
+
+# Check Docker metrics
+curl -s http://192.168.1.104:9090/api/v1/label/__name__/values | jq -r '.data[]' | grep "^engine_"
 ```
 
 ### Loki logs not showing
 
-1. **Check Promtail is running:**
-   ```bash
-   docker ps | grep promtail
-   ```
-
-2. **Verify Promtail config:**
-   ```bash
-   cat /etc/promtail/promtail.yml
-   ```
-
-3. **Check Loki targets in Promtail:**
-   ```bash
-   curl http://192.168.1.104:9080/targets
-   ```
-
-## Available Metrics Summary
-
-### Proxmox VE Metrics (20 total)
-```
-pve_cpu_usage_limit, pve_cpu_usage_ratio, pve_disk_read_bytes, pve_disk_size_bytes,
-pve_disk_usage_bytes, pve_disk_write_bytes, pve_guest_info, pve_ha_state, pve_lock_state,
-pve_memory_size_bytes, pve_memory_usage_bytes, pve_network_receive_bytes, pve_network_transmit_bytes,
-pve_node_info, pve_onboot_status, pve_storage_info, pve_storage_shared, pve_up,
-pve_uptime_seconds, pve_version_info
+**Check Promtail is running:**
+```bash
+docker ps | grep promtail
 ```
 
-**Note:** Storage metrics use `pve_disk_*` (not `pve_storage_*`) with filter `id=~"storage/.*"` which matches all storage configured in Proxmox including:
-- ZFS pools (rpool, datapool)
-- Directory storage (local, local-zfs if enabled)
-- Any other configured storage backends
+**Verify log labels in Loki:**
+```bash
+curl -s http://192.168.1.104:3100/loki/api/v1/labels | jq
+```
 
-### Docker Engine Metrics (21 total)
+You should see labels: `host`, `container_name`, `stream`, `job`.
+
+### Disk I/O shows zero
+
+If disk I/O graphs are flat:
+1. Ensure PVE exporter is scraping successfully
+2. Check that `pve_disk_read_bytes` and `pve_disk_write_bytes` metrics exist
+3. Verify the `rate()` function window (5m) - may need more data points
+
+---
+
+## Customization
+
+All dashboards are editable in Grafana UI:
+
+1. Open dashboard → Settings (gear icon)
+2. Make changes in edit mode
+3. To preserve changes:
+   - Click dashboard settings → JSON Model
+   - Copy JSON
+   - Save to this repo: `config/grafana/dashboards/`
+
+**Tips:**
+- Add more panels by duplicating existing ones
+- Adjust time ranges and thresholds as needed
+- Customize colors and legends
+
+---
+
+## Metrics Reference
+
+### Proxmox VE Exporter Metrics (Used)
+
 ```
-engine_daemon_container_states_containers (running/paused/stopped)
-engine_daemon_container_actions_seconds_* (create/start/stop/delete)
-engine_daemon_engine_cpus_cpus, engine_daemon_engine_memory_bytes
-engine_daemon_events_total, engine_daemon_health_checks_total, engine_daemon_health_checks_failed_total
-engine_daemon_health_check_start_duration_seconds_*
-engine_daemon_image_actions_seconds_* (pull/push/delete)
-engine_daemon_network_actions_seconds_* (create/remove/connect)
+pve_cpu_usage_ratio          - CPU usage (0.0-1.0)
+pve_memory_usage_bytes       - Used memory in bytes
+pve_memory_size_bytes        - Total memory in bytes
+pve_disk_read_bytes          - Cumulative disk reads (counter)
+pve_disk_write_bytes         - Cumulative disk writes (counter)
+pve_network_receive_bytes    - Cumulative RX bytes (counter)
+pve_network_transmit_bytes   - Cumulative TX bytes (counter)
+pve_guest_info               - Guest metadata (name, type labels)
+pve_up                       - Guest status (1=running, 0=stopped)
 ```
+
+**Note:** Disk and network metrics are counters - use `rate()` to get per-second rates.
+
+### Docker Engine Metrics (Used)
+
+```
+engine_daemon_container_states_containers           - Container count by state (running/stopped)
+engine_daemon_container_actions_seconds_count       - Container action counts (start/stop/restart)
+engine_daemon_health_checks_failed_total            - Failed health check counter
+```
+
+**Full list available:** https://docs.docker.com/config/daemon/prometheus/
+
+---
+
+## Removed Metrics (From Old Dashboards)
+
+To keep dashboards minimal, we removed:
+- ❌ Docker action duration histograms (rarely needed)
+- ❌ Docker events rate (too noisy)
+- ❌ Image/network operation metrics (advanced use only)
+- ❌ Storage pool details table (Proxmox UI better for this)
+
+**Focus:** Only metrics you actually look at regularly.
+
+---
 
 ## Contributing
 
-If you improve these dashboards or create new ones:
+If you improve these dashboards:
 
-1. Export the JSON from Grafana
-2. Clean up the JSON (remove `id`, `__inputs`, `__requires`)
-3. Add documentation comments at the top of the JSON
-4. Update this README with metrics required and features
-5. Commit to the repo
+1. Export JSON from Grafana (Settings → JSON Model)
+2. Clean up: remove `id`, set `"id": null`
+3. Ensure datasource UIDs are `prometheus` and `loki`
+4. Update this README with changes
+5. Commit to repo
 
+---
 
-````
+## Migration from Old Dashboards
 
+If upgrading from previous dashboard version:
+
+**Old dashboards (removed):**
+- `proxmox-dashboard.json` → Merged into `system-overview-dashboard.json`
+- `docker-engine-dashboard.json` → Merged into `system-overview-dashboard.json`
+- `loki-logs-dashboard.json` → Replaced by `logs-dashboard.json`
+
+**What changed:**
+- 3 dashboards → 2 dashboards (less context switching)
+- Proxmox + Docker unified in one view
+- Added critical Disk & Network I/O metrics
+- Improved log filtering with search textbox
+- Removed unnecessary advanced metrics
+
+**No configuration changes needed** - datasources and metrics are the same.
