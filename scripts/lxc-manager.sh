@@ -271,9 +271,7 @@ EOS
             \"path\": \"/usr/bin/nvidia-container-runtime\",
             \"runtimeArgs\": []
         }
-    },
-    \"metrics-addr\": \"0.0.0.0:9323\",
-    \"experimental\": true
+    }
 }
 EOFDOCKER
 
@@ -313,15 +311,6 @@ else
     else
         # Other stacks: Docker runtime
         apk add --no-cache docker docker-cli-compose util-linux
-        
-        # Configure Docker daemon with metrics
-        mkdir -p /etc/docker
-        cat > /etc/docker/daemon.json <<EOFDOCKER
-{
-    \"metrics-addr\": \"0.0.0.0:9323\",
-    \"experimental\": true
-}
-EOFDOCKER
         
         # Add docker to boot runlevel and start
         rc-update add docker boot
