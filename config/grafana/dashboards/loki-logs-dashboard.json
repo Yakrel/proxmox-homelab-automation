@@ -1,32 +1,24 @@
 {
-  "__comments": [
-    "=================================================================",
-    "Docker Container Logs via Loki",
-    "=================================================================",
-    "",
-    "REQUIRED SETUP:",
-    "- Loki datasource configured in Grafana",
-    "- Promtail scraping Docker container logs",
-    "",
-    "PROMTAIL CONFIGURATION:",
-    "Promtail is configured to scrape Docker logs from /var/lib/docker/containers/",
-    "with job label 'containerlogs'",
-    "",
-    "QUERY: {job=\"containerlogs\"}",
-    "",
-    "NOTES:",
-    "- Simple log viewer for all Docker containers across all LXC hosts",
-    "- Use Grafana's log panel filters for searching",
-    "- Filter by container_name, host, or stream labels",
-    "- Adjust time range as needed",
-    "================================================================="
-  ],
   "annotations": {
-    "list": []
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
+  "id": null,
   "links": [],
   "liveNow": true,
   "panels": [
@@ -35,12 +27,101 @@
         "type": "loki",
         "uid": "loki"
       },
-      "description": "All Docker container logs streamed via Loki",
+      "description": "Shows the volume of log entries over time, helping to identify log spikes.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
       "gridPos": {
-        "h": 20,
+        "h": 8,
         "w": 24,
         "x": 0,
         "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_name) (count_over_time({job=\"containerlogs\", host=~\"$host\", container_name=~\"$container\", stream=~\"$stream\"} |~ `(?i)$level` [$__interval]))",
+          "legendFormat": "{{container_name}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Log Volume",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "All Docker container logs streamed via Loki. Use the filters above to narrow down your search.",
+      "gridPos": {
+        "h": 16,
+        "w": 24,
+        "x": 0,
+        "y": 8
       },
       "id": 1,
       "options": {
@@ -60,7 +141,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{job=\"containerlogs\", host=~\"$host\", container_name=~\"$container\", stream=~\"$stream\"}",
+          "expr": "{job=\"containerlogs\", host=~\"$host\", container_name=~\"$container\", stream=~\"$stream\"} |~ `(?i)$level`",
           "queryType": "range",
           "refId": "A"
         }
@@ -80,13 +161,10 @@
   "templating": {
     "list": [
       {
-        "allValue": ".*",
         "current": {
           "selected": true,
           "text": "All",
-          "value": [
-            "$__all"
-          ]
+          "value": "$__all"
         },
         "datasource": {
           "type": "loki",
@@ -95,13 +173,12 @@
         "definition": "label_values({job=\"containerlogs\"}, host)",
         "hide": 0,
         "includeAll": true,
-        "label": "Host",
         "multi": true,
         "name": "host",
         "options": [],
         "query": {
           "query": "label_values({job=\"containerlogs\"}, host)",
-          "refId": "host"
+          "refId": "Loki-host-Variable"
         },
         "refresh": 1,
         "regex": "",
@@ -110,13 +187,10 @@
         "type": "query"
       },
       {
-        "allValue": ".*",
         "current": {
           "selected": true,
           "text": "All",
-          "value": [
-            "$__all"
-          ]
+          "value": "$__all"
         },
         "datasource": {
           "type": "loki",
@@ -125,13 +199,12 @@
         "definition": "label_values({job=\"containerlogs\", host=~\"$host\"}, container_name)",
         "hide": 0,
         "includeAll": true,
-        "label": "Container",
         "multi": true,
         "name": "container",
         "options": [],
         "query": {
           "query": "label_values({job=\"containerlogs\", host=~\"$host\"}, container_name)",
-          "refId": "container"
+          "refId": "Loki-container-Variable"
         },
         "refresh": 1,
         "regex": "",
@@ -140,34 +213,73 @@
         "type": "query"
       },
       {
-        "allValue": ".*",
         "current": {
           "selected": true,
           "text": "All",
-          "value": [
-            "$__all"
-          ]
+          "value": "$__all"
         },
         "datasource": {
           "type": "loki",
           "uid": "loki"
         },
-        "definition": "label_values({job=\"containerlogs\"}, stream)",
+        "definition": "label_values({job=\"containerlogs\", host=~\"$host\", container_name=~\"$container\"}, stream)",
         "hide": 0,
         "includeAll": true,
-        "label": "Stream",
         "multi": true,
         "name": "stream",
         "options": [],
         "query": {
-          "query": "label_values({job=\"containerlogs\"}, stream)",
-          "refId": "stream"
+          "query": "label_values({job=\"containerlogs\", host=~\"$host\", container_name=~\"$container\"}, stream)",
+          "refId": "Loki-stream-Variable"
         },
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
         "sort": 1,
         "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": ""
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Level",
+        "multi": false,
+        "name": "level",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": ""
+          },
+          {
+            "selected": false,
+            "text": "Info",
+            "value": "info"
+          },
+          {
+            "selected": false,
+            "text": "Warn",
+            "value": "warn"
+          },
+          {
+            "selected": false,
+            "text": "Error",
+            "value": "error"
+          },
+          {
+            "selected": false,
+            "text": "Debug",
+            "value": "debug"
+          }
+        ],
+        "query": "info,warn,error,debug",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
       }
     ]
   },
@@ -177,8 +289,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Docker Logs (Loki)",
-  "uid": "loki-docker-logs-homelab",
-  "version": 1,
-  "weekStart": ""
+  "title": "Docker Logs Monitor (Loki)",
+  "uid": "loki-docker-logs-redesigned",
+  "version": 1
 }
