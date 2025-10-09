@@ -191,20 +191,20 @@ provision_grafana_dashboards() {
     # Download custom dashboards from our repo (already have correct datasource UIDs)
     # These dashboards are maintained in config/grafana/dashboards/ with full documentation
     
-    # Proxmox dashboard - Modified version of Grafana ID 10347 with fixed datasource UIDs
-    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/proxmox-dashboard.json" \
-        -o "$dashboards_dir/proxmox-dashboard.json" || \
-        print_warning "Failed to download Proxmox dashboard"
+    # Infrastructure Overview dashboard - Proxmox host + LXC monitoring
+    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/infrastructure-overview.json" \
+        -o "$dashboards_dir/infrastructure-overview.json" || \
+        print_warning "Failed to download Infrastructure Overview dashboard"
     
-    # Docker Engine dashboard - Custom dashboard for Docker Engine native metrics
-    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/docker-engine-dashboard.json" \
-        -o "$dashboards_dir/docker-engine-dashboard.json" || \
-        print_warning "Failed to download Docker Engine dashboard"
+    # Container Monitoring dashboard - Detailed cAdvisor metrics for all Docker containers
+    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/container-monitoring.json" \
+        -o "$dashboards_dir/container-monitoring.json" || \
+        print_warning "Failed to download Container Monitoring dashboard"
     
-    # Loki logs dashboard - Simple log viewer for Docker containers
-    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/loki-logs-dashboard.json" \
-        -o "$dashboards_dir/loki-logs-dashboard.json" || \
-        print_warning "Failed to download Loki logs dashboard"
+    # Logs Monitoring dashboard - Loki log viewer for Docker containers
+    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/logs-monitoring.json" \
+        -o "$dashboards_dir/logs-monitoring.json" || \
+        print_warning "Failed to download Logs Monitoring dashboard"
     
     # Fix ownership for Grafana container (unprivileged LXC mapping: 1000 -> 101000)
     chown -R 101000:101000 "$dashboards_dir"
