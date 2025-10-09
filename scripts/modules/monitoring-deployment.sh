@@ -191,10 +191,15 @@ provision_grafana_dashboards() {
     # Download custom dashboards from our repo (already have correct datasource UIDs)
     # These dashboards are maintained in config/grafana/dashboards/ with full documentation
     
-    # System Monitoring dashboard - Unified Proxmox LXC + cAdvisor container metrics
-    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/system-monitoring.json" \
-        -o "$dashboards_dir/system-monitoring.json" || \
-        print_warning "Failed to download System Monitoring dashboard"
+    # Infrastructure Overview dashboard - Proxmox host + LXC monitoring
+    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/infrastructure-overview.json" \
+        -o "$dashboards_dir/infrastructure-overview.json" || \
+        print_warning "Failed to download Infrastructure Overview dashboard"
+    
+    # Container Monitoring dashboard - Detailed cAdvisor metrics for all Docker containers
+    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/container-monitoring.json" \
+        -o "$dashboards_dir/container-monitoring.json" || \
+        print_warning "Failed to download Container Monitoring dashboard"
     
     # Logs Monitoring dashboard - Loki log viewer for Docker containers
     curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/logs-monitoring.json" \
