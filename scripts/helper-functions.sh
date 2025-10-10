@@ -42,11 +42,17 @@ press_enter_to_continue() {
 prompt_env_passphrase() {
     local key_file="/root/.env_enc_key"
 
-    # 1. Check if key file exists
+    # DEBUG
     if [[ -f "$key_file" ]]; then
+        print_info "DEBUG: Key file exists at $key_file"
+        print_info "DEBUG: Key file content length: $(wc -c < "$key_file") bytes"
         print_info "Using passphrase from $key_file"
         cat "$key_file" | tr -d '\n'
         return
+    else
+        print_warning "DEBUG: Key file NOT found at $key_file"
+        print_info "DEBUG: Current directory: $(pwd)"
+        print_info "DEBUG: Current user: $(whoami)"
     fi
 
     # 2. Check ENV_ENC_KEY environment variable
