@@ -15,36 +15,36 @@ scrape_configs:
   - job_name: 'cadvisor'
     static_configs:
       - targets:
-        - '192.168.1.100:8080'  # proxy
-        - '192.168.1.101:8080'  # media
-        - '192.168.1.102:8080'  # files
-        - '192.168.1.103:8080'  # webtools
-        - '192.168.1.104:8080'  # monitoring
-        - '192.168.1.105:8080'  # gameservers
+        - '192.168.1.100:8082'  # proxy
+        - '192.168.1.101:8082'  # media
+        - '192.168.1.102:8082'  # files
+        - '192.168.1.103:8082'  # webtools
+        - '192.168.1.104:8082'  # monitoring
+        - '192.168.1.105:8082'  # gameservers
         # Note: LXC 106 (backup) and 107 (development) excluded - no Docker
     relabel_configs:
       - source_labels: [__address__]
-        regex: '192.168.1.100:8080'
+        regex: '192.168.1.100:8082'
         target_label: instance
         replacement: 'lxc-proxy-01'
       - source_labels: [__address__]
-        regex: '192.168.1.101:8080'
+        regex: '192.168.1.101:8082'
         target_label: instance
         replacement: 'lxc-media-01'
       - source_labels: [__address__]
-        regex: '192.168.1.102:8080'
+        regex: '192.168.1.102:8082'
         target_label: instance
         replacement: 'lxc-files-01'
       - source_labels: [__address__]
-        regex: '192.168.1.103:8080'
+        regex: '192.168.1.103:8082'
         target_label: instance
         replacement: 'lxc-webtools-01'
       - source_labels: [__address__]
-        regex: '192.168.1.104:8080'
+        regex: '192.168.1.104:8082'
         target_label: instance
         replacement: 'lxc-monitoring-01'
       - source_labels: [__address__]
-        regex: '192.168.1.105:8080'
+        regex: '192.168.1.105:8082'
         target_label: instance
         replacement: 'lxc-gameservers-01'
 
