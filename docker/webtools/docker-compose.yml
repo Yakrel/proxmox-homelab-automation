@@ -80,7 +80,7 @@ services:
     image: couchdb:latest
     container_name: couchdb-obsidian
     restart: unless-stopped
-    user: "5984:5984"
+    user: "1000:1000"
     ports:
       - "5984:5984"
     environment:
