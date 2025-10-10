@@ -46,8 +46,12 @@ prompt_env_passphrase() {
     if [[ -f "$key_file" ]]; then
         print_info "DEBUG: Key file exists at $key_file"
         print_info "DEBUG: Key file content length: $(wc -c < "$key_file") bytes"
+        local pass_from_file
+        pass_from_file=$(cat "$key_file" | tr -d '\n')
+        print_info "DEBUG: Read passphrase length: ${#pass_from_file} chars"
+        print_info "DEBUG: Read passphrase first 5: ${pass_from_file:0:5}..."
         print_info "Using passphrase from $key_file"
-        cat "$key_file" | tr -d '\n'
+        printf '%s' "$pass_from_file"
         return
     else
         print_warning "DEBUG: Key file NOT found at $key_file"
