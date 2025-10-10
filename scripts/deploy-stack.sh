@@ -53,15 +53,11 @@ decrypt_env_for_deploy() {
 
     curl -sSL "$enc_url" -o "$enc_tmp" || { print_error "Failed to download .env.enc"; exit 1; }
     
-    # Single passphrase prompt
+    # Get passphrase and decrypt
     local pass
     pass=$(prompt_env_passphrase)
 
-    # DEBUG
-    print_info "DEBUG: Passphrase length: ${#pass} characters"
-    print_info "DEBUG: First 3 chars: ${pass:0:3}..."
-
-    # Decrypt - fail fast
+    # Decrypt
     printf '%s' "$pass" | openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" || {
         print_error "Failed to decrypt .env.enc - wrong passphrase or corrupted file?"
         rm -f "$enc_tmp" "$ENV_DECRYPTED_PATH"

@@ -42,49 +42,30 @@ press_enter_to_continue() {
 prompt_env_passphrase() {
     local key_file="/root/.env_enc_key"
 
-    # DEBUG
+    # Check if saved key exists
     if [[ -f "$key_file" ]]; then
-        print_info "DEBUG: Key file exists at $key_file"
-        print_info "DEBUG: Key file content length: $(wc -c < "$key_file") bytes"
-        local pass_from_file
-        pass_from_file=$(cat "$key_file" | tr -d '\n')
-        print_info "DEBUG: Read passphrase length: ${#pass_from_file} chars"
-        print_info "DEBUG: Read passphrase first 5: ${pass_from_file:0:5}..."
-        print_info "Using passphrase from $key_file"
-        printf '%s' "$pass_from_file"
+        print_info "Using saved passphrase from $key_file"
+        tr -d '\n\r' < "$key_file"
         return
-    else
-        print_warning "DEBUG: Key file NOT found at $key_file"
-        print_info "DEBUG: Current directory: $(pwd)"
-        print_info "DEBUG: Current user: $(whoami)"
     fi
 
-    # 2. Check ENV_ENC_KEY environment variable
+    # Check environment variable
     if [[ -n "${ENV_ENC_KEY:-}" ]]; then
-        print_info "Using passphrase from ENV_ENC_KEY environment variable"
+        print_info "Using ENV_ENC_KEY environment variable"
         printf '%s' "$ENV_ENC_KEY"
         return
     fi
 
-    # 3. Prompt user for passphrase
+    # Prompt user
     local pass
-    while true; do
-        echo -n "Enter encryption passphrase: " >&2
-        read -r -s pass
-        echo >&2
+    echo -n "Enter encryption passphrase: " >&2
+    read -r -s pass
+    echo >&2
 
-        if [[ -z "$pass" ]]; then
-            print_warning "Passphrase cannot be empty."
-            continue
-        fi
-
-        break
-    done
-
-    # 4. Save passphrase to key file for future use
-    printf '%s\n' "$pass" > "$key_file"
+    # Save for future use
+    printf '%s' "$pass" > "$key_file"
     chmod 600 "$key_file"
-    print_success "Passphrase saved to $key_file for future use"
+    print_success "Passphrase saved to $key_file"
 
     printf '%s' "$pass"
 }
