@@ -56,7 +56,11 @@ decrypt_env_for_deploy() {
     # Single passphrase prompt
     local pass
     pass=$(prompt_env_passphrase)
-    
+
+    # DEBUG
+    print_info "DEBUG: Passphrase length: ${#pass} characters"
+    print_info "DEBUG: First 3 chars: ${pass:0:3}..."
+
     # Decrypt - fail fast
     printf '%s' "$pass" | openssl enc -d -aes-256-cbc -pbkdf2 -pass stdin -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" || {
         print_error "Failed to decrypt .env.enc - wrong passphrase or corrupted file?"
