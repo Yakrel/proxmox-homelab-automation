@@ -222,7 +222,7 @@ exec_in_container() {
 
 show_menu_header() {
     local title="$1"
-    clear
+    echo
     echo "======================================="
     echo "      $title"
     echo "======================================="
