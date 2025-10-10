@@ -159,20 +159,17 @@ if [ \"\$STACK_NAME\" = 'backup' ]; then
     export IFUPDOWN2_NO_IFRELOAD=1
     export LC_ALL=C
     export LANG=C
-    
+
+    # Initial update and install dependencies
     apt-get update
     apt-get install -y curl gnupg2
-    
-    # Get Debian codename dynamically
+
+    # Get Debian codename and add Proxmox repository
     DEBIAN_CODENAME=\$(lsb_release -cs || cat /etc/os-release | grep VERSION_CODENAME | cut -d= -f2)
-    
-    # Add Proxmox repository key for current Debian version
     curl -fsSL \"https://enterprise.proxmox.com/debian/proxmox-release-\${DEBIAN_CODENAME}.gpg\" -o /usr/share/keyrings/proxmox-archive-keyring.gpg
-    
-    # Configure Proxmox PBS repository for current Debian version
     echo \"deb [signed-by=/usr/share/keyrings/proxmox-archive-keyring.gpg] http://download.proxmox.com/debian/pbs \${DEBIAN_CODENAME} pbs-no-subscription\" > /etc/apt/sources.list.d/proxmox-backup.list
-    
-    # Install latest Proxmox Backup Server
+
+    # Single update after repo added, then install PBS
     apt-get update
     apt-get install -y proxmox-backup-server -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold
     
@@ -199,14 +196,13 @@ elif [ \"\$STACK_NAME\" = 'media' ]; then
     export DEBIAN_PRIORITY=critical
     export LC_ALL=C
     export LANG=C
-    
+
+    # Initial update and install core dependencies
     apt-get update
     apt-get upgrade -y
-    
-    # Add non-free repos for NVIDIA drivers with proper signing
-    # Get the Debian archive keyring for signed repositories
-    apt-get install -y debian-archive-keyring
-    
+    apt-get install -y debian-archive-keyring ca-certificates curl gnupg wget util-linux
+
+    # Add all repositories at once (Debian non-free + Docker + NVIDIA)
     cat > /etc/apt/sources.list.d/debian.sources <<'EOS'
 Types: deb
 URIs: http://deb.debian.org/debian
@@ -220,31 +216,23 @@ Suites: trixie-security
 Components: main contrib non-free non-free-firmware
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOS
-    apt-get update
-    
-    # Install dependencies
-    apt-get install -y ca-certificates curl gnupg wget util-linux
-    
-    # Add Docker's official GPG key
+
+    # Add Docker GPG key and repository
     install -m 0755 -d /etc/apt/keyrings
     curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
     chmod a+r /etc/apt/keyrings/docker.asc
-    
-    # Add Docker repository
     DEBIAN_CODENAME=\$(. /etc/os-release && echo \$VERSION_CODENAME)
     echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \$DEBIAN_CODENAME stable\" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-    
+
     # Add NVIDIA container toolkit repository
     rm -f /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
     curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
     curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
     sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
     tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-    
-    # Update package lists
+
+    # Single update after all repos added, then install everything
     apt-get update
-    
-    # Install NVIDIA drivers, Docker CE with Compose plugin, and NVIDIA Container Toolkit
     apt-get install -y nvidia-driver nvidia-kernel-dkms docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nvidia-container-toolkit
 
     # Relax NVIDIA runtime cgroup requirements for unprivileged LXC containers using nvidia-ctk
