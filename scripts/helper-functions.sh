@@ -45,7 +45,7 @@ prompt_env_passphrase() {
     # 1. Check if key file exists
     if [[ -f "$key_file" ]]; then
         print_info "Using passphrase from $key_file"
-        cat "$key_file"
+        cat "$key_file" | tr -d '\n'
         return
     fi
 
@@ -72,7 +72,7 @@ prompt_env_passphrase() {
     done
 
     # 4. Save passphrase to key file for future use
-    printf '%s' "$pass" > "$key_file"
+    printf '%s\n' "$pass" > "$key_file"
     chmod 600 "$key_file"
     print_success "Passphrase saved to $key_file for future use"
 
