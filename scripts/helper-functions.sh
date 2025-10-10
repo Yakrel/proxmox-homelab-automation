@@ -40,27 +40,42 @@ press_enter_to_continue() {
 }
 
 prompt_env_passphrase() {
-    # Use ENV_ENC_KEY environment variable if available
+    local key_file="/root/.env_enc_key"
+
+    # 1. Check if key file exists
+    if [[ -f "$key_file" ]]; then
+        print_info "Using passphrase from $key_file"
+        cat "$key_file"
+        return
+    fi
+
+    # 2. Check ENV_ENC_KEY environment variable
     if [[ -n "${ENV_ENC_KEY:-}" ]]; then
         print_info "Using passphrase from ENV_ENC_KEY environment variable"
         printf '%s' "$ENV_ENC_KEY"
         return
     fi
-    
+
+    # 3. Prompt user for passphrase
     local pass
     while true; do
         echo -n "Enter encryption passphrase: " >&2
         read -r -s pass
         echo >&2
-        
+
         if [[ -z "$pass" ]]; then
             print_warning "Passphrase cannot be empty."
             continue
         fi
-        
+
         break
     done
-    
+
+    # 4. Save passphrase to key file for future use
+    printf '%s' "$pass" > "$key_file"
+    chmod 600 "$key_file"
+    print_success "Passphrase saved to $key_file for future use"
+
     printf '%s' "$pass"
 }
 
@@ -79,11 +94,6 @@ ensure_packages() {
     apt-get update -q
     apt-get install -y "$@"
     print_success "Installed packages: $*"
-}
-
-ensure_yq() {
-    apt-get update -qq >/dev/null 2>&1
-    apt-get install -y -qq yq >/dev/null 2>&1
 }
 
 # === HOMELAB INFRASTRUCTURE CONSTANTS ===
@@ -106,10 +116,9 @@ get_lxc_ip() {
 # Get list of available stacks from stacks.yaml, sorted by CT ID
 get_available_stacks() {
     local stacks_file="${1:-$WORK_DIR/stacks.yaml}"
-    ensure_yq
-    
+
     [[ ! -f "$stacks_file" ]] && { print_error "Stacks file not found: $stacks_file"; exit 1; }
-    
+
     # Get stacks with their CT IDs, sort by CT ID, then return stack names only
     yq -r '.stacks | to_entries | map(select(.value.ct_id != null)) | sort_by(.value.ct_id) | .[].key' "$stacks_file"
 }
@@ -155,10 +164,7 @@ get_stack_from_menu_index() {
 get_stack_config() {
     local stack="$1"
     local stacks_file="${2:-$WORK_DIR/stacks.yaml}"
-    
-    # Ensure required tools
-    ensure_yq
-    
+
     # Validate stacks file exists
     [[ ! -f "$stacks_file" ]] && { print_error "Stacks file not found: $stacks_file"; exit 1; }
     
