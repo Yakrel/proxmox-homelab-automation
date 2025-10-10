@@ -60,6 +60,7 @@ The repository uses encrypted `.env.enc` files. Use `ENV_ENC_KEY` from GitHub se
 - **NEVER** use "Generated with [AI Tool]" in commits
 - Commit as the actual developer (Yakrel), not as AI
 - Always check code to ensure no secrets or passwords are committed
+- **Git Configuration**: Use `git config user.email "85676216+Yakrel@users.noreply.github.com"` and `git config user.name "Yakrel"` before committing
 
 ## Project Context
 
