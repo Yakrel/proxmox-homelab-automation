@@ -31,6 +31,30 @@ setup_homepage_config() {
     print_success "Homepage configuration files updated"
 }
 
+# Setup CouchDB directories and configuration
+setup_couchdb_config() {
+    local ct_id="$1"
+
+    print_info "Setting up CouchDB directories and configuration"
+
+    # Create CouchDB directories
+    mkdir -p /datapool/config/couchdb/data
+    mkdir -p /datapool/config/couchdb/local.d
+
+    # Copy CouchDB configuration file
+    local config_url="$REPO_BASE_URL/config/couchdb-local.ini"
+    local temp_file="/tmp/couchdb_local.ini"
+
+    curl -sSL "$config_url" -o "$temp_file"
+    cp "$temp_file" "/datapool/config/couchdb/local.d/local.ini"
+    rm -f "$temp_file"
+
+    # Fix permissions
+    chown -R 101000:101000 /datapool/config/couchdb
+
+    print_success "CouchDB directories and configuration ready"
+}
+
 # Setup Promtail configuration for log aggregation
 setup_promtail_config() {
     local ct_id="$1"
@@ -160,6 +184,7 @@ deploy_docker_stack() {
     # Setup Homepage config files for webtools stack
     if [[ "$stack_name" == "webtools" ]]; then
         setup_homepage_config "$ct_id"
+        setup_couchdb_config "$ct_id"
     fi
 
     setup_docker_compose "$stack_name" "$ct_id"
