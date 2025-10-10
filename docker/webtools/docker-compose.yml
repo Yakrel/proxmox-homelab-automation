@@ -90,7 +90,7 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
       - /datapool/config/couchdb/data:/opt/couchdb/data
-      - /datapool/config/couchdb/local.ini:/opt/couchdb/etc/local.ini
+      - /datapool/config/couchdb/local.d:/opt/couchdb/etc/local.d
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5984/_up"]
       interval: 30s
