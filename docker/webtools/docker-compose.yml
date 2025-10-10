@@ -80,13 +80,12 @@ services:
     image: couchdb:latest
     container_name: couchdb-obsidian
     restart: unless-stopped
+    user: "5984:5984"
     ports:
       - "5984:5984"
     environment:
       - COUCHDB_USER=${COUCHDB_USER:?CouchDB user must be defined}
       - COUCHDB_PASSWORD=${COUCHDB_PASSWORD:?CouchDB password must be defined}
-      - PUID=1000
-      - PGID=1000
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
       - /datapool/config/couchdb/data:/opt/couchdb/data
