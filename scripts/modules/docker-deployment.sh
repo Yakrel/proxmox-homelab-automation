@@ -6,20 +6,45 @@
 # Handles Docker-based stack deployments - fail fast approach
 set -euo pipefail
 
+# Setup homepage configuration files from repository
+setup_homepage_config() {
+    local ct_id="$1"
+
+    print_info "Setting up Homepage configuration files"
+
+    # List of homepage config files to copy
+    local config_files=("services.yaml" "bookmarks.yaml" "widgets.yaml" "settings.yaml" "docker.yaml")
+
+    for config_file in "${config_files[@]}"; do
+        local config_url="$REPO_BASE_URL/config/homepage/$config_file"
+        local temp_file="/tmp/homepage_${config_file}"
+
+        # Download and copy - fail fast with original error messages
+        curl -sSL "$config_url" -o "$temp_file"
+        cp "$temp_file" "/datapool/config/homepage/$config_file"
+        rm -f "$temp_file"
+    done
+
+    # Fix permissions
+    chown -R 101000:101000 /datapool/config/homepage
+
+    print_success "Homepage configuration files updated"
+}
+
 # Setup Promtail configuration for log aggregation
 setup_promtail_config() {
     local ct_id="$1"
     local hostname="$2"
-    
+
     print_info "Setting up Promtail configuration for $hostname"
-    
+
     # Create promtail directories in LXC
     pct exec "$ct_id" -- mkdir -p /etc/promtail /var/lib/promtail/positions
-    
+
     # Create promtail config with correct hostname and Loki endpoint
     local temp_promtail="/tmp/promtail_${ct_id}.yml"
     sed "s/REPLACE_HOST_LABEL/$hostname/g" "$WORK_DIR/config/promtail/promtail.yml" > "$temp_promtail"
-    
+
     # Copy to container
     pct push "$ct_id" "$temp_promtail" "/etc/promtail/promtail.yml" || {
         print_error "Failed to copy promtail config"
@@ -27,10 +52,10 @@ setup_promtail_config() {
         exit 1
     }
     rm -f "$temp_promtail"
-    
+
     # Set proper permissions
     pct exec "$ct_id" -- chown -R 1000:1000 /etc/promtail /var/lib/promtail
-    
+
     print_success "Promtail configuration ready"
 }
 
@@ -131,7 +156,12 @@ deploy_docker_stack() {
         hostname=$(yq -r ".stacks.${stack_name}.hostname" "$WORK_DIR/stacks.yaml")
         setup_promtail_config "$ct_id" "$hostname"
     fi
-    
+
+    # Setup Homepage config files for webtools stack
+    if [[ "$stack_name" == "webtools" ]]; then
+        setup_homepage_config "$ct_id"
+    fi
+
     setup_docker_compose "$stack_name" "$ct_id"
     deploy_docker_services "$stack_name" "$ct_id"
     
