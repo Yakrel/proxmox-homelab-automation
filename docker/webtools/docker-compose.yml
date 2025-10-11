@@ -103,6 +103,40 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  obsidian:
+    image: lscr.io/linuxserver/obsidian:latest
+    container_name: obsidian
+    security_opt:
+      - seccomp:unconfined
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+      - CUSTOM_USER=yakrel
+      - PASSWORD=${OBSIDIAN_WEB_PASSWORD}
+    volumes:
+      - /datapool/config/obsidian:/config
+    ports:
+      - "3333:3000"
+      - "3334:3001"
+    devices:
+      - /dev/dri:/dev/dri
+    shm_size: "1gb"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
