@@ -104,6 +104,10 @@
         description: Database for Obsidian Sync
         href: http://192.168.1.103:5984/_utils
         icon: couchdb.png
+    - Obsidian:
+        description: Note-Taking & Knowledge Base
+        href: http://192.168.1.103:3333
+        icon: obsidian.png
     - Cleanuperr:
         description: Sonarr/Radarr Cleaner
         href: http://192.168.1.101:11011
