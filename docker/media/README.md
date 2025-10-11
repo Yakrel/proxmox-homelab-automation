@@ -27,11 +27,11 @@ We bypass the NVIDIA runtime and use direct device + library mounting:
 #### 1. Device Mounting (docker-compose.yml)
 ```yaml
 devices:
-  - /dev/nvidia0:/dev/nvidia0
-  - /dev/nvidiactl:/dev/nvidiactl
-  - /dev/nvidia-uvm:/dev/nvidia-uvm           # CRITICAL for CUDA
-  - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
-  - /dev/nvidia-modeset:/dev/nvidia-modeset
+  - /dev/nvidia0:/dev/nvidia0              # GPU device
+  - /dev/nvidiactl:/dev/nvidiactl          # GPU control device
+  - /dev/nvidia-modeset:/dev/nvidia-modeset      # Mode setting
+  - /dev/nvidia-uvm:/dev/nvidia-uvm        # CRITICAL for CUDA
+  - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools  # CUDA tools
 ```
 
 #### 2. CUDA Library Mounting (docker-compose.yml)
@@ -49,6 +49,7 @@ environment:
 
 The script automatically:
 - Loads `nvidia-uvm` kernel module on Proxmox host
+- Sets proper permissions (666) on nvidia-uvm devices
 - Configures cgroup device permissions (c 195, 510, 511)
 - Mounts NVIDIA devices into LXC container
 - Sets `no-cgroups = true` in nvidia-container-runtime config

@@ -118,7 +118,8 @@ services:
       - /dev/nvidia0:/dev/nvidia0              # GPU device
       - /dev/nvidiactl:/dev/nvidiactl          # GPU control device
       - /dev/nvidia-modeset:/dev/nvidia-modeset      # Mode setting
-      # Note: nvidia-uvm and nvidia-uvm-tools removed - not needed for video transcoding in unprivileged LXC
+      - /dev/nvidia-uvm:/dev/nvidia-uvm        # CRITICAL for CUDA
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools  # CUDA tools
     ports:
       - "8096:8096"
     healthcheck:

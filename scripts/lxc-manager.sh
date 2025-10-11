@@ -93,6 +93,11 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
         if ! nvidia-modprobe -c0 -u; then
             print_warning "nvidia-modprobe failed - GPU initialization may not work"
         fi
+
+        # Fix nvidia-uvm device permissions on Proxmox host
+        # These devices need rw permissions for CUDA to work properly
+        chmod 666 /dev/nvidia-uvm 2>/dev/null || print_warning "Could not set permissions on /dev/nvidia-uvm"
+        chmod 666 /dev/nvidia-uvm-tools 2>/dev/null || print_warning "Could not set permissions on /dev/nvidia-uvm-tools"
         
         LXC_CONFIG_PATH="/etc/pve/lxc/${CT_ID}.conf"
         [[ -f "$LXC_CONFIG_PATH" ]] || touch "$LXC_CONFIG_PATH"

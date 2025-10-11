@@ -18,7 +18,7 @@ stacks:
     hostname: lxc-media-01
     cpu_cores: 6
     memory_mb: 10240
-    disk_gb: 20
+    disk_gb: 40
   files:
     ct_id: 102
     hostname: lxc-files-01
