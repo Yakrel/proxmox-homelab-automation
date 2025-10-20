@@ -1,0 +1,82 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# rule_files:
+#   - "/etc/prometheus/rules/*.yml"
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # cAdvisor - Per-container metrics from all Docker LXCs
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets:
+        - '192.168.1.100:8082'  # proxy
+        - '192.168.1.101:8082'  # media
+        - '192.168.1.102:8082'  # files
+        - '192.168.1.103:8082'  # webtools
+        - '192.168.1.104:8082'  # monitoring
+        - '192.168.1.105:8082'  # gameservers
+        - '192.168.1.106:8082'  # backup
+        # Note: LXC 107 (development) excluded - no Docker
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '192.168.1.100:8082'
+        target_label: instance
+        replacement: 'lxc-proxy-01'
+      - source_labels: [__address__]
+        regex: '192.168.1.101:8082'
+        target_label: instance
+        replacement: 'lxc-media-01'
+      - source_labels: [__address__]
+        regex: '192.168.1.102:8082'
+        target_label: instance
+        replacement: 'lxc-files-01'
+      - source_labels: [__address__]
+        regex: '192.168.1.103:8082'
+        target_label: instance
+        replacement: 'lxc-webtools-01'
+      - source_labels: [__address__]
+        regex: '192.168.1.104:8082'
+        target_label: instance
+        replacement: 'lxc-monitoring-01'
+      - source_labels: [__address__]
+        regex: '192.168.1.105:8082'
+        target_label: instance
+        replacement: 'lxc-gameservers-01'
+      - source_labels: [__address__]
+        regex: '192.168.1.106:8082'
+        target_label: instance
+        replacement: 'lxc-backup-01'
+
+  
+
+  # Proxmox VE Exporter
+  - job_name: 'proxmox'
+    static_configs:
+      - targets:
+        - '192.168.1.10' # Your Proxmox IP
+    metrics_path: /pve
+    params:
+      module: [default]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: prometheus-pve-exporter:9221 # The exporter's address
+
+  # Loki for log aggregation
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+
+  # Promtail for log shipping
+  - job_name: 'promtail'
+    static_configs:
+      - targets: ['promtail-monitoring:9080']

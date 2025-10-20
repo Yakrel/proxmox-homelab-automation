@@ -1,0 +1,32 @@
+
+---
+# widgets.yaml
+# https://gethomepage.dev/latest/configs/service-widgets
+
+# System Resources at a glance
+- resources:
+    cpu: true
+    memory: true
+    disk:
+      - /datapool
+    diskUnits: bytes
+    expanded: true
+    label: System Resources
+    refresh: 3000
+    units: metric
+    uptime: true
+
+# Date & Time
+- datetime:
+    text_size: xl
+    format:
+      dateStyle: full
+      timeStyle: medium
+      hour12: false
+
+# Quick Search
+- search:
+    provider: google
+    target: _blank
+    focus: false
+

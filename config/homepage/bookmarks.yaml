@@ -1,0 +1,4 @@
+# This file is intentionally left empty.
+# Homepage automatically adds default bookmarks if this file does not exist.
+# By creating an empty file, we prevent this behavior and ensure
+# that only the services defined in services.yaml are displayed.

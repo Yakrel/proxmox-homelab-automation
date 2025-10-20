@@ -1,0 +1,44 @@
+# Satisfactory Game Server Only
+# Run this AFTER the base stack (docker-compose.yml) is already running
+# Uses the existing gameserver-net network created by base stack
+---
+networks:
+  gameserver-net:
+    external: true
+
+services:
+  satisfactory-server:
+    image: wolveix/satisfactory-server:latest
+    container_name: satisfactory-server
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+      - SERVERNAME=Proxmox Homelab Satisfactory
+      - PASSWORD=homelab123
+      - PLAYERS=10
+      - PUBLIC=false
+      - AUTOSAVEINTERVAL=300
+      - AUTOSAVENUM=20
+      - CRASHREPORT=false
+    volumes:
+      - /datapool/config/satisfactory:/config
+    ports:
+      - "7777:7777/udp"  # Game port
+      - "7777:7777/tcp"  # Game port TCP
+      - "15000:15000/udp"  # Query port
+      - "15777:15777/udp"  # Beacon port
+    networks:
+      - gameserver-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -an | grep -q ':7777'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"

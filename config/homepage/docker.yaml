@@ -1,0 +1,9 @@
+# This file is used by Homepage to configure the connection to the Docker daemon.
+# It has been intentionally cleared to prevent Homepage from applying any default
+# or unexpected Docker widget settings, while still ensuring the file's presence
+# overrides any automatic configuration.
+#
+# If a specific Docker socket connection is needed, you can define it here, for example:
+#
+# local-docker:
+#   socket: /var/run/docker.sock

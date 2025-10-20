@@ -1,0 +1,54 @@
+# Development guidelines now part of the repository
+
+# Environment files with secrets
+.env
+
+# Temporary files
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.backup
+
+# Log files
+*.log
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Personal notes and configurations
+notes.txt
+config.local
+personal/
+
+# Workflow and analysis files
+WORKFLOW-DIAGRAM.md
+
+# Claude Code local settings
+.claude/
+*.local.json
+setting.local.json
+.mcp.json
+
+# Other
+.gemini/
+*.env
+!*.env.example
+!*.env.enc
+.env.local
+.env.tmp
+.vault_pass

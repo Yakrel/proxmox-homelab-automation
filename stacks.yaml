@@ -1,0 +1,57 @@
+# Central source of truth for LXC stacks (IDs, hostnames, resources)
+# All scripts read from this file to maintain consistency and follow DRY principle.
+# Network: Fixed homelab topology - Proxmox 192.168.1.10, LXCs 192.168.1.{ct_id}
+# Storage: Pre-configured datapool
+
+storage:
+  pool: datapool
+
+stacks:
+  proxy:
+    ct_id: 100
+    hostname: lxc-proxy-01
+    cpu_cores: 2
+    memory_mb: 2048
+    disk_gb: 10
+  media:
+    ct_id: 101
+    hostname: lxc-media-01
+    cpu_cores: 6
+    memory_mb: 10240
+    disk_gb: 40
+  files:
+    ct_id: 102
+    hostname: lxc-files-01
+    cpu_cores: 2
+    memory_mb: 3072
+    disk_gb: 15
+  webtools:
+    ct_id: 103
+    hostname: lxc-webtools-01
+    cpu_cores: 4
+    memory_mb: 6144
+    disk_gb: 30
+  monitoring:
+    ct_id: 104
+    hostname: lxc-monitoring-01
+    cpu_cores: 4
+    memory_mb: 6144
+    disk_gb: 15
+  gameservers:
+    ct_id: 105
+    hostname: lxc-gameservers-01
+    cpu_cores: 8
+    memory_mb: 16384
+    disk_gb: 50
+  backup:
+    ct_id: 106
+    hostname: lxc-backup-01
+    cpu_cores: 4
+    memory_mb: 8192
+    disk_gb: 50
+  development:
+    ct_id: 107
+    hostname: lxc-development-01
+    cpu_cores: 4
+    memory_mb: 6144
+    disk_gb: 15
