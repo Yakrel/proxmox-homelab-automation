@@ -100,7 +100,8 @@ setup_proxmox_monitoring_user() {
     print_success "PVE monitoring user configured"
 }
 
-# Setup Proxmox API token for Homepage widget (idempotent)
+# Setup Proxmox API token for Homepage widget
+# Always regenerates token to ensure .env has correct secret
 setup_homepage_proxmox_token() {
     print_info "Setting up Homepage Proxmox API token"
 
@@ -108,42 +109,36 @@ setup_homepage_proxmox_token() {
     local token_name="homepage-token"
     local token_id="$pve_user!$token_name"
 
-    # Check if token already exists (idempotent check)
-    if pveum user token list "$pve_user" 2>/dev/null | grep -qw "$token_name"; then
-        print_info "Homepage API token already exists, skipping creation"
-        return 0
-    fi
-
     # Create user if not exists (idempotent)
     if ! pveum user list | grep -qw "$pve_user"; then
         print_info "Creating Homepage Proxmox user: $pve_user"
         pveum user add "$pve_user" --comment "Homepage dashboard monitoring"
-    else
-        print_info "Homepage user already exists"
     fi
 
     # Grant PVEAuditor role (idempotent - command handles existing ACLs)
     pveum acl modify / --user "$pve_user" --role PVEAuditor
 
-    # Create API token and capture secret (only shown once!)
-    print_info "Creating API token: $token_id"
+    # Remove old token if exists, then create fresh one
+    pveum user token remove "$pve_user" "$token_name" 2>/dev/null || true
+
+    # Create new API token and capture secret
+    print_info "Generating fresh API token: $token_id"
     local token_output
-    token_output=$(pveum user token add "$pve_user" "$token_name" --privsep 0 --output-format=json 2>&1)
+    token_output=$(pveum user token add "$pve_user" "$token_name" --privsep 0 --output-format=json)
 
     # Extract secret value from JSON output
     local token_secret
     token_secret=$(echo "$token_output" | grep -o '"value":"[^"]*"' | cut -d'"' -f4)
 
     if [[ -z "$token_secret" ]]; then
-        print_error "Failed to create API token or extract secret"
+        print_error "Failed to extract token secret"
         return 1
     fi
 
-    # Store secret in temporary file for env injection
-    echo "$token_secret" > /tmp/homepage_token_secret
-    chmod 600 /tmp/homepage_token_secret
+    # Replace placeholder with real secret in .env file
+    sed -i "s/placeholder_will_be_set_on_deploy/$token_secret/g" "$ENV_DECRYPTED_PATH"
 
-    print_success "Homepage API token created successfully"
+    print_success "Homepage API token configured in .env"
 }
 
 # Create or verify LXC container
@@ -247,9 +242,6 @@ case "$STACK_NAME" in
     "webtools")
         # Setup Homepage Proxmox API token (idempotent)
         setup_homepage_proxmox_token
-
-        # Update .env with Proxmox token if needed (idempotent)
-        update_env_with_proxmox_token "$ENV_DECRYPTED_PATH"
 
         # Standard deployment flow
         configure_env
