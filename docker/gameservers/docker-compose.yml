@@ -1,0 +1,75 @@
+# Base Game Servers Stack - Watchtower and Shared Network Only
+# Use this as the foundation, then deploy individual games separately
+---
+networks:
+  gameserver-net:
+    driver: bridge
+
+services:
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+    command:
+      - '--housekeeping_interval=10s'
+      - '--docker_only=true'
+      - '--store_container_labels=false'
+    networks:
+      - gameserver-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail-gameservers
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - /etc/promtail:/etc/promtail:ro
+      - /var/lib/promtail/positions:/var/lib/promtail/positions:rw
+    command: -config.file=/etc/promtail/promtail.yml
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower-gameservers
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=3600  # Check every hour
+      - WATCHTOWER_ROLLING_RESTART=true
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - gameserver-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

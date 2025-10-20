@@ -1,0 +1,161 @@
+
+
+networks:
+  files-net:
+    driver: bridge
+
+services:
+  jdownloader2:
+    image: jaymoulin/jdownloader:latest
+    container_name: jdownloader2
+    environment:
+      - MYJD_USER=${MYJD_USER:?MyJDownloader email must be defined}
+      - MYJD_PASSWORD=${MYJD_PASSWORD:?MyJDownloader password must be defined}
+      - MYJD_DEVICE_NAME=${MYJD_DEVICE_NAME:-homelab-jdownloader}
+    volumes:
+      - /datapool/config/jdownloader2:/opt/JDownloader/app/cfg
+      - /datapool/torrents/other:/opt/JDownloader/Downloads
+    ports:
+      - "3129:3129"
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f JDownloader || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - files-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  metube:
+    image: ghcr.io/alexta69/metube:latest
+    container_name: metube
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/metube:/config
+      - /datapool/media/youtube:/downloads
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - files-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  palmr:
+    image: kyantech/palmr:latest
+    container_name: palmr
+    environment:
+      - PALMR_UID=1000
+      - PALMR_GID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+      - ENABLE_S3=false
+      - ENCRYPTION_KEY=${PALMR_ENCRYPTION_KEY:?Palmr encryption key must be defined (min 32 chars)}
+      - APP_URL=${PALMR_APP_URL:?Palmr App URL must be defined}
+    volumes:
+      - /datapool/config/palmr:/app/server
+      - /datapool/config/palmr/uploads:/app/uploads
+    ports:
+      - "5487:5487"
+      - "3333:3333"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5487"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - files-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+    command:
+      - '--housekeeping_interval=10s'
+      - '--docker_only=true'
+      - '--store_container_labels=false'
+    networks:
+      - files-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail-files
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - /etc/promtail:/etc/promtail:ro
+      - /var/lib/promtail/positions:/var/lib/promtail/positions:rw
+    command: -config.file=/etc/promtail/promtail.yml
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower-files
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - WATCHTOWER_CLEANUP=true
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+    command: ["--schedule", "0 0 2,8,14,20 * * *"]
+    networks:
+      - files-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

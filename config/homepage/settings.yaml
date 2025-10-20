@@ -1,0 +1,27 @@
+
+---
+# settings.yaml
+# https://gethomepage.dev/latest/configs/settings
+title: Proxmox Homelab
+favicon: https://www.proxmox.com/images/proxmox/Proxmox_logo_standard_hex_400px.png
+headerStyle: clean
+theme: dark
+color: slate
+background: https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920
+backgroundOpacity: 0.3
+
+layout:
+  Infrastructure:
+    style: row
+    columns: 3
+  Media:
+    style: row
+    columns: 4
+  Tools:
+    style: row
+    columns: 4
+  Downloads:
+    style: row
+    columns: 3
+
+providers: {}

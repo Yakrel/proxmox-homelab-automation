@@ -1,0 +1,207 @@
+
+
+networks:
+  webtools-net:
+    driver: bridge
+
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+       - /datapool/config/homepage:/app/config:rw
+       - /var/run/docker.sock:/var/run/docker.sock:ro
+       - /datapool:/datapool:ro # Added for datapool access
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=1000
+      - PGID=1000
+      - HOMEPAGE_ALLOWED_HOSTS=192.168.1.103:3000,192.168.1.103,localhost,0.0.0.0
+      - HOMEPAGE_VAR_SONARR_API_KEY=${HOMEPAGE_VAR_SONARR_API_KEY}
+      - HOMEPAGE_VAR_RADARR_API_KEY=${HOMEPAGE_VAR_RADARR_API_KEY}
+      - HOMEPAGE_VAR_PROWLARR_API_KEY=${HOMEPAGE_VAR_PROWLARR_API_KEY}
+      - HOMEPAGE_VAR_BAZARR_API_KEY=${HOMEPAGE_VAR_BAZARR_API_KEY}
+      - HOMEPAGE_VAR_JELLYFIN_API_KEY=${HOMEPAGE_VAR_JELLYFIN_API_KEY}
+      - HOMEPAGE_VAR_JELLYSEERR_API_KEY=${HOMEPAGE_VAR_JELLYSEERR_API_KEY}
+      - HOMEPAGE_VAR_QB_USERNAME=${HOMEPAGE_VAR_QB_USERNAME}
+      - HOMEPAGE_VAR_QB_PASSWORD=${HOMEPAGE_VAR_QB_PASSWORD}
+      - HOMEPAGE_VAR_IMMICH_API_KEY=${HOMEPAGE_VAR_IMMICH_API_KEY}
+      - HOMEPAGE_VAR_GRAFANA_USERNAME=${HOMEPAGE_VAR_GRAFANA_USERNAME}
+      - HOMEPAGE_VAR_GRAFANA_PASSWORD=${HOMEPAGE_VAR_GRAFANA_PASSWORD}
+      - HOMEPAGE_VAR_PROXMOX_URL=${HOMEPAGE_VAR_PROXMOX_URL}
+      - HOMEPAGE_VAR_PROXMOX_TOKEN_ID=${HOMEPAGE_VAR_PROXMOX_TOKEN_ID}
+      - HOMEPAGE_VAR_PROXMOX_TOKEN_SECRET=${HOMEPAGE_VAR_PROXMOX_TOKEN_SECRET}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  chrome:
+    image: lscr.io/linuxserver/chrome:latest
+    container_name: chrome
+    restart: unless-stopped
+    ports:
+      - "5800:3001"
+    volumes:
+      - /datapool/config/chrome:/config:rw
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-Europe/Istanbul}
+      - CUSTOM_USER=yakrel
+      - PASSWORD=${CHROME_WEB_PASSWORD:?Chrome password must be defined}
+    shm_size: "1gb"
+    security_opt:
+      - seccomp:unconfined
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  couchdb:
+    image: couchdb:latest
+    container_name: couchdb-obsidian
+    restart: unless-stopped
+    ports:
+      - "5984:5984"
+    environment:
+      - COUCHDB_USER=${COUCHDB_USER:?CouchDB user must be defined}
+      - COUCHDB_PASSWORD=${COUCHDB_PASSWORD:?CouchDB password must be defined}
+      - TZ=${TZ:-Europe/Istanbul}
+    volumes:
+      - /datapool/config/couchdb/data:/opt/couchdb/data
+      - /datapool/config/couchdb/local.d:/opt/couchdb/etc/local.d
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5984/_up"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  obsidian:
+    image: lscr.io/linuxserver/obsidian:latest
+    container_name: obsidian
+    security_opt:
+      - seccomp:unconfined
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+      - CUSTOM_USER=yakrel
+      - PASSWORD=${OBSIDIAN_WEB_PASSWORD}
+    volumes:
+      - /datapool/config/obsidian:/config
+    ports:
+      - "3333:3000"
+      - "3334:3001"
+    shm_size: "1gb"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+    command:
+      - '--housekeeping_interval=10s'
+      - '--docker_only=true'
+      - '--store_container_labels=false'
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail-webtools
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - /etc/promtail:/etc/promtail:ro
+      - /var/lib/promtail/positions:/var/lib/promtail/positions:rw
+    command: -config.file=/etc/promtail/promtail.yml
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower-webtools
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - WATCHTOWER_CLEANUP=true
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+    command: ["--schedule", "0 0 2,8,14,20 * * *"]
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

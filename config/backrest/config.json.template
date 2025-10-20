@@ -1,0 +1,85 @@
+{
+  "modno": 2,
+  "version": 4,
+  "instance": "{{INSTANCE_ID}}",
+  "repos": [
+    {
+      "id": "{{REPO_ID}}",
+      "uri": "/repos",
+      "password": "{{REPO_PASSWORD}}",
+      "guid": "{{REPO_GUID}}",
+      "prunePolicy": {
+        "schedule": {
+          "cron": "0 16 * * 5",
+          "clock": "CLOCK_LAST_RUN_TIME"
+        },
+        "maxUnusedPercent": 25
+      },
+      "checkPolicy": {
+        "schedule": {
+          "cron": "30 16 1 * *",
+          "clock": "CLOCK_LAST_RUN_TIME"
+        },
+        "readDataSubsetPercent": 10
+      },
+      "commandPrefix": {}
+    }
+  ],
+  "plans": [
+    {
+      "id": "config-backup",
+      "repo": "{{REPO_ID}}",
+      "paths": [
+        "/backup-sources/config"
+      ],
+      "schedule": {
+        "cron": "30 12 * * *",
+        "clock": "CLOCK_LAST_RUN_TIME"
+      },
+      "retention": {
+        "policyTimeBucketed": {
+          "hourly": 0,
+          "daily": 30,
+          "weekly": 8,
+          "monthly": 12,
+          "yearly": 3
+        }
+      }
+    },
+    {
+      "id": "immich-backup",
+      "repo": "{{REPO_ID}}",
+      "paths": [
+        "/backup-sources/immich"
+      ],
+      "schedule": {
+        "cron": "0 14 * * 3",
+        "clock": "CLOCK_LAST_RUN_TIME"
+      },
+      "retention": {
+        "policyTimeBucketed": {
+          "hourly": 0,
+          "daily": 7,
+          "weekly": 4,
+          "monthly": 6
+        }
+      }
+    }
+  ],
+  "auth": {
+    "disabled": false,
+    "users": [
+      {
+        "name": "{{USERNAME}}",
+        "passwordBcrypt": "{{PASSWORD_BCRYPT}}"
+      }
+    ]
+  },
+  "sync": {
+    "identity": {
+      "keyId": "{{SYNC_KEY_ID}}",
+      "ed25519priv": "{{SYNC_PRIVATE_KEY}}",
+      "ed25519pub": "{{SYNC_PUBLIC_KEY}}"
+    }
+  }
+}
