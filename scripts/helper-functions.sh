@@ -389,37 +389,3 @@ fix_config_permissions() {
     chown -R 101000:101000 /datapool/config
 }
 
-# === HOMEPAGE PROXMOX INTEGRATION ===
-# Update .env file with Proxmox API token for Homepage widget (idempotent)
-
-update_env_with_proxmox_token() {
-    local env_file="$1"
-
-    # Check if already configured (idempotent check)
-    if grep -q "HOMEPAGE_VAR_PROXMOX_TOKEN_ID" "$env_file"; then
-        print_info "Proxmox token already configured in .env, skipping"
-        return 0
-    fi
-
-    # Read secret from temp file (only exists if token was just created)
-    if [[ -f /tmp/homepage_token_secret ]]; then
-        local token_secret
-        token_secret=$(cat /tmp/homepage_token_secret)
-        rm -f /tmp/homepage_token_secret
-
-        print_info "Adding Proxmox API token to .env file"
-
-        # Append to .env file with proper formatting
-        cat >> "$env_file" << EOF
-
-# Homepage Proxmox Integration (auto-generated)
-HOMEPAGE_VAR_PROXMOX_URL=https://192.168.1.10:8006
-HOMEPAGE_VAR_PROXMOX_TOKEN_ID=homepage@pve!homepage-token
-HOMEPAGE_VAR_PROXMOX_TOKEN_SECRET=$token_secret
-EOF
-
-        print_success "Proxmox API credentials added to .env"
-    else
-        print_info "No new token secret found, assuming token already exists in .env"
-    fi
-}
