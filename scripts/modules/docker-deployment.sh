@@ -58,6 +58,25 @@ setup_couchdb_config() {
     print_success "CouchDB directories and configuration ready"
 }
 
+# Setup Immich directories with correct ownership
+setup_immich_directories() {
+    print_info "Preparing Immich directories with correct ownership"
+
+    # Create all required Immich directories
+    mkdir -p /datapool/media/immich/{upload,library,thumbs,profile,backups,encoded-video}
+    mkdir -p /datapool/config/immich/postgres
+
+    # Set correct ownership (101000:101000 on host = 1000:1000 in LXC)
+    chown -R 101000:101000 /datapool/media/immich
+    chown -R 101000:101000 /datapool/config/immich
+
+    # Set appropriate permissions
+    chmod -R 755 /datapool/media/immich
+    chmod -R 700 /datapool/config/immich/postgres
+
+    print_success "Immich directories ready with correct ownership"
+}
+
 # Setup Promtail configuration for log aggregation
 setup_promtail_config() {
     local ct_id="$1"
@@ -196,6 +215,11 @@ deploy_docker_stack() {
     if [[ "$stack_name" == "webtools" ]]; then
         setup_homepage_config "$ct_id"
         setup_couchdb_config "$ct_id"
+    fi
+
+    # Setup Immich directories for media stack
+    if [[ "$stack_name" == "media" ]]; then
+        setup_immich_directories
     fi
 
     setup_docker_compose "$stack_name" "$ct_id"
