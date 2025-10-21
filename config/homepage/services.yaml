@@ -105,6 +105,7 @@
           type: immich
           url: http://192.168.1.101:2283
           key: "{{HOMEPAGE_VAR_IMMICH_API_KEY}}"
+          version: 2
     
     - Cleanuperr:
         description: Media Cleanup
