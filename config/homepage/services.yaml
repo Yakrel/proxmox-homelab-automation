@@ -13,7 +13,7 @@
           url: https://192.168.1.10:8006
           username: "{{HOMEPAGE_VAR_PROXMOX_TOKEN_ID}}"
           password: "{{HOMEPAGE_VAR_PROXMOX_TOKEN_SECRET}}"
-    
+
     - Grafana:
         description: Monitoring & Metrics
         href: http://192.168.1.104:3000
@@ -23,7 +23,7 @@
           url: http://192.168.1.104:3000
           username: "{{HOMEPAGE_VAR_GRAFANA_USERNAME}}"
           password: "{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}"
-    
+
     - Prometheus:
         description: Metrics Collection
         href: http://192.168.1.104:9090
@@ -31,7 +31,7 @@
         widget:
           type: prometheus
           url: http://192.168.1.104:9090
-    
+
     - Backrest:
         description: Backup Management
         href: http://192.168.1.106:9898
@@ -41,6 +41,11 @@
           url: http://192.168.1.106:9898
           username: "{{HOMEPAGE_VAR_BACKREST_USERNAME}}"
           password: "{{HOMEPAGE_VAR_BACKREST_PASSWORD}}"
+
+    - Palmr:
+        description: S3 Storage
+        href: http://192.168.1.102:5487
+        icon: mdi-folder-multiple
 
 - Media:
     - Jellyfin:
@@ -112,36 +117,21 @@
         href: http://192.168.1.101:11011
         icon: cleanuperr.png
 
-- Tools:
+- Utilities:
+    - Chrome:
+        description: Remote Browser
+        href: http://192.168.1.103:5800
+        icon: chrome.png
+
     - Obsidian:
         description: Knowledge Base
-        href: http://192.168.1.103:3333
+        href: http://192.168.1.103:3334
         icon: obsidian.png
-    
+
     - CouchDB:
         description: Obsidian Sync
         href: http://192.168.1.103:5984/_utils
         icon: couchdb.png
-    
-    - Chrome:
-        description: Remote Browser
-        href: http://192.168.1.103:3000
-        icon: chrome.png
-    
-    - Palmr:
-        description: S3 Storage
-        href: http://192.168.1.102:5487
-        icon: mdi-folder-multiple
-    
-    - PVE Exporter:
-        description: Proxmox Metrics
-        href: http://192.168.1.104:9221
-        icon: prometheus.png
-    
-    - GitHub Repo:
-        description: Homelab Automation
-        href: https://github.com/Yakrel/proxmox-homelab-automation
-        icon: github.png
 
 - Downloads:
     - qBittorrent:

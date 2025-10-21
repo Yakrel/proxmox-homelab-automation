@@ -1,27 +1,45 @@
-
 ---
 # settings.yaml
 # https://gethomepage.dev/latest/configs/settings
-title: Proxmox Homelab
-favicon: https://www.proxmox.com/images/proxmox/Proxmox_logo_standard_hex_400px.png
-headerStyle: clean
-theme: dark
-color: slate
-background: https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920
-backgroundOpacity: 0.3
 
+title: Proxmox Homelab
+favicon: https://www.proxmox.com/favicon.ico
+
+# Theme & Appearance - Minimalist
+theme: dark
+color: zinc
+headerStyle: clean
+
+# Background - Space theme without blur
+background:
+  image: https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=1920
+  saturate: 50
+  brightness: 30
+  opacity: 35
+
+# Quick Launch
+quicklaunch:
+  searchDescriptions: true
+  provider: google
+
+# Layout Configuration
 layout:
   Infrastructure:
     style: row
-    columns: 3
-  Media:
-    style: row
     columns: 4
-  Tools:
+  Media:
     style: row
     columns: 4
   Downloads:
     style: row
     columns: 3
+  Utilities:
+    style: row
+    columns: 3
+    initiallyCollapsed: true
+
+# Display Options - Minimalist
+statusStyle: dot
+useEqualHeights: false
 
 providers: {}
