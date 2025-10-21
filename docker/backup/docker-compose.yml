@@ -16,8 +16,8 @@ services:
       # Backup repository location
       - /datapool/backup:/repos
       # Backup sources
-      - /datapool/config:/backup-sources/config:ro
-      - /datapool/media/immich:/backup-sources/immich:ro
+      - /datapool/config:/backup-sources/config:rw
+      - /datapool/media/immich:/backup-sources/immich:rw
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PUID=1000
