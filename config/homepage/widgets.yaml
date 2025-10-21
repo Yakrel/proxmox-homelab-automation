@@ -3,25 +3,32 @@
 # widgets.yaml
 # https://gethomepage.dev/latest/configs/service-widgets
 
-# System Resources at a glance
+# Greeting
+- greeting:
+    text_size: xl
+    text: "Hoşgeldin!"
+
+# Datapool Storage
 - resources:
-    cpu: true
-    memory: true
+    label: Datapool Storage
     disk:
       - /datapool
     diskUnits: bytes
-    expanded: true
-    label: System Resources
-    refresh: 3000
+
+# Weather - Kırıkkale
+- openmeteo:
+    label: Kırıkkale
+    latitude: 39.8468
+    longitude: 33.5153
     units: metric
-    uptime: true
+    cache: 5
 
 # Date & Time
 - datetime:
-    text_size: xl
+    text_size: lg
     format:
-      dateStyle: full
-      timeStyle: medium
+      dateStyle: short
+      timeStyle: short
       hour12: false
 
 # Quick Search
