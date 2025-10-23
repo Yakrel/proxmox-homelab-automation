@@ -14,7 +14,7 @@ scrape_configs:
       - targets:
           - localhost
         labels:
-          job: containerlogs
+          job: dockerlogs
           __path__: /var/lib/docker/containers/*/*-json.log
           host: "REPLACE_HOST_LABEL"
 
@@ -23,6 +23,7 @@ scrape_configs:
           expressions:
             output: log
             stream: stream
+            time: time
             attrs:
       - json:
           source: attrs
@@ -30,7 +31,7 @@ scrape_configs:
             tag:
       - regex:
           source: tag
-          expression: '^(?P<container_name>(?:[^_]+_){2}[^_]+)'
+          expression: '^(?P<container_name>[^_]+)'
       - timestamp:
           source: time
           format: RFC3339Nano
