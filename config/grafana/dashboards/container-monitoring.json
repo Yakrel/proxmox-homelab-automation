@@ -74,7 +74,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "count(container_last_seen{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"})",
+          "expr": "count(container_last_seen{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"})",
           "refId": "A"
         }
       ],
@@ -141,11 +141,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(container_oom_events_total{name!=\"\"}[5m]))",
+          "expr": "sum(rate(container_oom_events_total{name!=\"\",instance=~\"$lxc_host\"}[5m]))",
           "refId": "A"
         }
       ],
       "title": "OOM Events (5m)",
+      "description": "Out-of-Memory (OOM) events occur when a container exceeds its memory limit and is killed by the system. High values indicate containers need more memory allocation.",
       "type": "stat"
     },
     {
@@ -204,11 +205,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "count(container_scrape_error{name!=\"\"} > 0) OR on() vector(0)",
+          "expr": "count(container_scrape_error{name!=\"\",instance=~\"$lxc_host\"} > 0) OR on() vector(0)",
           "refId": "A"
         }
       ],
       "title": "Scrape Errors",
+      "description": "Scrape errors occur when Prometheus fails to collect metrics from a container. This usually indicates the container is down, unhealthy, or the metrics endpoint is unavailable.",
       "type": "stat"
     },
     {
@@ -271,7 +273,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(container_network_receive_errors_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}[5m]) + rate(container_network_transmit_errors_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}[5m]))",
+          "expr": "sum(rate(container_network_receive_errors_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m]) + rate(container_network_transmit_errors_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m]))",
           "refId": "A"
         }
       ],
@@ -357,27 +359,19 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Memory %"
+              "options": "Memory"
             },
             "properties": [
               {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
                 "id": "custom.cellOptions",
                 "value": {
-                  "mode": "gradient",
-                  "type": "gauge"
+                  "mode": "basic",
+                  "type": "color-background"
                 }
-              },
-              {
-                "id": "max",
-                "value": 100
-              },
-              {
-                "id": "min",
-                "value": 0
-              },
-              {
-                "id": "unit",
-                "value": "percent"
               },
               {
                 "id": "thresholds",
@@ -390,38 +384,18 @@
                     },
                     {
                       "color": "yellow",
-                      "value": 70
+                      "value": 536870912
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1073741824
                     },
                     {
                       "color": "red",
-                      "value": 85
+                      "value": 2147483648
                     }
                   ]
                 }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Memory"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "bytes"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Limit"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "bytes"
               }
             ]
           }
@@ -459,7 +433,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "container_last_seen{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}",
+          "expr": "rate(container_cpu_usage_seconds_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m]) * 100",
           "format": "table",
           "instant": true,
           "refId": "A"
@@ -469,40 +443,10 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(container_cpu_usage_seconds_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}[5m]) * 100",
+          "expr": "container_memory_working_set_bytes{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}",
           "format": "table",
           "instant": true,
           "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "container_memory_working_set_bytes{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}",
-          "format": "table",
-          "instant": true,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "(container_memory_working_set_bytes{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"} / container_spec_memory_limit_bytes{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}) * 100",
-          "format": "table",
-          "instant": true,
-          "refId": "D"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "container_spec_memory_limit_bytes{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}",
-          "format": "table",
-          "instant": true,
-          "refId": "E"
         }
       ],
       "title": "Container Overview",
@@ -512,6 +456,24 @@
           "options": {}
         },
         {
+          "id": "filterByValue",
+          "options": {
+            "filters": [
+              {
+                "config": {
+                  "id": "greater",
+                  "options": {
+                    "value": 0
+                  }
+                },
+                "fieldName": "Value #B"
+              }
+            ],
+            "match": "all",
+            "type": "include"
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {
@@ -519,28 +481,24 @@
               "__name__": true,
               "id": true,
               "image": true,
-              "job": true
+              "job": true,
+              "cpu": true,
+              "total": true
             },
             "indexByName": {
               "Time": 0,
-              "Value #A": 6,
-              "Value #B": 3,
-              "Value #C": 4,
-              "Value #D": 5,
-              "Value #E": 7,
-              "__name__": 8,
-              "id": 9,
-              "image": 10,
+              "Value #A": 3,
+              "Value #B": 4,
+              "__name__": 5,
+              "id": 6,
+              "image": 7,
               "instance": 1,
-              "job": 11,
+              "job": 8,
               "name": 2
             },
             "renameByName": {
-              "Value #A": "",
-              "Value #B": "CPU %",
-              "Value #C": "Memory",
-              "Value #D": "Memory %",
-              "Value #E": "Limit",
+              "Value #A": "CPU %",
+              "Value #B": "Memory",
               "instance": "Host",
               "name": "Container"
             }
@@ -634,7 +592,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(container_cpu_usage_seconds_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}[5m])",
+          "expr": "rate(container_cpu_usage_seconds_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m])",
           "legendFormat": "{{instance}}/{{name}}",
           "refId": "A"
         }
@@ -727,7 +685,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "container_memory_working_set_bytes{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}",
+          "expr": "container_memory_working_set_bytes{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}",
           "legendFormat": "{{instance}}/{{name}}",
           "refId": "A"
         }
@@ -832,7 +790,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(container_fs_writes_bytes_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}[5m])",
+          "expr": "rate(container_fs_writes_bytes_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m])",
           "legendFormat": "{{instance}}/{{name}} write",
           "refId": "A"
         },
@@ -841,7 +799,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(container_fs_reads_bytes_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}[5m])",
+          "expr": "rate(container_fs_reads_bytes_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m])",
           "legendFormat": "{{instance}}/{{name}} read",
           "refId": "B"
         }
@@ -946,7 +904,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(container_network_transmit_bytes_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}[5m])",
+          "expr": "rate(container_network_transmit_bytes_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m])",
           "legendFormat": "{{instance}}/{{name}} transmit",
           "refId": "A"
         },
@@ -955,7 +913,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(container_network_receive_bytes_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}[5m])",
+          "expr": "rate(container_network_receive_bytes_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m])",
           "legendFormat": "{{instance}}/{{name}} receive",
           "refId": "B"
         }
@@ -1048,7 +1006,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "container_fs_usage_bytes{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}",
+          "expr": "container_fs_usage_bytes{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}",
           "legendFormat": "{{instance}}/{{name}}",
           "refId": "A"
         }
@@ -1141,13 +1099,133 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(container_network_receive_packets_dropped_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}[5m]) + rate(container_network_transmit_packets_dropped_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"}[5m])",
+          "expr": "rate(container_network_receive_packets_dropped_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m]) + rate(container_network_transmit_packets_dropped_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m])",
           "legendFormat": "{{instance}}/{{name}}",
           "refId": "A"
         }
       ],
       "title": "Network Packet Drops by Container",
       "type": "timeseries"
+    },
+    {
+      "collapsed": true,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 38
+      },
+      "id": 12,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "tooltip": false,
+                  "viz": false,
+                  "legend": false
+                },
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 536870912
+                  },
+                  {
+                    "color": "red",
+                    "value": 1073741824
+                  }
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 39
+          },
+          "id": 13,
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "lastNotNull",
+                "max"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "10.0.0",
+          "repeat": "container",
+          "repeatDirection": "h",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "container_memory_working_set_bytes{name=\"$container\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}",
+              "legendFormat": "{{instance}}/{{name}}",
+              "refId": "A"
+            }
+          ],
+          "title": "$container - Memory Usage",
+          "type": "timeseries"
+        }
+      ],
+      "title": "Memory Details (Per Container)",
+      "type": "row"
     }
   ],
   "refresh": "30s",
@@ -1155,7 +1233,62 @@
   "style": "dark",
   "tags": ["homelab", "docker", "containers"],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(up{job=\"cadvisor\"}, instance)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "LXC Host",
+        "multi": false,
+        "name": "lxc_host",
+        "options": [],
+        "query": {
+          "query": "label_values(up{job=\"cadvisor\"}, instance)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(container_memory_working_set_bytes{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}, name)",
+        "hide": 2,
+        "includeAll": false,
+        "label": "Container",
+        "multi": false,
+        "name": "container",
+        "options": [],
+        "query": {
+          "query": "label_values(container_memory_working_set_bytes{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}, name)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-1h",

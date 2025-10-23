@@ -57,8 +57,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
+        "h": 6,
+        "w": 6,
         "x": 0,
         "y": 0
       },
@@ -82,7 +82,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "avg(pve_cpu_usage_ratio{id=\"node/pve\"})",
+          "expr": "avg(pve_cpu_usage_ratio{id=\"node/pve01\"})",
           "refId": "A"
         }
       ],
@@ -124,9 +124,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 4,
+        "h": 6,
+        "w": 6,
+        "x": 6,
         "y": 0
       },
       "id": 2,
@@ -149,7 +149,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "pve_memory_usage_bytes{id=\"node/pve\"} / pve_memory_size_bytes{id=\"node/pve\"}",
+          "expr": "pve_memory_usage_bytes{id=\"node/pve01\"} / pve_memory_size_bytes{id=\"node/pve01\"}",
           "refId": "A"
         }
       ],
@@ -181,9 +181,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 8,
+        "h": 6,
+        "w": 6,
+        "x": 12,
         "y": 0
       },
       "id": 3,
@@ -240,9 +240,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 12,
+        "h": 3,
+        "w": 6,
+        "x": 18,
         "y": 0
       },
       "id": 4,
@@ -307,10 +307,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 16,
-        "y": 0
+        "h": 3,
+        "w": 6,
+        "x": 18,
+        "y": 3
       },
       "id": 5,
       "options": {
@@ -459,16 +459,20 @@
                 "value": {
                   "type": "color-background"
                 }
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
               }
             ]
           }
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 24,
         "x": 0,
-        "y": 4
+        "y": 6
       },
       "id": 6,
       "options": {
@@ -547,29 +551,89 @@
               "id": true,
               "instance": true,
               "job": true,
-              "node": true
+              "node": true,
+              "Value #A": true,
+              "type": true,
+              "template": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true
             },
             "indexByName": {
-              "Time": 0,
-              "Value #A": 6,
-              "Value #B": 2,
-              "Value #C": 3,
-              "Value #D": 4,
-              "__name__": 5,
-              "id": 7,
-              "instance": 8,
-              "job": 9,
-              "name": 1,
-              "node": 10,
-              "type": 11
+              "name": 0,
+              "Value #B": 1,
+              "Value #C": 2,
+              "Value #D": 3
             },
             "renameByName": {
-              "Value #A": "",
               "Value #B": "Status",
               "Value #C": "CPU %",
               "Value #D": "Memory %",
               "name": "LXC Name"
             }
+          }
+        },
+        {
+          "id": "groupBy",
+          "options": {
+            "fields": {
+              "CPU %": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "LXC Name": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "Memory %": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "Status": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              }
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {
+              "LXC Name": 0,
+              "Status (last)": 1,
+              "CPU % (last)": 2,
+              "Memory % (last)": 3
+            },
+            "renameByName": {
+              "Status (last)": "Status",
+              "CPU % (last)": "CPU %",
+              "Memory % (last)": "Memory %"
+            }
+          }
+        },
+        {
+          "id": "filterByValue",
+          "options": {
+            "filters": [
+              {
+                "config": {
+                  "id": "isNotNull",
+                  "options": {}
+                },
+                "fieldName": "LXC Name"
+              }
+            ],
+            "match": "all",
+            "type": "include"
           }
         }
       ],
@@ -635,7 +699,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 12
+        "y": 15
       },
       "id": 7,
       "options": {
@@ -730,7 +794,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 12
+        "y": 15
       },
       "id": 8,
       "options": {
@@ -836,7 +900,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 20
+        "y": 23
       },
       "id": 9,
       "options": {
@@ -950,7 +1014,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 20
+        "y": 23
       },
       "id": 10,
       "options": {
