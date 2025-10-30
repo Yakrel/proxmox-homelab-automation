@@ -32,6 +32,14 @@
       "paths": [
         "/backup-sources/config"
       ],
+      "excludes": [
+        "/backup-sources/config/obsidian",
+        "/backup-sources/config/chrome",
+        "/backup-sources/config/*/.cache",
+        "/backup-sources/config/*/cache",
+        "/backup-sources/config/loki/data",
+        "/backup-sources/config/prometheus/data"
+      ],
       "schedule": {
         "cron": "30 12 * * *",
         "clock": "CLOCK_LAST_RUN_TIME"
