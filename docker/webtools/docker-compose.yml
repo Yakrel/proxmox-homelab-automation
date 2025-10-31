@@ -56,9 +56,10 @@ services:
     restart: unless-stopped
     pull_policy: always
     ports:
-      - "5800:3001"  # HTTPS web interface
+      - "5800:3000"  # HTTPS web interface
     volumes:
       - /datapool/config/desktop:/config:rw
+      - /datapool:/datapool:rw
     environment:
       - PUID=1000
       - PGID=1000
