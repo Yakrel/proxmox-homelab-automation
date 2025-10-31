@@ -32,7 +32,7 @@ setup_homepage_config() {
                     exit 0
                 fi
             fi
-            rm -f "$temp_file"  # Cleanup temp file on any failure
+            rm -f "$temp_file"  # Clean up temp file on any failure
             exit 1
         ) &
         pids+=($!)

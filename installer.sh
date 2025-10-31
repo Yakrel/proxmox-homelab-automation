@@ -100,12 +100,7 @@ done
 failed_downloads=()
 for i in "${!pids[@]}"; do
     if ! wait "${pids[$i]}"; then
-        # Validate index is in bounds before accessing FILES_TO_DOWNLOAD
-        if [[ $i -lt ${#FILES_TO_DOWNLOAD[@]} ]]; then
-            failed_downloads+=("${FILES_TO_DOWNLOAD[$i]}")
-        else
-            failed_downloads+=("unknown file at index $i")
-        fi
+        failed_downloads+=("${FILES_TO_DOWNLOAD[$i]}")
     fi
 done
 
