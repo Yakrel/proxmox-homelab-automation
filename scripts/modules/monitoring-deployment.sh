@@ -109,17 +109,24 @@ provision_grafana_dashboards() {
     # Download all dashboards in parallel for better performance
     local dashboards=("infrastructure-overview" "container-monitoring" "logs-monitoring")
     local pids=()
+    local failed_dashboards=()
     
     for dashboard in "${dashboards[@]}"; do
         (curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/${dashboard}.json" \
-            -o "$dashboards_dir/${dashboard}.json" || \
-            print_warning "Failed to download ${dashboard} dashboard" >&2) &
+            -o "$dashboards_dir/${dashboard}.json") &
         pids+=($!)
     done
     
-    # Wait for all downloads to complete
-    for pid in "${pids[@]}"; do
-        wait "$pid" || true  # Continue even if one dashboard fails (non-critical)
+    # Wait for all downloads to complete and track failures
+    for i in "${!pids[@]}"; do
+        if ! wait "${pids[$i]}"; then
+            failed_dashboards+=("${dashboards[$i]}")
+        fi
+    done
+    
+    # Report warnings for failed dashboards after all complete
+    for dashboard in "${failed_dashboards[@]}"; do
+        print_warning "Failed to download ${dashboard} dashboard"
     done
     
     # Note: Permissions will be set once at the end of deploy_monitoring_stack()

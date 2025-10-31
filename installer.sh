@@ -96,10 +96,16 @@ for file_path in "${FILES_TO_DOWNLOAD[@]}"; do
 done
 
 # Wait for all downloads and check for failures
+# Arrays are kept in sync: pids[i] corresponds to FILES_TO_DOWNLOAD[i]
 failed_downloads=()
 for i in "${!pids[@]}"; do
     if ! wait "${pids[$i]}"; then
-        failed_downloads+=("${FILES_TO_DOWNLOAD[$i]}")
+        # Validate index is in bounds before accessing FILES_TO_DOWNLOAD
+        if [[ $i -lt ${#FILES_TO_DOWNLOAD[@]} ]]; then
+            failed_downloads+=("${FILES_TO_DOWNLOAD[$i]}")
+        else
+            failed_downloads+=("unknown file at index $i")
+        fi
     fi
 done
 

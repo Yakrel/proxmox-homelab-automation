@@ -24,8 +24,17 @@ setup_homepage_config() {
         local config_url="$REPO_BASE_URL/config/homepage/$config_file"
         local temp_file="/tmp/homepage_${config_file}"
         
-        # Launch background curl job
-        (curl -sSL "$config_url" -o "$temp_file" && cp "$temp_file" "/datapool/config/homepage/$config_file" && rm -f "$temp_file") &
+        # Launch background curl job with explicit error handling
+        (
+            if curl -sSL "$config_url" -o "$temp_file"; then
+                if cp "$temp_file" "/datapool/config/homepage/$config_file"; then
+                    rm -f "$temp_file"
+                    exit 0
+                fi
+            fi
+            rm -f "$temp_file"  # Cleanup temp file on any failure
+            exit 1
+        ) &
         pids+=($!)
     done
     
