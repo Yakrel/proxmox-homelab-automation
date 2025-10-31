@@ -27,7 +27,7 @@ setup_monitoring_environment() {
     }
     
     # Read Grafana configuration from .env.enc (already decrypted)
-    # Optimization: Read file once and parse all variables to avoid 5 grep calls
+    # Optimization: Read file once and parse 5 variables to avoid 5 file reads
     local gf_admin_user gf_admin_password pve_url pve_user pve_verify_ssl
     local env_content
     

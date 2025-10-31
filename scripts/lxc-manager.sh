@@ -39,7 +39,7 @@ get_latest_template() {
     if [[ "$local_template" != "$latest_available" ]]; then
         print_info "Downloading latest ${template_type} template: $latest_available" >&2
         pveam download "$STORAGE_POOL" "$latest_available" >&2
-        # After download, we must query again to get the actual downloaded filename
+        # After download, query storage to get actual filename (may differ from available name due to version resolution)
         local_template=$(pveam list "$STORAGE_POOL" 2>/dev/null | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1 | sed "s|^${STORAGE_POOL}:vztmpl/||")
         print_success "Downloaded template: $local_template" >&2
     else

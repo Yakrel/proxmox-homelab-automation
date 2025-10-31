@@ -101,7 +101,7 @@ deploy_backrest() {
     fi
 
     # Safely read variables from the decrypted .env file without sourcing it
-    # Optimization: Read file once and parse all variables to avoid 9 grep calls
+    # Optimization: Read file once and parse 9 variables to avoid 9 file reads
     local backrest_instance_id backrest_repo_id backrest_repo_guid
     local backrest_auth_username backrest_auth_password_bcrypt backrest_repo_password
     local backrest_sync_key_id backrest_sync_private_key backrest_sync_public_key
