@@ -82,10 +82,10 @@ setup_monitoring_directories() {
     mkdir -p /datapool/config/grafana/provisioning/datasources
     mkdir -p /datapool/config/grafana/provisioning/dashboards
 
-    # Fix permissions for all config directory (simpler approach)
-    chown -R 101000:101000 /datapool/config
+    # Note: Permissions will be set once at the end of deploy_monitoring_stack()
+    # to avoid redundant chown operations
 
-    print_success "Monitoring directories created with proper permissions"
+    print_success "Monitoring directories created"
 }
 
 # Provision Grafana dashboards as JSON files
@@ -103,23 +103,24 @@ provision_grafana_dashboards() {
     # Download custom dashboards from our repo (already have correct datasource UIDs)
     # These dashboards are maintained in config/grafana/dashboards/ with full documentation
     
-    # Infrastructure Overview dashboard - Proxmox host + LXC monitoring
-    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/infrastructure-overview.json" \
-        -o "$dashboards_dir/infrastructure-overview.json" || \
-        print_warning "Failed to download Infrastructure Overview dashboard"
+    # Download all dashboards in parallel for better performance
+    local dashboards=("infrastructure-overview" "container-monitoring" "logs-monitoring")
+    local pids=()
     
-    # Container Monitoring dashboard - Detailed cAdvisor metrics for all Docker containers
-    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/container-monitoring.json" \
-        -o "$dashboards_dir/container-monitoring.json" || \
-        print_warning "Failed to download Container Monitoring dashboard"
+    for dashboard in "${dashboards[@]}"; do
+        (curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/${dashboard}.json" \
+            -o "$dashboards_dir/${dashboard}.json" || \
+            print_warning "Failed to download ${dashboard} dashboard" >&2) &
+        pids+=($!)
+    done
     
-    # Logs Monitoring dashboard - Loki log viewer for Docker containers
-    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/logs-monitoring.json" \
-        -o "$dashboards_dir/logs-monitoring.json" || \
-        print_warning "Failed to download Logs Monitoring dashboard"
+    # Wait for all downloads to complete
+    for pid in "${pids[@]}"; do
+        wait "$pid" || true  # Continue even if one dashboard fails (non-critical)
+    done
     
-    # Fix ownership for Grafana container (unprivileged LXC mapping: 1000 -> 101000)
-    chown -R 101000:101000 "$dashboards_dir"
+    # Note: Permissions will be set once at the end of deploy_monitoring_stack()
+    # to avoid redundant chown operations
     
     print_success "Grafana dashboards provisioned"
 }
@@ -237,9 +238,8 @@ validate_monitoring_configs() {
     # Note: No chown needed inside LXC for /etc/promtail files
     # Files pushed with pct push automatically get correct ownership from root context
     
-    # Fix permissions for config files pushed with pct push (they get root ownership)
-    # Must be done after pct push commands to ensure Docker containers can read them
-    chown -R 101000:101000 /datapool/config/prometheus /datapool/config/loki
+    # Note: Permissions will be set once at the end of deploy_monitoring_stack()
+    # to avoid redundant chown operations
 
     print_success "All configuration files validated"
 }

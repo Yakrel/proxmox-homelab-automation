@@ -18,15 +18,29 @@ setup_homepage_config() {
     # List of homepage config files to copy
     local config_files=("services.yaml" "bookmarks.yaml" "widgets.yaml" "settings.yaml" "docker.yaml")
 
+    # Download all files in parallel for better performance
+    local pids=()
     for config_file in "${config_files[@]}"; do
         local config_url="$REPO_BASE_URL/config/homepage/$config_file"
         local temp_file="/tmp/homepage_${config_file}"
-
-        # Download and copy - fail fast with original error messages
-        curl -sSL "$config_url" -o "$temp_file"
-        cp "$temp_file" "/datapool/config/homepage/$config_file"
-        rm -f "$temp_file"
+        
+        # Launch background curl job
+        (curl -sSL "$config_url" -o "$temp_file" && cp "$temp_file" "/datapool/config/homepage/$config_file" && rm -f "$temp_file") &
+        pids+=($!)
     done
+    
+    # Wait for all downloads to complete and check for failures
+    local failed=0
+    for pid in "${pids[@]}"; do
+        if ! wait "$pid"; then
+            failed=1
+        fi
+    done
+    
+    if [[ $failed -eq 1 ]]; then
+        print_error "Failed to download one or more homepage config files"
+        exit 1
+    fi
 
     # Fix permissions
     chown -R 101000:101000 /datapool/config/homepage
@@ -165,17 +179,11 @@ deploy_docker_services() {
     
     print_info "Deploying Docker services for $stack_name"
     
-    # Pull images first (without --quiet to see errors)
-    print_info "Pulling Docker images"
-    pct exec "$ct_id" -- sh -c "cd /root && docker compose pull" || {
-        print_error "Failed to pull Docker images"
-        exit 1
-    }
-    
-    # Deploy services
-    print_info "Starting Docker services"
-    pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --remove-orphans" || {
-        print_error "Failed to start Docker services"
+    # Pull images and deploy in one command (docker compose up will pull if needed)
+    # Using --pull always ensures we get latest images while being more efficient
+    print_info "Pulling images and starting Docker services"
+    pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --pull always --remove-orphans" || {
+        print_error "Failed to deploy Docker services"
         exit 1
     }
     
