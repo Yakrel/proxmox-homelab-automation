@@ -1,0 +1,48 @@
+name: Build and Push Desktop Workspace Image
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'docker/webtools/desktop-workspace/**'
+      - '.github/workflows/build-desktop-workspace.yml'
+  schedule:
+    # Run every Sunday at 2 AM to rebuild with latest base image and apps
+    - cron: '0 2 * * 0'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: yakrel93/desktop-workspace
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix={{date 'YYYYMMDD'}}-
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docker/webtools/desktop-workspace
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=yakrel93/desktop-workspace:latest
+          cache-to: type=inline
