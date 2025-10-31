@@ -50,20 +50,22 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  chrome:
-    image: lscr.io/linuxserver/chrome:latest
-    container_name: chrome
+  desktop-workspace:
+    image: yakrel93/desktop-workspace:latest
+    container_name: desktop-workspace
     restart: unless-stopped
+    pull_policy: always
     ports:
-      - "5800:3001"
+      - "5800:3001"  # HTTPS web interface
     volumes:
-      - /datapool/config/chrome:/config:rw
+      - /datapool/config/desktop:/config:rw
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=${TZ:-Europe/Istanbul}
-      - CUSTOM_USER=yakrel
-      - PASSWORD=${CHROME_WEB_PASSWORD:?Chrome password must be defined}
+      - TITLE=Desktop Workspace
+      - CUSTOM_USER=${DESKTOP_USER:?Desktop user must be defined}
+      - PASSWORD=${DESKTOP_PASSWORD:?Desktop password must be defined}
     shm_size: "1gb"
     security_opt:
       - seccomp:unconfined
@@ -80,6 +82,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   couchdb:
     image: couchdb:latest
@@ -107,39 +111,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-  obsidian:
-    image: lscr.io/linuxserver/obsidian:latest
-    container_name: obsidian
-    security_opt:
-      - seccomp:unconfined
-    restart: unless-stopped
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Istanbul
-      - CUSTOM_USER=yakrel
-      - PASSWORD=${OBSIDIAN_WEB_PASSWORD}
-    volumes:
-      - /datapool/config/obsidian:/config
-    ports:
-      - "3333:3000"
-      - "3334:3001"
-    shm_size: "1gb"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    networks:
-      - webtools-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
