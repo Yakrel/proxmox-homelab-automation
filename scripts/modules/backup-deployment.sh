@@ -101,25 +101,23 @@ deploy_backrest() {
     fi
 
     # Safely read variables from the decrypted .env file without sourcing it
-    local backrest_instance_id
-    local backrest_repo_id
-    local backrest_repo_guid
-    local backrest_auth_username
-    local backrest_auth_password_bcrypt
-    local backrest_repo_password
-    local backrest_sync_key_id
-    local backrest_sync_private_key
-    local backrest_sync_public_key
-
-    backrest_instance_id=$(grep "^BACKREST_INSTANCE_ID=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
-    backrest_repo_id=$(grep "^BACKREST_REPO_ID=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
-    backrest_repo_guid=$(grep "^BACKREST_REPO_GUID=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
-    backrest_auth_username=$(grep "^BACKREST_AUTH_USERNAME=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
-    backrest_auth_password_bcrypt=$(grep "^BACKREST_AUTH_PASSWORD_BCRYPT=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
-    backrest_repo_password=$(grep "^BACKREST_REPO_PASSWORD=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
-    backrest_sync_key_id=$(grep "^BACKREST_SYNC_KEY_ID=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
-    backrest_sync_private_key=$(grep "^BACKREST_SYNC_PRIVATE_KEY=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
-    backrest_sync_public_key=$(grep "^BACKREST_SYNC_PUBLIC_KEY=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
+    # Optimization: Read file once and parse 9 variables to avoid 9 file reads
+    local backrest_instance_id backrest_repo_id backrest_repo_guid
+    local backrest_auth_username backrest_auth_password_bcrypt backrest_repo_password
+    local backrest_sync_key_id backrest_sync_private_key backrest_sync_public_key
+    local env_content
+    
+    env_content=$(cat "$ENV_DECRYPTED_PATH")
+    
+    backrest_instance_id=$(echo "$env_content" | grep "^BACKREST_INSTANCE_ID=" | cut -d'=' -f2-)
+    backrest_repo_id=$(echo "$env_content" | grep "^BACKREST_REPO_ID=" | cut -d'=' -f2-)
+    backrest_repo_guid=$(echo "$env_content" | grep "^BACKREST_REPO_GUID=" | cut -d'=' -f2-)
+    backrest_auth_username=$(echo "$env_content" | grep "^BACKREST_AUTH_USERNAME=" | cut -d'=' -f2-)
+    backrest_auth_password_bcrypt=$(echo "$env_content" | grep "^BACKREST_AUTH_PASSWORD_BCRYPT=" | cut -d'=' -f2-)
+    backrest_repo_password=$(echo "$env_content" | grep "^BACKREST_REPO_PASSWORD=" | cut -d'=' -f2-)
+    backrest_sync_key_id=$(echo "$env_content" | grep "^BACKREST_SYNC_KEY_ID=" | cut -d'=' -f2-)
+    backrest_sync_private_key=$(echo "$env_content" | grep "^BACKREST_SYNC_PRIVATE_KEY=" | cut -d'=' -f2-)
+    backrest_sync_public_key=$(echo "$env_content" | grep "^BACKREST_SYNC_PUBLIC_KEY=" | cut -d'=' -f2-)
 
     # Validate required variables
     if [[ -z "$backrest_instance_id" || -z "$backrest_repo_id" || -z "$backrest_repo_guid" || \

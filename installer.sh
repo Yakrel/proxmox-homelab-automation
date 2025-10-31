@@ -75,18 +75,43 @@ FILES_TO_DOWNLOAD=(
     "config/backrest/config.json.template"
 )
 
+# Create all directory structures first
 for file_path in "${FILES_TO_DOWNLOAD[@]}"; do
-    # Create the directory structure if it doesn't exist
     mkdir -p "$(dirname "$file_path")"
+done
 
-    curl -sSL "$REPO_BASE_URL/$file_path" -o "$file_path" || { print_error "Failed to download $file_path"; exit 1; }
-    [[ ! -s "$file_path" ]] && { print_error "Downloaded file is empty: $file_path"; exit 1; }
-    # Convert line endings to Unix format (LF) for scripts
-    if [[ "$file_path" == *.sh ]]; then
-        sed -i 's/\r$//' "$file_path"  # Remove carriage returns (CRLF -> LF)
-        chmod +x "$file_path"
+# Download all files in parallel for better performance
+pids=()
+for file_path in "${FILES_TO_DOWNLOAD[@]}"; do
+    (
+        curl -sSL "$REPO_BASE_URL/$file_path" -o "$file_path" || exit 1
+        [[ ! -s "$file_path" ]] && exit 1
+        # Convert line endings to Unix format (LF) for scripts
+        if [[ "$file_path" == *.sh ]]; then
+            sed -i 's/\r$//' "$file_path"
+            chmod +x "$file_path"
+        fi
+    ) &
+    pids+=($!)
+done
+
+# Wait for all downloads and check for failures
+# Arrays are kept in sync: pids[i] corresponds to FILES_TO_DOWNLOAD[i]
+failed_downloads=()
+for i in "${!pids[@]}"; do
+    if ! wait "${pids[$i]}"; then
+        failed_downloads+=("${FILES_TO_DOWNLOAD[$i]}")
     fi
 done
+
+# Report any failures
+if [[ ${#failed_downloads[@]} -gt 0 ]]; then
+    print_error "Failed to download the following files:"
+    for file in "${failed_downloads[@]}"; do
+        print_error "  - $file"
+    done
+    exit 1
+fi
 
 
 print_success "All scripts downloaded successfully."

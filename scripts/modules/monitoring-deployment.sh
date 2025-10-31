@@ -27,19 +27,22 @@ setup_monitoring_environment() {
     }
     
     # Read Grafana configuration from .env.enc (already decrypted)
-    local gf_admin_user gf_admin_password
-    gf_admin_user=$(grep '^GF_SECURITY_ADMIN_USER=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
-    gf_admin_password=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
+    # Optimization: Read file once and parse 5 variables to avoid 5 file reads
+    local gf_admin_user gf_admin_password pve_url pve_user pve_verify_ssl
+    local env_content
+    
+    env_content=$(cat "$ENV_DECRYPTED_PATH")
+    
+    gf_admin_user=$(echo "$env_content" | grep '^GF_SECURITY_ADMIN_USER=' | cut -d'=' -f2-)
+    gf_admin_password=$(echo "$env_content" | grep '^GF_SECURITY_ADMIN_PASSWORD=' | cut -d'=' -f2-)
+    pve_url=$(echo "$env_content" | grep '^PVE_URL=' | cut -d'=' -f2-)
+    pve_user=$(echo "$env_content" | grep '^PVE_USER=' | cut -d'=' -f2-)
+    pve_verify_ssl=$(echo "$env_content" | grep '^PVE_VERIFY_SSL=' | cut -d'=' -f2-)
+    
     [[ -z "$gf_admin_password" ]] && {
         print_error "GF_SECURITY_ADMIN_PASSWORD not found in .env file"
         exit 1
     }
-    
-    # Read additional config values from .env
-    local pve_url pve_user pve_verify_ssl
-    pve_url=$(grep '^PVE_URL=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
-    pve_user=$(grep '^PVE_USER=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
-    pve_verify_ssl=$(grep '^PVE_VERIFY_SSL=' "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
     
     # Create temporary file with static + dynamic values
     local temp_env="/tmp/monitoring_env_temp"
@@ -82,10 +85,10 @@ setup_monitoring_directories() {
     mkdir -p /datapool/config/grafana/provisioning/datasources
     mkdir -p /datapool/config/grafana/provisioning/dashboards
 
-    # Fix permissions for all config directory (simpler approach)
-    chown -R 101000:101000 /datapool/config
+    # Note: Permissions will be set once at the end of deploy_monitoring_stack()
+    # to avoid redundant chown operations
 
-    print_success "Monitoring directories created with proper permissions"
+    print_success "Monitoring directories created"
 }
 
 # Provision Grafana dashboards as JSON files
@@ -103,23 +106,31 @@ provision_grafana_dashboards() {
     # Download custom dashboards from our repo (already have correct datasource UIDs)
     # These dashboards are maintained in config/grafana/dashboards/ with full documentation
     
-    # Infrastructure Overview dashboard - Proxmox host + LXC monitoring
-    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/infrastructure-overview.json" \
-        -o "$dashboards_dir/infrastructure-overview.json" || \
-        print_warning "Failed to download Infrastructure Overview dashboard"
+    # Download all dashboards in parallel for better performance
+    local dashboards=("infrastructure-overview" "container-monitoring" "logs-monitoring")
+    local pids=()
+    local failed_dashboards=()
     
-    # Container Monitoring dashboard - Detailed cAdvisor metrics for all Docker containers
-    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/container-monitoring.json" \
-        -o "$dashboards_dir/container-monitoring.json" || \
-        print_warning "Failed to download Container Monitoring dashboard"
+    for dashboard in "${dashboards[@]}"; do
+        (curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/${dashboard}.json" \
+            -o "$dashboards_dir/${dashboard}.json") &
+        pids+=($!)
+    done
     
-    # Logs Monitoring dashboard - Loki log viewer for Docker containers
-    curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/logs-monitoring.json" \
-        -o "$dashboards_dir/logs-monitoring.json" || \
-        print_warning "Failed to download Logs Monitoring dashboard"
+    # Wait for all downloads to complete and track failures
+    for i in "${!pids[@]}"; do
+        if ! wait "${pids[$i]}"; then
+            failed_dashboards+=("${dashboards[$i]}")
+        fi
+    done
     
-    # Fix ownership for Grafana container (unprivileged LXC mapping: 1000 -> 101000)
-    chown -R 101000:101000 "$dashboards_dir"
+    # Report warnings for failed dashboards after all complete
+    for dashboard in "${failed_dashboards[@]}"; do
+        print_warning "Failed to download ${dashboard} dashboard"
+    done
+    
+    # Note: Permissions will be set once at the end of deploy_monitoring_stack()
+    # to avoid redundant chown operations
     
     print_success "Grafana dashboards provisioned"
 }
@@ -237,9 +248,8 @@ validate_monitoring_configs() {
     # Note: No chown needed inside LXC for /etc/promtail files
     # Files pushed with pct push automatically get correct ownership from root context
     
-    # Fix permissions for config files pushed with pct push (they get root ownership)
-    # Must be done after pct push commands to ensure Docker containers can read them
-    chown -R 101000:101000 /datapool/config/prometheus /datapool/config/loki
+    # Note: Permissions will be set once at the end of deploy_monitoring_stack()
+    # to avoid redundant chown operations
 
     print_success "All configuration files validated"
 }
