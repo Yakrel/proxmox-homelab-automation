@@ -60,6 +60,15 @@ services:
     volumes:
       - /datapool/config/desktop:/config:rw
       - /datapool:/datapool:rw
+      - /usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu/nvidia/current:ro
+      - /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:ro
+      - /usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:/usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:ro
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
     environment:
       - PUID=1000
       - PGID=1000
@@ -67,6 +76,10 @@ services:
       - TITLE=Desktop Workspace
       - CUSTOM_USER=${DESKTOP_USER:?Desktop user must be defined}
       - PASSWORD=${DESKTOP_PASSWORD:?Desktop password must be defined}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - SELKIES_ENCODER=nvh264enc
+      - SELKIES_VIDEO_BITRATE=8000
     shm_size: "1gb"
     security_opt:
       - seccomp:unconfined
