@@ -41,7 +41,6 @@ RUN \
     libatk-bridge2.0 \
     libnss3 \
     python3-xdg \
-    pcmanfm \
     tint2 && \
   echo "**** install Obsidian ****" && \
   if [ -z ${OBSIDIAN_VERSION+x} ]; then \
