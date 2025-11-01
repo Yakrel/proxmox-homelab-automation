@@ -71,6 +71,60 @@ Development environment (not in production deployment docs yet)
 
 ---
 
+## 🛠️ Technical Highlights
+
+### Custom Docker Image Development
+**Desktop Workspace** - Containerized web-based desktop environment
+
+**Features:**
+- Multi-app integration: **Google Chrome** (latest stable) + **Obsidian** (latest) + **PCManFM** file manager
+- Web-based access via Selkies-GStreamer (WebRTC streaming)
+- Automated CI/CD pipeline: GitHub Actions → DockerHub
+- Weekly automatic rebuilds for latest packages
+
+**Technical Stack:**
+- Base: LinuxServer Selkies (Debian Trixie)
+- Desktop: Openbox window manager
+- Streaming: Selkies-GStreamer
+- Image: [`yakrel93/desktop-workspace`](https://hub.docker.com/r/yakrel93/desktop-workspace)
+
+**CI/CD Pipeline:**
+```
+Trigger: Push to main OR Weekly schedule (Sunday 2 AM)
+   ↓
+Build: Docker Buildx with layer caching
+   ↓
+Push: DockerHub (latest + SHA-dated tags)
+   ↓
+Cleanup: Keep 5 most recent tags
+   ↓
+Deploy: Watchtower auto-pulls in homelab webtools stack
+```
+
+**Source Code:** [`docker-images/desktop-workspace/`](docker-images/desktop-workspace/)
+
+### Advanced GPU Integration
+**NVIDIA GPU Passthrough in Unprivileged LXC**
+- **Jellyfin Hardware Transcoding**: 18.64x real-time (447 fps tested)
+- **Immich ML Acceleration**: Face recognition, object detection
+- Direct device mounting + CUDA library integration
+- Production-tested with NVIDIA GTX 970
+
+**Technical Details:**
+- Unprivileged LXC containers with manual device passthrough
+- CUDA library mounting (nvidia-container-runtime bypass)
+- Devices: `/dev/nvidia0`, `/dev/nvidiactl`, `/dev/nvidia-uvm`, etc.
+- Configuration: [`docker/media/docker-compose.yml:92-142`](docker/media/docker-compose.yml#L92-L142)
+
+### Infrastructure as Code
+- **8 production stacks** with automated deployment
+- **40+ containerized services** orchestrated via Docker Compose
+- **Encrypted secrets management**: AES-256-CBC with pbkdf2
+- **Idempotent deployment scripts**: Safe to re-run
+- **Comprehensive monitoring**: Prometheus + Grafana + Loki
+
+---
+
 ## 🎯 Key Features
 
 ### **Zero-Touch Deployment**
@@ -113,20 +167,22 @@ Development environment (not in production deployment docs yet)
 ## 📁 Project Structure
 
 ```
-├── installer.sh           # One-line installer entry point
-├── scripts/               # Deployment automation
-│   ├── deploy-stack.sh   # Stack deployment orchestrator
-│   ├── lxc-manager.sh    # LXC lifecycle management
-│   └── helper-*.sh       # Utilities (menus, encryption, etc.)
-├── docker/               # Service stacks (compose files + configs)
-│   ├── media/           # 15+ media services
-│   ├── monitoring/      # Prometheus + Grafana + Loki
-│   ├── files/           # Download managers
-│   ├── webtools/        # Dashboard + productivity
-│   ├── proxy/           # Cloudflare tunnel
-│   ├── backup/          # Backrest
-│   └── gameservers/     # Game servers
-└── stacks.yaml          # Central configuration (IPs, resources, etc.)
+├── installer.sh              # One-line installer entry point
+├── scripts/                  # Deployment automation
+│   ├── deploy-stack.sh      # Stack deployment orchestrator
+│   ├── lxc-manager.sh       # LXC lifecycle management
+│   └── helper-*.sh          # Utilities (menus, encryption, etc.)
+├── docker-images/            # Custom Docker image sources
+│   └── desktop-workspace/   # Web-based desktop (CI/CD → DockerHub)
+├── docker/                   # Service stacks (compose + configs)
+│   ├── media/               # Jellyfin + GPU transcoding + Immich ML
+│   ├── monitoring/          # Prometheus + Grafana + Loki
+│   ├── files/               # Download managers
+│   ├── webtools/            # Dashboard + productivity tools
+│   ├── proxy/               # Cloudflare tunnel
+│   ├── backup/              # Backrest
+│   └── gameservers/         # Game servers
+└── stacks.yaml              # Central configuration (IPs, resources, etc.)
 ```
 
 ## 🔧 Requirements

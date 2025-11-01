@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'docker/webtools/desktop-workspace/**'
+      - 'docker-images/desktop-workspace/**'
       - '.github/workflows/build-desktop-workspace.yml'
   schedule:
     # Run every Sunday at 2 AM to rebuild with latest base image and apps
@@ -40,7 +40,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./docker/webtools/desktop-workspace
+          context: ./docker-images/desktop-workspace
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
