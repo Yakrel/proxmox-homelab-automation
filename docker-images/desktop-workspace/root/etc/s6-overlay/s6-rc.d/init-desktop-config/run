@@ -1,6 +1,12 @@
 #!/usr/bin/with-contenv bash
 # shellcheck shell=bash
 
+# Copy tint2 config if not exists
+if [[ ! -f /config/.config/tint2/tint2rc ]]; then
+    mkdir -p /config/.config/tint2
+    cp /defaults/tint2rc /config/.config/tint2/tint2rc
+fi
+
 # permissions
 lsiown -R abc:abc \
     /config

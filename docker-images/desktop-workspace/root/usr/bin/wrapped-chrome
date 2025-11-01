@@ -1,10 +1,14 @@
 #!/bin/bash
 
 BIN=/usr/bin/google-chrome
+USER_DATA_DIR="/config/.config/google-chrome"
+
+# Ensure directory exists
+mkdir -p "$USER_DATA_DIR"
 
 # Cleanup
 if pgrep chrome > /dev/null;then
-  rm -f $HOME/.config/google-chrome/Singleton*
+  rm -f "$USER_DATA_DIR/Singleton"*
 fi
 
 ${BIN} \
@@ -14,5 +18,5 @@ ${BIN} \
   --simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT' \
   --start-maximized \
   --test-type \
-  --user-data-dir \
+  --user-data-dir="$USER_DATA_DIR" \
    "$@" > /dev/null 2>&1

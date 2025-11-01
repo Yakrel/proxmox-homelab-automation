@@ -1,0 +1,71 @@
+# Tint2 config - Bottom panel for Desktop Workspace
+
+# Background definitions
+rounded = 0
+border_width = 0
+background_color = #2d2d2d 100
+border_color = #000000 0
+
+# Panel
+panel_monitor = all
+panel_position = bottom center horizontal
+panel_size = 100% 40
+panel_margin = 0 0
+panel_padding = 4 2 4
+font_shadow = 0
+panel_background_id = 1
+wm_menu = 1
+
+# Taskbar
+taskbar_mode = multi_desktop
+taskbar_padding = 2 2 2
+taskbar_background_id = 0
+taskbar_active_background_id = 0
+
+# Task settings
+task_maximum_size = 200 35
+task_padding = 4 3 4
+task_icon = 1
+task_centered = 1
+task_icon_asb = 100 0 0
+task_background_id = 0
+task_active_background_id = 0
+task_urgent_background_id = 0
+urgent_nb_of_blink = 8
+
+# Task font
+task_font = sans 9
+task_font_color = #ffffff 100
+task_active_font_color = #ffffff 100
+task_urgent_font_color = #ffffff 100
+
+# System tray
+systray_padding = 4 2 3
+systray_background_id = 0
+systray_sort = ascending
+systray_icon_size = 24
+systray_icon_asb = 100 0 0
+systray_monitor = 1
+
+# Clock
+time1_format = %H:%M
+time1_font = sans bold 9
+clock_font_color = #ffffff 100
+clock_padding = 8 4
+clock_background_id = 0
+clock_rclick_command = pcmanfm
+
+# Tooltips
+tooltip = 1
+tooltip_padding = 4 4
+tooltip_show_timeout = 0.7
+tooltip_hide_timeout = 0.3
+tooltip_background_id = 1
+tooltip_font_color = #ffffff 100
+tooltip_font = sans 9
+
+# Mouse actions
+mouse_middle = none
+mouse_right = close
+mouse_scroll_up = toggle
+mouse_scroll_down = iconify

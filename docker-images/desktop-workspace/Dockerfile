@@ -41,7 +41,8 @@ RUN \
     libatk-bridge2.0 \
     libnss3 \
     python3-xdg \
-    pcmanfm && \
+    pcmanfm \
+    tint2 && \
   echo "**** install Obsidian ****" && \
   if [ -z ${OBSIDIAN_VERSION+x} ]; then \
     OBSIDIAN_VERSION=$(curl -sX GET "https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest"| awk '/tag_name/{print $4;exit}' FS='[""]'); \
