@@ -59,7 +59,6 @@ services:
       - "5800:3000"  # HTTPS web interface
     volumes:
       - /datapool/config/desktop-workspace:/config:rw
-      - /datapool:/datapool:rw
     environment:
       - PUID=1000
       - PGID=1000

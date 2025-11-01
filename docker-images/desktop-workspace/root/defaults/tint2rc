@@ -9,9 +9,9 @@ border_color = #000000 0
 # Panel
 panel_monitor = all
 panel_position = bottom center horizontal
-panel_size = 100% 40
+panel_size = 100% 28
 panel_margin = 0 0
-panel_padding = 4 2 4
+panel_padding = 2 1 2
 font_shadow = 0
 panel_background_id = 1
 wm_menu = 1
@@ -23,8 +23,8 @@ taskbar_background_id = 0
 taskbar_active_background_id = 0
 
 # Task settings
-task_maximum_size = 200 35
-task_padding = 4 3 4
+task_maximum_size = 150 24
+task_padding = 2 2 2
 task_icon = 1
 task_centered = 1
 task_icon_asb = 100 0 0
@@ -40,20 +40,19 @@ task_active_font_color = #ffffff 100
 task_urgent_font_color = #ffffff 100
 
 # System tray
-systray_padding = 4 2 3
+systray_padding = 2 1 2
 systray_background_id = 0
 systray_sort = ascending
-systray_icon_size = 24
+systray_icon_size = 20
 systray_icon_asb = 100 0 0
 systray_monitor = 1
 
 # Clock
 time1_format = %H:%M
-time1_font = sans bold 9
+time1_font = sans bold 8
 clock_font_color = #ffffff 100
-clock_padding = 8 4
+clock_padding = 4 2
 clock_background_id = 0
-clock_rclick_command = pcmanfm
 
 # Tooltips
 tooltip = 1
