@@ -1,3 +1,5 @@
-#!/bin/bash
+if [ "$(whoami)" != "abc" ]; then
+  sudo lsiown -R $(id -u):$(id -u) \
+    /opt/obsidian
+fi
 tint2 &
-wrapped-chrome ${CHROME_CLI}

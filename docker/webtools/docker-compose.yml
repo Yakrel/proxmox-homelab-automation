@@ -12,9 +12,9 @@ services:
     ports:
       - "3000:3000"
     volumes:
-       - /datapool/config/homepage:/app/config:rw
+       - /datapool/config/homepage:/app/config
        - /var/run/docker.sock:/var/run/docker.sock:ro
-       - /datapool:/datapool:ro # Added for datapool access
+       - /datapool:/datapool:ro
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PUID=1000
@@ -58,7 +58,7 @@ services:
     ports:
       - "5800:3000"  # HTTPS web interface
     volumes:
-      - /datapool/config/desktop-workspace:/config:rw
+      - /datapool/config/desktop-workspace:/config
     environment:
       - PUID=1000
       - PGID=1000
@@ -148,7 +148,7 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
       - /etc/promtail:/etc/promtail:ro
-      - /var/lib/promtail/positions:/var/lib/promtail/positions:rw
+      - /var/lib/promtail/positions:/var/lib/promtail/positions
     command: -config.file=/etc/promtail/promtail.yml
     environment:
       - TZ=${TZ:-Europe/Istanbul}

@@ -54,10 +54,17 @@ jobs:
             "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/desktop-workspace/tags/?page_size=100" \
             | jq -r '.results[] | select(.name != "latest") | .name' | sort -r)
 
-          # Keep only the 5 most recent dated tags, delete the rest
-          echo "$TAGS" | tail -n +6 | while read -r tag; do
-            echo "Deleting tag: $tag"
-            curl -s -X DELETE \
-              -H "Authorization: Bearer $(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' https://hub.docker.com/v2/users/login/ | jq -r .token)" \
-              "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/desktop-workspace/tags/$tag/"
-          done
+          # Keep the 5 most recent dated tags, delete older ones
+          TAG_COUNT=$(echo "$TAGS" | wc -l)
+          if [ "$TAG_COUNT" -gt 5 ]; then
+            echo "$TAGS" | tail -n +6 | while read -r tag; do
+              if [ -n "$tag" ]; then
+                echo "Deleting old tag: $tag"
+                curl -s -X DELETE \
+                  -H "Authorization: Bearer $(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' https://hub.docker.com/v2/users/login/ | jq -r .token)" \
+                  "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/desktop-workspace/tags/$tag/"
+              fi
+            done
+          else
+            echo "Only $TAG_COUNT tags found, keeping all (minimum 5 required for cleanup)"
+          fi
