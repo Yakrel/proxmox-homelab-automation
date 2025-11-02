@@ -19,7 +19,7 @@ services:
       - PASSWORD=${PASSWORD:?Password must be defined}
     volumes:
       - /datapool/config/desktop:/config
-      - /datapool:/datapool:rw
+      - /datapool:/datapool
     ports:
       - "5800:3000"  # HTTPS web interface
     shm_size: "1gb"

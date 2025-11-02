@@ -14,7 +14,7 @@ services:
       - CUSTOM_USER=${CUSTOM_USER:?User must be defined}
       - PASSWORD=${PASSWORD:?Password must be defined}
     volumes:
-      - /datapool/config/desktop-workspace:/config:rw
+      - /datapool/config/desktop-workspace:/config
     ports:
       - "5800:3000"  # HTTPS web interface
     shm_size: "1gb"

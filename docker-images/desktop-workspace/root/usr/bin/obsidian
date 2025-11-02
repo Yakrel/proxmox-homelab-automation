@@ -4,4 +4,4 @@ BIN=/opt/obsidian/obsidian
 
 ${BIN} \
   --no-sandbox \
-  "$@" > /dev/null 2>&1
+  "$@"
