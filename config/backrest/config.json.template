@@ -88,5 +88,15 @@
       "ed25519priv": "{{SYNC_PRIVATE_KEY}}",
       "ed25519pub": "{{SYNC_PUBLIC_KEY}}"
     }
-  }
+  },
+  "hooks": [
+    {
+      "id": "gdrive-sync",
+      "conditions": [
+        "CONDITION_SNAPSHOT_SUCCESS"
+      ],
+      "onError": "ON_ERROR_IGNORE",
+      "command": "/usr/local/bin/sync-to-gdrive.sh"
+    }
+  ]
 }
