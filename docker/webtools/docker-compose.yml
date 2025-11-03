@@ -54,9 +54,8 @@ services:
     image: yakrel93/desktop-workspace:latest
     container_name: desktop-workspace
     restart: unless-stopped
-    pull_policy: always
     ports:
-      - "5800:3000"  # HTTPS web interface
+      - "5800:3001"  # HTTPS web interface
     volumes:
       - /datapool/config/desktop-workspace:/config
     environment:
