@@ -1,4 +1,4 @@
-
+name: files
 
 networks:
   files-net:
@@ -129,7 +129,7 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
       - /etc/promtail:/etc/promtail:ro
-      - /var/lib/promtail/positions:/var/lib/promtail/positions:rw
+      - /var/lib/promtail/positions:/var/lib/promtail/positions
     command: -config.file=/etc/promtail/promtail.yml
     environment:
       - TZ=${TZ:-Europe/Istanbul}

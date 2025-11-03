@@ -277,8 +277,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Immich services - versions must match official compose:
-  # https://raw.githubusercontent.com/immich-app/immich/main/docker/docker-compose.yml
+  # Immich services - version pinning required for component compatibility
+  # Immich recommends using version-pinned images and updating docker-compose with each release
+  # Reference: https://raw.githubusercontent.com/immich-app/immich/main/docker/docker-compose.yml
   immich-server:
     container_name: immich-server
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
@@ -419,7 +420,7 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
       - /etc/promtail:/etc/promtail:ro
-      - /var/lib/promtail/positions:/var/lib/promtail/positions:rw
+      - /var/lib/promtail/positions:/var/lib/promtail/positions
     command: -config.file=/etc/promtail/promtail.yml
     environment:
       - TZ=${TZ:-Europe/Istanbul}
