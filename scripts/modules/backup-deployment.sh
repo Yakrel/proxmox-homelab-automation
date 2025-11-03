@@ -145,7 +145,7 @@ LOG_FILE="/var/log/rclone-gdrive-sync.log"
 
 echo "$(date): Starting Google Drive sync" >> "$LOG_FILE"
 
-/usr/bin/rclone sync /repos gdrive:backrest-backups \
+/usr/bin/rclone sync /datapool/backup gdrive:homelab-backups \
     --log-file="$LOG_FILE" \
     --log-level=INFO \
     --fast-list \
