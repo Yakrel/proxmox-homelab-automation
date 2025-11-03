@@ -21,6 +21,6 @@ services:
       - /datapool/config/desktop:/config
       - /datapool:/datapool
     ports:
-      - "5800:3000"  # HTTPS web interface
+      - "5800:3001"  # HTTPS web interface
     shm_size: "1gb"
     restart: unless-stopped
