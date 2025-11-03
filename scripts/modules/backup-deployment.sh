@@ -88,16 +88,11 @@ configure_backrest_directories() {
     print_success "Backrest directories configured"
 }
 
-# Configure rclone for Google Drive automated sync on Proxmox host
-configure_rclone_gdrive() {
-    print_info "Configuring rclone for Google Drive sync"
+# Configure rclone for Google Drive sync inside LXC container
+configure_rclone_in_lxc() {
+    local ct_id="$1"
 
-    # Install rclone (idempotent)
-    apt-get update >/dev/null 2>&1
-    apt install -y rclone
-
-    # Create rclone config directory
-    mkdir -p /root/.config/rclone
+    print_info "Configuring rclone for Google Drive sync inside LXC"
 
     # Read OAuth credentials from decrypted .env
     local gdrive_client_id gdrive_client_secret gdrive_oauth_token
@@ -112,65 +107,77 @@ configure_rclone_gdrive() {
         return 0
     fi
 
-    # Check if remote already exists
-    if rclone listremotes 2>/dev/null | grep -q "^gdrive:$"; then
-        print_info "rclone gdrive remote already configured"
-    else
-        print_info "Creating rclone gdrive remote"
-        rclone config create gdrive drive \
-            client_id="$gdrive_client_id" \
-            client_secret="$gdrive_client_secret" \
-            token="$gdrive_oauth_token" \
-            scope="drive" \
-            root_folder_id=""
-    fi
+    # Install rclone in Alpine LXC
+    print_info "Installing rclone in LXC container"
+    pct exec "$ct_id" -- apk add --no-cache rclone
 
-    # Create systemd service for automated sync
-    print_info "Creating systemd service for Google Drive sync"
-    cat > /etc/systemd/system/rclone-gdrive-backup.service << 'EOF'
-[Unit]
-Description=Sync Backrest backups to Google Drive
-After=network-online.target
+    # Create rclone config directory in LXC
+    pct exec "$ct_id" -- mkdir -p /root/.config/rclone
 
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/rclone sync /datapool/backup/backrest-backups gdrive:backrest-backups \
-    --log-file=/var/log/rclone-gdrive-backup.log \
+    # Create rclone config file temporarily on host
+    local temp_rclone_conf="/tmp/rclone-${ct_id}.conf"
+    cat > "$temp_rclone_conf" << EOF
+[gdrive]
+type = drive
+scope = drive
+client_id = ${gdrive_client_id}
+client_secret = ${gdrive_client_secret}
+token = ${gdrive_oauth_token}
+EOF
+
+    # Push rclone config to LXC
+    print_info "Copying rclone config to LXC"
+    pct push "$ct_id" "$temp_rclone_conf" /root/.config/rclone/rclone.conf
+
+    # Set secure permissions
+    pct exec "$ct_id" -- chmod 600 /root/.config/rclone/rclone.conf
+
+    # Clean up temporary file
+    rm -f "$temp_rclone_conf"
+
+    # Create sync script in LXC
+    print_info "Creating Google Drive sync script in LXC"
+    pct exec "$ct_id" -- sh -c 'cat > /usr/local/bin/sync-to-gdrive.sh << '\''SYNCEOF'\''
+#!/bin/sh
+# Backrest hook script: Sync backups to Google Drive after successful backup
+
+LOG_FILE="/var/log/rclone-gdrive-sync.log"
+
+echo "$(date): Starting Google Drive sync" >> "$LOG_FILE"
+
+/usr/bin/rclone sync /repos gdrive:backrest-backups \
+    --log-file="$LOG_FILE" \
     --log-level=INFO \
     --fast-list \
     --checksum \
     --exclude="**/cache/**" \
-    --exclude="**/*.tmp"
-StandardOutput=journal
-StandardError=journal
-EOF
+    --exclude="**/*.tmp" 2>&1 | tee -a "$LOG_FILE"
 
-    # Create systemd timer (daily at 4:00 AM, persistent across reboots)
-    print_info "Creating systemd timer for automated daily sync"
-    cat > /etc/systemd/system/rclone-gdrive-backup.timer << 'EOF'
-[Unit]
-Description=Daily Google Drive backup sync timer
-Requires=rclone-gdrive-backup.service
+if [ $? -eq 0 ]; then
+    echo "$(date): Sync completed successfully" >> "$LOG_FILE"
+    exit 0
+else
+    echo "$(date): Sync failed with error code $?" >> "$LOG_FILE"
+    exit 1
+fi
+SYNCEOF
+'
 
-[Timer]
-OnCalendar=*-*-* 04:00:00
-Persistent=true
+    # Make script executable
+    pct exec "$ct_id" -- chmod +x /usr/local/bin/sync-to-gdrive.sh
 
-[Install]
-WantedBy=timers.target
-EOF
+    # Test rclone connection
+    print_info "Testing Google Drive connection"
+    if pct exec "$ct_id" -- rclone lsd gdrive: >/dev/null 2>&1; then
+        print_success "rclone Google Drive connection successful"
+    else
+        print_warning "Could not verify Google Drive connection (may work after container restart)"
+    fi
 
-    # Enable and start timer
-    systemctl daemon-reload
-    systemctl enable rclone-gdrive-backup.timer
-    systemctl start rclone-gdrive-backup.timer
-
-    print_success "rclone Google Drive sync configured"
-    print_info "Sync schedule: Daily at 4:00 AM (server sabah 7'de açılınca kaçırılan sync'ler otomatik çalışır)"
-    print_info "Log file: /var/log/rclone-gdrive-backup.log"
-    print_info "Check timer status: systemctl status rclone-gdrive-backup.timer"
-    print_info "Manual sync: systemctl start rclone-gdrive-backup.service"
-    print_info "View logs: journalctl -u rclone-gdrive-backup.service"
+    print_success "rclone configured in LXC container"
+    print_info "Sync will run automatically after each successful Backrest backup"
+    print_info "Manual sync: pct exec $ct_id -- /usr/local/bin/sync-to-gdrive.sh"
+    print_info "View logs: pct exec $ct_id -- tail -f /var/log/rclone-gdrive-sync.log"
 }
 
 # Deploy Backrest stack
@@ -193,11 +200,6 @@ deploy_backrest() {
     local env_content
 
     env_content=$(cat "$ENV_DECRYPTED_PATH")
-
-    # Configure rclone for Google Drive sync (uses same env_content)
-    if ! configure_rclone_gdrive; then
-        print_warning "Failed to configure rclone, continuing without cloud sync"
-    fi
     
     backrest_instance_id=$(echo "$env_content" | grep "^BACKREST_INSTANCE_ID=" | cut -d'=' -f2-)
     backrest_repo_id=$(echo "$env_content" | grep "^BACKREST_REPO_ID=" | cut -d'=' -f2-)
@@ -237,6 +239,11 @@ deploy_backrest() {
     # Set secure permissions and ownership on the config file
     chown 101000:101000 /datapool/config/backrest/config/config.json
     chmod 600 /datapool/config/backrest/config/config.json
+
+    # Configure rclone for Google Drive sync in LXC (uses same env_content)
+    if ! configure_rclone_in_lxc "$ct_id"; then
+        print_warning "Failed to configure rclone, continuing without cloud sync"
+    fi
 
     local backrest_ip
     backrest_ip=$(get_lxc_ip "$ct_id")
