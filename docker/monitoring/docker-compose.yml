@@ -1,4 +1,4 @@
-
+name: monitoring
 
 networks:
   monitoring-net:
@@ -113,20 +113,15 @@ services:
     image: grafana/promtail:latest
     container_name: promtail-monitoring
     restart: unless-stopped
+    network_mode: "host"
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
       - /etc/promtail:/etc/promtail:ro
-      - /var/lib/promtail/positions:/var/lib/promtail/positions:rw
+      - /var/lib/promtail/positions:/var/lib/promtail/positions
     command: -config.file=/etc/promtail/promtail.yml
     environment:
       - TZ=${TZ:-Europe/Istanbul}
-      - PUID=1000
-      - PGID=1000
-    ports:
-      - "9080:9080"
-    networks:
-      - monitoring-net
     logging:
       driver: "json-file"
       options:

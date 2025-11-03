@@ -1,6 +1,8 @@
 # Base Game Servers Stack - Watchtower and Shared Network Only
 # Use this as the foundation, then deploy individual games separately
----
+
+name: gameservers
+
 networks:
   gameserver-net:
     driver: bridge
@@ -42,7 +44,7 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
       - /etc/promtail:/etc/promtail:ro
-      - /var/lib/promtail/positions:/var/lib/promtail/positions:rw
+      - /var/lib/promtail/positions:/var/lib/promtail/positions
     command: -config.file=/etc/promtail/promtail.yml
     environment:
       - TZ=${TZ:-Europe/Istanbul}
@@ -58,6 +60,8 @@ services:
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - WATCHTOWER_CLEANUP=true
+      # Game servers require more frequent updates (hourly) with rolling restarts
+      # to minimize downtime for active players
       - WATCHTOWER_POLL_INTERVAL=3600  # Check every hour
       - WATCHTOWER_ROLLING_RESTART=true
       - PUID=1000
