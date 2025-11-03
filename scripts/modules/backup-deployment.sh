@@ -88,6 +88,91 @@ configure_backrest_directories() {
     print_success "Backrest directories configured"
 }
 
+# Configure rclone for Google Drive automated sync on Proxmox host
+configure_rclone_gdrive() {
+    print_info "Configuring rclone for Google Drive sync"
+
+    # Install rclone (idempotent)
+    apt-get update >/dev/null 2>&1
+    apt install -y rclone
+
+    # Create rclone config directory
+    mkdir -p /root/.config/rclone
+
+    # Read OAuth credentials from decrypted .env
+    local gdrive_client_id gdrive_client_secret gdrive_oauth_token
+    gdrive_client_id=$(echo "$env_content" | grep "^GDRIVE_CLIENT_ID=" | cut -d'=' -f2-)
+    gdrive_client_secret=$(echo "$env_content" | grep "^GDRIVE_CLIENT_SECRET=" | cut -d'=' -f2-)
+    gdrive_oauth_token=$(echo "$env_content" | grep "^GDRIVE_OAUTH_TOKEN=" | cut -d'=' -f2-)
+
+    # Validate credentials exist
+    if [[ -z "$gdrive_client_id" || -z "$gdrive_client_secret" || -z "$gdrive_oauth_token" ]]; then
+        print_warning "Google Drive credentials not found in .env, skipping rclone setup"
+        print_info "To enable Google Drive sync, add GDRIVE_CLIENT_ID, GDRIVE_CLIENT_SECRET, and GDRIVE_OAUTH_TOKEN to .env.enc"
+        return 0
+    fi
+
+    # Check if remote already exists
+    if rclone listremotes 2>/dev/null | grep -q "^gdrive:$"; then
+        print_info "rclone gdrive remote already configured"
+    else
+        print_info "Creating rclone gdrive remote"
+        rclone config create gdrive drive \
+            client_id="$gdrive_client_id" \
+            client_secret="$gdrive_client_secret" \
+            token="$gdrive_oauth_token" \
+            scope="drive" \
+            root_folder_id=""
+    fi
+
+    # Create systemd service for automated sync
+    print_info "Creating systemd service for Google Drive sync"
+    cat > /etc/systemd/system/rclone-gdrive-backup.service << 'EOF'
+[Unit]
+Description=Sync Backrest backups to Google Drive
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rclone sync /datapool/backup/backrest-backups gdrive:backrest-backups \
+    --log-file=/var/log/rclone-gdrive-backup.log \
+    --log-level=INFO \
+    --fast-list \
+    --checksum \
+    --exclude="**/cache/**" \
+    --exclude="**/*.tmp"
+StandardOutput=journal
+StandardError=journal
+EOF
+
+    # Create systemd timer (daily at 4:00 AM, persistent across reboots)
+    print_info "Creating systemd timer for automated daily sync"
+    cat > /etc/systemd/system/rclone-gdrive-backup.timer << 'EOF'
+[Unit]
+Description=Daily Google Drive backup sync timer
+Requires=rclone-gdrive-backup.service
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+    # Enable and start timer
+    systemctl daemon-reload
+    systemctl enable rclone-gdrive-backup.timer
+    systemctl start rclone-gdrive-backup.timer
+
+    print_success "rclone Google Drive sync configured"
+    print_info "Sync schedule: Daily at 4:00 AM (server sabah 7'de açılınca kaçırılan sync'ler otomatik çalışır)"
+    print_info "Log file: /var/log/rclone-gdrive-backup.log"
+    print_info "Check timer status: systemctl status rclone-gdrive-backup.timer"
+    print_info "Manual sync: systemctl start rclone-gdrive-backup.service"
+    print_info "View logs: journalctl -u rclone-gdrive-backup.service"
+}
+
 # Deploy Backrest stack
 deploy_backrest() {
     local ct_id="$1"
@@ -101,13 +186,18 @@ deploy_backrest() {
     fi
 
     # Safely read variables from the decrypted .env file without sourcing it
-    # Optimization: Read file once and parse 9 variables to avoid 9 file reads
+    # Optimization: Read file once and parse all variables to avoid multiple file reads
     local backrest_instance_id backrest_repo_id backrest_repo_guid
     local backrest_auth_username backrest_auth_password_bcrypt backrest_repo_password
     local backrest_sync_key_id backrest_sync_private_key backrest_sync_public_key
     local env_content
-    
+
     env_content=$(cat "$ENV_DECRYPTED_PATH")
+
+    # Configure rclone for Google Drive sync (uses same env_content)
+    if ! configure_rclone_gdrive; then
+        print_warning "Failed to configure rclone, continuing without cloud sync"
+    fi
     
     backrest_instance_id=$(echo "$env_content" | grep "^BACKREST_INSTANCE_ID=" | cut -d'=' -f2-)
     backrest_repo_id=$(echo "$env_content" | grep "^BACKREST_REPO_ID=" | cut -d'=' -f2-)
