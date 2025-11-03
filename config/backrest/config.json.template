@@ -33,8 +33,7 @@
         "/backup-sources/config"
       ],
       "excludes": [
-        "/backup-sources/config/obsidian",
-        "/backup-sources/config/chrome",
+        "/backup-sources/config/desktop-workspace",
         "/backup-sources/config/*/.cache",
         "/backup-sources/config/*/cache",
         "/backup-sources/config/loki/data",
