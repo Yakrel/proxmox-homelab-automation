@@ -16,28 +16,28 @@ Interactive menu guides you through stack selection and deployment. Only one pas
 ## 📦 What's Included
 
 ### **Media Automation Stack** (LXC 101)
-Complete media management with GPU acceleration for transcoding and ML:
-- **Jellyfin** - Media server with NVIDIA GPU transcoding (GTX 970)
-- **Immich** - Photo/video management with GPU-accelerated ML (face recognition, object detection)
+Complete media management with GPU acceleration:
+- **Jellyfin** - Media server with hardware transcoding
+- **Immich** - Photo/video management with ML (face recognition, object detection)
 - **Sonarr/Radarr/Bazarr** - TV/Movie/Subtitle automation
 - **Jellyseerr** - Media request management
 - **Prowlarr** - Indexer manager
 - **qBittorrent** - Torrent client
-- **FlareSolverr** - Cloudflare bypass for indexers
-- **Recyclarr** - Automatic quality profile sync
+- **FlareSolverr** - Cloudflare bypass
+- **Recyclarr** - Quality profile sync
 - **Cleanuperr** - Automatic torrent cleanup
 
 ### **Monitoring & Observability Stack** (LXC 104)
 Full monitoring infrastructure with auto-configured dashboards:
 - **Prometheus** - Metrics collection (30-day retention)
-- **Grafana** - Visualization with auto-imported dashboards (#10347, #893, #12611)
+- **Grafana** - Visualization with auto-imported dashboards
 - **Loki** - Log aggregation (30-day retention)
 - **Promtail** - Log collection from all LXC containers
-- **PVE Exporter** - Proxmox metrics with auto-generated credentials
+- **PVE Exporter** - Proxmox metrics
 - **cAdvisor** - Container metrics
 
 ### **File Management Stack** (LXC 102)
-Download and file handling services:
+Download and file handling:
 - **JDownloader 2** - Direct download manager
 - **MeTube** - YouTube-dl web interface
 - **Palmr** - File management and sharing
@@ -45,29 +45,30 @@ Download and file handling services:
 ### **Web Tools Stack** (LXC 103)
 Productivity and development tools:
 - **Homepage** - Unified dashboard with service widgets
-- **Chrome** - Browser-in-browser (web-accessible)
-- **Obsidian** - Note-taking with web access
+- **Desktop Workspace** - Web-based Chrome + Obsidian environment
 - **CouchDB** - Database for Obsidian sync
 - **Portainer** - Docker management UI
 
 ### **Proxy & Tunnel Stack** (LXC 100)
-External access and monitoring agents:
+External access and monitoring:
 - **Cloudflared** - Cloudflare tunnel for secure remote access
 - **Promtail** - Log shipping
 - **Watchtower** - Auto-updates
 
 ### **Backup Stack** (LXC 106)
-Automated backup solution:
+Automated backup with cloud sync:
 - **Backrest** - Web-based backup UI (powered by restic)
+- **Rclone** - Automated Google Drive sync after each backup
 - Automated backups: `/datapool/config` + Immich media
+- Encrypted offsite backups to Google Drive (15 GB free)
 
 ### **Game Servers Stack** (LXC 105)
-Dedicated game hosting (extensible framework):
+Dedicated game hosting:
 - **Satisfactory** - Factory building game server
 - **Palworld** - Multiplayer survival server
 
 ### **Development Stack** (LXC 107)
-Development environment (not in production deployment docs yet)
+Development environment (extensible framework)
 
 ---
 
@@ -77,50 +78,38 @@ Development environment (not in production deployment docs yet)
 **Desktop Workspace** - Containerized web-based desktop environment
 
 **Features:**
-- Multi-app integration: **Google Chrome** (latest stable) + **Obsidian** (latest) + **PCManFM** file manager
-- Web-based access via Selkies-GStreamer (WebRTC streaming)
-- Automated CI/CD pipeline: GitHub Actions → DockerHub
-- Weekly automatic rebuilds for latest packages
-
-**Technical Stack:**
-- Base: LinuxServer Selkies (Debian Trixie)
-- Desktop: Openbox window manager
-- Streaming: Selkies-GStreamer
-- Image: [`yakrel93/desktop-workspace`](https://hub.docker.com/r/yakrel93/desktop-workspace)
+- Multi-app integration: **Google Chrome** + **Obsidian** + **PCManFM**
+- Web-based access via Selkies-GStreamer (WebRTC)
+- Automated CI/CD: GitHub Actions → DockerHub
+- Weekly automatic rebuilds
 
 **CI/CD Pipeline:**
 ```
-Trigger: Push to main OR Weekly schedule (Sunday 2 AM)
+Trigger: Push to main OR Weekly (Sunday 2 AM)
    ↓
 Build: Docker Buildx with layer caching
    ↓
-Push: DockerHub (latest + SHA-dated tags)
+Push: DockerHub (latest + SHA tags)
    ↓
-Cleanup: Keep 5 most recent tags
-   ↓
-Deploy: Watchtower auto-pulls in homelab webtools stack
+Deploy: Watchtower auto-pulls in homelab
 ```
 
-**Source Code:** [`docker-images/desktop-workspace/`](docker-images/desktop-workspace/)
+**Source:** [`docker-images/desktop-workspace/`](docker-images/desktop-workspace/)
 
-### Advanced GPU Integration
+### GPU Hardware Acceleration
 **NVIDIA GPU Passthrough in Unprivileged LXC**
-- **Jellyfin Hardware Transcoding**: 18.64x real-time (447 fps tested)
-- **Immich ML Acceleration**: Face recognition, object detection
-- Direct device mounting + CUDA library integration
+- Jellyfin hardware transcoding: 18.64x real-time (447 fps)
+- Immich ML acceleration: Face recognition, object detection
+- Direct device mounting with CUDA library integration
 - Production-tested with NVIDIA GTX 970
 
-**Technical Details:**
-- Unprivileged LXC containers with manual device passthrough
-- CUDA library mounting (nvidia-container-runtime bypass)
-- Devices: `/dev/nvidia0`, `/dev/nvidiactl`, `/dev/nvidia-uvm`, etc.
-- Configuration: [`docker/media/docker-compose.yml:92-142`](docker/media/docker-compose.yml#L92-L142)
+**Setup:** Helper Menu → `Setup GPU Passthrough (NVIDIA)` → Reboot → Deploy media stack
 
 ### Infrastructure as Code
 - **8 production stacks** with automated deployment
-- **40+ containerized services** orchestrated via Docker Compose
-- **Encrypted secrets management**: AES-256-CBC with pbkdf2
-- **Idempotent deployment scripts**: Safe to re-run
+- **40+ containerized services** via Docker Compose
+- **Encrypted secrets**: AES-256-CBC with pbkdf2
+- **Idempotent scripts**: Safe to re-run
 - **Comprehensive monitoring**: Prometheus + Grafana + Loki
 
 ---
@@ -129,21 +118,20 @@ Deploy: Watchtower auto-pulls in homelab webtools stack
 
 ### **Zero-Touch Deployment**
 - Single command deployment per stack
-- Encrypted credentials in `.env.enc` files (AES-256-CBC)
-- Automatic service configuration (API keys, passwords, integrations)
-- Idempotent scripts - safe to re-run
+- Encrypted credentials in `.env.enc` files
+- Automatic service configuration
+- Idempotent scripts
 
-### **GPU Acceleration**
-- NVIDIA GTX 970 passthrough to unprivileged LXC
-- Jellyfin hardware transcoding (447 fps / 18.64x real-time tested)
-- Immich ML acceleration for face/object recognition
-- Automatic driver installation and cgroup configuration
+### **Automated Offsite Backups**
+- Backrest hooks trigger rclone sync after successful backups
+- Google Drive integration (15 GB free tier)
+- OAuth2 authentication stored encrypted
+- Runs inside Alpine LXC (no host dependencies)
 
 ### **Comprehensive Monitoring**
-- Every LXC has Promtail (log shipping) + cAdvisor (metrics)
-- Central Grafana with pre-imported production dashboards
+- Every LXC has Promtail + cAdvisor
+- Central Grafana with pre-imported dashboards
 - 30-day retention for metrics and logs
-- Automated Prometheus datasource configuration
 
 ### **Security & Isolation**
 - Unprivileged LXC containers with UID/GID mapping
@@ -155,58 +143,50 @@ Deploy: Watchtower auto-pulls in homelab webtools stack
 
 ## ⚠️ Personal Homelab Notice
 
-**This is a production homelab optimized for a specific environment.** It uses hardcoded values for reliability and simplicity:
+**This is a production homelab optimized for a specific environment.** Hardcoded values for reliability:
 
-- **Network**: `192.168.1.x` range, `vmbr0` bridge, `192.168.1.1` gateway
-- **Storage**: ZFS pool named `datapool`
+- **Network**: `192.168.1.x` range, `vmbr0` bridge
+- **Storage**: ZFS pool `datapool`
 - **Timezone**: `Europe/Istanbul`
-- **Passwords**: Pre-encrypted in `.env.enc` files
+- **Passwords**: Pre-encrypted in `.env.enc`
 
-**Not plug-and-play by design.** To adapt: fork the repo, modify hardcoded values in scripts/configs, re-encrypt secrets with your key, test thoroughly.
+**Not plug-and-play.** To adapt: fork, modify hardcoded values, re-encrypt secrets, test.
 
 ## 📁 Project Structure
 
 ```
-├── installer.sh              # One-line installer entry point
+├── installer.sh              # One-line installer
 ├── scripts/                  # Deployment automation
-│   ├── deploy-stack.sh      # Stack deployment orchestrator
-│   ├── lxc-manager.sh       # LXC lifecycle management
-│   └── helper-*.sh          # Utilities (menus, encryption, etc.)
-├── docker-images/            # Custom Docker image sources
-│   └── desktop-workspace/   # Web-based desktop (CI/CD → DockerHub)
-├── docker/                   # Service stacks (compose + configs)
-│   ├── media/               # Jellyfin + GPU transcoding + Immich ML
+│   ├── deploy-stack.sh      # Stack orchestrator
+│   ├── lxc-manager.sh       # LXC lifecycle
+│   └── helper-*.sh          # Utilities
+├── docker-images/            # Custom images
+│   └── desktop-workspace/   # Web-based desktop
+├── docker/                   # Service stacks
+│   ├── media/               # Jellyfin + Immich + GPU
 │   ├── monitoring/          # Prometheus + Grafana + Loki
 │   ├── files/               # Download managers
-│   ├── webtools/            # Dashboard + productivity tools
+│   ├── webtools/            # Dashboard + tools
 │   ├── proxy/               # Cloudflare tunnel
-│   ├── backup/              # Backrest
+│   ├── backup/              # Backrest + rclone
 │   └── gameservers/         # Game servers
-└── stacks.yaml              # Central configuration (IPs, resources, etc.)
+└── stacks.yaml              # Central config
 ```
 
 ## 🔧 Requirements
 
 - Proxmox VE 9.x with ZFS storage
 - Network: `vmbr0` bridge, `192.168.1.x` range
-- Optional: NVIDIA GPU for hardware transcoding/ML
-
-## 🎮 GPU Support (NVIDIA)
-
-Tested with **NVIDIA GTX 970** for Jellyfin transcoding (447 fps / 18.64x) and Immich ML acceleration.
-
-**Setup**: Run Helper Menu → `Setup GPU Passthrough (NVIDIA)` → Reboot → Deploy media stack
-- Automatic driver installation, cgroup config, device passthrough
-- Works in unprivileged LXC with custom container runtime patches
+- Optional: NVIDIA GPU for transcoding/ML
 
 ## 🔐 Security & Secrets
 
-- **Unprivileged LXC containers** with UID/GID mapping (101000:101000 → 1000:1000)
-- **Encrypted credentials**: All passwords in `.env.enc` files (AES-256-CBC with pbkdf2)
-- **Single master password** during deployment decrypts all secrets
-- **Network isolation** per stack with dedicated Docker networks
-- **Automated updates** via Watchtower (4x daily schedule)
+- **Unprivileged LXC** with UID/GID mapping (101000:101000 → 1000:1000)
+- **Encrypted credentials**: AES-256-CBC with pbkdf2
+- **Single master password** decrypts all secrets
+- **Network isolation** per stack
+- **Automated updates** via Watchtower
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
