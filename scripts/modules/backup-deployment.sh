@@ -234,7 +234,7 @@ deploy_backrest() {
         print_warning "Failed to configure rclone, continuing without cloud sync"
     fi
 
-    # Build custom backrest image with rclone (idempotent - rebuilds if needed)
+    # Build custom backrest image with rclone (ensures latest image is available)
     if ! build_backrest_image "$ct_id"; then
         print_error "Failed to build custom backrest image"
         return 1
