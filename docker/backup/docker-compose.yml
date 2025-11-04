@@ -20,8 +20,8 @@ services:
       # Backup sources
       - /datapool/config:/backup-sources/config:rw
       - /datapool/media/immich:/backup-sources/immich:rw
-      # rclone for Google Drive sync hook (Debian installs to /bin/rclone)
-      - /bin/rclone:/usr/bin/rclone:ro
+      # rclone for Google Drive sync hook (Alpine installs to /usr/bin/rclone)
+      - /usr/bin/rclone:/usr/bin/rclone:ro
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PUID=1000
