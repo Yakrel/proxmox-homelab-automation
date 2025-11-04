@@ -26,7 +26,7 @@
       "hooks": [
         {
           "actionCommand": {
-            "command": "/usr/bin/sync-to-gdrive.sh"
+            "command": "/config/sync-to-gdrive.sh"
           },
           "conditions": [
             "CONDITION_SNAPSHOT_SUCCESS"
