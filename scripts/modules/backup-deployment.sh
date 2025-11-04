@@ -80,24 +80,17 @@ configure_backrest_directories() {
     chown -R 101000:101000 /datapool/backup
 }
 
-# Configure rclone for Google Drive sync inside LXC container
-configure_rclone_in_lxc() {
-    local ct_id="$1"
-
-    # Install rclone unconditionally in Alpine LXC (required for Docker bind mount)
-    pct exec "$ct_id" -- apk add --no-cache rclone
-
+# Configure rclone for Google Drive sync - creates config files for Docker container
+# rclone is now installed inside the Docker image, not in the LXC container
+configure_rclone_config() {
     # Read OAuth credentials from decrypted .env
     local gdrive_client_id gdrive_client_secret gdrive_oauth_token
     gdrive_client_id=$(echo "$env_content" | grep "^GDRIVE_CLIENT_ID=" | cut -d'=' -f2-)
     gdrive_client_secret=$(echo "$env_content" | grep "^GDRIVE_CLIENT_SECRET=" | cut -d'=' -f2-)
     gdrive_oauth_token=$(echo "$env_content" | grep "^GDRIVE_OAUTH_TOKEN=" | cut -d'=' -f2-)
 
-    # Create rclone config directory in LXC
-    pct exec "$ct_id" -- mkdir -p /root/.config/rclone
-
     # Create rclone config file temporarily on host
-    local temp_rclone_conf="/tmp/rclone-${ct_id}.conf"
+    local temp_rclone_conf="/tmp/rclone-$$.conf"
     cat > "$temp_rclone_conf" << EOF
 [gdrive]
 type = drive
@@ -106,12 +99,6 @@ client_id = ${gdrive_client_id}
 client_secret = ${gdrive_client_secret}
 token = ${gdrive_oauth_token}
 EOF
-
-    # Push rclone config to LXC
-    pct push "$ct_id" "$temp_rclone_conf" /root/.config/rclone/rclone.conf
-
-    # Set secure permissions
-    pct exec "$ct_id" -- chmod 600 /root/.config/rclone/rclone.conf
 
     # Copy rclone config to Backrest config dir for Docker container access
     cp "$temp_rclone_conf" /datapool/config/backrest/config/rclone.conf
@@ -151,6 +138,37 @@ SYNCEOF
     # Set ownership and permissions for container access
     chown 101000:101000 /datapool/config/backrest/config/sync-to-gdrive.sh
     chmod +x /datapool/config/backrest/config/sync-to-gdrive.sh
+}
+
+# Build custom backrest image with rclone inside LXC container
+build_backrest_image() {
+    local ct_id="$1"
+    
+    print_info "Building custom backrest image with rclone"
+    
+    # Download Dockerfile to LXC container
+    local dockerfile_url="$REPO_BASE_URL/docker-images/backrest-rclone/Dockerfile"
+    local temp_dockerfile="/tmp/Dockerfile-backrest-rclone"
+    
+    if ! curl -sSL "$dockerfile_url" -o "$temp_dockerfile"; then
+        print_error "Failed to download Dockerfile"
+        return 1
+    fi
+    
+    # Create build directory in LXC
+    pct exec "$ct_id" -- mkdir -p /root/backrest-build
+    
+    # Copy Dockerfile to LXC
+    pct push "$ct_id" "$temp_dockerfile" "/root/backrest-build/Dockerfile"
+    rm -f "$temp_dockerfile"
+    
+    # Build image inside LXC
+    pct exec "$ct_id" -- docker build -t backrest-rclone:latest /root/backrest-build/
+    
+    # Clean up build directory
+    pct exec "$ct_id" -- rm -rf /root/backrest-build
+    
+    print_success "Custom backrest image built successfully"
 }
 
 # Deploy Backrest stack
@@ -211,9 +229,15 @@ deploy_backrest() {
     chown 101000:101000 /datapool/config/backrest/config/config.json
     chmod 600 /datapool/config/backrest/config/config.json
 
-    # Configure rclone for Google Drive sync in LXC (uses same env_content)
-    if ! configure_rclone_in_lxc "$ct_id"; then
+    # Configure rclone config file for Docker container (uses same env_content)
+    if ! configure_rclone_config; then
         print_warning "Failed to configure rclone, continuing without cloud sync"
+    fi
+
+    # Build custom backrest image with rclone (ensures latest image is available)
+    if ! build_backrest_image "$ct_id"; then
+        print_error "Failed to build custom backrest image"
+        return 1
     fi
 
     local backrest_ip
