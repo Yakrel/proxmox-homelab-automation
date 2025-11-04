@@ -87,6 +87,10 @@ configure_rclone_in_lxc() {
     # Install rclone unconditionally (required for Docker bind mount)
     pct exec "$ct_id" -- sh -c "apt-get update -qq && apt-get install -y -qq rclone"
 
+    # Debian installs rclone to /bin/rclone, but docker-compose expects /usr/bin/rclone
+    # Create symlink for compatibility with Docker bind mount
+    pct exec "$ct_id" -- ln -sf /bin/rclone /usr/bin/rclone
+
     # Read OAuth credentials from decrypted .env
     local gdrive_client_id gdrive_client_secret gdrive_oauth_token
     gdrive_client_id=$(echo "$env_content" | grep "^GDRIVE_CLIENT_ID=" | cut -d'=' -f2-)
