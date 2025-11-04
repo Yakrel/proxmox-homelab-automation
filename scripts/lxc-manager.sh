@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Unified LXC creation + minimal provisioning (Debian-based)
+# Unified LXC creation + minimal provisioning (Alpine/Debian)
 # Fail fast approach
 set -euo pipefail
 
@@ -49,8 +49,14 @@ get_latest_template() {
     echo "$local_template"
 }
 
-# All stacks now use Debian for GPU passthrough support (Chrome, Jellyfin, etc.)
-LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
+# Choose template based on stack type - always use latest
+# Debian: media (Jellyfin GPU), webtools (Chrome GPU)
+# Alpine: all other stacks (lighter, faster)
+if [ "$STACK_NAME" = "media" ] || [ "$STACK_NAME" = "webtools" ]; then
+    LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
+else
+    LATEST_TEMPLATE=$(get_latest_template "alpine-.*-default")
+fi
 
 # Container exists check - handle gracefully for idempotency
 if check_container_exists "$CT_ID"; then
@@ -170,19 +176,20 @@ pct exec "$CT_ID" -- sh -c "
 set -e
 STACK_NAME='${STACK_NAME}'
 
-# All containers now use Debian - unified provisioning
-export DEBIAN_FRONTEND=noninteractive
-export DEBIAN_PRIORITY=critical
-export LC_ALL=C
-export LANG=C
+# Debian stacks: media (Jellyfin GPU) and webtools (Chrome GPU)
+if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'webtools' ]; then
+    export DEBIAN_FRONTEND=noninteractive
+    export DEBIAN_PRIORITY=critical
+    export LC_ALL=C
+    export LANG=C
 
-# Initial system update
-apt-get update -qq
-apt-get upgrade -y -qq
-apt-get install -y -qq debian-archive-keyring ca-certificates curl gnupg wget util-linux
+    # Initial system update
+    apt-get update -qq
+    apt-get upgrade -y -qq
+    apt-get install -y -qq debian-archive-keyring ca-certificates curl gnupg wget util-linux
 
-# Configure Debian repositories with non-free for potential GPU drivers
-cat > /etc/apt/sources.list.d/debian.sources <<'EOS'
+    # Configure Debian repositories with non-free for GPU drivers
+    cat > /etc/apt/sources.list.d/debian.sources <<'EOS'
 Types: deb
 URIs: http://deb.debian.org/debian
 Suites: trixie trixie-updates
@@ -196,13 +203,13 @@ Components: main contrib non-free non-free-firmware
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOS
 
-# Add Docker's official GPG key and repository (following official docs)
-install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
-chmod a+r /etc/apt/keyrings/docker.asc
+    # Add Docker's official GPG key and repository (following official docs)
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+    chmod a+r /etc/apt/keyrings/docker.asc
 
-# Add the repository to Apt sources using DEB822 format
-cat > /etc/apt/sources.list.d/docker.sources <<DOCKERSOURCES
+    # Add the repository to Apt sources using DEB822 format
+    cat > /etc/apt/sources.list.d/docker.sources <<DOCKERSOURCES
 Types: deb
 URIs: https://download.docker.com/linux/debian
 Suites: \$(. /etc/os-release && echo \$VERSION_CODENAME)
@@ -211,8 +218,6 @@ Architectures: \$(dpkg --print-architecture)
 Signed-By: /etc/apt/keyrings/docker.asc
 DOCKERSOURCES
 
-# GPU-enabled stacks: media and webtools (for Chrome GPU acceleration)
-if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'webtools' ]; then
     # Add NVIDIA container toolkit repository
     curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
     curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
@@ -243,54 +248,75 @@ if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'webtools' ]; then
     }
 }
 EOFDOCKER
-elif [ \"\$STACK_NAME\" = 'development' ]; then
-    # Development stack: NO Docker, only dev tools
-    apt-get update -qq
-    apt-get install -y -qq nodejs npm git curl python3 python3-pip bash nano vim htop ca-certificates
-    npm config set fund false >/dev/null 2>&1 || true
-    npm config set update-notifier false >/dev/null 2>&1 || true
-    # AI CLI tools (optional - failures are non-critical)
-    npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 || echo 'Note: claude-code installation skipped'
-    npm install -g @google/gemini-cli >/dev/null 2>&1 || echo 'Note: gemini-cli installation skipped'
-else
-    # Standard Docker-only stacks (no GPU)
-    apt-get update -qq
-    apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-fi
 
-# Enable Docker for all stacks except development
-if [ \"\$STACK_NAME\" != 'development' ]; then
+    # Enable Docker
     systemctl enable docker --now
     systemctl restart docker
-fi
 
-# Common Debian configuration for all containers
-mkdir -p /etc/systemd/system/getty@tty1.service.d
-cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'EOFLOGIN'
+    # Common Debian configuration
+    mkdir -p /etc/systemd/system/getty@tty1.service.d
+    cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'EOFLOGIN'
 [Service]
 ExecStart=
 ExecStart=-/sbin/agetty --autologin root --noclear %I \$TERM
 EOFLOGIN
 
-# Set timezone
-timedatectl set-timezone Europe/Istanbul || true
+    # Set timezone
+    timedatectl set-timezone Europe/Istanbul || true
 
-# Set terminal colors
+    # Remove SSH for security
+    systemctl disable ssh 2>/dev/null || true
+    systemctl stop ssh 2>/dev/null || true
+    apt-get remove -y -qq openssh-server 2>/dev/null || true
+
+    # Cleanup
+    apt-get -y autoremove -qq
+    apt-get -y autoclean -qq
+
+else
+    # Alpine stacks: all other stacks (lighter, faster)
+    apk update
+    apk upgrade
+    
+    if [ \"\$STACK_NAME\" = 'development' ]; then
+        # Development: NO Docker; only AI CLI tools and development packages
+        apk add --no-cache util-linux nodejs npm git curl python3 py3-pip bash nano vim htop ca-certificates
+        npm config set fund false || true
+        npm config set update-notifier false || true
+        # Install AI CLI tools (optional - failures are non-critical)
+        npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 || echo 'Note: claude-code installation skipped'
+        npm install -g @google/gemini-cli >/dev/null 2>&1 || echo 'Note: gemini-cli installation skipped'
+    else
+        # Other Alpine stacks: Docker runtime
+        apk add --no-cache docker docker-cli-compose util-linux
+        
+        # Add docker to boot runlevel and start
+        rc-update add docker boot
+        service docker start || rc-service docker start || true
+    fi
+
+    # Alpine autologin
+    sed -i 's|^tty1::|#&|' /etc/inittab || true
+    echo 'tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux' >> /etc/inittab
+    kill -HUP 1 || true
+    
+    # Alpine timezone setup
+    apk add --no-cache tzdata || true
+    ln -sf /usr/share/zoneinfo/Europe/Istanbul /etc/localtime || true
+
+    # Remove openssh (reduce attack surface)
+    apk del openssh || true
+fi
+
+# Common setup for all containers
 echo 'export TERM=xterm-256color' >> /etc/profile
 echo 'export TERM=xterm-256color' >> /root/.bashrc
 
-# Remove root password and create hushlogin
+# Remove root password (allow passwordless login)
 passwd -d root || true
+
+# Create hushlogin to suppress login messages  
 touch /root/.hushlogin
-
-# Remove SSH for security
-systemctl disable ssh 2>/dev/null || true
-systemctl stop ssh 2>/dev/null || true
-apt-get remove -y -qq openssh-server 2>/dev/null || true
-
-# Cleanup
-apt-get -y autoremove -qq
-apt-get -y autoclean -qq
 "
 
 print_success "Container [$STACK_NAME] created and ready"
