@@ -72,9 +72,7 @@ services:
       - TITLE=Desktop Workspace
       - CUSTOM_USER=${DESKTOP_USER:?Desktop user must be defined}
       - PASSWORD=${DESKTOP_PASSWORD:?Desktop password must be defined}
-      # LinuxServer: "When compatible Nvidia hardware is passed through, 
-      # it will be automatically utilized for hardware-accelerated video 
-      # stream encoding (using the x264enc full-frame profile)"
+      # LinuxServer auto-detects Nvidia hardware and enables GPU acceleration with x264enc
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
     shm_size: "1gb"
