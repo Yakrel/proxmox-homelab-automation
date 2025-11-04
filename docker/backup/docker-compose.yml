@@ -6,9 +6,8 @@ networks:
 
 services:
   backrest:
-    build:
-      context: ../../docker-images/backrest-rclone
-      dockerfile: Dockerfile
+    # Custom image with rclone built-in (see docker-images/backrest-rclone/Dockerfile)
+    # Build manually: docker build -t backrest-rclone:latest docker-images/backrest-rclone/
     image: backrest-rclone:latest
     container_name: backrest
     restart: unless-stopped
