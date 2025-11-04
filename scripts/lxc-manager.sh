@@ -196,12 +196,20 @@ Components: main contrib non-free non-free-firmware
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOS
 
-# Add Docker GPG key and repository
+# Add Docker's official GPG key and repository (following official docs)
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
 chmod a+r /etc/apt/keyrings/docker.asc
-DEBIAN_CODENAME=\$(. /etc/os-release && echo \$VERSION_CODENAME)
-echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \$DEBIAN_CODENAME stable\" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Add the repository to Apt sources using DEB822 format
+cat > /etc/apt/sources.list.d/docker.sources <<DOCKERSOURCES
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: \$(. /etc/os-release && echo \$VERSION_CODENAME)
+Components: stable
+Architectures: \$(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+DOCKERSOURCES
 
 # GPU-enabled stacks: media and webtools (for Chrome GPU acceleration)
 if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'webtools' ]; then
