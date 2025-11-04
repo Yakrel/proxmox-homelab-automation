@@ -84,8 +84,8 @@ configure_backrest_directories() {
 configure_rclone_in_lxc() {
     local ct_id="$1"
 
-    # Install rclone unconditionally (required for Docker bind mount)
-    pct exec "$ct_id" -- sh -c "apt-get update -qq && apt-get install -y -qq rclone"
+    # Install rclone unconditionally in Alpine LXC (required for Docker bind mount)
+    pct exec "$ct_id" -- apk add --no-cache rclone
 
     # Read OAuth credentials from decrypted .env
     local gdrive_client_id gdrive_client_secret gdrive_oauth_token
