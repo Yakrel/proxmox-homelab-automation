@@ -95,8 +95,8 @@ configure_rclone_in_lxc() {
         return 0
     fi
 
-    # Install rclone in Alpine LXC
-    pct exec "$ct_id" -- apk add --no-cache rclone
+    # Install rclone in Debian LXC
+    pct exec "$ct_id" -- sh -c "apt-get update -qq && apt-get install -y -qq rclone"
 
     # Create rclone config directory in LXC
     pct exec "$ct_id" -- mkdir -p /root/.config/rclone
