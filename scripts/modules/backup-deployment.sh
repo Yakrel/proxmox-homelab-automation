@@ -84,19 +84,14 @@ configure_backrest_directories() {
 configure_rclone_in_lxc() {
     local ct_id="$1"
 
+    # Install rclone unconditionally (required for Docker bind mount)
+    pct exec "$ct_id" -- sh -c "apt-get update -qq && apt-get install -y -qq rclone"
+
     # Read OAuth credentials from decrypted .env
     local gdrive_client_id gdrive_client_secret gdrive_oauth_token
     gdrive_client_id=$(echo "$env_content" | grep "^GDRIVE_CLIENT_ID=" | cut -d'=' -f2-)
     gdrive_client_secret=$(echo "$env_content" | grep "^GDRIVE_CLIENT_SECRET=" | cut -d'=' -f2-)
     gdrive_oauth_token=$(echo "$env_content" | grep "^GDRIVE_OAUTH_TOKEN=" | cut -d'=' -f2-)
-
-    # Validate credentials exist
-    if [[ -z "$gdrive_client_id" || -z "$gdrive_client_secret" || -z "$gdrive_oauth_token" ]]; then
-        return 0
-    fi
-
-    # Install rclone in Debian LXC
-    pct exec "$ct_id" -- sh -c "apt-get update -qq && apt-get install -y -qq rclone"
 
     # Create rclone config directory in LXC
     pct exec "$ct_id" -- mkdir -p /root/.config/rclone
