@@ -1,11 +1,11 @@
-name: Build and Push Desktop Workspace Image
+name: Build and Push Backrest-Rclone Image
 
 on:
   push:
     branches: [ main ]
     paths:
-      - 'docker-images/desktop-workspace/**'
-      - '.github/workflows/build-desktop-workspace.yml'
+      - 'docker-images/backrest-rclone/**'
+      - '.github/workflows/build-backrest-rclone.yml'
   schedule:
     # Run twice a week: Sunday and Wednesday at 2 AM
     - cron: '0 2 * * 0,3'
@@ -32,7 +32,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: yakrel93/desktop-workspace
+          images: yakrel93/backrest-rclone
           tags: |
             type=raw,value=latest
             type=sha,prefix={{date 'YYYYMMDD'}}-
@@ -40,18 +40,18 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./docker-images/desktop-workspace
+          context: ./docker-images/backrest-rclone
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=yakrel93/desktop-workspace:latest
+          cache-from: type=registry,ref=yakrel93/backrest-rclone:latest
           cache-to: type=inline
 
       - name: Clean up old tags
         run: |
           # Get all tags except 'latest'
           TAGS=$(curl -s -H "Authorization: Bearer $(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' https://hub.docker.com/v2/users/login/ | jq -r .token)" \
-            "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/desktop-workspace/tags/?page_size=100" \
+            "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/backrest-rclone/tags/?page_size=100" \
             | jq -r '.results[] | select(.name != "latest") | .name' | sort -r)
 
           # Keep the 3 most recent dated tags, delete older ones
@@ -62,7 +62,7 @@ jobs:
                 echo "Deleting old tag: $tag"
                 curl -s -X DELETE \
                   -H "Authorization: Bearer $(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' https://hub.docker.com/v2/users/login/ | jq -r .token)" \
-                  "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/desktop-workspace/tags/$tag/"
+                  "https://hub.docker.com/v2/repositories/${{ secrets.DOCKERHUB_USERNAME }}/backrest-rclone/tags/$tag/"
               fi
             done
           else

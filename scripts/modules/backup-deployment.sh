@@ -140,37 +140,6 @@ SYNCEOF
     chmod +x /datapool/config/backrest/config/sync-to-gdrive.sh
 }
 
-# Build custom backrest image with rclone inside LXC container
-build_backrest_image() {
-    local ct_id="$1"
-    
-    print_info "Building custom backrest image with rclone"
-    
-    # Download Dockerfile to LXC container
-    local dockerfile_url="$REPO_BASE_URL/docker-images/backrest-rclone/Dockerfile"
-    local temp_dockerfile="/tmp/Dockerfile-backrest-rclone"
-    
-    if ! curl -sSL "$dockerfile_url" -o "$temp_dockerfile"; then
-        print_error "Failed to download Dockerfile"
-        return 1
-    fi
-    
-    # Create build directory in LXC
-    pct exec "$ct_id" -- mkdir -p /root/backrest-build
-    
-    # Copy Dockerfile to LXC
-    pct push "$ct_id" "$temp_dockerfile" "/root/backrest-build/Dockerfile"
-    rm -f "$temp_dockerfile"
-    
-    # Build image inside LXC
-    pct exec "$ct_id" -- docker build -t backrest-rclone:latest /root/backrest-build/
-    
-    # Clean up build directory
-    pct exec "$ct_id" -- rm -rf /root/backrest-build
-    
-    print_success "Custom backrest image built successfully"
-}
-
 # Deploy Backrest stack
 deploy_backrest() {
     local ct_id="$1"
@@ -232,12 +201,6 @@ deploy_backrest() {
     # Configure rclone config file for Docker container (uses same env_content)
     if ! configure_rclone_config; then
         print_warning "Failed to configure rclone, continuing without cloud sync"
-    fi
-
-    # Build custom backrest image with rclone (ensures latest image is available)
-    if ! build_backrest_image "$ct_id"; then
-        print_error "Failed to build custom backrest image"
-        return 1
     fi
 
     local backrest_ip
