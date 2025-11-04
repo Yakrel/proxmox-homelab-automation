@@ -10,7 +10,7 @@ set -euo pipefail
 setup_homepage_config() {
     local ct_id="$1"
 
-    print_info "Setting up Homepage configuration files"
+    print_info "Setting up Homepage configuration"
 
     # Ensure directory exists
     mkdir -p /datapool/config/homepage
@@ -47,21 +47,21 @@ setup_homepage_config() {
     done
     
     if [[ $failed -eq 1 ]]; then
-        print_error "Failed to download one or more homepage config files"
+        print_error "Failed to download homepage config files"
         exit 1
     fi
 
     # Fix permissions
     chown -R 101000:101000 /datapool/config/homepage
 
-    print_success "Homepage configuration files updated"
+    print_success "Homepage configured"
 }
 
 # Setup CouchDB directories and configuration
 setup_couchdb_config() {
     local ct_id="$1"
 
-    print_info "Setting up CouchDB directories and configuration"
+    print_info "Setting up CouchDB"
 
     # Create CouchDB directories
     mkdir -p /datapool/config/couchdb/data
@@ -78,12 +78,12 @@ setup_couchdb_config() {
     # Fix permissions
     chown -R 101000:101000 /datapool/config/couchdb
 
-    print_success "CouchDB directories and configuration ready"
+    print_success "CouchDB configured"
 }
 
 # Setup Immich directories with correct ownership
 setup_immich_directories() {
-    print_info "Preparing Immich directories with correct ownership"
+    print_info "Preparing Immich directories"
 
     # Create all required Immich directories
     mkdir -p /datapool/media/immich/{upload,library,thumbs,profile,backups,encoded-video}
@@ -97,7 +97,7 @@ setup_immich_directories() {
     chmod -R 755 /datapool/media/immich
     chmod -R 700 /datapool/config/immich/postgres
 
-    print_success "Immich directories ready with correct ownership"
+    print_success "Immich configured"
 }
 
 # Setup Promtail configuration for log aggregation
@@ -105,7 +105,7 @@ setup_promtail_config() {
     local ct_id="$1"
     local hostname="$2"
 
-    print_info "Setting up Promtail configuration for $hostname"
+    print_info "Setting up Promtail for $hostname"
 
     # Create promtail directories in LXC
     pct exec "$ct_id" -- mkdir -p /etc/promtail /var/lib/promtail/positions
@@ -122,10 +122,7 @@ setup_promtail_config() {
     }
     rm -f "$temp_promtail"
 
-    # Note: No chown needed inside LXC - files pushed with pct push get correct ownership from root context
-    # Promtail container runs without specific user requirements
-
-    print_success "Promtail configuration ready"
+    print_success "Promtail configured"
 }
 
 # Download and configure Docker Compose files
@@ -139,11 +136,8 @@ setup_docker_compose() {
     local compose_url="$REPO_BASE_URL/docker/$stack_name/docker-compose.yml"
     local temp_compose="/tmp/docker-compose.yml"
     
-    print_info "Downloading from: $compose_url"
-    
     if ! curl -sSL "$compose_url" -o "$temp_compose"; then
-        print_error "Failed to download docker-compose.yml from $compose_url"
-        print_error "Check if the file exists in the repository"
+        print_error "Failed to download docker-compose.yml"
         exit 1
     fi
     
@@ -154,31 +148,25 @@ setup_docker_compose() {
         exit 1
     fi
     
-    print_info "Successfully downloaded $(wc -l < "$temp_compose") lines"
-    
     # Copy to container root directory directly
     pct push "$ct_id" "$temp_compose" "/root/docker-compose.yml" || { print_error "Failed to push compose file"; exit 1; }
     rm -f "$temp_compose"
     
-    print_success "Docker Compose ready"
+    print_success "Docker Compose configured"
 }
 
 # Verify Docker is available in container (already installed during LXC provisioning)
 install_docker() {
     local ct_id="$1"
     
-    print_info "Verifying Docker installation"
-    
-    # Docker is already installed during LXC provisioning:
-    # - Alpine: via apk in lxc-manager.sh
-    # - Debian: via docker-ce in lxc-manager.sh (media stack)
+    # Docker is already installed during LXC provisioning in lxc-manager.sh
     # Just verify it's available
     if ! pct exec "$ct_id" -- docker --version >/dev/null 2>&1; then
-        print_error "Docker not found in container - this should not happen"
+        print_error "Docker not found in container"
         exit 1
     fi
     
-    print_success "Docker is available"
+    print_success "Docker verified"
 }
 
 # Deploy Docker Compose services - pull latest images
@@ -186,17 +174,15 @@ deploy_docker_services() {
     local stack_name="$1"
     local ct_id="$2"
     
-    print_info "Deploying Docker services for $stack_name"
+    print_info "Deploying services for $stack_name"
     
-    # Pull images and deploy in one command (docker compose up will pull if needed)
-    # Using --pull always ensures we get latest images while being more efficient
-    print_info "Pulling images and starting Docker services"
+    # Pull images and deploy in one command
     pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --pull always --remove-orphans" || {
-        print_error "Failed to deploy Docker services"
+        print_error "Failed to deploy services"
         exit 1
     }
     
-    print_success "Docker services deployed"
+    print_success "Services deployed"
 }
 
 # Full Docker deployment workflow
@@ -204,21 +190,16 @@ deploy_docker_stack() {
     local stack_name="$1"
     local ct_id="$2"
     
-    print_info "Deploying Docker stack: $stack_name"
-    
     # Check if docker-compose.yml exists for this stack
     local compose_url="$REPO_BASE_URL/docker/$stack_name/docker-compose.yml"
     local http_code
     http_code=$(curl -sSL -w "%{http_code}" -o /dev/null "$compose_url" || echo "000")
     
     if [[ "$http_code" != "200" ]]; then
-        print_warning "No docker-compose.yml found for $stack_name (HTTP $http_code)"
-        print_info "Skipping Docker deployment for this stack"
+        print_info "No docker-compose.yml found for $stack_name, skipping"
         return 0
     fi
     
-    # Docker installation/verification - always use install_docker function
-    # (it will handle both fresh installs and verification of existing installations)
     install_docker "$ct_id"
     
     # Setup Promtail for log aggregation (all Docker stacks except monitoring)
@@ -242,30 +223,30 @@ deploy_docker_stack() {
     setup_docker_compose "$stack_name" "$ct_id"
     deploy_docker_services "$stack_name" "$ct_id"
     
-    print_success "Docker deployment completed: $stack_name"
+    print_success "Stack deployed: $stack_name"
 }
 
 # Update Docker services
 update_docker_services() {
     local ct_id="$1"
     
-    print_info "Updating Docker services"
+    print_info "Updating services"
     
-    # Pull latest images and recreate containers using Docker Compose v2 (plugin)
+    # Pull latest images and recreate containers
     pct exec "$ct_id" -- sh -c "cd /root && docker compose pull" || { print_error "Failed to pull images"; exit 1; }
     pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --remove-orphans" || { print_error "Failed to recreate containers"; exit 1; }
     
     # Clean up old images
     pct exec "$ct_id" -- docker image prune -f
     
-    print_success "Docker services updated"
+    print_success "Services updated"
 }
 
 # Remove Docker services
 remove_docker_services() {
     local ct_id="$1"
     
-    print_info "Removing Docker services"
+    print_info "Removing services"
     
     # Stop and remove containers
     if pct exec "$ct_id" -- test -f /root/docker-compose.yml; then
@@ -275,5 +256,5 @@ remove_docker_services() {
     # Remove all containers, networks, and volumes
     pct exec "$ct_id" -- docker system prune -af --volumes 2>/dev/null || true
     
-    print_success "Docker services removed"
+    print_success "Services removed"
 }

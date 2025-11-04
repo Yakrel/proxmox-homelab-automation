@@ -16,11 +16,11 @@ set -euo pipefail
 # Colored output functions used throughout all scripts
 
 print_info() { 
-    echo -e "\033[36m[INFO]\033[0m $1" 
+    echo -e "\033[36m▸\033[0m $1" 
 }
 
 print_success() { 
-    echo -e "\033[32m[SUCCESS]\033[0m $1" 
+    echo -e "\033[32m✓\033[0m $1" 
 }
 
 print_error() { 
@@ -78,10 +78,9 @@ require_root() {
 }
 
 ensure_packages() {
-    print_info "Installing packages: $*"
-    apt-get update -q
-    apt-get install -y "$@"
-    print_success "Installed packages: $*"
+    apt-get update -qq
+    apt-get install -y -qq "$@"
+    print_success "Packages installed"
 }
 
 # === HOMELAB INFRASTRUCTURE CONSTANTS ===
