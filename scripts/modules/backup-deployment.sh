@@ -121,8 +121,8 @@ EOF
     # Clean up temporary file
     rm -f "$temp_rclone_conf"
 
-    # Create sync script in LXC at /usr/bin (in PATH for sh)
-    pct exec "$ct_id" -- sh -c 'cat > /usr/bin/sync-to-gdrive.sh << '\''SYNCEOF'\''
+    # Create sync script on host in Backrest config dir (mounted to container as /config)
+    cat > /datapool/config/backrest/config/sync-to-gdrive.sh << 'SYNCEOF'
 #!/bin/sh
 # Backrest hook script: Sync backups to Google Drive after successful backup
 
@@ -130,7 +130,7 @@ LOG_FILE="/var/log/rclone-gdrive-sync.log"
 
 echo "$(date): Starting Google Drive sync" >> "$LOG_FILE"
 
-/usr/bin/rclone sync /datapool/backup gdrive:homelab-backups \
+/usr/bin/rclone sync /repos gdrive:homelab-backups \
     --log-file="$LOG_FILE" \
     --log-level=INFO \
     --fast-list \
@@ -146,10 +146,10 @@ else
     exit 1
 fi
 SYNCEOF
-'
 
-    # Make script executable
-    pct exec "$ct_id" -- chmod +x /usr/bin/sync-to-gdrive.sh
+    # Set ownership and permissions for container access
+    chown 101000:101000 /datapool/config/backrest/config/sync-to-gdrive.sh
+    chmod +x /datapool/config/backrest/config/sync-to-gdrive.sh
 }
 
 # Deploy Backrest stack
