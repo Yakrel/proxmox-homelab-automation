@@ -30,7 +30,10 @@ RUN \
   fi && \
   apt-get update && \
   apt-get install -y --no-install-recommends \
-    google-chrome-stable=${CHROME_VERSION} && \
+    google-chrome-stable=${CHROME_VERSION} \
+    nvidia-vaapi-driver \
+    va-driver-all \
+    vainfo && \
   echo "**** install Obsidian dependencies ****" && \
   apt-get install -y --no-install-recommends \
     chromium \
