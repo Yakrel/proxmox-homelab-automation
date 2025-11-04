@@ -58,6 +58,17 @@ services:
       - "5800:3001"  # HTTPS web interface
     volumes:
       - /datapool/config/desktop-workspace:/config
+      # NVIDIA GPU libraries for Chrome hardware acceleration
+      - /usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu/nvidia/current:ro
+      - /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:ro
+      - /usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:/usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:ro
+    devices:
+      # NVIDIA GPU passthrough for Chrome hardware acceleration
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
     environment:
       - PUID=1000
       - PGID=1000
@@ -65,6 +76,10 @@ services:
       - TITLE=Desktop Workspace
       - CUSTOM_USER=${DESKTOP_USER:?Desktop user must be defined}
       - PASSWORD=${DESKTOP_PASSWORD:?Desktop password must be defined}
+      # NVIDIA GPU environment variables for Chrome hardware acceleration
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu
     shm_size: "1gb"
     security_opt:
       - seccomp:unconfined
