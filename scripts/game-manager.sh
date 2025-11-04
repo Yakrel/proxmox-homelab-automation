@@ -1,15 +1,6 @@
 #!/bin/bash
 
-# Game Server Manager - Single Active Gam    # Check if base gaming stack is running (gameserver-net network must exist)
-    if ! docker network inspect gameserver-net &>/dev/null; then
-        echo "✗ Error: Base gaming stack is not running!"
-        echo "  Please run 'docker compose up -d' in $DOCKER_DIR first to start:"
-        echo "  - Watchtower (auto-updates)"
-        echo "  - Promtail (logging)"
-        echo "  - gameserver-net network"
-        return 1
-    }r
-# Ensures only one game server runs at a time
+# Game Server Manager - Ensures only one game server runs at a time
 
 # Dynamic paths - will be in gameservers container
 DOCKER_DIR="/root/docker"

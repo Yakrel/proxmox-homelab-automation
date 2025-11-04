@@ -250,8 +250,8 @@ elif [ \"\$STACK_NAME\" = 'development' ]; then
     npm config set fund false >/dev/null 2>&1 || true
     npm config set update-notifier false >/dev/null 2>&1 || true
     # AI CLI tools (optional - failures are non-critical)
-    npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 || echo "Note: claude-code installation skipped"
-    npm install -g @google/gemini-cli >/dev/null 2>&1 || echo "Note: gemini-cli installation skipped"
+    npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 || echo 'Note: claude-code installation skipped'
+    npm install -g @google/gemini-cli >/dev/null 2>&1 || echo 'Note: gemini-cli installation skipped'
 else
     # Standard Docker-only stacks (no GPU)
     apt-get update -qq
