@@ -58,21 +58,13 @@ services:
       - "5800:3001"  # HTTPS web interface
     volumes:
       - /datapool/config/desktop-workspace:/config
-      # NVIDIA GPU libraries for Chrome hardware acceleration
-      - /usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu/nvidia/current:ro
-      - /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:ro
-      - /usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:/usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:ro
     devices:
-      # NVIDIA GPU passthrough for Chrome hardware acceleration via Selkies
+      # NVIDIA GPU passthrough - LinuxServer automatically detects and enables hardware acceleration
       - /dev/nvidia0:/dev/nvidia0
       - /dev/nvidiactl:/dev/nvidiactl
       - /dev/nvidia-uvm:/dev/nvidia-uvm
       - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
       - /dev/nvidia-modeset:/dev/nvidia-modeset
-      # DRI device for GPU-accelerated rendering via Selkies-GStreamer
-      # IMPORTANT: Requires /dev/dri mount in LXC config (lxc-manager.sh handles this)
-      # GTX 970 creates /dev/dri interface for OpenGL/Vulkan rendering
-      - /dev/dri:/dev/dri
     environment:
       - PUID=1000
       - PGID=1000
@@ -80,13 +72,11 @@ services:
       - TITLE=Desktop Workspace
       - CUSTOM_USER=${DESKTOP_USER:?Desktop user must be defined}
       - PASSWORD=${DESKTOP_PASSWORD:?Desktop password must be defined}
-      # NVIDIA GPU environment variables for Chrome hardware acceleration
+      # LinuxServer: "When compatible Nvidia hardware is passed through, 
+      # it will be automatically utilized for hardware-accelerated video 
+      # stream encoding (using the x264enc full-frame profile)"
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
-      - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu
-      # Selkies-GStreamer GPU acceleration settings
-      - SELKIES_ENCODER=nvh264enc
-      - SELKIES_VIDEO_BITRATE=8000
     shm_size: "1gb"
     security_opt:
       - seccomp:unconfined

@@ -86,7 +86,7 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
     
     # GPU passthrough for media and webtools stacks - cgroup v2 method
     # media: Jellyfin hardware transcoding (decode/scale/encode) + Immich ML
-    # webtools: Chrome GPU acceleration in desktop-workspace container
+    # webtools: LinuxServer Chrome automatically enables hardware acceleration with Nvidia passthrough
     if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "webtools" ]]; then
         print_info "Configuring GPU passthrough for $STACK_NAME container (cgroup v2 method)"
 
@@ -133,11 +133,9 @@ EOF
             'lxc.cgroup.devices.allow: c 195:* rwm'   # NVIDIA GPU devices (195:0 = nvidia0)
             'lxc.cgroup.devices.allow: c 510:* rwm'   # nvidia-uvm (510:0)
             'lxc.cgroup.devices.allow: c 511:* rwm'   # nvidia-uvm (511:0 on some systems)
-            'lxc.cgroup.devices.allow: c 226:* rwm'   # DRI devices (226:0 = card0, 226:128 = renderD128)
             'lxc.cgroup2.devices.allow: c 195:* rwm'  # cgroup v2 permissions
             'lxc.cgroup2.devices.allow: c 510:* rwm'  # cgroup v2 for nvidia-uvm
             'lxc.cgroup2.devices.allow: c 511:* rwm'  # cgroup v2 for nvidia-uvm (alternate)
-            'lxc.cgroup2.devices.allow: c 226:* rwm'  # cgroup v2 for DRI devices
             # Device bind mounts - pass GPU devices into container
             'lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file'
             'lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file'
@@ -146,10 +144,6 @@ EOF
             'lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file'
             'lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file'
             'lxc.mount.entry: /dev/nvidia-modeset dev/nvidia-modeset none bind,optional,create=file'
-            # DRI devices - required for GPU-accelerated rendering (OpenGL/Vulkan)
-            # webtools: Chrome GPU acceleration via Selkies-GStreamer in desktop-workspace
-            # media: Jellyfin hardware transcoding (NVIDIA provides DRI interface for Mesa/Vulkan)
-            'lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir'
         )
 
         for gpu_line in "${gpu_passthrough_lines[@]}"; do
