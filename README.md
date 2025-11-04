@@ -98,16 +98,17 @@ Deploy: Watchtower auto-pulls in homelab
 
 ### GPU Hardware Acceleration
 **NVIDIA GPU Passthrough in Unprivileged LXC**
-- Jellyfin hardware transcoding: 18.64x real-time (447 fps)
-- Immich ML acceleration: Face recognition, object detection
+- **Media Stack**: Jellyfin hardware transcoding (18.64x real-time, 447 fps) + Immich ML acceleration
+- **Webtools Stack**: Chrome GPU acceleration in desktop-workspace container
 - Direct device mounting with CUDA library integration
 - Production-tested with NVIDIA GTX 970
 
-**Setup:** Helper Menu → `Setup GPU Passthrough (NVIDIA)` → Reboot → Deploy media stack
+**Setup:** Helper Menu → `Setup GPU Passthrough (NVIDIA)` → Reboot → Deploy stacks
 
 ### Infrastructure as Code
 - **8 production stacks** with automated deployment
 - **40+ containerized services** via Docker Compose
+- **Debian-based LXC containers** for all stacks (unified infrastructure)
 - **Encrypted secrets**: AES-256-CBC with pbkdf2
 - **Idempotent scripts**: Safe to re-run
 - **Comprehensive monitoring**: Prometheus + Grafana + Loki
