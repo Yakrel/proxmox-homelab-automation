@@ -126,7 +126,7 @@ EOF
 #!/bin/sh
 # Backrest hook script: Sync backups to Google Drive after successful backup
 
-LOG_FILE="/var/log/rclone-gdrive-sync.log"
+LOG_FILE="/config/rclone-gdrive-sync.log"
 
 echo "$(date): Starting Google Drive sync" >> "$LOG_FILE"
 
