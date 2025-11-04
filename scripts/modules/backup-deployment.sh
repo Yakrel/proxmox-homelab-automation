@@ -96,8 +96,7 @@ configure_rclone_in_lxc() {
     fi
 
     # Install rclone in Debian LXC
-    pct exec "$ct_id" -- apt-get update -qq
-    pct exec "$ct_id" -- apt-get install -y -qq rclone
+    pct exec "$ct_id" -- sh -c "apt-get update -qq && apt-get install -y -qq rclone"
 
     # Create rclone config directory in LXC
     pct exec "$ct_id" -- mkdir -p /root/.config/rclone

@@ -239,10 +239,11 @@ elif [ \"\$STACK_NAME\" = 'development' ]; then
     # Development stack: NO Docker, only dev tools
     apt-get update -qq
     apt-get install -y -qq nodejs npm git curl python3 python3-pip bash nano vim htop ca-certificates
-    npm config set fund false 2>/dev/null || true
-    npm config set update-notifier false 2>/dev/null || true
-    npm install -g @anthropic-ai/claude-code 2>/dev/null || true
-    npm install -g @google/gemini-cli 2>/dev/null || true
+    npm config set fund false >/dev/null 2>&1 || true
+    npm config set update-notifier false >/dev/null 2>&1 || true
+    # AI CLI tools (optional - failures are non-critical)
+    npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 || echo "Note: claude-code installation skipped"
+    npm install -g @google/gemini-cli >/dev/null 2>&1 || echo "Note: gemini-cli installation skipped"
 else
     # Standard Docker-only stacks (no GPU)
     apt-get update -qq
