@@ -25,8 +25,6 @@ generate_backrest_config() {
     local sync_private_key="${10}"
     local sync_public_key="${11}"
 
-    print_info "Generating pre-configured Backrest config.json from template"
-
     # Check if template file exists
     if [[ ! -f "$template_file" ]]; then
         print_error "Configuration template not found at $template_file"
@@ -67,14 +65,10 @@ generate_backrest_config() {
         print_error "Failed to generate config.json. Output file is empty."
         return 1
     fi
-
-    print_success "Backrest config.json generated successfully"
 }
 
 # Configure Backrest directories and permissions on host
 configure_backrest_directories() {
-    print_info "Configuring Backrest directories on host"
-
     # Create Backrest directories on host (idempotent with -p)
     mkdir -p /datapool/config/backrest/config
     mkdir -p /datapool/config/backrest/data
@@ -84,15 +78,11 @@ configure_backrest_directories() {
     # Set ownership for unprivileged container access (UID 1000 in container = UID 101000 on host)
     chown -R 101000:101000 /datapool/config/backrest
     chown -R 101000:101000 /datapool/backup
-
-    print_success "Backrest directories configured"
 }
 
 # Configure rclone for Google Drive sync inside LXC container
 configure_rclone_in_lxc() {
     local ct_id="$1"
-
-    print_info "Configuring rclone for Google Drive sync inside LXC"
 
     # Read OAuth credentials from decrypted .env
     local gdrive_client_id gdrive_client_secret gdrive_oauth_token
@@ -102,13 +92,10 @@ configure_rclone_in_lxc() {
 
     # Validate credentials exist
     if [[ -z "$gdrive_client_id" || -z "$gdrive_client_secret" || -z "$gdrive_oauth_token" ]]; then
-        print_warning "Google Drive credentials not found in .env, skipping rclone setup"
-        print_info "To enable Google Drive sync, add GDRIVE_CLIENT_ID, GDRIVE_CLIENT_SECRET, and GDRIVE_OAUTH_TOKEN to .env.enc"
         return 0
     fi
 
     # Install rclone in Alpine LXC
-    print_info "Installing rclone in LXC container"
     pct exec "$ct_id" -- apk add --no-cache rclone
 
     # Create rclone config directory in LXC
@@ -126,7 +113,6 @@ token = ${gdrive_oauth_token}
 EOF
 
     # Push rclone config to LXC
-    print_info "Copying rclone config to LXC"
     pct push "$ct_id" "$temp_rclone_conf" /root/.config/rclone/rclone.conf
 
     # Set secure permissions
@@ -136,7 +122,6 @@ EOF
     rm -f "$temp_rclone_conf"
 
     # Create sync script in LXC
-    print_info "Creating Google Drive sync script in LXC"
     pct exec "$ct_id" -- sh -c 'cat > /usr/local/bin/sync-to-gdrive.sh << '\''SYNCEOF'\''
 #!/bin/sh
 # Backrest hook script: Sync backups to Google Drive after successful backup
@@ -165,26 +150,11 @@ SYNCEOF
 
     # Make script executable
     pct exec "$ct_id" -- chmod +x /usr/local/bin/sync-to-gdrive.sh
-
-    # Test rclone connection
-    print_info "Testing Google Drive connection"
-    if pct exec "$ct_id" -- rclone lsd gdrive: >/dev/null 2>&1; then
-        print_success "rclone Google Drive connection successful"
-    else
-        print_warning "Could not verify Google Drive connection (may work after container restart)"
-    fi
-
-    print_success "rclone configured in LXC container"
-    print_info "Sync will run automatically after each successful Backrest backup"
-    print_info "Manual sync: pct exec $ct_id -- /usr/local/bin/sync-to-gdrive.sh"
-    print_info "View logs: pct exec $ct_id -- tail -f /var/log/rclone-gdrive-sync.log"
 }
 
 # Deploy Backrest stack
 deploy_backrest() {
     local ct_id="$1"
-
-    print_info "Deploying Backrest backup solution"
 
     # Configure directories on the host
     if ! configure_backrest_directories; then
@@ -248,22 +218,6 @@ deploy_backrest() {
     local backrest_ip
     backrest_ip=$(get_lxc_ip "$ct_id")
     print_success "Backrest deployment completed"
-    print_info ""
-    print_info "=========================================="
-    print_info "Backrest Web UI: http://${backrest_ip}:9898"
+    print_info "Web UI: http://${backrest_ip}:9898"
     print_info "Username: $backrest_auth_username"
-    print_info "Password: (from .env.enc)"
-    print_info "---"
-    print_info "Instance is pre-configured and should be ready."
-    print_info "=========================================="
-    print_info ""
-    print_error "⚠️  IMPORTANT: Repository Initialization Required!"
-    print_info "Before first backup, initialize the repository:"
-    print_info "1. Open Backrest Web UI: http://${backrest_ip}:9898"
-    print_info "2. Navigate to Repositories → pve01-repo"
-    print_info "3. Click 'Test' button to auto-initialize"
-    print_info ""
-    print_info "Or manually via CLI:"
-    print_info "  pct exec $ct_id -- docker exec backrest /bin/sh -c 'echo -n \"REPO_PASSWORD\" | /bin/restic init --repo /repos --password-stdin'"
-    print_info ""
 }

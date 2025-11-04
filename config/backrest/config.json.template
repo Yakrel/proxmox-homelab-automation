@@ -71,7 +71,7 @@
         "/backup-sources/immich"
       ],
       "schedule": {
-        "cron": "0 14 * * 3",
+        "cron": "0 2 * * 0,3",
         "clock": "CLOCK_LAST_RUN_TIME"
       },
       "retention": {
