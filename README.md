@@ -58,9 +58,9 @@ External access and monitoring:
 ### **Backup Stack** (LXC 106)
 Automated backup with cloud sync:
 - **Backrest** - Web-based backup UI (powered by restic)
-- **Rclone** - Automated Google Drive sync after each backup
+- **Rclone** - Google Drive sync via post-backup hooks
 - Automated backups: `/datapool/config` + Immich media
-- Encrypted offsite backups to Google Drive (15 GB free)
+- Encrypted offsite backups to Google Drive
 
 ### **Game Servers Stack** (LXC 105)
 Dedicated game hosting:
