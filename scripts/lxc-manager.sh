@@ -133,9 +133,11 @@ EOF
             'lxc.cgroup.devices.allow: c 195:* rwm'   # NVIDIA GPU devices (195:0 = nvidia0)
             'lxc.cgroup.devices.allow: c 510:* rwm'   # nvidia-uvm (510:0)
             'lxc.cgroup.devices.allow: c 511:* rwm'   # nvidia-uvm (511:0 on some systems)
+            'lxc.cgroup.devices.allow: c 226:* rwm'   # DRI devices (226:0 = card0, 226:128 = renderD128)
             'lxc.cgroup2.devices.allow: c 195:* rwm'  # cgroup v2 permissions
             'lxc.cgroup2.devices.allow: c 510:* rwm'  # cgroup v2 for nvidia-uvm
             'lxc.cgroup2.devices.allow: c 511:* rwm'  # cgroup v2 for nvidia-uvm (alternate)
+            'lxc.cgroup2.devices.allow: c 226:* rwm'  # cgroup v2 for DRI devices
             # Device bind mounts - pass GPU devices into container
             'lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file'
             'lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file'
@@ -144,6 +146,10 @@ EOF
             'lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file'
             'lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file'
             'lxc.mount.entry: /dev/nvidia-modeset dev/nvidia-modeset none bind,optional,create=file'
+            # DRI devices - required for GPU-accelerated rendering (OpenGL/Vulkan)
+            # webtools: Chrome GPU acceleration via Selkies-GStreamer in desktop-workspace
+            # media: Jellyfin hardware transcoding (NVIDIA provides DRI interface for Mesa/Vulkan)
+            'lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir'
         )
 
         for gpu_line in "${gpu_passthrough_lines[@]}"; do

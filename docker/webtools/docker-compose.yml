@@ -69,7 +69,9 @@ services:
       - /dev/nvidia-uvm:/dev/nvidia-uvm
       - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
       - /dev/nvidia-modeset:/dev/nvidia-modeset
-      # DRI device for GPU-accelerated rendering in Chrome (required by Selkies)
+      # DRI device for GPU-accelerated rendering via Selkies-GStreamer
+      # IMPORTANT: Requires /dev/dri mount in LXC config (lxc-manager.sh handles this)
+      # GTX 970 creates /dev/dri interface for OpenGL/Vulkan rendering
       - /dev/dri:/dev/dri
     environment:
       - PUID=1000
