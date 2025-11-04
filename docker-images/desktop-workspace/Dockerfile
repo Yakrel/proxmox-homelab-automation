@@ -35,6 +35,9 @@ RUN \
     gstreamer1.0-plugins-ugly \
     gstreamer1.0-plugins-good \
     gstreamer1.0-tools && \
+  echo "**** patch Selkies to add NVENC support ****" && \
+  sed -i "s/\\['x264enc', 'x264enc-striped', 'jpeg'\\]/['x264enc', 'x264enc-striped', 'jpeg', 'nvh264enc']/" \
+    /lsiopy/lib/python3.13/site-packages/selkies/settings.py && \
   echo "**** install Obsidian dependencies ****" && \
   apt-get install -y --no-install-recommends \
     chromium \
