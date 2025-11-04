@@ -118,6 +118,11 @@ EOF
     # Set secure permissions
     pct exec "$ct_id" -- chmod 600 /root/.config/rclone/rclone.conf
 
+    # Copy rclone config to Backrest config dir for Docker container access
+    cp "$temp_rclone_conf" /datapool/config/backrest/config/rclone.conf
+    chown 101000:101000 /datapool/config/backrest/config/rclone.conf
+    chmod 600 /datapool/config/backrest/config/rclone.conf
+
     # Clean up temporary file
     rm -f "$temp_rclone_conf"
 
@@ -131,6 +136,7 @@ LOG_FILE="/config/rclone-gdrive-sync.log"
 echo "$(date): Starting Google Drive sync" >> "$LOG_FILE"
 
 /usr/bin/rclone sync /repos gdrive:homelab-backups \
+    --config=/config/rclone.conf \
     --log-file="$LOG_FILE" \
     --log-level=INFO \
     --fast-list \
