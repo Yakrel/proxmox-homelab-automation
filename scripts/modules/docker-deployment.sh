@@ -173,15 +173,22 @@ install_docker() {
 deploy_docker_services() {
     local stack_name="$1"
     local ct_id="$2"
-    
+
     print_info "Deploying services for $stack_name"
-    
+
+    # For backup stack, use --pull missing to avoid pulling locally-built images
+    # For other stacks, use --pull always to get latest versions
+    local pull_policy="always"
+    if [[ "$stack_name" == "backup" ]]; then
+        pull_policy="missing"
+    fi
+
     # Pull images and deploy in one command
-    pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --pull always --remove-orphans" || {
+    pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --pull $pull_policy --remove-orphans" || {
         print_error "Failed to deploy services"
         exit 1
     }
-    
+
     print_success "Services deployed"
 }
 
