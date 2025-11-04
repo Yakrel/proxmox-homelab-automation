@@ -6,9 +6,8 @@ networks:
 
 services:
   backrest:
-    # Custom image with rclone built-in (see docker-images/backrest-rclone/Dockerfile)
-    # Build manually: docker build -t backrest-rclone:latest docker-images/backrest-rclone/
-    image: backrest-rclone:latest
+    # Custom image with rclone built-in, built and pushed by CI/CD
+    image: yakrel93/backrest-rclone:latest
     container_name: backrest
     restart: unless-stopped
     ports:

@@ -57,10 +57,11 @@ External access and monitoring:
 
 ### **Backup Stack** (LXC 106)
 Automated backup with cloud sync:
-- **Backrest** - Web-based backup UI (powered by restic)
-- **Rclone** - Google Drive sync via post-backup hooks
+- **Backrest-Rclone** - Custom Docker image combining Backrest (restic web UI) + rclone
 - Automated backups: `/datapool/config` + Immich media
-- Encrypted offsite backups to Google Drive
+- Post-backup hooks trigger Google Drive sync
+- Encrypted offsite backups with OAuth2 authentication
+- Auto-updates via Watchtower + CI/CD
 
 ### **Game Servers Stack** (LXC 105)
 Dedicated game hosting:
@@ -74,27 +75,40 @@ Development environment (extensible framework)
 
 ## 🛠️ Technical Highlights
 
-### Custom Docker Image Development
-**Desktop Workspace** - Containerized web-based desktop environment
+### Custom Docker Images with CI/CD
 
-**Features:**
+Two custom Docker images built and maintained with automated CI/CD pipelines:
+
+#### **Desktop Workspace** - Web-based development environment
 - Multi-app integration: **Google Chrome** + **Obsidian** + **PCManFM**
 - Web-based access via Selkies-GStreamer (WebRTC)
-- Automated CI/CD: GitHub Actions → DockerHub
-- Weekly automatic rebuilds
+- GPU acceleration support for Chrome rendering
+- **Source:** [`docker-images/desktop-workspace/`](docker-images/desktop-workspace/)
+
+#### **Backrest-Rclone** - Backup solution with cloud sync
+- Base: `garethgeorge/backrest:latest` (restic web UI)
+- Custom layer: **rclone** for Google Drive sync hooks
+- Automated post-backup cloud sync via rclone hooks
+- **Source:** [`docker-images/backrest-rclone/`](docker-images/backrest-rclone/)
 
 **CI/CD Pipeline:**
 ```
-Trigger: Push to main OR Weekly (Sunday 2 AM)
+Trigger: Code changes OR Bi-weekly (Sunday & Wednesday 2 AM)
    ↓
 Build: Docker Buildx with layer caching
    ↓
-Push: DockerHub (latest + SHA tags)
+Tag: latest + YYYYMMDD-SHA (keep last 3 dated tags)
    ↓
-Deploy: Watchtower auto-pulls in homelab
+Push: DockerHub (yakrel93/desktop-workspace, yakrel93/backrest-rclone)
+   ↓
+Deploy: Watchtower auto-updates containers in homelab
 ```
 
-**Source:** [`docker-images/desktop-workspace/`](docker-images/desktop-workspace/)
+**Benefits:**
+- Always-fresh base images (bi-weekly automatic rebuilds)
+- Zero-downtime updates via Watchtower
+- Rollback capability (3 previous versions retained)
+- No manual image building required
 
 ### GPU Hardware Acceleration
 **NVIDIA GPU Passthrough in Unprivileged LXC**
@@ -124,10 +138,11 @@ Deploy: Watchtower auto-pulls in homelab
 - Idempotent scripts
 
 ### **Automated Offsite Backups**
-- Backrest hooks trigger rclone sync after successful backups
-- Google Drive integration (15 GB free tier)
-- OAuth2 authentication stored encrypted
-- Runs inside Alpine LXC (no host dependencies)
+- Custom Docker image with Backrest + rclone integration
+- Post-backup hooks automatically sync to Google Drive
+- OAuth2 authentication stored encrypted in `.env.enc`
+- CI/CD pipeline ensures latest base image + rclone version
+- Zero-downtime updates via Watchtower
 
 ### **Comprehensive Monitoring**
 - Every LXC has Promtail + cAdvisor
@@ -161,8 +176,9 @@ Deploy: Watchtower auto-pulls in homelab
 │   ├── deploy-stack.sh      # Stack orchestrator
 │   ├── lxc-manager.sh       # LXC lifecycle
 │   └── helper-*.sh          # Utilities
-├── docker-images/            # Custom images
-│   └── desktop-workspace/   # Web-based desktop
+├── docker-images/            # Custom Docker images with CI/CD
+│   ├── desktop-workspace/   # Web-based desktop (Chrome + Obsidian)
+│   └── backrest-rclone/     # Backup with cloud sync
 ├── docker/                   # Service stacks
 │   ├── media/               # Jellyfin + Immich + GPU
 │   ├── monitoring/          # Prometheus + Grafana + Loki
