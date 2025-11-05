@@ -4,6 +4,10 @@
 
 This webtools stack includes a desktop-workspace container (Chrome + Obsidian) with NVIDIA GPU hardware acceleration running in an unprivileged LXC container on Proxmox VE.
 
+**Image:** `yakrel93/desktop-workspace:latest` (custom image based on LinuxServer's [baseimage-selkies](https://github.com/linuxserver/docker-baseimage-selkies))
+
+**Source:** [`docker-images/desktop-workspace/`](/docker-images/desktop-workspace/)
+
 **⚠️ PREREQUISITE: Host GPU Setup Required**
 
 Before deploying this stack, you must configure the Proxmox host for GPU passthrough:
