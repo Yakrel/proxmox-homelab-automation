@@ -55,9 +55,3 @@ stacks:
     cpu_cores: 4
     memory_mb: 6144
     disk_gb: 15
-  playground:
-    ct_id: 108
-    hostname: lxc-playground-01
-    cpu_cores: 6
-    memory_mb: 6144
-    disk_gb: 30

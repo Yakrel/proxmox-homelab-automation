@@ -188,7 +188,7 @@ echo "════════════════════════�
 get_stack_config "$STACK_NAME"
 
 # Step 1: Environment setup
-if [[ "$STACK_NAME" == "development" ]] || [[ "$STACK_NAME" == "playground" ]]; then
+if [[ "$STACK_NAME" == "development" ]]; then
     : # No .env needed
 elif [[ "$STACK_NAME" == "monitoring" ]]; then
     decrypt_env_for_deploy "$STACK_NAME"
@@ -207,7 +207,7 @@ create_lxc
 
 # Step 4: Stack-specific deployment
 case "$STACK_NAME" in
-    "development"|"playground")
+    "development")
         : # Setup completed by LXC manager
         ;;
     "backup")
