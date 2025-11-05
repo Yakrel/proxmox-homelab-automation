@@ -54,19 +54,18 @@ services:
     image: yakrel93/desktop-workspace:latest
     container_name: desktop-workspace
     restart: unless-stopped
+    runtime: nvidia
     ports:
       - "5800:3001"  # HTTPS web interface
     volumes:
       - /datapool/config/desktop-workspace:/config
-    devices:
-      # NVIDIA GPU passthrough for Chrome hardware acceleration
-      # LinuxServer recommends "runtime: nvidia" but it doesn't work in unprivileged LXC
-      # Using direct device mapping (same proven approach as Jellyfin in media stack)
-      - /dev/nvidia0:/dev/nvidia0
-      - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-uvm:/dev/nvidia-uvm
-      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
-      - /dev/nvidia-modeset:/dev/nvidia-modeset
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [compute,video,graphics,utility]
     environment:
       - PUID=1000
       - PGID=1000
