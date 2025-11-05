@@ -6,7 +6,7 @@ This webtools stack includes a desktop-workspace container (Chrome + Obsidian) w
 
 **Image:** `yakrel93/desktop-workspace:latest` (custom image based on LinuxServer's [baseimage-selkies](https://github.com/linuxserver/docker-baseimage-selkies))
 
-**Source:** [`docker-images/desktop-workspace/`](/docker-images/desktop-workspace/)
+**Source:** [`docker-images/desktop-workspace/`](../../docker-images/desktop-workspace/)
 
 **⚠️ PREREQUISITE: Host GPU Setup Required**
 
@@ -41,7 +41,7 @@ services:
 
 1. **Unprivileged LXC Limitation:** The NVIDIA container runtime (`runtime: nvidia`) doesn't work properly in unprivileged LXC containers due to cgroup device control restrictions and CUDA library mounting failures.
 
-2. **Proven Approach:** We use the same tested configuration as the media stack (Jellyfin), which has been verified to work in unprivileged LXC environments. See [Media Stack README](/docker/media/README.md) for detailed testing results showing 18.64x real-time GPU transcoding (447 fps) with full CUDA pipeline.
+2. **Proven Approach:** We use the same tested configuration as the media stack (Jellyfin), which has been verified to work in unprivileged LXC environments. See [Media Stack README](../media/README.md) for detailed testing results showing 18.64x real-time GPU transcoding (447 fps) with full CUDA pipeline.
 
 #### Device Mapping (docker-compose.yml)
 
@@ -62,7 +62,7 @@ environment:
 
 #### LXC Configuration (Automated)
 
-The deployment script ([`scripts/lxc-manager.sh`](/scripts/lxc-manager.sh)) automatically configures:
+The deployment script ([`scripts/lxc-manager.sh`](../../scripts/lxc-manager.sh)) automatically configures:
 - Creates systemd service (`nvidia-persistenced.service`) for persistent NVIDIA device setup
 - Loads `nvidia-uvm` kernel module on Proxmox host (survives reboots)
 - Sets proper permissions (666) on nvidia-uvm devices
@@ -110,6 +110,6 @@ docker logs desktop-workspace | grep -i "nvidia\|gpu"
 
 - [LinuxServer docker-chrome](https://github.com/linuxserver/docker-chrome) - Standard Docker setup
 - [LinuxServer baseimage-selkies](https://github.com/linuxserver/docker-baseimage-selkies) - GPU acceleration implementation
-- [Media Stack README](/docker/media/README.md) - Similar GPU configuration for Jellyfin with detailed testing results
+- [Media Stack README](../media/README.md) - Similar GPU configuration for Jellyfin with detailed testing results
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/) - How `runtime: nvidia` works
 - [Proxmox LXC GPU Passthrough](https://pve.proxmox.com/wiki/LXC#_bind_mount_points) - LXC device passthrough
