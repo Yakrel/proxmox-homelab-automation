@@ -50,9 +50,9 @@ get_latest_template() {
 }
 
 # Choose template based on stack type - always use latest
-# Debian: media (Jellyfin GPU), webtools (Chrome GPU), playground (GPU test environment)
+# Debian: media (Jellyfin GPU), webtools (Chrome GPU)
 # Alpine: all other stacks (lighter, faster)
-if [ "$STACK_NAME" = "media" ] || [ "$STACK_NAME" = "webtools" ] || [ "$STACK_NAME" = "playground" ]; then
+if [ "$STACK_NAME" = "media" ] || [ "$STACK_NAME" = "webtools" ]; then
     LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
 else
     LATEST_TEMPLATE=$(get_latest_template "alpine-.*-default")
@@ -84,11 +84,10 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
     # Mount datapool for all stacks
     pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; exit 1; }
     
-    # GPU passthrough for media, webtools, and playground stacks - cgroup v2 method
+    # GPU passthrough for media and webtools stacks - cgroup v2 method
     # media: Jellyfin hardware transcoding (decode/scale/encode) + Immich ML
     # webtools: LinuxServer Chrome automatically enables hardware acceleration with Nvidia passthrough
-    # playground: GPU testing environment for Chrome and other GPU workloads
-    if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "webtools" ]] || [[ "$STACK_NAME" == "playground" ]]; then
+    if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "webtools" ]]; then
         print_info "Configuring GPU passthrough for $STACK_NAME container (cgroup v2 method)"
 
         # Create systemd service for persistent NVIDIA device setup (survives reboots)
@@ -177,8 +176,8 @@ pct exec "$CT_ID" -- sh -c "
 set -e
 STACK_NAME='${STACK_NAME}'
 
-# Debian stacks: media (Jellyfin GPU), webtools (Chrome GPU), playground (GPU testing)
-if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'webtools' ] || [ \"\$STACK_NAME\" = 'playground' ]; then
+# Debian stacks: media (Jellyfin GPU), webtools (Chrome GPU)
+if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'webtools' ]; then
     export DEBIAN_FRONTEND=noninteractive
     export DEBIAN_PRIORITY=critical
     export LC_ALL=C
@@ -269,14 +268,6 @@ EOFLOGIN
     systemctl disable ssh 2>/dev/null || true
     systemctl stop ssh 2>/dev/null || true
     apt-get remove -y -qq openssh-server 2>/dev/null || true
-
-    # Install Claude Code CLI for playground stack
-    if [ \"\$STACK_NAME\" = 'playground' ]; then
-        apt-get install -y -qq nodejs npm
-        npm config set fund false || true
-        npm config set update-notifier false || true
-        npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 || echo 'Note: claude-code installation skipped'
-    fi
 
     # Cleanup
     apt-get -y autoremove -qq
