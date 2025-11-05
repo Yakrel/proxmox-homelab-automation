@@ -11,11 +11,12 @@ This webtools stack includes a desktop-workspace container (Chrome + Obsidian) w
 **⚠️ PREREQUISITE: Host GPU Setup Required**
 
 Before deploying this stack, you must configure the Proxmox host for GPU passthrough:
-1. Run `bash installer.sh` on Proxmox host and select Helper Menu
-2. Choose option **7) Setup GPU Passthrough (NVIDIA)**
-3. Complete both phases (nouveau blacklist + driver installation)
-4. Reboot after each phase as instructed
-5. Verify drivers are loaded: `lsmod | grep nvidia` and `nvidia-smi`
+1. Run `bash installer.sh` on Proxmox host
+2. Select **"Run Proxmox Helper Scripts..."** from the main menu
+3. Choose option **7) Setup GPU Passthrough (NVIDIA)**
+4. Complete both phases (nouveau blacklist + driver installation)
+5. Reboot after each phase as instructed
+6. Verify drivers are loaded: `lsmod | grep nvidia` and `nvidia-smi`
 
 Then proceed with webtools stack deployment - it will automatically configure GPU in the LXC container.
 
