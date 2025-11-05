@@ -30,14 +30,7 @@ RUN \
   fi && \
   apt-get update && \
   apt-get install -y --no-install-recommends \
-    google-chrome-stable=${CHROME_VERSION} \
-    gstreamer1.0-plugins-bad \
-    gstreamer1.0-plugins-ugly \
-    gstreamer1.0-plugins-good \
-    gstreamer1.0-tools && \
-  echo "**** patch Selkies to add NVENC support ****" && \
-  sed -i "s/\\['x264enc', 'x264enc-striped', 'jpeg'\\]/['x264enc', 'x264enc-striped', 'jpeg', 'nvh264enc']/" \
-    /lsiopy/lib/python3.13/site-packages/selkies/settings.py && \
+    google-chrome-stable=${CHROME_VERSION} && \
   echo "**** install Obsidian dependencies ****" && \
   apt-get install -y --no-install-recommends \
     chromium \
