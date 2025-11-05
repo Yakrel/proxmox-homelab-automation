@@ -75,7 +75,7 @@ services:
       - PASSWORD=${DESKTOP_PASSWORD:?Desktop password must be defined}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
-      - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/nvidia/current:${LD_LIBRARY_PATH}
+      - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/nvidia/current:${LD_LIBRARY_PATH:-}
     shm_size: "1gb"
     security_opt:
       - seccomp:unconfined
