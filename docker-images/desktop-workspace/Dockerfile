@@ -68,10 +68,6 @@ RUN \
 # add local files
 COPY /root /
 
-# NVIDIA GPU library path configuration
-RUN echo "/usr/lib/x86_64-linux-gnu/nvidia/current" > /etc/ld.so.conf.d/nvidia.conf && \
-    ldconfig
-
 # ports and volumes
 EXPOSE 3000
 
