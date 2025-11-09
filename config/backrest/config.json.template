@@ -51,6 +51,7 @@
         "/backup-sources/config/loki/data",
         "/backup-sources/config/prometheus/data",
         "/backup-sources/config/jellyfin/cache",
+        "/backup-sources/config/immich/cache",
         "/backup-sources/config/recyclarr/repositories",
         "/backup-sources/config/backrest/cache"
       ],

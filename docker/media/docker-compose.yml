@@ -314,7 +314,7 @@ services:
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}-cuda
     user: "1000:1000"
     volumes:
-      - model-cache:/cache
+      - /datapool/config/immich/cache:/cache
     env_file:
       - .env
     environment:
@@ -484,6 +484,3 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-volumes:
-  model-cache:
