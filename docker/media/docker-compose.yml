@@ -315,15 +315,24 @@ services:
     user: "1000:1000"
     volumes:
       - /datapool/config/immich/cache:/cache
+      # CUDA library mounting for GPU acceleration (same as Jellyfin)
+      - /usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu/nvidia/current:ro
+      - /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:ro
+      - /usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:/usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:ro
     env_file:
       - .env
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - HOME=/tmp
+      - MPLCONFIGDIR=/tmp/matplotlib
+      - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu
     devices:
       - /dev/nvidia0:/dev/nvidia0
       - /dev/nvidiactl:/dev/nvidiactl
       - /dev/nvidia-modeset:/dev/nvidia-modeset
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:3003/ping', timeout=10)"]
       interval: 30s
