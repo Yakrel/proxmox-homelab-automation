@@ -152,15 +152,20 @@ EOF
             fi
         done
 
-        # Fix for CVE-2025-52881: Docker/containerd sysctl permission denied in unprivileged LXC
-        # Required for Docker containers that modify net.ipv4.ip_unprivileged_port_start
-        # Affects: Docker 1.7.28-2+ with AppArmor in unprivileged LXC containers
-        # Reference: https://github.com/opencontainers/runc/issues/4968
-        if ! grep -Fxq "lxc.apparmor.profile = unconfined" "$LXC_CONFIG_PATH"; then
-            echo "lxc.apparmor.profile = unconfined" >> "$LXC_CONFIG_PATH"
-        fi
-
         print_success "GPU passthrough configured for $CT_ID"
+    fi
+fi
+
+# Fix for CVE-2025-52881: Docker/containerd sysctl permission denied in unprivileged LXC
+# Required for Docker containers that modify net.ipv4.ip_unprivileged_port_start
+# Affects: Docker 27.8.2+ / containerd 1.7.28+ with AppArmor in unprivileged LXC containers
+# This fix must be applied to ALL Docker-based stacks, not just GPU-enabled ones
+# Reference: https://github.com/opencontainers/runc/issues/4968
+if [[ "$STACK_NAME" != "development" ]]; then
+    LXC_CONFIG_PATH="/etc/pve/lxc/${CT_ID}.conf"
+    if ! grep -Fxq "lxc.apparmor.profile = unconfined" "$LXC_CONFIG_PATH"; then
+        echo "lxc.apparmor.profile = unconfined" >> "$LXC_CONFIG_PATH"
+        print_info "Applied AppArmor fix for Docker sysctl (CVE-2025-52881)"
     fi
 fi
 
