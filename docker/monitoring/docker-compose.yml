@@ -135,7 +135,7 @@ services:
     ports:
       - "9221:9221"
     volumes:
-      - /datapool/config/prometheus-pve-exporter:/etc/pve-exporter:ro
+      - /datapool/config/prometheus-pve-exporter:/etc/prometheus:ro
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PUID=1000
