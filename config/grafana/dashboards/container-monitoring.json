@@ -19,7 +19,44 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Infrastructure Overview",
+      "tooltip": "View LXC and host metrics",
+      "type": "link",
+      "url": "/d/infrastructure-overview"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Logs Monitoring",
+      "tooltip": "View container logs",
+      "type": "link",
+      "url": "/d/logs-monitoring"
+    },
+    {
+      "asDropdown": false,
+      "icon": "bolt",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Alert Overview",
+      "tooltip": "View active alerts",
+      "type": "link",
+      "url": "/d/alert-overview"
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
@@ -396,6 +433,23 @@
                     }
                   ]
                 }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Container"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "View Logs for ${__data.fields[\"Container\"]}",
+                    "url": "/d/logs-monitoring?var-host=${__data.fields[\"Host\"]}&var-container=${__data.fields[\"Container\"]}"
+                  }
+                ]
               }
             ]
           }

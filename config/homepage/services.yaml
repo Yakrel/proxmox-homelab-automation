@@ -32,6 +32,11 @@
           type: prometheus
           url: http://192.168.1.104:9090
 
+    - Loki:
+        description: Log Aggregation
+        href: http://192.168.1.104:3100
+        icon: loki.png
+
     - Backrest:
         description: Backup Management
         href: http://192.168.1.106:9898

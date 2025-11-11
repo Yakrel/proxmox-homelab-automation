@@ -19,7 +19,44 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Infrastructure Overview",
+      "tooltip": "View LXC and host metrics",
+      "type": "link",
+      "url": "/d/infrastructure-overview"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Container Monitoring",
+      "tooltip": "View container metrics",
+      "type": "link",
+      "url": "/d/container-monitoring"
+    },
+    {
+      "asDropdown": false,
+      "icon": "bolt",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Alert Overview",
+      "tooltip": "View active alerts",
+      "type": "link",
+      "url": "/d/alert-overview"
+    }
+  ],
   "liveNow": true,
   "panels": [
     {
@@ -102,7 +139,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (container_name) (count_over_time({job=\"dockerlogs\",host=~\"$host\",container_name=~\"$container\"}[$__interval]))",
+          "expr": "sum by (service_name) (count_over_time({job=\"dockerlogs\",host=~\"$host\",service_name=~\"$container\"}[$__interval]))",
           "refId": "A"
         }
       ],
@@ -138,7 +175,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=\"dockerlogs\",host=~\"$host\",container_name=~\"$container\",stream=~\"$stream\"} |~ \"$search\"",
+          "expr": "{job=\"dockerlogs\",host=~\"$host\",service_name=~\"$container\",stream=~\"$stream\"} |~ \"$search\"",
           "refId": "A"
         }
       ],
@@ -186,14 +223,14 @@
           "type": "loki",
           "uid": "loki"
         },
-        "definition": "label_values({job=\"dockerlogs\",host=~\"$host\"},container_name)",
+        "definition": "label_values({job=\"dockerlogs\",host=~\"$host\"},service_name)",
         "hide": 0,
         "includeAll": true,
         "label": "Container",
         "multi": true,
         "name": "container",
         "options": [],
-        "query": "label_values({job=\"dockerlogs\",host=~\"$host\"},container_name)",
+        "query": "label_values({job=\"dockerlogs\",host=~\"$host\"},service_name)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
