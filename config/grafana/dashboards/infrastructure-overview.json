@@ -19,7 +19,44 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Container Monitoring",
+      "tooltip": "View detailed container metrics",
+      "type": "link",
+      "url": "/d/container-monitoring"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Logs Monitoring",
+      "tooltip": "View container logs",
+      "type": "link",
+      "url": "/d/logs-monitoring"
+    },
+    {
+      "asDropdown": false,
+      "icon": "bolt",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Alert Overview",
+      "tooltip": "View active alerts",
+      "type": "link",
+      "url": "/d/alert-overview"
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
@@ -463,6 +500,23 @@
               {
                 "id": "custom.displayMode",
                 "value": "color-background"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "LXC Name"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "View Containers on ${__data.fields[\"LXC Name\"]}",
+                    "url": "/d/container-monitoring?var-lxc_host=${__data.fields[\"LXC Name\"]}"
+                  }
+                ]
               }
             ]
           }
