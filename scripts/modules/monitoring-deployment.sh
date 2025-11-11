@@ -232,6 +232,15 @@ validate_monitoring_configs() {
         exit 1
     }
 
+    # Create PVE exporter config using credentials from .env
+    mkdir -p /datapool/config/prometheus-pve-exporter
+    cat > /datapool/config/prometheus-pve-exporter/pve.yml << EOF
+default:
+  user: ${pve_user:-pve-exporter@pve}
+  password: ${PVE_MONITORING_PASSWORD}
+  verify_ssl: false
+EOF
+
     # Setup promtail config for monitoring LXC
     local hostname="lxc-monitoring-01"
     pct exec "$ct_id" -- mkdir -p /etc/promtail /var/lib/promtail/positions

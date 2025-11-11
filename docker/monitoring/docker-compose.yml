@@ -134,14 +134,12 @@ services:
     restart: unless-stopped
     ports:
       - "9221:9221"
+    volumes:
+      - /datapool/config/prometheus-pve-exporter:/etc/pve-exporter:ro
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PUID=1000
       - PGID=1000
-      - PVE_USER=${PVE_USER}
-      - PVE_PASSWORD=${PVE_PASSWORD}
-      - PVE_URL=${PVE_URL}
-      - PVE_VERIFY_SSL=${PVE_VERIFY_SSL}
     networks:
       - monitoring-net
     logging:
