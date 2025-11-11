@@ -77,6 +77,8 @@ scrape_configs:
       - targets: ['loki:3100']
 
   # Promtail for log shipping
+  # Note: Using IP instead of DNS because Promtail runs in host network mode
+  # (host mode required to access Docker socket on LXC host for container logs)
   - job_name: 'promtail'
     static_configs:
-      - targets: ['promtail-monitoring:9080']
+      - targets: ['192.168.1.104:9080']
