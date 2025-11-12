@@ -115,7 +115,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "ALERTS{alertstate=\"firing\"}",
+          "expr": "count(ALERTS{alertstate=\"firing\"}) OR on() vector(0)",
           "refId": "A"
         }
       ],
@@ -179,7 +179,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "ALERTS{alertstate=\"pending\"}",
+          "expr": "count(ALERTS{alertstate=\"pending\"}) OR on() vector(0)",
           "refId": "A"
         }
       ],
@@ -464,7 +464,8 @@
             "excludeByName": {
               "Time": true,
               "__name__": true,
-              "job": true
+              "job": true,
+              "Value": true
             },
             "indexByName": {
               "alertname": 0,

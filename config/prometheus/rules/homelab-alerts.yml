@@ -1,0 +1,85 @@
+groups:
+  - name: homelab_alerts
+    interval: 1m
+    rules:
+      # LXC Container Down
+      - alert: LXCContainerDown
+        expr: pve_up{id=~"lxc/.*"} < 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "LXC Container is not running"
+          description: "LXC container {{ $labels.name }} ({{ $labels.id }}) is down"
+
+      # LXC High CPU Usage
+      - alert: LXCHighCPUUsage
+        expr: pve_cpu_usage_ratio{id=~"lxc/.*"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LXC CPU usage above 90% for 5 minutes"
+          description: "LXC container {{ $labels.name }} CPU usage is {{ $value | humanizePercentage }} (threshold: 90%)"
+
+      # LXC High Memory Usage
+      - alert: LXCHighMemoryUsage
+        expr: pve_memory_usage_bytes{id=~"lxc/.*"} / pve_memory_size_bytes{id=~"lxc/.*"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LXC memory usage above 90% for 5 minutes"
+          description: "LXC container {{ $labels.name }} memory usage is {{ $value | humanizePercentage }} (threshold: 90%)"
+
+      # Container Out of Memory Event
+      - alert: ContainerOOMEvent
+        expr: rate(container_oom_events_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Container killed due to out-of-memory"
+          description: "Container {{ $labels.name }} on {{ $labels.instance }} experienced an OOM event"
+
+      # Prometheus Target Down
+      - alert: PrometheusTargetDown
+        expr: up < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Monitoring target is unreachable"
+          description: "Prometheus target {{ $labels.instance }} ({{ $labels.job }}) is down"
+
+      # Container High Memory Usage
+      # DISABLED: Docker containers in LXC don't have memory limits set, causing false positives
+      # Use LXCHighMemoryUsage instead for monitoring memory at LXC level
+      # - alert: ContainerHighMemoryUsage
+      #   expr: container_memory_working_set_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"} / container_spec_memory_limit_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"} > 0.9
+      #   for: 5m
+      #   labels:
+      #     severity: warning
+      #   annotations:
+      #     summary: "Container memory usage above 90% of limit for 5 minutes"
+      #     description: "Container {{ $labels.name }} on {{ $labels.instance }} memory usage is {{ $value | humanizePercentage }} of limit"
+
+      # Container Scrape Errors
+      - alert: ContainerScrapeErrors
+        expr: container_scrape_error{name!=""} > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container metrics collection failing"
+          description: "Failed to scrape metrics from container {{ $labels.name }} on {{ $labels.instance }}"
+
+      # High Network Errors
+      - alert: HighNetworkErrors
+        expr: rate(container_network_receive_errors_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m]) + rate(container_network_transmit_errors_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container experiencing high network error rate"
+          description: "Container {{ $labels.name }} on {{ $labels.instance }} has high network error rate: {{ $value }} errors/s"
