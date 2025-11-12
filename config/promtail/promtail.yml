@@ -31,7 +31,13 @@ scrape_configs:
             tag:
       - regex:
           source: tag
-          expression: '^(?P<container_name>[^_]+)'
+          expression: '^(?P<container_name>.+?)(?:_\d+)?$'
+      - drop:
+          expression: '.*machine-id.*'
+          drop_counter_reason: cadvisor_machine_id_warning
+      - drop:
+          expression: '.*Failed to get system UUID.*'
+          drop_counter_reason: cadvisor_uuid_warning
       - timestamp:
           source: time
           format: RFC3339Nano
