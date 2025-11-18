@@ -128,16 +128,16 @@ unban_ip() {
     if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#banned_ips_array[@]}" ]; then
         local selected_ip="${banned_ips_array[$((choice - 1))]}"
         local selected_jail="${ip_jail_map[$((choice - 1))]}"
-        echo "[INFO] Unbanning $selected_ip from $selected_jail..."
+        print_info "Unbanning $selected_ip from $selected_jail..."
         if fail2ban-client set "$selected_jail" unbanip "$selected_ip"; then
-            echo "[SUCCESS] $selected_ip successfully unbanned from $selected_jail."
+            print_success "$selected_ip successfully unbanned from $selected_jail"
         else
-            echo "[ERROR] Failed to unban $selected_ip. Check fail2ban logs."
+            print_error "Failed to unban $selected_ip. Check fail2ban logs"
         fi
     elif [[ "$choice" == "q" || "$choice" == "Q" ]]; then
-        echo "[INFO] Unban cancelled."
+        print_info "Unban cancelled"
     else
-        echo "[ERROR] Invalid choice. Enter a number or 'q'."
+        print_error "Invalid choice. Enter a number or 'q'"
     fi
     echo
 }

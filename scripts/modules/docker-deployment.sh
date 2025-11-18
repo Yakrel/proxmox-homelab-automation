@@ -156,16 +156,13 @@ setup_docker_compose() {
 }
 
 # Verify Docker is available in container (already installed during LXC provisioning)
-install_docker() {
+verify_docker() {
     local ct_id="$1"
-    
-    # Docker is already installed during LXC provisioning in lxc-manager.sh
-    # Just verify it's available
-    if ! pct exec "$ct_id" -- docker --version >/dev/null 2>&1; then
-        print_error "Docker not found in container"
-        exit 1
-    fi
-    
+
+    # Docker should already be installed by lxc-manager.sh
+    # This verification will fail-fast with visible error if missing
+    pct exec "$ct_id" -- docker --version
+
     print_success "Docker verified"
 }
 
@@ -200,7 +197,7 @@ deploy_docker_stack() {
         return 0
     fi
     
-    install_docker "$ct_id"
+    verify_docker "$ct_id"
     
     # Setup Promtail for log aggregation (all Docker stacks except monitoring)
     if [[ "$stack_name" != "monitoring" ]]; then
