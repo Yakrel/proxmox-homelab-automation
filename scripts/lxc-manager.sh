@@ -16,7 +16,7 @@ get_stack_config "$STACK_NAME"
 # Get latest template based on stack type - ensures we always use the newest available
 get_latest_template() {
     local template_type=$1
-    
+
     # Update template list silently (output would interfere with variable capture below)
     # This is an exception to no-suppression rule as we're in a function that returns via echo
     pveam update >/dev/null 2>&1 || true
@@ -24,7 +24,7 @@ get_latest_template() {
     # Fetch both available and local templates in one call each (optimization: reduce pveam calls)
     local available_output local_output
     available_output=$(pveam available 2>/dev/null || echo "")
-    local_output=$(pveam list "$STORAGE_POOL" 2>/dev/null || echo "")
+    local_output=$(pveam list "$TEMPLATE_POOL" 2>/dev/null || echo "")
 
     # Get the latest available template name from repository
     local latest_available
@@ -33,14 +33,14 @@ get_latest_template() {
 
     # Check if we already have this exact template locally
     local local_template
-    local_template=$(echo "$local_output" | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1 | sed "s|^${STORAGE_POOL}:vztmpl/||")
+    local_template=$(echo "$local_output" | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1 | sed "s|^${TEMPLATE_POOL}:vztmpl/||")
 
     # If local template doesn't match latest available, download the new one
     if [[ "$local_template" != "$latest_available" ]]; then
         print_info "Downloading latest ${template_type} template: $latest_available" >&2
-        pveam download "$STORAGE_POOL" "$latest_available" >&2
+        pveam download "$TEMPLATE_POOL" "$latest_available" >&2
         # After download, query storage to get actual filename (may differ from available name due to version resolution)
-        local_template=$(pveam list "$STORAGE_POOL" 2>/dev/null | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1 | sed "s|^${STORAGE_POOL}:vztmpl/||")
+        local_template=$(pveam list "$TEMPLATE_POOL" 2>/dev/null | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1 | sed "s|^${TEMPLATE_POOL}:vztmpl/||")
         print_success "Downloaded template: $local_template" >&2
     else
         print_info "Using up-to-date template: $local_template" >&2
@@ -69,7 +69,7 @@ fi
 # Create container only if it doesn't exist
 if [[ "$SKIP_CREATION" == "false" ]]; then
     print_info "Creating container $CT_ID ($CT_HOSTNAME)"
-    pct create "$CT_ID" "${STORAGE_POOL}:vztmpl/${LATEST_TEMPLATE}" \
+    pct create "$CT_ID" "${TEMPLATE_POOL}:vztmpl/${LATEST_TEMPLATE}" \
         --hostname "$CT_HOSTNAME" \
         --storage "$STORAGE_POOL" \
         --cores "$CT_CPU_CORES" \

@@ -5,6 +5,7 @@
 
 storage:
   pool: local-zfs
+  template_pool: datapool
 
 stacks:
   proxy:
