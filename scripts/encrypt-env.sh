@@ -16,7 +16,7 @@ encrypt_container_env() {
     local stack="$1"
     get_stack_config "$stack"
     
-    print_info "Encrypting .env file from container [$CT_HOSTNAME] (ID: $ct_id)..."
+    print_info "Encrypting .env file from container [$CT_HOSTNAME] (ID: $CT_ID)..."
     
     # Check if container is running
     if ! pct status "$CT_ID" | grep -q "running"; then

@@ -6,7 +6,7 @@
 # Greeting
 - greeting:
     text_size: xl
-    text: "Hoşgeldin!"
+    text: "Welcome!"
 
 # Datapool Storage
 - resources:

@@ -122,7 +122,7 @@ Deploy: Watchtower auto-updates containers in homelab
 ### Infrastructure as Code
 - **8 production stacks** with automated deployment
 - **40+ containerized services** via Docker Compose
-- **Debian-based LXC containers** for all stacks (unified infrastructure)
+- **Mixed LXC containers**: Alpine (default, lightweight) + Debian (GPU stacks with hardware acceleration)
 - **Encrypted secrets**: AES-256-CBC with pbkdf2
 - **Idempotent scripts**: Safe to re-run
 - **Comprehensive monitoring**: Prometheus + Grafana + Loki
