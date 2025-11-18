@@ -124,6 +124,7 @@ run_optimize_zfs() {
     zfs set recordsize=128K rpool         # Optimal for SSD mixed workload
     zfs set primarycache=all rpool        # Use ARC caching
     zfs set xattr=sa rpool                # System attributes performance
+    zpool set autotrim=on rpool           # Enable TRIM for SSD performance and longevity
 
     # datapool (HDD) - Data storage pool
     print_info "Optimizing datapool (HDD)..."
