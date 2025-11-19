@@ -171,7 +171,8 @@ run_setup_bonding() {
 
     detect_interfaces() {
         print_info "Detecting ethernet interfaces..."
-        mapfile -t INTERFACES < <(ip link show | grep -E '^[0-9]+: enp|^[0-9]+: eth' | cut -d: -f2 | tr -d ' ')
+        # Updated to include 'nic' (new Proxmox naming) and 'eno' (onboard)
+        mapfile -t INTERFACES < <(ip link show | grep -E '^[0-9]+: enp|^[0-9]+: eth|^[0-9]+: eno|^[0-9]+: nic' | cut -d: -f2 | tr -d ' ')
         if [ ${#INTERFACES[@]} -eq 0 ]; then
             print_error "No ethernet interfaces found!"
             return 1
