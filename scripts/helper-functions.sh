@@ -287,20 +287,6 @@ backup_file() {
 
 # Download file and push to LXC container
 download_and_push_config() {
-    local ct_id="$1"
-    local remote_url="$2"
-    local target_path="$3"
-    local temp_file="${4:-$WORK_DIR/$(basename "$remote_url")}"
-    
-    print_info "Downloading $(basename "$remote_url")"
-    curl -sSL "$remote_url" -o "$temp_file"
-    
-    print_info "Pushing to LXC $ct_id ($target_path)"
-    pct push "$ct_id" "$temp_file" "$target_path"
-    
-    rm -f "$temp_file"
-}
-
 # Environment file encryption/decryption helpers
 encrypt_env_file() {
     local input_file="$1"
