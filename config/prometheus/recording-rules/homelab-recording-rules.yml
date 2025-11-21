@@ -8,11 +8,13 @@ groups:
           rate(container_cpu_usage_seconds_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m]) * 100
 
       # Pre-compute container memory percentage
-      - record: container:memory_usage:percent
-        expr: |
-          (container_memory_working_set_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"} 
-          / 
-          container_spec_memory_limit_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}) * 100
+      # DISABLED: Docker containers in LXC don't have memory limits set, causing division by zero
+      # Use lxc:memory_usage:percent instead for monitoring memory at LXC level
+      # - record: container:memory_usage:percent
+      #   expr: |
+      #     (container_memory_working_set_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"} 
+      #     / 
+      #     container_spec_memory_limit_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}) * 100
 
       # Pre-compute container network I/O rates
       - record: container:network_receive:rate5m

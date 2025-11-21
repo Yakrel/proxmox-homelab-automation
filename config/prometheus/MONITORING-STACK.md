@@ -132,11 +132,12 @@ Recording rules pre-compute expensive queries to improve dashboard performance.
 
 ### Container Recording Rules (30s interval)
 - `container:cpu_usage:rate5m` - Pre-computed CPU percentage
-- `container:memory_usage:percent` - Pre-computed memory percentage
 - `container:network_receive:rate5m` - Network receive rate
 - `container:network_transmit:rate5m` - Network transmit rate
 - `container:fs_read:rate5m` - Disk read rate
 - `container:fs_write:rate5m` - Disk write rate
+
+**Note**: Container memory percentage recording rule is disabled because Docker containers in LXC don't have memory limits set, which would cause division by zero errors. Use LXC-level memory monitoring instead.
 
 ### LXC Recording Rules (30s interval)
 - `lxc:memory_usage:percent` - LXC memory percentage
