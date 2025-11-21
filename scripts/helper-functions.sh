@@ -261,21 +261,6 @@ show_interactive_menu() {
     done
 }
 
-# === ENCRYPTION FUNCTIONS ===
-# Environment file encryption/decryption helpers
-
-encrypt_env_file() {
-    local input_file="$1"
-    local output_file="$2"
-    local passphrase="$3"
-    
-    if ! printf '%s' "$passphrase" | openssl enc -aes-256-cbc -pbkdf2 -salt -pass stdin -in "$input_file" -out "$output_file"; then
-        rm -f "$output_file"
-        print_error "Failed to encrypt file"
-        exit 1
-    fi
-}
-
 # Fix LXC container permissions for config directories
 fix_config_permissions() {
     mkdir -p /datapool/config
