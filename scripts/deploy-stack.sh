@@ -47,11 +47,16 @@ decrypt_env_for_deploy() {
 
     print_info "Decrypting environment for $stack"
 
-    local enc_url="$REPO_BASE_URL/docker/$stack/.env.enc"
+    local enc_file="$WORK_DIR/docker/$stack/.env.enc"
     local enc_tmp="$WORK_DIR/.env.enc"
     ENV_DECRYPTED_PATH="$WORK_DIR/.env"
 
-    curl -sSL "$enc_url" -o "$enc_tmp" || { print_error "Failed to download .env.enc"; exit 1; }
+    if [[ ! -f "$enc_file" ]]; then
+        print_error "Encrypted environment file not found at $enc_file"
+        exit 1
+    fi
+
+    cp "$enc_file" "$enc_tmp" || { print_error "Failed to copy .env.enc"; exit 1; }
 
     # Get passphrase and decrypt
     local pass

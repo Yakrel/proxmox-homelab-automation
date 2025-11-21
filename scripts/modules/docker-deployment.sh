@@ -18,38 +18,21 @@ setup_homepage_config() {
     # List of homepage config files to copy
     local config_files=("services.yaml" "bookmarks.yaml" "widgets.yaml" "settings.yaml" "docker.yaml")
 
-    # Download all files in parallel for better performance
-    local pids=()
+    # Copy all files from local workspace
     for config_file in "${config_files[@]}"; do
-        local config_url="$REPO_BASE_URL/config/homepage/$config_file"
-        local temp_file="/tmp/homepage_${config_file}"
+        local source_file="$WORK_DIR/config/homepage/$config_file"
+        local dest_file="/datapool/config/homepage/$config_file"
         
-        # Launch background curl job with explicit error handling
-        (
-            if curl -sSL "$config_url" -o "$temp_file"; then
-                if cp "$temp_file" "/datapool/config/homepage/$config_file"; then
-                    rm -f "$temp_file"
-                    exit 0
-                fi
-            fi
-            rm -f "$temp_file"  # Clean up temp file on any failure
+        if [[ -f "$source_file" ]]; then
+            cp "$source_file" "$dest_file" || {
+                print_error "Failed to copy $config_file"
+                exit 1
+            }
+        else
+            print_error "Source file not found: $source_file"
             exit 1
-        ) &
-        pids+=($!)
-    done
-    
-    # Wait for all downloads to complete and check for failures
-    local failed=0
-    for pid in "${pids[@]}"; do
-        if ! wait "$pid"; then
-            failed=1
         fi
     done
-    
-    if [[ $failed -eq 1 ]]; then
-        print_error "Failed to download homepage config files"
-        exit 1
-    fi
 
     # Fix permissions
     chown -R 101000:101000 /datapool/config/homepage
@@ -68,12 +51,18 @@ setup_couchdb_config() {
     mkdir -p /datapool/config/couchdb/local.d
 
     # Copy CouchDB configuration file
-    local config_url="$REPO_BASE_URL/config/couchdb-local.ini"
-    local temp_file="/tmp/couchdb_local.ini"
+    local source_file="$WORK_DIR/config/couchdb-local.ini"
+    local dest_file="/datapool/config/couchdb/local.d/local.ini"
 
-    curl -sSL "$config_url" -o "$temp_file"
-    cp "$temp_file" "/datapool/config/couchdb/local.d/local.ini"
-    rm -f "$temp_file"
+    if [[ -f "$source_file" ]]; then
+        cp "$source_file" "$dest_file" || {
+            print_error "Failed to copy couchdb-local.ini"
+            exit 1
+        }
+    else
+        print_error "Source file not found: $source_file"
+        exit 1
+    fi
 
     # Fix permissions
     chown -R 101000:101000 /datapool/config/couchdb
