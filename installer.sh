@@ -8,7 +8,7 @@
 # from the GitHub repository to execute them.
 #
 # To run:
-# bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)"
+# bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
 #
 # DEPENDENCIES:
 # - yq: YAML parser used to read stacks.yaml configuration

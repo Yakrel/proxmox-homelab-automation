@@ -261,33 +261,9 @@ show_interactive_menu() {
     done
 }
 
-# === FILE AND DIRECTORY UTILITIES ===
-# Common file operations and validations
-
-ensure_directory() {
-    local dir_path="$1"
-    local owner="${2:-}"
-    
-    mkdir -p "$dir_path"
-    
-    if [[ -n "$owner" ]]; then
-        chown "$owner" "$dir_path" || true
-    fi
-}
-
-backup_file() {
-    local file_path="$1"
-    
-    if [[ -f "$file_path" ]]; then
-        local backup_name="$file_path.backup.$(date +%Y%m%d_%H%M%S)"
-        cp "$file_path" "$backup_name"
-        print_info "Backup created: $backup_name"
-    fi
-}
-
-# Download file and push to LXC container
-download_and_push_config() {
+# === ENCRYPTION FUNCTIONS ===
 # Environment file encryption/decryption helpers
+
 encrypt_env_file() {
     local input_file="$1"
     local output_file="$2"
@@ -297,47 +273,6 @@ encrypt_env_file() {
         rm -f "$output_file"
         print_error "Failed to encrypt file"
         exit 1
-    fi
-}
-
-decrypt_env_file() {
-    local input_file="$1"
-    local output_file="$2"
-    local passphrase="$3"
-    
-    if ! printf '%s' "$passphrase" | openssl enc -aes-256-cbc -pbkdf2 -d -salt -pass stdin -in "$input_file" -out "$output_file"; then
-        rm -f "$output_file"
-        print_error "Failed to decrypt file"
-        exit 1
-    fi
-}
-
-# === VALIDATION FUNCTIONS ===
-# Common validation patterns
-
-validate_ip() {
-    local ip="$1"
-    local regex="^([0-9]{1,3}\.){3}[0-9]{1,3}$"
-    
-    if [[ $ip =~ $regex ]]; then
-        for octet in $(echo "$ip" | tr '.' ' '); do
-            if [[ $octet -gt 255 ]]; then
-                return 1
-            fi
-        done
-        return 0
-    else
-        return 1
-    fi
-}
-
-validate_container_id() {
-    local ct_id="$1"
-
-    if [[ "$ct_id" =~ ^[0-9]+$ ]] && [[ $ct_id -ge 100 ]] && [[ $ct_id -le 999 ]]; then
-        return 0
-    else
-        return 1
     fi
 }
 
