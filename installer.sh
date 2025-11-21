@@ -56,64 +56,20 @@ mkdir -p scripts
 # 2. Download Core Scripts
 print_info "Downloading the latest scripts from the repository..."
 
-# List of files to download
-FILES_TO_DOWNLOAD=(
-    "scripts/helper-functions.sh"
-    "scripts/main-menu.sh"
-    "scripts/lxc-manager.sh"
-    "scripts/deploy-stack.sh"
-    "scripts/helper-menu.sh"
-    "scripts/gaming-menu.sh"
-    "scripts/game-manager.sh"
-    "scripts/fail2ban-manager.sh"
-    "scripts/encrypt-env.sh"
-    "scripts/modules/docker-deployment.sh"
-    "scripts/modules/monitoring-deployment.sh"
-    "scripts/modules/backup-deployment.sh"
-    "config/promtail/promtail.yml"
-    "stacks.yaml"
-    "config/backrest/config.json.template"
-    "docker/backup/config/rclone.conf.enc"
-)
-
-# Create all directory structures first
-for file_path in "${FILES_TO_DOWNLOAD[@]}"; do
-    mkdir -p "$(dirname "$file_path")"
-done
-
-# Download all files in parallel for better performance
-pids=()
-for file_path in "${FILES_TO_DOWNLOAD[@]}"; do
-    (
-        curl -sSL "$REPO_BASE_URL/$file_path" -o "$file_path" || exit 1
-        [[ ! -s "$file_path" ]] && exit 1
-        # Convert line endings to Unix format (LF) for scripts
-        if [[ "$file_path" == *.sh ]]; then
-            sed -i 's/\r$//' "$file_path"
-            chmod +x "$file_path"
-        fi
-    ) &
-    pids+=($!)
-done
-
-# Wait for all downloads and check for failures
-# Arrays are kept in sync: pids[i] corresponds to FILES_TO_DOWNLOAD[i]
-failed_downloads=()
-for i in "${!pids[@]}"; do
-    if ! wait "${pids[$i]}"; then
-        failed_downloads+=("${FILES_TO_DOWNLOAD[$i]}")
-    fi
-done
-
-# Report any failures
-if [[ ${#failed_downloads[@]} -gt 0 ]]; then
-    print_error "Failed to download the following files:"
-    for file in "${failed_downloads[@]}"; do
-        print_error "  - $file"
-    done
+# Download and extract the repository archive (tarball)
+# This ensures we get all files without maintaining a manual list
+curl -sSL "https://github.com/Yakrel/proxmox-homelab-automation/archive/refs/heads/main.tar.gz" | \
+    tar xz -C "$WORK_DIR" --strip-components=1 || {
+    print_error "Failed to download or extract repository archive"
     exit 1
-fi
+}
 
+# Post-processing: Fix line endings and permissions for all scripts
+print_info "Setting up permissions..."
+find "$WORK_DIR" -name "*.sh" -type f -exec sed -i 's/\r$//' {} +
+find "$WORK_DIR" -name "*.sh" -type f -exec chmod +x {} +
+
+print_success "Environment setup complete"
 
 print_success "All scripts downloaded successfully."
 
