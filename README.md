@@ -6,7 +6,7 @@ Production homelab infrastructure running **40+ containerized services** across 
 
 **One-line installer on Proxmox host:**
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)"
 ```
 
 Interactive menu guides you through stack selection and deployment. Only one password required (master encryption key).

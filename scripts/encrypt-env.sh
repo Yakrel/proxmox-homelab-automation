@@ -42,9 +42,9 @@ encrypt_container_env() {
     local pass
     pass=$(prompt_env_passphrase)
     
-    # Encrypt using helper function
+    # Encrypt .env file
     local encrypted_file="$output_dir/.env.enc"
-    if encrypt_env_file "$temp_env" "$encrypted_file" "$pass"; then
+    if printf '%s' "$pass" | openssl enc -aes-256-cbc -pbkdf2 -salt -pass stdin -in "$temp_env" -out "$encrypted_file"; then
         print_success "Environment file encrypted successfully: docker/$stack/.env.enc"
         print_info "Next steps:"
         print_info "1. Copy docker/$stack/.env.enc to your development environment"
@@ -52,6 +52,7 @@ encrypt_container_env() {
         print_info "3. git commit -m 'Update $stack environment'"
         print_info "4. git push"
     else
+        rm -f "$encrypted_file"
         print_error "Encryption failed"
         exit 1
     fi
