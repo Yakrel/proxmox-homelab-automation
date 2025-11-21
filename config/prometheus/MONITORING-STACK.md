@@ -119,7 +119,7 @@ Located in: `/datapool/config/prometheus/rules/homelab-alerts.yml`
 8. **ContainerScrapeErrors** - Metric collection failing (1m)
 9. **HighNetworkErrors** - High network error rate (5m)
 10. **HighFilesystemUsage** - Filesystem above 85% (5m)
-11. **PrometheusStorageLow** - Prometheus storage < 10% (5m)
+11. **PrometheusStorageLow** - Data pool filesystem above 90% (5m, critical)
 12. **TooManyAlertsFiring** - More than 10 alerts firing (5m)
 
 ---

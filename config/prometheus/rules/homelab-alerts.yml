@@ -146,7 +146,7 @@ groups:
 
       # High Filesystem Usage (from node-exporter)
       - alert: HighFilesystemUsage
-        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*"})) > 0.85
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint="/datapool"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint="/datapool"})) > 0.85
         for: 5m
         labels:
           severity: warning
@@ -154,15 +154,15 @@ groups:
           summary: "Filesystem usage above 85%"
           description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is {{ $value | humanizePercentage }} full"
 
-      # Prometheus Storage Low
+      # Prometheus Data Directory Low Space
       - alert: PrometheusStorageLow
-        expr: (1 - (prometheus_tsdb_storage_blocks_bytes / prometheus_tsdb_retention_limit_bytes)) < 0.1
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint="/datapool"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint="/datapool"})) > 0.90
         for: 5m
         labels:
-          severity: warning
+          severity: critical
         annotations:
-          summary: "Prometheus storage approaching retention limit"
-          description: "Prometheus has less than 10% storage capacity remaining"
+          summary: "Prometheus storage filesystem is critically low"
+          description: "Data pool filesystem is {{ $value | humanizePercentage }} full. Prometheus data may be affected."
 
       # Too Many Alerts Firing
       - alert: TooManyAlertsFiring
