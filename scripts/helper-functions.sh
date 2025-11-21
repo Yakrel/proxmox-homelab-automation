@@ -156,18 +156,18 @@ get_stack_config() {
     [[ ! -f "$stacks_file" ]] && { print_error "Stacks file not found: $stacks_file"; exit 1; }
 
     # Read all common fields in a single yq call (5x faster)
-    read -r CT_ID CT_HOSTNAME CT_CPU_CORES CT_MEMORY_MB CT_DISK_GB STORAGE_POOL <<< \
-        $(yq -r "[.stacks.$stack.ct_id, .stacks.$stack.hostname, .stacks.$stack.cpu_cores, .stacks.$stack.memory_mb, .stacks.$stack.disk_gb, .storage.pool] | @tsv" "$stacks_file")
+    read -r CT_ID CT_HOSTNAME CT_CPU_CORES CT_MEMORY_MB CT_DISK_GB STORAGE_POOL TEMPLATE_POOL <<< \
+        $(yq -r "[.stacks.$stack.ct_id, .stacks.$stack.hostname, .stacks.$stack.cpu_cores, .stacks.$stack.memory_mb, .stacks.$stack.disk_gb, .storage.pool, .storage.template_pool] | @tsv" "$stacks_file")
 
     # Validate required fields
     [[ -z "$CT_ID" || "$CT_ID" == "null" ]] && { print_error "Stack '$stack' not found in $stacks_file"; exit 1; }
-    
+
     # Use fixed homelab infrastructure values
     CT_IP=$(get_lxc_ip "$CT_ID")
-    
+
     # Export all variables for use in calling scripts
     export CT_ID CT_HOSTNAME CT_CPU_CORES CT_MEMORY_MB CT_DISK_GB
-    export NETWORK_GATEWAY NETWORK_BRIDGE STORAGE_POOL CT_IP
+    export NETWORK_GATEWAY NETWORK_BRIDGE STORAGE_POOL TEMPLATE_POOL CT_IP
 }
 
 # === CONTAINER MANAGEMENT ===

@@ -20,7 +20,7 @@ services:
       - PUBLIC_PORT=8211
       - SERVER_NAME=Proxmox Homelab Palworld
       - SERVER_DESCRIPTION=Homelab Palworld Server
-      - ADMIN_PASSWORD=homelab123
+      - ADMIN_PASSWORD=CHANGEME
       - SERVER_PASSWORD=
       - MAX_PLAYERS=32
       - UPDATE_ON_BOOT=true

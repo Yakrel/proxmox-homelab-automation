@@ -73,6 +73,7 @@ FILES_TO_DOWNLOAD=(
     "config/promtail/promtail.yml"
     "stacks.yaml"
     "config/backrest/config.json.template"
+    "docker/backup/config/rclone.conf.enc"
 )
 
 # Create all directory structures first

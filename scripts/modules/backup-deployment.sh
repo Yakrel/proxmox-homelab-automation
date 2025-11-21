@@ -83,30 +83,23 @@ configure_backrest_directories() {
 # Configure rclone for Google Drive sync - creates config files for Docker container
 # rclone is now installed inside the Docker image, not in the LXC container
 configure_rclone_config() {
-    # Read OAuth credentials from decrypted .env
-    local gdrive_client_id gdrive_client_secret gdrive_oauth_token
-    gdrive_client_id=$(echo "$env_content" | grep "^GDRIVE_CLIENT_ID=" | cut -d'=' -f2-)
-    gdrive_client_secret=$(echo "$env_content" | grep "^GDRIVE_CLIENT_SECRET=" | cut -d'=' -f2-)
-    gdrive_oauth_token=$(echo "$env_content" | grep "^GDRIVE_OAUTH_TOKEN=" | cut -d'=' -f2-)
+    local rclone_conf="/datapool/config/backrest/config/rclone.conf"
+    local rclone_conf_enc="$WORK_DIR/docker/backup/config/rclone.conf.enc"
 
-    # Create rclone config file temporarily on host
-    local temp_rclone_conf="/tmp/rclone-$$.conf"
-    cat > "$temp_rclone_conf" << EOF
-[gdrive]
-type = drive
-scope = drive
-client_id = ${gdrive_client_id}
-client_secret = ${gdrive_client_secret}
-token = ${gdrive_oauth_token}
-EOF
+    print_info "Configuring rclone from encrypted configuration"
 
-    # Copy rclone config to Backrest config dir for Docker container access
-    cp "$temp_rclone_conf" /datapool/config/backrest/config/rclone.conf
-    chown 101000:101000 /datapool/config/backrest/config/rclone.conf
-    chmod 600 /datapool/config/backrest/config/rclone.conf
+    # Decrypt rclone.conf
+    if ! openssl enc -aes-256-cbc -d -pbkdf2 -salt \
+        -in "$rclone_conf_enc" \
+        -out "$rclone_conf" \
+        -pass "pass:$ENV_ENC_KEY"; then
+        print_error "Failed to decrypt rclone.conf.enc"
+        return 1
+    fi
 
-    # Clean up temporary file
-    rm -f "$temp_rclone_conf"
+    print_success "Rclone configuration decrypted"
+    chown 101000:101000 "$rclone_conf"
+    chmod 600 "$rclone_conf"
 
     # Create sync script on host in Backrest config dir (mounted to container as /config)
     cat > /datapool/config/backrest/config/sync-to-gdrive.sh << 'SYNCEOF'

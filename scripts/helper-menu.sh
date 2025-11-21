@@ -124,6 +124,7 @@ run_optimize_zfs() {
     zfs set recordsize=128K rpool         # Optimal for SSD mixed workload
     zfs set primarycache=all rpool        # Use ARC caching
     zfs set xattr=sa rpool                # System attributes performance
+    zpool set autotrim=on rpool           # Enable TRIM for SSD performance and longevity
 
     # datapool (HDD) - Data storage pool
     print_info "Optimizing datapool (HDD)..."
@@ -170,7 +171,8 @@ run_setup_bonding() {
 
     detect_interfaces() {
         print_info "Detecting ethernet interfaces..."
-        mapfile -t INTERFACES < <(ip link show | grep -E '^[0-9]+: enp|^[0-9]+: eth' | cut -d: -f2 | tr -d ' ')
+        # Updated to include 'nic' (new Proxmox naming) and 'eno' (onboard)
+        mapfile -t INTERFACES < <(ip link show | grep -E '^[0-9]+: enp|^[0-9]+: eth|^[0-9]+: eno|^[0-9]+: nic' | cut -d: -f2 | tr -d ' ')
         if [ ${#INTERFACES[@]} -eq 0 ]; then
             print_error "No ethernet interfaces found!"
             return 1

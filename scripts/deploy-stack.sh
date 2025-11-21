@@ -44,18 +44,22 @@ get_available_stacks | grep -q "^$STACK_NAME$" || {
 # Decrypt environment file for stacks that need it
 decrypt_env_for_deploy() {
     local stack="$1"
-    
+
     print_info "Decrypting environment for $stack"
-    
+
     local enc_url="$REPO_BASE_URL/docker/$stack/.env.enc"
     local enc_tmp="$WORK_DIR/.env.enc"
     ENV_DECRYPTED_PATH="$WORK_DIR/.env"
 
     curl -sSL "$enc_url" -o "$enc_tmp" || { print_error "Failed to download .env.enc"; exit 1; }
-    
+
     # Get passphrase and decrypt
     local pass
     pass=$(prompt_env_passphrase)
+
+    # Export passphrase for use by deployment modules (e.g., backup stack needs it)
+    ENV_ENC_KEY="$pass"
+    export ENV_ENC_KEY
 
     # Decrypt
     printf '%s' "$pass" | openssl enc -d -aes-256-cbc -pbkdf2 -salt -pass stdin -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" || {
@@ -64,7 +68,7 @@ decrypt_env_for_deploy() {
         exit 1
     }
     rm -f "$enc_tmp"
-    
+
     print_success "Environment decrypted"
 }
 

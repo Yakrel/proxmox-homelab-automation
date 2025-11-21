@@ -77,7 +77,7 @@ services:
         max-file: "3"
 
   watchtower:
-    image: containrrr/watchtower:latest
+    image: ghcr.io/nicholas-fedor/watchtower:latest
     container_name: watchtower-proxy
     restart: unless-stopped
     volumes:

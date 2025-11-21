@@ -4,7 +4,8 @@
 # Storage: Pre-configured datapool
 
 storage:
-  pool: datapool
+  pool: local-zfs
+  template_pool: datapool
 
 stacks:
   proxy:

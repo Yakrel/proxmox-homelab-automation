@@ -15,7 +15,7 @@ services:
       - PGID=1000
       - TZ=Europe/Istanbul
       - SERVERNAME=Proxmox Homelab Satisfactory
-      - PASSWORD=homelab123
+      - PASSWORD=CHANGEME
       - PLAYERS=10
       - PUBLIC=false
       - AUTOSAVEINTERVAL=300
