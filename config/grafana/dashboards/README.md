@@ -44,7 +44,38 @@ Comprehensive monitoring dashboards for Proxmox homelab with cAdvisor container 
 
 ---
 
-### 2. Container Monitoring (`container-monitoring.json`)
+### 2. Alert Overview (`alert-overview.json`)
+
+**Real-time alert monitoring** - View all active and recently resolved alerts from Prometheus.
+
+**Dashboard Structure:**
+
+#### Alert Summary
+- **Active Alerts**: Count of currently firing alerts
+- **Alert States**: Breakdown by severity (critical, warning)
+- **Recent Alerts**: Timeline of alert state changes
+
+#### Alert Details Table
+- All alerts with name, severity, state, labels, and annotations
+- Color-coded by severity
+- Expandable descriptions with full alert details
+- Sortable and filterable
+
+**Key Features:**
+- Auto-refresh every 30s
+- Shows both firing and pending alerts
+- Direct links to alert definitions
+- Integration with Alertmanager
+
+**Use Cases:**
+- Quick overview of system health
+- Identify active issues requiring attention
+- Track alert patterns and frequencies
+- Debug alert rule effectiveness
+
+---
+
+### 3. Container Monitoring (`container-monitoring.json`)
 
 **Detailed Docker container metrics from cAdvisor** - Deep dive into application container performance.
 
@@ -84,7 +115,7 @@ Comprehensive monitoring dashboards for Proxmox homelab with cAdvisor container 
 
 ---
 
-### 3. Logs Monitoring (`logs-monitoring.json`)
+### 4. Logs Monitoring (`logs-monitoring.json`)
 
 **Real-time log viewer** with advanced filtering for Docker container logs via Loki.
 
@@ -121,11 +152,12 @@ Comprehensive monitoring dashboards for Proxmox homelab with cAdvisor container 
 
 ## Dashboard Organization
 
-The 3-dashboard structure provides **separation of concerns**:
+The 4-dashboard structure provides **separation of concerns**:
 
 1. **Infrastructure Overview** → For infrastructure/ops team monitoring LXC health
-2. **Container Monitoring** → For application/dev team monitoring container performance
-3. **Logs Monitoring** → For troubleshooting and debugging
+2. **Alert Overview** → For quick visibility into active alerts and system issues
+3. **Container Monitoring** → For application/dev team monitoring container performance
+4. **Logs Monitoring** → For troubleshooting and debugging
 
 **Benefits:**
 - Faster dashboard loading (smaller JSON files, less data per view)
