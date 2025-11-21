@@ -28,15 +28,13 @@ Complete media management with GPU acceleration:
 - **Cleanuperr** - Automatic torrent cleanup
 
 ### **Monitoring & Observability Stack** (LXC 104)
-Full monitoring infrastructure with auto-configured dashboards and alerting:
-- **Prometheus** - Metrics collection with recording rules (30-day retention)
-- **Alertmanager** - Alert routing and notification management
-- **Grafana** - Visualization with 4 auto-imported dashboards
+Full monitoring infrastructure with auto-configured dashboards:
+- **Prometheus** - Metrics collection (30-day retention)
+- **Grafana** - Visualization with auto-imported dashboards
 - **Loki** - Log aggregation (30-day retention)
 - **Promtail** - Log collection from all LXC containers
-- **PVE Exporter** - Proxmox host and LXC metrics
-- **cAdvisor** - Per-container Docker metrics
-- **Node Exporter** - OS-level system metrics
+- **PVE Exporter** - Proxmox metrics
+- **cAdvisor** - Container metrics
 
 ### **File Management Stack** (LXC 102)
 Download and file handling:

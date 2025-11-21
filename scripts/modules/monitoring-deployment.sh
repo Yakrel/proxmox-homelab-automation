@@ -85,7 +85,6 @@ setup_monitoring_directories() {
     mkdir -p /datapool/config/loki/data
     mkdir -p /datapool/config/grafana/provisioning/datasources
     mkdir -p /datapool/config/grafana/provisioning/dashboards
-    mkdir -p /datapool/config/alertmanager/data
 
     # Note: Permissions will be set once at the end of deploy_monitoring_stack()
     # to avoid redundant chown operations
@@ -240,18 +239,6 @@ validate_monitoring_configs() {
         }
     else
         print_error "loki.yml not found at $loki_source"
-        exit 1
-    fi
-
-    # Copy alertmanager config directly from local workspace to host filesystem
-    local alertmanager_source="$WORK_DIR/config/alertmanager/alertmanager.yml"
-    if [[ -f "$alertmanager_source" ]]; then
-        cp "$alertmanager_source" "/datapool/config/alertmanager/alertmanager.yml" || {
-            print_error "Failed to copy alertmanager.yml"
-            exit 1
-        }
-    else
-        print_error "alertmanager.yml not found at $alertmanager_source"
         exit 1
     fi
 
