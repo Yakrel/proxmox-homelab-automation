@@ -121,25 +121,19 @@ setup_docker_compose() {
     
     print_info "Setting up Docker Compose for $stack_name"
     
-    # Download compose file
-    local compose_url="$REPO_BASE_URL/docker/$stack_name/docker-compose.yml"
-    local temp_compose="/tmp/docker-compose.yml"
+    # Copy compose file from local workspace
+    local source_file="$WORK_DIR/docker/$stack_name/docker-compose.yml"
     
-    if ! curl -sSL "$compose_url" -o "$temp_compose"; then
-        print_error "Failed to download docker-compose.yml"
+    if [[ -f "$source_file" ]]; then
+        # Copy to container root directory directly
+        pct push "$ct_id" "$source_file" "/root/docker-compose.yml" || { 
+            print_error "Failed to push compose file"
+            exit 1 
+        }
+    else
+        print_error "docker-compose.yml not found at $source_file"
         exit 1
     fi
-    
-    # Verify downloaded file is not empty
-    if [[ ! -s "$temp_compose" ]]; then
-        print_error "Downloaded docker-compose.yml is empty"
-        rm -f "$temp_compose"
-        exit 1
-    fi
-    
-    # Copy to container root directory directly
-    pct push "$ct_id" "$temp_compose" "/root/docker-compose.yml" || { print_error "Failed to push compose file"; exit 1; }
-    rm -f "$temp_compose"
     
     print_success "Docker Compose configured"
 }
@@ -176,13 +170,11 @@ deploy_docker_stack() {
     local stack_name="$1"
     local ct_id="$2"
     
-    # Check if docker-compose.yml exists for this stack
-    local compose_url="$REPO_BASE_URL/docker/$stack_name/docker-compose.yml"
-    local http_code
-    http_code=$(curl -sSL -w "%{http_code}" -o /dev/null "$compose_url" || echo "000")
+    # Check if docker-compose.yml exists for this stack locally
+    local compose_file="$WORK_DIR/docker/$stack_name/docker-compose.yml"
     
-    if [[ "$http_code" != "200" ]]; then
-        print_info "No docker-compose.yml found for $stack_name, skipping"
+    if [[ ! -f "$compose_file" ]]; then
+        print_info "No docker-compose.yml found for $stack_name at $compose_file, skipping"
         return 0
     fi
     

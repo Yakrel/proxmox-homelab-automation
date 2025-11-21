@@ -27,7 +27,6 @@ source "$WORK_DIR/scripts/modules/monitoring-deployment.sh"
 source "$WORK_DIR/scripts/modules/backup-deployment.sh"
 
 # --- Global Variables ---
-REPO_BASE_URL=$(get_repo_base_url)
 PVE_MONITORING_PASSWORD=""
 ENV_DECRYPTED_PATH=""
 

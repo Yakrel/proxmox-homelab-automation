@@ -326,33 +326,6 @@ decrypt_env_file() {
     fi
 }
 
-# Download, customize template, and push to LXC container
-download_customize_and_push() {
-    local ct_id="$1"
-    local remote_url="$2"
-    local target_path="$3"
-    local hostname="$4"
-    local temp_file="${5:-$WORK_DIR/$(basename "$remote_url")}"
-    
-    print_info "Downloading $(basename "$remote_url") template"
-    curl -sSL "$remote_url" -o "$temp_file"
-    
-    # Replace hostname placeholder
-    sed -i "s/REPLACE_HOST_LABEL/$hostname/g" "$temp_file"
-    
-    print_info "Pushing customized $(basename "$remote_url") to LXC $ct_id ($target_path)"
-    pct push "$ct_id" "$temp_file" "$target_path"
-    
-    rm -f "$temp_file"
-}
-
-# === REPOSITORY FUNCTIONS ===
-# Central repository URL management
-
-get_repo_base_url() {
-    echo "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main"
-}
-
 # === VALIDATION FUNCTIONS ===
 # Common validation patterns
 
