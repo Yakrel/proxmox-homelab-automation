@@ -103,30 +103,27 @@ provision_grafana_dashboards() {
     local dashboards_dir="/datapool/config/grafana/dashboards"
     mkdir -p "$dashboards_dir"
     
-    # Download custom dashboards from our repo (already have correct datasource UIDs)
+    # Copy custom dashboards from our local workspace (already have correct datasource UIDs)
     # These dashboards are maintained in config/grafana/dashboards/ with full documentation
     
-    # Download all dashboards in parallel for better performance
     local dashboards=("infrastructure-overview" "container-monitoring" "logs-monitoring")
-    local pids=()
     local failed_dashboards=()
     
     for dashboard in "${dashboards[@]}"; do
-        (curl -sSL "$REPO_BASE_URL/config/grafana/dashboards/${dashboard}.json" \
-            -o "$dashboards_dir/${dashboard}.json") &
-        pids+=($!)
-    done
-    
-    # Wait for all downloads to complete and track failures
-    for i in "${!pids[@]}"; do
-        if ! wait "${pids[$i]}"; then
-            failed_dashboards+=("${dashboards[$i]}")
+        local source_file="$WORK_DIR/config/grafana/dashboards/${dashboard}.json"
+        local dest_file="$dashboards_dir/${dashboard}.json"
+        
+        if [[ -f "$source_file" ]]; then
+            cp "$source_file" "$dest_file" || failed_dashboards+=("${dashboard}")
+        else
+            print_warning "Dashboard file not found: $source_file"
+            failed_dashboards+=("${dashboard}")
         fi
     done
     
     # Report warnings for failed dashboards after all complete
     for dashboard in "${failed_dashboards[@]}"; do
-        print_warning "Failed to download ${dashboard} dashboard"
+        print_warning "Failed to copy ${dashboard} dashboard"
     done
     
     # Note: Permissions will be set once at the end of deploy_monitoring_stack()
@@ -220,17 +217,29 @@ validate_monitoring_configs() {
 
     print_info "Validating monitoring configuration files"
 
-    # Download prometheus config directly from GitHub to host filesystem
-    curl -sSL "$REPO_BASE_URL/docker/monitoring/prometheus.yml" -o "/datapool/config/prometheus/prometheus.yml" || {
-        print_error "Failed to download prometheus.yml from GitHub"
+    # Copy prometheus config directly from local workspace to host filesystem
+    local prom_source="$WORK_DIR/docker/monitoring/prometheus.yml"
+    if [[ -f "$prom_source" ]]; then
+        cp "$prom_source" "/datapool/config/prometheus/prometheus.yml" || {
+            print_error "Failed to copy prometheus.yml"
+            exit 1
+        }
+    else
+        print_error "prometheus.yml not found at $prom_source"
         exit 1
-    }
+    fi
 
-    # Download loki config directly from GitHub to host filesystem
-    curl -sSL "$REPO_BASE_URL/config/loki/loki.yml" -o "/datapool/config/loki/loki.yml" || {
-        print_error "Failed to download loki.yml from GitHub"
+    # Copy loki config directly from local workspace to host filesystem
+    local loki_source="$WORK_DIR/config/loki/loki.yml"
+    if [[ -f "$loki_source" ]]; then
+        cp "$loki_source" "/datapool/config/loki/loki.yml" || {
+            print_error "Failed to copy loki.yml"
+            exit 1
+        }
+    else
+        print_error "loki.yml not found at $loki_source"
         exit 1
-    }
+    fi
 
     # Create PVE exporter config using credentials from .env
     mkdir -p /datapool/config/prometheus-pve-exporter

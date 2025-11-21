@@ -25,8 +25,6 @@ set -euo pipefail
 # --- Global Variables ---
 
 WORK_DIR=""
-get_repo_base_url() { echo "https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main"; }
-REPO_BASE_URL=$(get_repo_base_url)
 
 # --- Helper Functions ---
 
