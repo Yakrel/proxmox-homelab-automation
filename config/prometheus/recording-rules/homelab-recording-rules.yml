@@ -59,21 +59,3 @@ groups:
       - record: lxc:network_transmit:rate5m
         expr: |
           rate(pve_network_transmit_bytes{id=~"lxc/.*"}[5m])
-
-  - name: node_recording_rules
-    interval: 30s
-    rules:
-      # Pre-compute node CPU usage
-      - record: node:cpu_usage:percent
-        expr: |
-          100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
-
-      # Pre-compute node memory usage percentage
-      - record: node:memory_usage:percent
-        expr: |
-          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100
-
-      # Pre-compute node disk usage percentage
-      - record: node:disk_usage:percent
-        expr: |
-          (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*"})) * 100

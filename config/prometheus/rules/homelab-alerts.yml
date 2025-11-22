@@ -134,36 +134,6 @@ groups:
           summary: "Container experiencing high network error rate"
           description: "Container {{ $labels.name }} on {{ $labels.instance }} has high network error rate: {{ $value }} errors/s"
 
-      # Node Exporter Down
-      - alert: NodeExporterDown
-        expr: up{job="node-exporter"} < 1
-        for: 2m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Node Exporter is down"
-          description: "Node Exporter on {{ $labels.instance }} is unreachable"
-
-      # High Filesystem Usage (from node-exporter)
-      - alert: HighFilesystemUsage
-        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint="/datapool"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint="/datapool"})) > 0.85
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Filesystem usage above 85%"
-          description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is {{ $value | humanizePercentage }} full"
-
-      # Prometheus Data Directory Low Space
-      - alert: PrometheusStorageLow
-        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint="/datapool"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint="/datapool"})) > 0.90
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Prometheus storage filesystem is critically low"
-          description: "Data pool filesystem is {{ $value | humanizePercentage }} full. Prometheus data may be affected."
-
       # Too Many Alerts Firing
       - alert: TooManyAlertsFiring
         expr: count(ALERTS{alertstate="firing"}) > 10
