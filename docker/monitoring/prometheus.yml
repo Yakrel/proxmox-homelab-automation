@@ -4,6 +4,7 @@ global:
 
 rule_files:
   - "/etc/prometheus/rules/*.yml"
+  - "/etc/prometheus/recording-rules/*.yml"
 
 scrape_configs:
   # Prometheus itself

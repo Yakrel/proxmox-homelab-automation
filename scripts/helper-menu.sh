@@ -135,7 +135,10 @@ run_optimize_zfs() {
     zfs set logbias=throughput datapool   # HDD sequential write optimization
 
     print_info "Writing ZFS ARC memory limit configuration..."
-    arc_max_bytes=$(( $(free -g | awk 'NR==2{print $2}') * 1024 * 1024 * 1024 / 2 ))
+    # For Proxmox with ZFS, use 37.5% of RAM for ARC (more aggressive than default 50% of free RAM)
+    # This accounts for Proxmox host + LXC containers while still providing good cache performance
+    total_ram_gb=$(free -g | awk 'NR==2{print $2}')
+    arc_max_bytes=$(( total_ram_gb * 1024 * 1024 * 1024 * 3 / 8 ))
     mod_config="/etc/modprobe.d/zfs.conf"
 
     if grep -q "zfs_arc_max" "$mod_config"; then
@@ -145,6 +148,20 @@ run_optimize_zfs() {
         print_info "Adding new zfs_arc_max entry to $mod_config..."
         echo "options zfs zfs_arc_max=${arc_max_bytes}" >> "$mod_config"
     fi
+
+    print_info "ARC max set to $(( arc_max_bytes / 1024 / 1024 / 1024 )) GB (~37.5% of ${total_ram_gb} GB total RAM)"
+
+    print_info "Optimizing system swappiness for Proxmox..."
+    sysctl_conf="/etc/sysctl.conf"
+    touch "$sysctl_conf"
+    if grep -q "^vm.swappiness" "$sysctl_conf" 2>/dev/null; then
+        sed -i 's/^vm.swappiness.*/vm.swappiness = 0/' "$sysctl_conf"
+        print_info "Updated existing swappiness setting to 0"
+    else
+        echo "vm.swappiness = 0" >> "$sysctl_conf"
+        print_info "Added swappiness = 0 to sysctl.conf"
+    fi
+    sysctl -w vm.swappiness=0 >/dev/null
 
     print_info "Updating initramfs..."
     update-initramfs -u -k all

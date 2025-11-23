@@ -1,0 +1,61 @@
+groups:
+  - name: container_recording_rules
+    interval: 30s
+    rules:
+      # Pre-compute container CPU percentage for faster queries
+      - record: container:cpu_usage:rate5m
+        expr: |
+          rate(container_cpu_usage_seconds_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m]) * 100
+
+      # Pre-compute container memory percentage
+      # DISABLED: Docker containers in LXC don't have memory limits set, causing division by zero
+      # Use lxc:memory_usage:percent instead for monitoring memory at LXC level
+      # - record: container:memory_usage:percent
+      #   expr: |
+      #     (container_memory_working_set_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"} 
+      #     / 
+      #     container_spec_memory_limit_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}) * 100
+
+      # Pre-compute container network I/O rates
+      - record: container:network_receive:rate5m
+        expr: |
+          rate(container_network_receive_bytes_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m])
+      
+      - record: container:network_transmit:rate5m
+        expr: |
+          rate(container_network_transmit_bytes_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m])
+
+      # Pre-compute disk I/O rates
+      - record: container:fs_read:rate5m
+        expr: |
+          rate(container_fs_reads_bytes_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m])
+      
+      - record: container:fs_write:rate5m
+        expr: |
+          rate(container_fs_writes_bytes_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m])
+
+  - name: lxc_recording_rules
+    interval: 30s
+    rules:
+      # Pre-compute LXC memory percentage
+      - record: lxc:memory_usage:percent
+        expr: |
+          (pve_memory_usage_bytes{id=~"lxc/.*"} / pve_memory_size_bytes{id=~"lxc/.*"}) * 100
+
+      # Pre-compute LXC disk I/O rates
+      - record: lxc:disk_read:rate5m
+        expr: |
+          rate(pve_disk_read_bytes{id=~"lxc/.*"}[5m])
+      
+      - record: lxc:disk_write:rate5m
+        expr: |
+          rate(pve_disk_write_bytes{id=~"lxc/.*"}[5m])
+
+      # Pre-compute LXC network I/O rates
+      - record: lxc:network_receive:rate5m
+        expr: |
+          rate(pve_network_receive_bytes{id=~"lxc/.*"}[5m])
+      
+      - record: lxc:network_transmit:rate5m
+        expr: |
+          rate(pve_network_transmit_bytes{id=~"lxc/.*"}[5m])

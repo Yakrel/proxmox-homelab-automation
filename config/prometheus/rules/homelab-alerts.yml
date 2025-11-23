@@ -32,6 +32,36 @@ groups:
           summary: "LXC memory usage above 90% for 5 minutes"
           description: "LXC container {{ $labels.name }} memory usage is {{ $value | humanizePercentage }} (threshold: 90%)"
 
+      # LXC Disk Space Low
+      - alert: LXCDiskSpaceLow
+        expr: (pve_disk_usage_bytes{id=~"lxc/.*"} / pve_disk_size_bytes{id=~"lxc/.*"}) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LXC disk usage above 85%"
+          description: "LXC container {{ $labels.name }} disk usage is {{ $value | humanizePercentage }} (threshold: 85%)"
+
+      # Proxmox Host High CPU
+      - alert: ProxmoxHostHighCPU
+        expr: pve_cpu_usage_ratio{type="node"} > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Proxmox host CPU usage above 85%"
+          description: "Proxmox host {{ $labels.node }} CPU usage is {{ $value | humanizePercentage }} for 10 minutes"
+
+      # Proxmox Host High Memory
+      - alert: ProxmoxHostHighMemory
+        expr: (pve_memory_usage_bytes{type="node"} / pve_memory_size_bytes{type="node"}) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Proxmox host memory usage above 85%"
+          description: "Proxmox host {{ $labels.node }} memory usage is {{ $value | humanizePercentage }} for 10 minutes"
+
       # Container Out of Memory Event
       - alert: ContainerOOMEvent
         expr: rate(container_oom_events_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m]) > 0
@@ -51,6 +81,26 @@ groups:
         annotations:
           summary: "Monitoring target is unreachable"
           description: "Prometheus target {{ $labels.instance }} ({{ $labels.job }}) is down"
+
+      # Container High CPU Usage
+      - alert: ContainerHighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m]) * 100 > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container CPU usage above 90% for 10 minutes"
+          description: "Container {{ $labels.name }} on {{ $labels.instance }} CPU usage is {{ $value | printf \"%.1f\" }}%"
+
+      # Container Restarts
+      - alert: ContainerRestarting
+        expr: rate(container_start_time_seconds{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container is restarting frequently"
+          description: "Container {{ $labels.name }} on {{ $labels.instance }} has restarted {{ $value | printf \"%.2f\" }} times in 15 minutes"
 
       # Container High Memory Usage
       # DISABLED: Docker containers in LXC don't have memory limits set, causing false positives
@@ -83,3 +133,13 @@ groups:
         annotations:
           summary: "Container experiencing high network error rate"
           description: "Container {{ $labels.name }} on {{ $labels.instance }} has high network error rate: {{ $value }} errors/s"
+
+      # Too Many Alerts Firing
+      - alert: TooManyAlertsFiring
+        expr: count(ALERTS{alertstate="firing"}) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Too many alerts are firing"
+          description: "{{ $value }} alerts are currently firing, indicating a potential systemic issue"
