@@ -80,6 +80,7 @@ setup_monitoring_directories() {
 
     # Create all required directories for monitoring stack
     mkdir -p /datapool/config/prometheus/data
+    mkdir -p /datapool/config/prometheus/recording-rules
     mkdir -p /datapool/config/grafana/data
     mkdir -p /datapool/config/loki/data
     mkdir -p /datapool/config/grafana/provisioning/datasources
@@ -106,7 +107,7 @@ provision_grafana_dashboards() {
     # Copy custom dashboards from our local workspace (already have correct datasource UIDs)
     # These dashboards are maintained in config/grafana/dashboards/ with full documentation
     
-    local dashboards=("infrastructure-overview" "container-monitoring" "logs-monitoring")
+    local dashboards=("infrastructure-overview" "container-monitoring" "logs-monitoring" "alert-overview")
     local failed_dashboards=()
     
     for dashboard in "${dashboards[@]}"; do
@@ -238,6 +239,27 @@ validate_monitoring_configs() {
         }
     else
         print_error "loki.yml not found at $loki_source"
+        exit 1
+    fi
+
+    # Copy prometheus rules and recording rules
+    if [[ -d "$WORK_DIR/config/prometheus/rules" ]]; then
+        cp -r "$WORK_DIR/config/prometheus/rules" /datapool/config/prometheus/ || {
+            print_error "Failed to copy prometheus rules"
+            exit 1
+        }
+    else
+        print_error "Prometheus rules directory not found"
+        exit 1
+    fi
+
+    if [[ -d "$WORK_DIR/config/prometheus/recording-rules" ]]; then
+        cp -r "$WORK_DIR/config/prometheus/recording-rules" /datapool/config/prometheus/ || {
+            print_error "Failed to copy prometheus recording rules"
+            exit 1
+        }
+    else
+        print_error "Prometheus recording-rules directory not found"
         exit 1
     fi
 
