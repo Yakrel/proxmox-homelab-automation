@@ -278,12 +278,29 @@ run_setup_gpu_passthrough() {
 
     # Check if nouveau is still loaded
     if [[ $(lsmod | grep -c nouveau) -gt 0 ]]; then
-        print_info "Phase 1: Configuring system to disable nouveau driver..."
+        print_info "Phase 1: Kernel downgrade, IOMMU setup, and nouveau blacklist..."
 
-        # Install required packages
+        # TEMPORARY WORKAROUND (November 2025): NVIDIA vGPU drivers are not compatible with kernel 6.17
+        # Pinning to kernel 6.14 until NVIDIA releases updated drivers with 6.17 support
+        # TODO: Remove kernel pinning when NVIDIA vGPU supports kernel 6.17
+        # Reference: https://pve.proxmox.com/wiki/NVIDIA_vGPU_on_Proxmox_VE
+
+        # Step 1: Install and pin kernel to 6.14 (NVIDIA vGPU compatible)
+        print_info "Installing kernel 6.14 for NVIDIA vGPU compatibility..."
+        ensure_packages pve-kernel-6.14 proxmox-headers-6.14
+
+        print_info "Pinning kernel to 6.14..."
+        proxmox-boot-tool kernel pin 6.14.11-4-pve
+
+        print_info "Removing default kernel headers to prevent auto-upgrade..."
+        apt remove -y proxmox-default-headers || true
+
+        print_success "Kernel 6.14 installed and pinned successfully"
+
+        # Step 2: Install build tools for NVIDIA driver
         ensure_packages build-essential dkms
 
-        # Blacklist nouveau
+        # Step 3: Blacklist nouveau
         cat > /etc/modprobe.d/blacklist-nouveau.conf << 'EOF'
 blacklist nouveau
 blacklist lbm-nouveau
@@ -292,7 +309,7 @@ alias nouveau off
 alias lbm-nouveau off
 EOF
 
-        # Configure IOMMU for Intel CPU
+        # Step 4: Configure IOMMU for Intel CPU
         local grub_file="/etc/default/grub"
         # Backup once, sed is idempotent (won't duplicate if already present)
         cp "$grub_file" "${grub_file}.backup" || true
@@ -304,10 +321,10 @@ EOF
             update-grub
         fi
 
-        # Update initramfs
+        # Step 5: Update initramfs
         update-initramfs -u -k all
 
-        print_success "Phase 1 complete. System needs reboot to disable nouveau."
+        print_success "Phase 1 complete. System configured with kernel 6.14 pin."
         print_warning "Please reboot and run this option (7) again to install NVIDIA drivers."
         return 0
     fi
