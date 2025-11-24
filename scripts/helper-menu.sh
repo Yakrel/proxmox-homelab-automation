@@ -380,6 +380,11 @@ EOF
     print_info "Please reboot to load NVIDIA drivers, then deploy the media stack."
 }
 
+run_datapool_cleanup() {
+    require_root
+    bash "$WORK_DIR/scripts/datapool-cleanup.sh"
+}
+
 
 
 # --- Main Menu ---
@@ -397,6 +402,7 @@ while true; do
     echo "   5) Setup Network Bonding (Interactive)"
     echo "   6) Manage Fail2ban"
     echo "   7) Setup GPU Passthrough (NVIDIA GTX 970)"
+    echo "   8) Clean Datapool (Remove Cache/Logs)"
     echo "---------------------------------------"
     echo "   b) Back to Main Menu"
     echo "   q) Quit"
@@ -411,6 +417,7 @@ while true; do
         5) run_setup_bonding; press_enter_to_continue ;;
         6) bash "$WORK_DIR/scripts/fail2ban-manager.sh"; press_enter_to_continue ;;
         7) run_setup_gpu_passthrough; press_enter_to_continue ;;
+        8) run_datapool_cleanup; press_enter_to_continue ;;
         b|B) exec bash "$WORK_DIR/scripts/main-menu.sh" ;;
         q|Q) echo "Exiting."; exit 0 ;;
         *) print_error "Invalid choice. Please try again." ;;
