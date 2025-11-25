@@ -72,6 +72,13 @@ This is a personal homelab automation with:
 - Timezone: `Europe/Istanbul`
 - Unprivileged LXC containers with UID/GID mapping (101000:101000 on host → 1000:1000 in container)
 
+### Development Environment & Workflow
+- **Working in dev LXC** - no access to Proxmox host commands (`pct`, `pvesh`, etc.)
+- **No SSH** to other LXC containers
+- **View live state** via `/datapool` mount
+- **Workflow**: Make changes in repository first, test in `/datapool` if live config exists
+- **Proxmox/LXC commands**: Provide grouped commands with inline comments for user execution
+
 ### LXC File Permissions
 **CRITICAL: Never do chown inside LXC containers**
 - Always set permissions on Proxmox host with `chown 101000:101000`
