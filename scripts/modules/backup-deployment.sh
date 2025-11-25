@@ -116,6 +116,7 @@ echo "$(date): Starting Google Drive sync" >> "$LOG_FILE"
     --log-level=INFO \
     --fast-list \
     --checksum \
+    --drive-use-trash=false \
     --exclude="**/cache/**" \
     --exclude="**/*.tmp" 2>&1 | tee -a "$LOG_FILE"
 
