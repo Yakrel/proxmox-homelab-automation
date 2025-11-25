@@ -1,6 +1,10 @@
 # Proxmox Homelab Automation
 
-Production homelab infrastructure running **40+ containerized services** across **8 specialized LXC containers** on Proxmox VE. Fully automated deployment with shell scripts, zero-touch configuration, and comprehensive monitoring.
+Production homelab running **40+ services** across **8 LXC containers** with **NVIDIA GPU passthrough in unprivileged LXC**, **custom Docker images with automated CI/CD**, and **comprehensive monitoring**. Fully automated deployment with **2100+ lines of shell scripts**.
+
+> **About**: My production homelab that I actively use and develop. Publicly shared to demonstrate DevOps, infrastructure automation, and advanced Linux system administration capabilities. All values are hardcoded for my specific environment for maximum reliability.
+
+---
 
 ## 🚀 Quick Start
 
@@ -13,196 +17,121 @@ Interactive menu guides you through stack selection and deployment. Only one pas
 
 ---
 
-## 📦 What's Included
+## 🏆 Technical Highlights
 
-### **Media Automation Stack** (LXC 101)
-Complete media management with GPU acceleration:
-- **Jellyfin** - Media server with hardware transcoding
-- **Immich** - Photo/video management with ML (face recognition, object detection)
-- **Sonarr/Radarr/Bazarr** - TV/Movie/Subtitle automation
-- **Jellyseerr** - Media request management
-- **Prowlarr** - Indexer manager
-- **qBittorrent** - Torrent client
-- **FlareSolverr** - Cloudflare bypass
-- **Recyclarr** - Quality profile sync
-- **Cleanuperr** - Automatic torrent cleanup
-
-### **Monitoring & Observability Stack** (LXC 104)
-Full monitoring infrastructure with auto-configured dashboards:
-- **Prometheus** - Metrics collection (30-day retention)
-- **Grafana** - Visualization with auto-imported dashboards
-- **Loki** - Log aggregation (30-day retention)
-- **Promtail** - Log collection from all LXC containers
-- **PVE Exporter** - Proxmox metrics
-- **cAdvisor** - Container metrics
-
-### **File Management Stack** (LXC 102)
-Download and file handling:
-- **JDownloader 2** - Direct download manager
-- **MeTube** - YouTube-dl web interface
-- **Palmr** - File management and sharing
-
-### **Web Tools Stack** (LXC 103)
-Productivity and development tools:
-- **Homepage** - Unified dashboard with service widgets
-- **Desktop Workspace** - Web-based Chrome + Obsidian environment
-- **CouchDB** - Database for Obsidian sync
-- **Portainer** - Docker management UI
-
-### **Proxy & Tunnel Stack** (LXC 100)
-External access and monitoring:
-- **Cloudflared** - Cloudflare tunnel for secure remote access
-- **Promtail** - Log shipping
-- **Watchtower** - Auto-updates
-
-### **Backup Stack** (LXC 106)
-Automated backup with cloud sync:
-- **Backrest-Rclone** - Custom Docker image combining Backrest (restic web UI) + rclone
-- Automated backups: `/datapool/config` + Immich media
-- Post-backup hooks trigger Google Drive sync
-- Encrypted offsite backups with OAuth2 authentication
-- Auto-updates via Watchtower + CI/CD
-
-### **Game Servers Stack** (LXC 105)
-Dedicated game hosting:
-- **Satisfactory** - Factory building game server
-- **Palworld** - Multiplayer survival server
-
-### **Development Stack** (LXC 107)
-Development environment (extensible framework)
-
----
-
-## 🛠️ Technical Highlights
-
-### Custom Docker Images with CI/CD
-
-Two custom Docker images built and maintained with automated CI/CD pipelines:
-
-#### **Desktop Workspace** - Web-based development environment
-- Multi-app integration: **Google Chrome** + **Obsidian** + **PCManFM**
-- Web-based access via Selkies-GStreamer (WebRTC)
-- GPU acceleration support for Chrome rendering
-- **Source:** [`docker-images/desktop-workspace/`](docker-images/desktop-workspace/)
-
-#### **Backrest-Rclone** - Backup solution with cloud sync
-- Base: `garethgeorge/backrest:latest` (restic web UI)
-- Custom layer: **rclone** for Google Drive sync hooks
-- Automated post-backup cloud sync via rclone hooks
-- **Source:** [`docker-images/backrest-rclone/`](docker-images/backrest-rclone/)
-
-**CI/CD Pipeline:**
-```
-Trigger: Code changes OR Bi-weekly (Sunday & Wednesday 2 AM)
-   ↓
-Build: Docker Buildx with layer caching
-   ↓
-Tag: latest + YYYYMMDD-SHA (keep last 3 dated tags)
-   ↓
-Push: DockerHub (yakrel93/desktop-workspace, yakrel93/backrest-rclone)
-   ↓
-Deploy: Watchtower auto-updates containers in homelab
-```
-
-**Benefits:**
-- Always-fresh base images (bi-weekly automatic rebuilds)
-- Zero-downtime updates via Watchtower
-- Rollback capability (3 previous versions retained)
-- No manual image building required
-
-### GPU Hardware Acceleration
-**NVIDIA GPU Passthrough in Unprivileged LXC**
-- **Media Stack**: Jellyfin hardware transcoding (18.64x real-time, 447 fps) + Immich ML acceleration
-- **Webtools Stack**: Chrome GPU acceleration in desktop-workspace container
+### **Advanced LXC Configuration**
+- **NVIDIA GPU passthrough in unprivileged containers** (cgroup v2 method)
+- **Jellyfin**: 18.64x real-time hardware transcoding (447 fps on GTX 970)
+- **Immich ML**: GPU-accelerated face recognition + object detection
+- **Chrome**: Hardware-accelerated rendering in desktop workspace
 - Direct device mounting with CUDA library integration
-- Production-tested with NVIDIA GTX 970
 
-**Setup:** Helper Menu → `Setup GPU Passthrough (NVIDIA)` → Reboot → Deploy stacks
+### **Custom Docker Images + Automated CI/CD**
+Two custom images built and maintained with automated pipelines:
+- **desktop-workspace**: Multi-app web environment (Chrome + Obsidian + file manager)
+- **backrest-rclone**: Backup solution with Google Drive sync hooks
 
-### Infrastructure as Code
-- **8 production stacks** with automated deployment
-- **40+ containerized services** via Docker Compose
-- **Mixed LXC containers**: Alpine (default, lightweight) + Debian (GPU stacks with hardware acceleration)
-- **Encrypted secrets**: AES-256-CBC with pbkdf2
-- **Idempotent scripts**: Safe to re-run
-- **Comprehensive monitoring**: Prometheus + Grafana + Loki
+**Pipeline Features:**
+- Bi-weekly automatic rebuilds (always fresh base images)
+- Multi-stage builds with layer caching
+- Automated tag management (keep last 3 versions)
+- Zero-downtime updates via Watchtower
+- Published to DockerHub: `yakrel93/desktop-workspace`, `yakrel93/backrest-rclone`
 
----
-
-## 🎯 Key Features
-
-### **Zero-Touch Deployment**
-- Single command deployment per stack
-- Encrypted credentials in `.env.enc` files
-- Automatic service configuration
-- Idempotent scripts
+### **Infrastructure as Code**
+- **2100+ lines** of modular shell automation
+- **Idempotent operations** - safe to re-run
+- **Encrypted secrets** - AES-256-CBC with pbkdf2
+- **Mixed LXC types**: Alpine (lightweight) + Debian (GPU stacks)
+- **Comprehensive monitoring**: Prometheus + Grafana + Loki (30-day retention)
 
 ### **Automated Offsite Backups**
-- Custom Docker image with Backrest + rclone integration
-- Post-backup hooks automatically sync to Google Drive
-- OAuth2 authentication stored encrypted in `.env.enc`
-- CI/CD pipeline ensures latest base image + rclone version
-- Zero-downtime updates via Watchtower
+- Pre-configured Backrest with restic repositories
+- Post-backup hooks trigger rclone sync to Google Drive
+- Encrypted offsite backups with OAuth2 authentication
+- CI/CD pipeline ensures latest versions
 
-### **Comprehensive Monitoring**
-- Every LXC has Promtail + cAdvisor
-- Central Grafana with pre-imported dashboards
-- 30-day retention for metrics and logs
+---
 
-### **Security & Isolation**
-- Unprivileged LXC containers with UID/GID mapping
-- Encrypted secrets management
-- Network isolation per stack
-- Regular automated updates via Watchtower
+## 📦 Service Stacks
+
+### **Media Automation** (LXC 101)
+Jellyfin, Immich, Sonarr, Radarr, Bazarr, Jellyseerr, Prowlarr, qBittorrent, FlareSolverr, Recyclarr, Cleanuperr
+
+### **Monitoring & Observability** (LXC 104)
+Prometheus, Grafana, Loki, Promtail, PVE Exporter, cAdvisor
+
+### **File Management** (LXC 102)
+JDownloader 2, MeTube, Palmr
+
+### **Web Tools** (LXC 103)
+Homepage, Desktop Workspace, CouchDB, Portainer
+
+### **Proxy & Tunnel** (LXC 100)
+Cloudflared, Promtail, Watchtower
+
+### **Backup** (LXC 106)
+Backrest-Rclone (custom image with Google Drive sync)
+
+### **Game Servers** (LXC 105)
+Satisfactory, Palworld
+
+### **Development** (LXC 107)
+Extensible development environment
 
 ---
 
 ## ⚠️ Personal Homelab Notice
 
-**This is a production homelab optimized for a specific environment.** Hardcoded values for reliability:
+**This is my production homelab optimized for my specific environment.** Values are hardcoded for reliability:
 
 - **Network**: `192.168.1.x` range, `vmbr0` bridge
 - **Storage**: ZFS pool `datapool`
 - **Timezone**: `Europe/Istanbul`
-- **Passwords**: Pre-encrypted in `.env.enc`
+- **Secrets**: Pre-encrypted in `.env.enc` files
 
-**Not plug-and-play.** To adapt: fork, modify hardcoded values, re-encrypt secrets, test.
+**Not plug-and-play.** This project demonstrates infrastructure automation and DevOps skills. To adapt for your environment: fork, modify hardcoded values, re-encrypt secrets, test thoroughly.
 
 ## 📁 Project Structure
 
 ```
 ├── installer.sh              # One-line installer
-├── scripts/                  # Deployment automation
-│   ├── deploy-stack.sh      # Stack orchestrator
-│   ├── lxc-manager.sh       # LXC lifecycle
-│   └── helper-*.sh          # Utilities
+├── scripts/                  # 2100+ lines of deployment automation
+│   ├── deploy-stack.sh      # Main orchestrator
+│   ├── lxc-manager.sh       # LXC lifecycle management
+│   ├── modules/             # Specialized deployment modules
+│   └── helper-*.sh          # Utility functions
 ├── docker-images/            # Custom Docker images with CI/CD
-│   ├── desktop-workspace/   # Web-based desktop (Chrome + Obsidian)
-│   └── backrest-rclone/     # Backup with cloud sync
-├── docker/                   # Service stacks
-│   ├── media/               # Jellyfin + Immich + GPU
+│   ├── desktop-workspace/   # Chrome + Obsidian web environment
+│   └── backrest-rclone/     # Backup solution with cloud sync
+├── docker/                   # Docker Compose stacks
+│   ├── media/               # Media automation + GPU acceleration
 │   ├── monitoring/          # Prometheus + Grafana + Loki
+│   ├── backup/              # Backrest with Google Drive sync
+│   ├── webtools/            # Dashboard + desktop workspace
 │   ├── files/               # Download managers
-│   ├── webtools/            # Dashboard + tools
 │   ├── proxy/               # Cloudflare tunnel
-│   ├── backup/              # Backrest + rclone
 │   └── gameservers/         # Game servers
-└── stacks.yaml              # Central config
+├── config/                   # Shared configurations
+│   ├── prometheus/          # Metrics + alerting rules
+│   ├── promtail/            # Log collection config
+│   └── homepage/            # Dashboard widgets
+└── stacks.yaml              # Central configuration (LXC resources, IPs, hostnames)
 ```
 
 ## 🔧 Requirements
 
-- Proxmox VE 9.x with ZFS storage
-- Network: `vmbr0` bridge, `192.168.1.x` range
-- Optional: NVIDIA GPU for transcoding/ML
+- **Proxmox VE**: 9.x with ZFS storage
+- **Network**: `vmbr0` bridge, `192.168.1.x` range
+- **GPU** (optional): NVIDIA for hardware transcoding/ML acceleration
 
-## 🔐 Security & Secrets
+## 🔐 Security
 
-- **Unprivileged LXC** with UID/GID mapping (101000:101000 → 1000:1000)
-- **Encrypted credentials**: AES-256-CBC with pbkdf2
-- **Single master password** decrypts all secrets
+- **Unprivileged LXC containers** with UID/GID mapping (101000:101000 → 1000:1000)
+- **Encrypted secrets**: AES-256-CBC with pbkdf2
+- **Single master key** decrypts all `.env.enc` files
 - **Network isolation** per stack
-- **Automated updates** via Watchtower
+- **Automated security updates** via Watchtower
 
 ## 📄 License
 
