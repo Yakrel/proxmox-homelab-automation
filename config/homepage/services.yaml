@@ -138,6 +138,11 @@
         href: http://192.168.1.103:5984/_utils
         icon: couchdb.png
 
+    - Vaultwarden:
+        description: Password Manager
+        href: https://192.168.1.103:8201
+        icon: vaultwarden.png
+
 - Downloads:
     - qBittorrent:
         description: Torrent Client
