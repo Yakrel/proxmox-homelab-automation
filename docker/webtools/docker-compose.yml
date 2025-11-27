@@ -188,3 +188,25 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    environment:
+      - WEBSOCKET_ENABLED=true
+      - SIGNUPS_ALLOWED=true
+      - ROCKET_TLS={certs="/ssl/cert.pem",key="/ssl/key.pem"}
+      - TZ=${TZ:-Europe/Istanbul}
+    volumes:
+      - /datapool/config/vaultwarden:/data
+      - /datapool/config/vaultwarden/ssl:/ssl:ro
+    ports:
+      - 8201:80
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

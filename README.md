@@ -65,7 +65,7 @@ Prometheus, Grafana, Loki, Promtail, PVE Exporter, cAdvisor
 JDownloader 2, MeTube, Palmr
 
 ### **Web Tools** (LXC 103)
-Homepage, Desktop Workspace, CouchDB, Portainer
+Homepage, Desktop Workspace, CouchDB, Vaultwarden
 
 ### **Proxy & Tunnel** (LXC 100)
 Cloudflared, Promtail, Watchtower
