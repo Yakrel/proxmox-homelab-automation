@@ -77,7 +77,8 @@
         "/backup-sources/config/prowlarr/Sentry",
         "/backup-sources/config/radarr/Sentry",
         "/backup-sources/config/sonarr/Sentry",
-        "/backup-sources/config/*/asp"
+        "/backup-sources/config/*/asp",
+        "/backup-sources/config/vaultwarden/ssl/key.pem"
       ],
       "schedule": {
         "cron": "30 12 * * *",
