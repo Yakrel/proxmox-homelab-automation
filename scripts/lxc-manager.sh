@@ -222,7 +222,7 @@ EOS
         dpkg -i code-server_\${CODE_SERVER_VERSION}_amd64.deb
         rm -f code-server_\${CODE_SERVER_VERSION}_amd64.deb
 
-        # Configure code-server
+        # Configure code-server (no auth - homelab internal network only)
         mkdir -p /root/.config/code-server
         cat > /root/.config/code-server/config.yaml << 'EOFCS'
 bind-addr: 0.0.0.0:8680
