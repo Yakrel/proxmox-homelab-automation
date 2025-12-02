@@ -36,7 +36,7 @@ layout:
   Utilities:
     style: row
     columns: 3
-    initiallyCollapsed: true
+    initiallyCollapsed: false
 
 # Display Options - Minimalist
 statusStyle: dot

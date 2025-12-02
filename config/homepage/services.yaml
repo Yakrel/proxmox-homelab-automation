@@ -47,6 +47,26 @@
           username: "{{HOMEPAGE_VAR_BACKREST_USERNAME}}"
           password: "{{HOMEPAGE_VAR_BACKREST_PASSWORD}}"
 
+    - Nginx Proxy Manager:
+        description: Reverse Proxy
+        href: http://192.168.1.100:81
+        icon: nginx-proxy-manager.png
+        widget:
+          type: npm
+          url: http://192.168.1.100:81
+          username: "{{HOMEPAGE_VAR_NPM_USERNAME}}"
+          password: "{{HOMEPAGE_VAR_NPM_PASSWORD}}"
+
+    - AdGuard Home:
+        description: DNS & AdBlock
+        href: http://192.168.1.100:3000
+        icon: adguard-home.png
+        widget:
+          type: adguard
+          url: http://192.168.1.100:3000
+          username: "{{HOMEPAGE_VAR_ADGUARD_USERNAME}}"
+          password: "{{HOMEPAGE_VAR_ADGUARD_PASSWORD}}"
+
     - Palmr:
         description: S3 Storage
         href: http://192.168.1.102:5487
