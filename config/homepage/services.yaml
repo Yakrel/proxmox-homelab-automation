@@ -6,7 +6,7 @@
 - Infrastructure:
     - Proxmox VE:
         description: Virtualization Platform
-        href: https://192.168.1.10:8006
+        href: https://proxmox.local.byetgin.com
         icon: proxmox.png
         widget:
           type: proxmox
@@ -69,13 +69,13 @@
 
     - Palmr:
         description: S3 Storage
-        href: https://palmr.byetgin.com
+        href: https://palmr.local.byetgin.com
         icon: mdi-folder-multiple
 
 - Media:
     - Jellyfin:
         description: Media Server
-        href: https://jellyfin.byetgin.com
+        href: https://jellyfin.local.byetgin.com
         icon: jellyfin.png
         widget:
           type: jellyfin
@@ -145,7 +145,7 @@
 - Utilities:
     - Desktop Workspace:
         description: Remote Desktop (Selkies)
-        href: https://cdn.byetgin.com
+        href: https://cdn.local.byetgin.com
         icon: chrome.png
 
     - CouchDB:
