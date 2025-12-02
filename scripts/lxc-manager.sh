@@ -50,9 +50,9 @@ get_latest_template() {
 }
 
 # Choose template based on stack type - always use latest
-# Debian: media (Jellyfin GPU), webtools (Chrome GPU)
+# Debian: media (Jellyfin GPU), webtools (Chrome GPU), development (code-server)
 # Alpine: all other stacks (lighter, faster)
-if [ "$STACK_NAME" = "media" ] || [ "$STACK_NAME" = "webtools" ]; then
+if [ "$STACK_NAME" = "media" ] || [ "$STACK_NAME" = "webtools" ] || [ "$STACK_NAME" = "development" ]; then
     LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
 else
     LATEST_TEMPLATE=$(get_latest_template "alpine-.*-default")
@@ -176,8 +176,8 @@ pct exec "$CT_ID" -- sh -c "
 set -e
 STACK_NAME='${STACK_NAME}'
 
-# Debian stacks: media (Jellyfin GPU), webtools (Chrome GPU)
-if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'webtools' ]; then
+# Debian stacks: media (Jellyfin GPU), webtools (Chrome GPU), development (code-server)
+if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'webtools' ] || [ \"\$STACK_NAME\" = 'development' ]; then
     export DEBIAN_FRONTEND=noninteractive
     export DEBIAN_PRIORITY=critical
     export LC_ALL=C
@@ -203,13 +203,45 @@ Components: main contrib non-free non-free-firmware
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOS
 
-    # Add Docker's official GPG key and repository (following official docs)
-    install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
-    chmod a+r /etc/apt/keyrings/docker.asc
+    # Development stack: code-server + AI CLI tools (no Docker, no GPU)
+    if [ \"\$STACK_NAME\" = 'development' ]; then
+        apt-get update -qq
+        apt-get install -y -qq nodejs npm git python3 python3-pip bash nano vim htop
 
-    # Add the repository to Apt sources using DEB822 format
-    cat > /etc/apt/sources.list.d/docker.sources <<DOCKERSOURCES
+        # Configure npm
+        npm config set fund false || true
+        npm config set update-notifier false || true
+
+        # Install AI CLI tools (optional - failures are non-critical)
+        npm install -g @anthropic-ai/claude-code 2>/dev/null || echo 'Note: claude-code installation skipped'
+        npm install -g @google/gemini-cli 2>/dev/null || echo 'Note: gemini-cli installation skipped'
+
+        # Install code-server (latest version)
+        CODE_SERVER_VERSION=\$(curl -fsSL https://api.github.com/repos/coder/code-server/releases/latest | grep tag_name | awk '{print substr(\$2, 3, length(\$2)-4)}')
+        curl -fOL \"https://github.com/coder/code-server/releases/download/v\${CODE_SERVER_VERSION}/code-server_\${CODE_SERVER_VERSION}_amd64.deb\"
+        dpkg -i code-server_\${CODE_SERVER_VERSION}_amd64.deb
+        rm -f code-server_\${CODE_SERVER_VERSION}_amd64.deb
+
+        # Configure code-server (no auth - homelab internal network only)
+        mkdir -p /root/.config/code-server
+        cat > /root/.config/code-server/config.yaml << 'EOFCS'
+bind-addr: 0.0.0.0:8680
+auth: none
+cert: false
+EOFCS
+
+        # Enable code-server service
+        systemctl enable --now code-server@root
+    else
+        # GPU stacks (media, webtools): Docker + NVIDIA
+
+        # Add Docker's official GPG key and repository (following official docs)
+        install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+        chmod a+r /etc/apt/keyrings/docker.asc
+
+        # Add the repository to Apt sources using DEB822 format
+        cat > /etc/apt/sources.list.d/docker.sources <<DOCKERSOURCES
 Types: deb
 URIs: https://download.docker.com/linux/debian
 Suites: \$(. /etc/os-release && echo \$VERSION_CODENAME)
@@ -218,27 +250,27 @@ Architectures: \$(dpkg --print-architecture)
 Signed-By: /etc/apt/keyrings/docker.asc
 DOCKERSOURCES
 
-    # Add NVIDIA container toolkit repository
-    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --yes --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-    tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-    
-    # Install Docker + NVIDIA drivers and toolkit
-    apt-get update -qq
-    apt-get install -y -qq nvidia-driver nvidia-kernel-dkms docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nvidia-container-toolkit
-    
-    # Configure NVIDIA runtime for Docker (unprivileged LXC compatible)
-    nvidia-ctk runtime configure --runtime=docker --config=/etc/docker/daemon.json --set-as-default=false || true
-    
-    if [ -f /etc/nvidia-container-runtime/config.toml ]; then
-        sed -i 's|^#no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
-        sed -i 's|^no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
-    fi
-    
-    # Ensure Docker daemon has NVIDIA runtime configured
-    mkdir -p /etc/docker
-    cat > /etc/docker/daemon.json << 'EOFDOCKER'
+        # Add NVIDIA container toolkit repository
+        curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --yes --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+        curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+        sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+        tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+        
+        # Install Docker + NVIDIA drivers and toolkit
+        apt-get update -qq
+        apt-get install -y -qq nvidia-driver nvidia-kernel-dkms docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nvidia-container-toolkit
+        
+        # Configure NVIDIA runtime for Docker (unprivileged LXC compatible)
+        nvidia-ctk runtime configure --runtime=docker --config=/etc/docker/daemon.json --set-as-default=false || true
+        
+        if [ -f /etc/nvidia-container-runtime/config.toml ]; then
+            sed -i 's|^#no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
+            sed -i 's|^no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
+        fi
+        
+        # Ensure Docker daemon has NVIDIA runtime configured
+        mkdir -p /etc/docker
+        cat > /etc/docker/daemon.json << 'EOFDOCKER'
 {
     \"runtimes\": {
         \"nvidia\": {
@@ -249,9 +281,10 @@ DOCKERSOURCES
 }
 EOFDOCKER
 
-    # Enable Docker
-    systemctl enable docker --now
-    systemctl restart docker
+        # Enable Docker
+        systemctl enable docker --now
+        systemctl restart docker
+    fi
 
     # Common Debian configuration
     mkdir -p /etc/systemd/system/getty@tty1.service.d
@@ -278,22 +311,12 @@ else
     apk update
     apk upgrade
     
-    if [ \"\$STACK_NAME\" = 'development' ]; then
-        # Development: NO Docker; only AI CLI tools and development packages
-        apk add --no-cache util-linux nodejs npm git curl python3 py3-pip bash nano vim htop ca-certificates
-        npm config set fund false || true
-        npm config set update-notifier false || true
-        # Install AI CLI tools (optional - failures are non-critical)
-        npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 || echo 'Note: claude-code installation skipped'
-        npm install -g @google/gemini-cli >/dev/null 2>&1 || echo 'Note: gemini-cli installation skipped'
-    else
-        # Other Alpine stacks: Docker runtime
-        apk add --no-cache docker docker-cli-compose util-linux
-        
-        # Add docker to boot runlevel and start
-        rc-update add docker boot
-        service docker start || rc-service docker start || true
-    fi
+    # Alpine stacks: Docker runtime
+    apk add --no-cache docker docker-cli-compose util-linux
+    
+    # Add docker to boot runlevel and start
+    rc-update add docker boot
+    service docker start || rc-service docker start || true
 
     # Alpine autologin
     sed -i 's|^tty1::|#&|' /etc/inittab || true
