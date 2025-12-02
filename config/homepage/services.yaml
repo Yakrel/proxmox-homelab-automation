@@ -16,7 +16,7 @@
 
     - Grafana:
         description: Monitoring & Metrics
-        href: http://192.168.1.104:3000
+        href: https://grafana.byetgin.com
         icon: grafana.png
         widget:
           type: grafana
@@ -26,7 +26,7 @@
 
     - Prometheus:
         description: Metrics Collection
-        href: http://192.168.1.104:9090
+        href: https://prometheus.byetgin.com
         icon: prometheus.png
         widget:
           type: prometheus
@@ -34,12 +34,12 @@
 
     - Loki:
         description: Log Aggregation
-        href: http://192.168.1.104:3100
+        href: https://loki.byetgin.com
         icon: loki.png
 
     - Backrest:
         description: Backup Management
-        href: http://192.168.1.106:9898
+        href: https://backrest.byetgin.com
         icon: mdi-backup-restore
         widget:
           type: backrest
@@ -49,7 +49,7 @@
 
     - Nginx Proxy Manager:
         description: Reverse Proxy
-        href: http://192.168.1.100:81
+        href: https://npm.byetgin.com
         icon: nginx-proxy-manager.png
         widget:
           type: npm
@@ -59,7 +59,7 @@
 
     - AdGuard Home:
         description: DNS & AdBlock
-        href: http://192.168.1.100:3000
+        href: https://adguard.byetgin.com
         icon: adguard-home.png
         widget:
           type: adguard
@@ -69,7 +69,7 @@
 
     - Palmr:
         description: S3 Storage
-        href: http://192.168.1.102:5487
+        href: https://palmr.byetgin.com
         icon: mdi-folder-multiple
 
 - Media:
@@ -84,7 +84,7 @@
     
     - Jellyseerr:
         description: Media Requests
-        href: http://192.168.1.101:5055
+        href: https://jellyseerr.byetgin.com
         icon: jellyseerr.png
         widget:
           type: jellyseerr
@@ -93,7 +93,7 @@
     
     - Sonarr:
         description: TV Shows
-        href: http://192.168.1.101:8989
+        href: https://sonarr.byetgin.com
         icon: sonarr.png
         widget:
           type: sonarr
@@ -102,7 +102,7 @@
     
     - Radarr:
         description: Movies
-        href: http://192.168.1.101:7878
+        href: https://radarr.byetgin.com
         icon: radarr.png
         widget:
           type: radarr
@@ -111,7 +111,7 @@
     
     - Prowlarr:
         description: Indexer Manager
-        href: http://192.168.1.101:9696
+        href: https://prowlarr.byetgin.com
         icon: prowlarr.png
         widget:
           type: prowlarr
@@ -120,7 +120,7 @@
     
     - Bazarr:
         description: Subtitles
-        href: http://192.168.1.101:6767
+        href: https://bazarr.byetgin.com
         icon: bazarr.png
         widget:
           type: bazarr
@@ -129,7 +129,7 @@
     
     - Immich:
         description: Photo & Video Management
-        href: http://192.168.1.101:2283
+        href: https://immich.byetgin.com
         icon: immich.png
         widget:
           type: immich
@@ -148,14 +148,9 @@
         href: https://cdn.byetgin.com
         icon: chrome.png
 
-    - Obsidian:
-        description: Knowledge Base
-        href: http://192.168.1.103:3334
-        icon: obsidian.png
-
     - CouchDB:
         description: Obsidian Sync
-        href: http://192.168.1.103:5984/_utils
+        href: https://couchdb.byetgin.com/_utils
         icon: couchdb.png
 
     - Vaultwarden:
@@ -166,7 +161,7 @@
 - Downloads:
     - qBittorrent:
         description: Torrent Client
-        href: http://192.168.1.101:8080
+        href: https://qbittorrent.byetgin.com
         icon: qbittorrent.png
         widget:
           type: qbittorrent
@@ -176,7 +171,7 @@
     
     - Metube:
         description: YouTube Downloader
-        href: http://192.168.1.102:8081
+        href: https://metube.byetgin.com
         icon: metube.png
     
     - MyJDownloader:
