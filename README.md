@@ -19,12 +19,10 @@ Interactive menu guides you through stack selection and deployment. Only one pas
 
 ## 🏆 Technical Highlights
 
-### **Advanced LXC Configuration**
-- **NVIDIA GPU passthrough in unprivileged containers** (cgroup v2 method)
-- **Jellyfin**: 18.64x real-time hardware transcoding (447 fps on GTX 970)
-- **Immich ML**: GPU-accelerated face recognition + object detection
-- **Chrome**: Hardware-accelerated rendering in desktop workspace
-- Direct device mounting with CUDA library integration
+### **Advanced Virtualization & Resource Management**
+- **Unprivileged LXC GPU Passthrough**: Engineered secure GPU access for unprivileged containers using cgroup v2 mapping, avoiding security risks of privileged containers.
+- **Nested Docker Optimization**: Configured efficient Docker-in-LXC runtime, combining the lightweight nature of LXC with the portability of Docker.
+- **Shared Hardware Acceleration**: Centralized NVIDIA driver management on host, mapped to multiple containers for concurrent CUDA/NVENC workloads.
 
 ### **Enterprise-Grade Security & Networking**
 - **Zero Trust Architecture**: Cloudflare Access protects public endpoints with Email OTP & Geo-blocking (Turkey only).
@@ -46,12 +44,11 @@ Two custom images built and maintained with automated pipelines:
 - Zero-downtime updates via Watchtower
 - Published to DockerHub: `yakrel93/desktop-workspace`, `yakrel93/backrest-rclone`
 
-### **Infrastructure as Code**
-- **2100+ lines** of modular shell automation
-- **Idempotent operations** - safe to re-run
-- **Encrypted secrets** - AES-256-CBC with pbkdf2
-- **Mixed LXC types**: Alpine (lightweight) + Debian (GPU stacks)
-- **Comprehensive monitoring**: Prometheus + Grafana + Loki (30-day retention)
+### **DevOps & Automation Practices**
+- **Bash-based Orchestration**: 2100+ lines of modular, idempotent shell scripts treating the entire homelab as code.
+- **Secret Management**: Production-grade secret handling using AES-256-CBC encryption for all configuration files.
+- **Full-Stack Observability**: Centralized logging (Loki) and metrics (Prometheus) stack monitoring host, containers, and services.
+- **GitOps Workflow**: Infrastructure changes are version-controlled, tested in dev containers, and deployed via pull mechanisms.
 
 ### **Automated Offsite Backups**
 - Pre-configured Backrest with restic repositories
