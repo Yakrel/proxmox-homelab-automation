@@ -26,11 +26,22 @@ Interactive menu guides you through stack selection and deployment. Only one pas
 
 ### **Enterprise-Grade Security & Networking**
 - **Zero Trust Architecture**: Cloudflare Access protects public endpoints with Email OTP & Geo-blocking (Turkey only).
-- **Split DNS Strategy**: 
-  - **Internal**: AdGuard Home resolves `*.byetgin.com` to local Nginx (192.168.1.100) for gigabit speed & zero hairpinning.
-  - **External**: Cloudflare Tunnel handles remote access without opening any inbound ports (CGNAT friendly).
 - **Secure Remote Access**: Cloudflare WARP integration for full VPN-less access to internal subnets (`192.168.1.0/24`).
 - **Wildcard SSL**: Automated Let's Encrypt wildcard certificates via DNS challenge for full internal HTTPS.
+
+#### **Hybrid Access Strategy (Split Subdomains)**
+A sophisticated solution to bypass Cloudflare's "Split DNS" paywall (Enterprise feature), ensuring optimal routing for both local and remote access:
+
+| Access Method | Domain Format | Route | Features |
+|--------------|---------------|-------|----------|
+| **Remote (Public)** | `service.byetgin.com` | Internet -> Cloudflare Tunnel -> Home | Protected by Cloudflare Access, slower |
+| **Local / WARP** | `service.local.byetgin.com` | Device -> WARP -> Local Network -> NPM | Direct connection, max speed, no auth prompt |
+| **Internal Only** | `service.byetgin.com` | Device -> WARP -> Local Network -> NPM | Services without public CNAME records resolve directly to local IP via wildcard DNS |
+
+**Implementation:**
+- **Cloudflare DNS**: `*.byetgin.com` -> `192.168.1.100` (DNS Only) handles all internal/local traffic.
+- **Nginx Proxy Manager**: Hosts configured with dual domains (`service` + `service.local`) and wildcard SSL.
+- **Homepage**: Smart linking uses `.local` domains for public services to force direct connection when using WARP.
 
 ### **Custom Docker Images + Automated CI/CD**
 Two custom images built and maintained with automated pipelines:
@@ -60,28 +71,28 @@ Two custom images built and maintained with automated pipelines:
 
 ## 📦 Service Stacks
 
-### **Media Automation** (LXC 101)
+### **Media Automation** (LXC 101 - 192.168.1.101)
 Jellyfin, Immich, Sonarr, Radarr, Bazarr, Jellyseerr, Prowlarr, qBittorrent, FlareSolverr, Recyclarr, Cleanuperr
 
-### **Monitoring & Observability** (LXC 104)
+### **Monitoring & Observability** (LXC 104 - 192.168.1.104)
 Prometheus, Grafana, Loki, Promtail, PVE Exporter, cAdvisor
 
-### **File Management** (LXC 102)
+### **File Management** (LXC 102 - 192.168.1.102)
 JDownloader 2, MeTube, Palmr
 
-### **Web Tools** (LXC 103)
+### **Web Tools** (LXC 103 - 192.168.1.103)
 Homepage, Desktop Workspace, CouchDB, Vaultwarden
 
-### **Proxy & DNS** (LXC 100)
+### **Proxy & DNS** (LXC 100 - 192.168.1.100)
 Nginx Proxy Manager, AdGuard Home, Cloudflared, Promtail, Watchtower
 
-### **Backup** (LXC 106)
+### **Backup** (LXC 106 - 192.168.1.106)
 Backrest-Rclone (custom image with Google Drive sync)
 
-### **Game Servers** (LXC 105)
+### **Game Servers** (LXC 105 - 192.168.1.105)
 Satisfactory, Palworld
 
-### **Development** (LXC 107)
+### **Development** (LXC 107 - 192.168.1.107)
 Extensible development environment
 
 ---
