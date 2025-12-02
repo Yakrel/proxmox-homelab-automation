@@ -5,6 +5,54 @@ networks:
     driver: bridge
 
 services:
+  npm:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: npm
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '81:81'
+      - '443:443'
+    volumes:
+      - /datapool/config/npm/data:/data
+      - /datapool/config/npm/letsencrypt:/etc/letsencrypt
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=1000
+      - PGID=1000
+    networks:
+      - proxy-net
+    healthcheck:
+      test: ["CMD", "/bin/check-health"]
+      interval: 10s
+      timeout: 3s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  adguard:
+    image: adguard/adguardhome:latest
+    container_name: adguard
+    restart: unless-stopped
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "3000:3000" # Web Interface
+    volumes:
+      - /datapool/config/adguard/work:/opt/adguardhome/work
+      - /datapool/config/adguard/conf:/opt/adguardhome/conf
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+    networks:
+      - proxy-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
