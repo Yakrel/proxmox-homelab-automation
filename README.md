@@ -26,6 +26,14 @@ Interactive menu guides you through stack selection and deployment. Only one pas
 - **Chrome**: Hardware-accelerated rendering in desktop workspace
 - Direct device mounting with CUDA library integration
 
+### **Enterprise-Grade Security & Networking**
+- **Zero Trust Architecture**: Cloudflare Access protects public endpoints with Email OTP & Geo-blocking (Turkey only).
+- **Split DNS Strategy**: 
+  - **Internal**: AdGuard Home resolves `*.byetgin.com` to local Nginx (192.168.1.100) for gigabit speed & zero hairpinning.
+  - **External**: Cloudflare Tunnel handles remote access without opening any inbound ports (CGNAT friendly).
+- **Secure Remote Access**: Cloudflare WARP integration for full VPN-less access to internal subnets (`192.168.1.0/24`).
+- **Wildcard SSL**: Automated Let's Encrypt wildcard certificates via DNS challenge for full internal HTTPS.
+
 ### **Custom Docker Images + Automated CI/CD**
 Two custom images built and maintained with automated pipelines:
 - **desktop-workspace**: Multi-app web environment (Chrome + Obsidian + file manager)
@@ -67,8 +75,8 @@ JDownloader 2, MeTube, Palmr
 ### **Web Tools** (LXC 103)
 Homepage, Desktop Workspace, CouchDB, Vaultwarden
 
-### **Proxy & Tunnel** (LXC 100)
-Cloudflared, Promtail, Watchtower
+### **Proxy & DNS** (LXC 100)
+Nginx Proxy Manager, AdGuard Home, Cloudflared, Promtail, Watchtower
 
 ### **Backup** (LXC 106)
 Backrest-Rclone (custom image with Google Drive sync)
