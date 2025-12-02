@@ -3,6 +3,8 @@ name: media
 networks:
   media-net:
     driver: bridge
+  homelab-proxy:
+    external: true
 
 services:
   sonarr:

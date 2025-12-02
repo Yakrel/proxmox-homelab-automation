@@ -55,7 +55,7 @@
 - Media:
     - Jellyfin:
         description: Media Server
-        href: http://192.168.1.101:8096
+        href: https://jellyfin.byetgin.com
         icon: jellyfin.png
         widget:
           type: jellyfin
@@ -123,9 +123,9 @@
         icon: cleanuperr.png
 
 - Utilities:
-    - Chrome:
-        description: Remote Browser
-        href: http://192.168.1.103:5800
+    - Desktop Workspace:
+        description: Remote Desktop (Selkies)
+        href: https://cdn.byetgin.com
         icon: chrome.png
 
     - Obsidian:
@@ -140,7 +140,7 @@
 
     - Vaultwarden:
         description: Password Manager
-        href: https://192.168.1.103:8201
+        href: https://vaultwarden.byetgin.com
         icon: vaultwarden.png
 
 - Downloads:

@@ -196,11 +196,9 @@ services:
     environment:
       - WEBSOCKET_ENABLED=true
       - SIGNUPS_ALLOWED=true
-      - ROCKET_TLS={certs="/ssl/cert.pem",key="/ssl/key.pem"}
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
       - /datapool/config/vaultwarden:/data
-      - /datapool/config/vaultwarden/ssl:/ssl:ro
     ports:
       - 8201:80
     networks:
