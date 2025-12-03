@@ -223,7 +223,28 @@ EOS
         rm -f code-server_\${CODE_SERVER_VERSION}_amd64.deb
 
         # Configure code-server (no auth - homelab internal network only)
+        # Persist config and data (extensions/user-data) to datapool
+        mkdir -p /datapool/config/code-server/config
+        mkdir -p /datapool/config/code-server/data
+        
+        mkdir -p /root/.config
+        mkdir -p /root/.local/share
+
+        # Replace local directories with symlinks to datapool
+        if [ ! -L /root/.config/code-server ]; then
+            rm -rf /root/.config/code-server
+            ln -s /datapool/config/code-server/config /root/.config/code-server
+        fi
+        
+        if [ ! -L /root/.local/share/code-server ]; then
+            rm -rf /root/.local/share/code-server
+            ln -s /datapool/config/code-server/data /root/.local/share/code-server
+        fi
+
+        # Write config file (now writes to datapool via symlink)
+        # Ensure directory exists (symlink target might be empty initially)
         mkdir -p /root/.config/code-server
+        
         cat > /root/.config/code-server/config.yaml << 'EOFCS'
 bind-addr: 0.0.0.0:8680
 auth: none
