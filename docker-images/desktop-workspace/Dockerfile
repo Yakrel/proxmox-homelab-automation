@@ -61,19 +61,14 @@ RUN \
     /opt/obsidian/usr/share/icons/hicolor/512x512/apps/obsidian.png \
     /usr/share/icons/hicolor/512x512/apps/obsidian.png && \
   echo "**** convert icons ****" && \
-  apt-get install -y --no-install-recommends librsvg2-bin imagemagick && \
+  apt-get install -y --no-install-recommends librsvg2-bin && \
   rsvg-convert -w 48 -h 48 \
     /usr/share/icons/hicolor/scalable/apps/org.xfce.thunar.svg \
     -o /usr/share/icons/hicolor/48x48/apps/thunar.png && \
   rsvg-convert -w 512 -h 512 \
     /usr/share/icons/hicolor/scalable/apps/org.xfce.thunar.svg \
     -o /usr/share/icons/hicolor/512x512/apps/thunar.png && \
-  convert \
-    /usr/share/icons/hicolor/512x512/apps/obsidian.png \
-    -filter Lanczos -quality 100 \
-    -resize 48x48 \
-    /usr/share/icons/hicolor/48x48/apps/obsidian.png && \
-  apt-get purge -y librsvg2-bin imagemagick && \
+  apt-get purge -y librsvg2-bin && \
   apt-get autoremove -y && \
   echo "**** cleanup ****" && \
   apt-get autoclean && \
