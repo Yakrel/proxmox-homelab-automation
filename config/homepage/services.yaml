@@ -158,6 +158,11 @@
         href: https://vaultwarden.byetgin.com
         icon: vaultwarden.png
 
+    - VS Code:
+        description: Web-based IDE
+        href: https://code.byetgin.com/
+        icon: vscode.png
+
 - Downloads:
     - qBittorrent:
         description: Torrent Client
