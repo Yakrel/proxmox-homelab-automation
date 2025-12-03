@@ -70,6 +70,7 @@ RUN \
     -o /usr/share/icons/hicolor/512x512/apps/thunar.png && \
   convert \
     /usr/share/icons/hicolor/512x512/apps/obsidian.png \
+    -filter Lanczos -quality 100 \
     -resize 48x48 \
     /usr/share/icons/hicolor/48x48/apps/obsidian.png && \
   apt-get purge -y librsvg2-bin imagemagick && \
