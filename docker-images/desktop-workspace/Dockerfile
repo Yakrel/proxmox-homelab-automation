@@ -40,7 +40,7 @@ RUN \
     libatk1.0 \
     libatk-bridge2.0 \
     libnss3 \
-    pcmanfm \
+    thunar \
     adwaita-icon-theme \
     python3-xdg \
     tint2 && \
@@ -58,6 +58,14 @@ RUN \
   cp \
     /opt/obsidian/usr/share/icons/hicolor/512x512/apps/obsidian.png \
     /usr/share/icons/hicolor/512x512/apps/obsidian.png && \
+  echo "**** convert Thunar icon ****" && \
+  apt-get install -y --no-install-recommends librsvg2-bin && \
+  mkdir -p /usr/share/icons/hicolor/48x48/apps && \
+  rsvg-convert -w 48 -h 48 \
+    /usr/share/icons/hicolor/scalable/apps/org.xfce.thunar.svg \
+    -o /usr/share/icons/hicolor/48x48/apps/thunar.png && \
+  apt-get purge -y librsvg2-bin && \
+  apt-get autoremove -y && \
   echo "**** cleanup ****" && \
   apt-get autoclean && \
   rm -rf \
