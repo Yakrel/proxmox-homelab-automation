@@ -18,6 +18,22 @@ if [[ ! -f /config/.config/openbox/autostart ]]; then
     cp /defaults/autostart /config/.config/openbox/autostart
 fi
 
+# Configure GTK Bookmarks (File Manager Sidebar)
+if [[ ! -d /config/.config/gtk-3.0 ]]; then
+    mkdir -p /config/.config/gtk-3.0
+fi
+
+BOOKMARKS_FILE="/config/.config/gtk-3.0/bookmarks"
+if [[ ! -f "$BOOKMARKS_FILE" ]]; then
+    touch "$BOOKMARKS_FILE"
+    echo "file:///config Home" >> "$BOOKMARKS_FILE"
+    echo "file:///config/Desktop Desktop" >> "$BOOKMARKS_FILE"
+fi
+
+if ! grep -q "file:///datapool" "$BOOKMARKS_FILE"; then
+    echo "file:///datapool Datapool" >> "$BOOKMARKS_FILE"
+fi
+
 # permissions
 lsiown -R abc:abc \
     /config
