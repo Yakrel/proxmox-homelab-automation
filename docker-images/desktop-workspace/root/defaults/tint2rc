@@ -127,7 +127,7 @@ task_urgent_background_id = 2
 task_urgent_icon_asb = 100 0 0
 mouse_left = toggle_iconify
 mouse_middle = none
-mouse_right = close
+mouse_right = none
 mouse_scroll_up = toggle
 mouse_scroll_down = iconify
 

@@ -2,7 +2,7 @@
 Name=Obsidian
 Comment=Knowledge base and note-taking application
 Exec=/usr/bin/obsidian %U
-Icon=/usr/share/icons/hicolor/48x48/apps/obsidian.png
+Icon=/usr/share/icons/hicolor/512x512/apps/obsidian.png
 Type=Application
 Terminal=false
 Categories=Office;Utility;TextEditor;
