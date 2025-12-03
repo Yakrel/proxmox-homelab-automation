@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Thunar
+Comment=Browse the file system
+Exec=/usr/bin/thunar %U
+Icon=/usr/share/icons/hicolor/48x48/apps/thunar.png
+Type=Application
+Terminal=false
+Categories=Utility;FileManager;
+MimeType=inode/directory;
+StartupWMClass=thunar
