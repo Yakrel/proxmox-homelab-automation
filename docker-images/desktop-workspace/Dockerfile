@@ -41,6 +41,7 @@ RUN \
     libatk-bridge2.0 \
     libnss3 \
     pcmanfm \
+    adwaita-icon-theme \
     python3-xdg \
     tint2 && \
   echo "**** install Obsidian ****" && \

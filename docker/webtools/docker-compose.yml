@@ -63,6 +63,7 @@ services:
       - "5800:3001"  # HTTPS web interface
     volumes:
       - /datapool/config/desktop-workspace:/config
+      - /datapool:/datapool
     deploy:
       resources:
         reservations:
