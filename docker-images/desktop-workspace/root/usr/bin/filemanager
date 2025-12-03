@@ -1,5 +1,0 @@
-#!/bin/bash
-
-BIN=/usr/bin/pcmanfm
-
-${BIN} "$@"

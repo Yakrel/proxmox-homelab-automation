@@ -3,6 +3,6 @@
 <menu id="root-menu" label="MENU">
 <item label="Chrome" icon="/usr/share/icons/hicolor/48x48/apps/google-chrome.png"><action name="Execute"><command>/usr/bin/wrapped-chrome</command></action></item>
 <item label="Obsidian" icon="/usr/share/icons/hicolor/512x512/apps/obsidian.png"><action name="Execute"><command>/usr/bin/obsidian</command></action></item>
-<item label="File Manager" icon="/usr/share/icons/nuoveXT2/48x48/apps/system-file-manager.png"><action name="Execute"><command>/usr/bin/filemanager</command></action></item>
+<item label="File Manager" icon="/usr/share/icons/hicolor/48x48/apps/pcmanfm.png"><action name="Execute"><command>/usr/bin/pcmanfm</command></action></item>
 </menu>
 </openbox_menu>
