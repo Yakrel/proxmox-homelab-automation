@@ -1,6 +1,6 @@
 # Proxmox Homelab Automation
 
-Production homelab running **40+ services** across **8 LXC containers** with **NVIDIA GPU passthrough in unprivileged LXC**, **custom Docker images with automated CI/CD**, and **comprehensive monitoring**. Fully automated deployment with **2100+ lines of shell scripts**.
+Production homelab architected with enterprise-grade practices, demonstrating advanced DevOps capabilities. Orchestrates **40+ microservices** across **8 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**, and **full-stack observability**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** mimicking bare-metal provisioning.
 
 > **About**: My production homelab that I actively use and develop. Publicly shared to demonstrate DevOps, infrastructure automation, and advanced Linux system administration capabilities. All values are hardcoded for my specific environment for maximum reliability.
 
