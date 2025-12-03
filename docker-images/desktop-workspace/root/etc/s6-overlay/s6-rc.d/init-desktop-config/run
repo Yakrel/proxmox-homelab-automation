@@ -7,6 +7,17 @@ if [[ ! -f /config/.config/tint2/tint2rc ]]; then
     cp /defaults/tint2rc /config/.config/tint2/tint2rc
 fi
 
+# Copy openbox config if not exists
+if [[ ! -f /config/.config/openbox/menu.xml ]]; then
+    mkdir -p /config/.config/openbox
+    cp /defaults/menu.xml /config/.config/openbox/menu.xml
+fi
+
+if [[ ! -f /config/.config/openbox/autostart ]]; then
+    mkdir -p /config/.config/openbox
+    cp /defaults/autostart /config/.config/openbox/autostart
+fi
+
 # permissions
 lsiown -R abc:abc \
     /config
