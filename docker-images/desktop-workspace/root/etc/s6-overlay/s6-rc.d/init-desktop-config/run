@@ -19,20 +19,14 @@ if [[ ! -f /config/.config/openbox/autostart ]]; then
 fi
 
 # Configure GTK Bookmarks (File Manager Sidebar)
+# Only add Datapool - File System (/) is shown by default in Thunar
 if [[ ! -d /config/.config/gtk-3.0 ]]; then
     mkdir -p /config/.config/gtk-3.0
 fi
 
 BOOKMARKS_FILE="/config/.config/gtk-3.0/bookmarks"
-if [[ ! -f "$BOOKMARKS_FILE" ]]; then
-    touch "$BOOKMARKS_FILE"
-    echo "file:///config Home" >> "$BOOKMARKS_FILE"
-    echo "file:///config/Desktop Desktop" >> "$BOOKMARKS_FILE"
-fi
-
-if ! grep -q "file:///datapool" "$BOOKMARKS_FILE"; then
-    echo "file:///datapool Datapool" >> "$BOOKMARKS_FILE"
-fi
+# Create bookmarks with only Datapool (File System is built-in)
+echo "file:///datapool Datapool" > "$BOOKMARKS_FILE"
 
 # permissions
 lsiown -R abc:abc \

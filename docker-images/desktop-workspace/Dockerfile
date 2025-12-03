@@ -55,16 +55,24 @@ RUN \
   chmod +x /tmp/obsidian.app && \
   ./obsidian.app --appimage-extract && \
   mv squashfs-root /opt/obsidian && \
+  mkdir -p /usr/share/icons/hicolor/512x512/apps && \
+  mkdir -p /usr/share/icons/hicolor/48x48/apps && \
   cp \
     /opt/obsidian/usr/share/icons/hicolor/512x512/apps/obsidian.png \
     /usr/share/icons/hicolor/512x512/apps/obsidian.png && \
-  echo "**** convert Thunar icon ****" && \
-  apt-get install -y --no-install-recommends librsvg2-bin && \
-  mkdir -p /usr/share/icons/hicolor/48x48/apps && \
+  echo "**** convert icons ****" && \
+  apt-get install -y --no-install-recommends librsvg2-bin imagemagick && \
   rsvg-convert -w 48 -h 48 \
     /usr/share/icons/hicolor/scalable/apps/org.xfce.thunar.svg \
     -o /usr/share/icons/hicolor/48x48/apps/thunar.png && \
-  apt-get purge -y librsvg2-bin && \
+  rsvg-convert -w 512 -h 512 \
+    /usr/share/icons/hicolor/scalable/apps/org.xfce.thunar.svg \
+    -o /usr/share/icons/hicolor/512x512/apps/thunar.png && \
+  convert \
+    /usr/share/icons/hicolor/512x512/apps/obsidian.png \
+    -resize 48x48 \
+    /usr/share/icons/hicolor/48x48/apps/obsidian.png && \
+  apt-get purge -y librsvg2-bin imagemagick && \
   apt-get autoremove -y && \
   echo "**** cleanup ****" && \
   apt-get autoclean && \
