@@ -49,21 +49,21 @@ get_latest_template() {
     echo "$local_template"
 }
 
-# Choose template based on stack type - always use latest
-# Debian: media (Jellyfin GPU), webtools (Chrome GPU), development (code-server)
-# Alpine: all other stacks (lighter, faster)
-if [ "$STACK_NAME" = "media" ] || [ "$STACK_NAME" = "webtools" ] || [ "$STACK_NAME" = "development" ]; then
-    LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
-else
-    LATEST_TEMPLATE=$(get_latest_template "alpine-.*-default")
-fi
-
 # Container exists check - handle gracefully for idempotency
 if check_container_exists "$CT_ID"; then
     print_info "Container $CT_ID exists, verifying state"
     SKIP_CREATION=true
 else
     SKIP_CREATION=false
+    
+    # Choose template based on stack type - always use latest
+    # Debian: media (Jellyfin GPU), webtools (Chrome GPU), development (code-server)
+    # Alpine: all other stacks (lighter, faster)
+    if [ "$STACK_NAME" = "media" ] || [ "$STACK_NAME" = "webtools" ] || [ "$STACK_NAME" = "development" ]; then
+        LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
+    else
+        LATEST_TEMPLATE=$(get_latest_template "alpine-.*-default")
+    fi
 fi
 
 # Create container only if it doesn't exist
@@ -172,9 +172,6 @@ print_success "Container $CT_ID ready"
     
     # Fix permissions on host mapped directories
     fix_all_permissions
-
-    # Configure Docker daemon
-    configure_docker_daemon "$CT_ID"
 
 print_info "Provisioning container (stack: $STACK_NAME)"
 
