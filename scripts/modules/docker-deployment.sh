@@ -34,9 +34,6 @@ setup_homepage_config() {
         fi
     done
 
-    # Fix permissions
-    chown -R 101000:101000 /datapool/config/homepage
-
     print_success "Homepage configured"
 }
 
@@ -64,9 +61,6 @@ setup_couchdb_config() {
         exit 1
     fi
 
-    # Fix permissions
-    chown -R 101000:101000 /datapool/config/couchdb
-
     print_success "CouchDB configured"
 }
 
@@ -78,11 +72,9 @@ setup_immich_directories() {
     mkdir -p /datapool/media/immich/{upload,library,thumbs,profile,backups,encoded-video}
     mkdir -p /datapool/config/immich/postgres
 
-    # Set correct ownership (101000:101000 on host = 1000:1000 in LXC)
-    chown -R 101000:101000 /datapool/media/immich
-    chown -R 101000:101000 /datapool/config/immich
+    # Permissions are handled globally by fix_all_permissions
 
-    # Set appropriate permissions
+    # Set appropriate permissions (chmod only, ownership handled globally)
     chmod -R 755 /datapool/media/immich
     chmod -R 700 /datapool/config/immich/postgres
 

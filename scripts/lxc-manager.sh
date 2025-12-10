@@ -167,8 +167,14 @@ fi
 pct exec "$CT_ID" -- test -f /sbin/init
 print_success "Container $CT_ID ready"
 
-# Fix config permissions for LXC containers (idempotent)
-fix_config_permissions
+    # Create docker config directory
+    pct exec "$CT_ID" -- mkdir -p /root/.docker
+    
+    # Fix permissions on host mapped directories
+    fix_all_permissions
+
+    # Configure Docker daemon
+    configure_docker_daemon "$CT_ID"
 
 print_info "Provisioning container (stack: $STACK_NAME)"
 

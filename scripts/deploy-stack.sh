@@ -246,6 +246,10 @@ case "$STACK_NAME" in
         ;;
 esac
 
+# Step 5: Finalize permissions
+# Fix permissions on /datapool globally after Docker creates volumes
+fix_all_permissions
+
 # Cleanup
 rm -f "$ENV_DECRYPTED_PATH" 2>/dev/null || true
 
