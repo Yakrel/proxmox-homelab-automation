@@ -321,11 +321,6 @@ deploy_monitoring_stack() {
     # Provision Grafana dashboard JSON files (before starting Docker)
     provision_grafana_dashboards "$ct_id"
 
-    # Fix all permissions one final time before starting services (ensure new files have correct ownership)
-    print_info "Setting final permissions on all config files"
-    chown -R 101000:101000 /datapool/config
-    print_success "All permissions set correctly"
-
     # Deploy Docker services (configurations are now ready)
     deploy_docker_stack "$stack_name" "$ct_id"
 

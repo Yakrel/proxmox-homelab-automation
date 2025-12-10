@@ -76,8 +76,7 @@ configure_backrest_directories() {
     mkdir -p /datapool/backup
 
     # Set ownership for unprivileged container access (UID 1000 in container = UID 101000 on host)
-    chown -R 101000:101000 /datapool/config/backrest
-    chown -R 101000:101000 /datapool/backup
+    # Note: Permissions are handled globally by fix_all_permissions
 }
 
 # Configure rclone for Google Drive sync - creates config files for Docker container

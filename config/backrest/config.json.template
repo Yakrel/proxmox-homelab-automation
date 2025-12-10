@@ -29,7 +29,8 @@
             "command": "/config/sync-to-gdrive.sh"
           },
           "conditions": [
-            "CONDITION_SNAPSHOT_SUCCESS"
+            "CONDITION_SNAPSHOT_SUCCESS",
+            "CONDITION_SNAPSHOT_WARNING"
           ],
           "onError": "ON_ERROR_IGNORE"
         }
