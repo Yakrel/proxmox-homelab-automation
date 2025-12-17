@@ -430,22 +430,28 @@
             </div>
         </section>
 
-        <!-- 3.1 BACKUP & DR (Added) -->
+        <!-- 3.1 BACKUP & DR -->
         <section id="backup">
             <h2><i class="fa-solid fa-floppy-disk"></i> Backup & Disaster Recovery</h2>
-            <p>Data integrity is paramount. I engineered a custom backup solution that ensures the 3-2-1 backup strategy is automated and verifiable.</p>
+            <p>I employ a <strong>Tiered Backup Strategy</strong> combining local instant recovery with off-site encrypted archival. This ensures resilience against both user error and catastrophic hardware failure.</p>
             
             <div class="feature-grid">
                 <div class="feature-card">
-                    <span class="feature-title"><i class="fa-brands fa-google-drive" style="color:var(--accent-blue)"></i> Off-Site Replication</span>
+                    <span class="feature-title"><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-green)"></i> Layer 1: Local ZFS Snapshots</span>
                     <span class="feature-desc">
-                        Custom Docker container (<code>backrest-rclone</code>) mounts persistent volumes and syncs encrypted snapshots to Google Drive.
+                        Managed by <strong>Sanoid</strong>. Provides instant rollback capability for "oops" moments. Snapshots are taken hourly/daily on the ZFS storage pool, allowing file restoration in seconds.
                     </span>
                 </div>
                 <div class="feature-card">
-                    <span class="feature-title"><i class="fa-solid fa-box-archive" style="color:var(--accent-orange)"></i> Infrastructure State</span>
+                    <span class="feature-title"><i class="fa-brands fa-google-drive" style="color:var(--accent-blue)"></i> Layer 2: Off-Site Archival</span>
                     <span class="feature-desc">
-                        Since infrastructure is defined as code, restoring a destroyed server takes minutes: Install OS -> Clone Repo -> Run <code>installer.sh</code>.
+                        <strong>Restic</strong> (via Backrest) performs <strong>incremental & deduplicated</strong> backups to Google Drive. Data is client-side encrypted (AES-256) before leaving the network.
+                    </span>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-title"><i class="fa-solid fa-box-archive" style="color:var(--accent-orange)"></i> Layer 3: Infrastructure Code</span>
+                    <span class="feature-desc">
+                        Since infrastructure is defined as code, restoring a destroyed server is deterministic: Install OS -> Clone Repo -> Run <code>installer.sh</code>.
                     </span>
                 </div>
             </div>
