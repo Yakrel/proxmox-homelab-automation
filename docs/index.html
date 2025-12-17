@@ -312,6 +312,7 @@
             <li><a href="#overview" class="nav-item active"><i class="fa-solid fa-house"></i> Overview</a></li>
             <li><a href="#iac" class="nav-item"><i class="fa-solid fa-code"></i> Infrastructure as Code</a></li>
             <li><a href="#security" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Secrets</a></li>
+            <li><a href="#backup" class="nav-item"><i class="fa-solid fa-floppy-disk"></i> Backup & Recovery</a></li>
             <li><a href="#observability" class="nav-item"><i class="fa-solid fa-chart-line"></i> Observability</a></li>
             <li><a href="#topology" class="nav-item"><i class="fa-solid fa-network-wired"></i> Network Topology</a></li>
             <li><a href="#virtualization" class="nav-item"><i class="fa-brands fa-docker"></i> Virtualization Strategy</a></li>
@@ -368,12 +369,12 @@
         <!-- 2. IAC & AUTOMATION -->
         <section id="iac">
             <h2><i class="fa-solid fa-terminal"></i> Infrastructure as Code</h2>
-            <p>The entire infrastructure is defined in code. It's not just "installed"; it's orchestrated. The system uses a modular Bash framework to ensure idempotency.</p>
+            <p>The entire infrastructure is defined in code, adhering to a <strong>Declarative</strong> paradigm. The system uses a modular Bash framework to reconcile the state defined in YAML with the actual infrastructure.</p>
             
             <div class="feature-grid" style="margin-bottom: 20px;">
                 <div class="feature-card">
-                    <span class="feature-title">Why Bash?</span>
-                    <span class="feature-desc">Eliminates dependencies (like Ansible/Python) on the bare-metal host. Runs on any fresh Debian/Proxmox install instantly.</span>
+                    <span class="feature-title">Single Source of Truth</span>
+                    <span class="feature-desc">All stacks, containers, resources, and network definitions are centralized in <code>stacks.yaml</code>. Changes here propagate to the infrastructure.</span>
                 </div>
                 <div class="feature-card">
                     <span class="feature-title">Idempotency</span>
@@ -385,7 +386,7 @@
             <div class="screenshot-container" style="margin-bottom: 20px;">
                 <img src="assets/automation-cli.png" alt="Interactive CLI Installer">
                 <div class="screenshot-caption">
-                    <strong>Interactive Automation:</strong> The <code>installer.sh</code> script in action, provisioning a new LXC stack with encrypted secrets.
+                    <strong>Interactive Automation:</strong> The <code>installer.sh</code> script reading from <code>stacks.yaml</code> to provision resources.
                 </div>
             </div>
 
@@ -425,6 +426,27 @@
                 <div class="feature-card">
                     <span class="feature-title">Fail2Ban Integration</span>
                     <span class="feature-desc">While Cloudflare protects the edge, local Fail2Ban jails monitor log files for brute-force attempts on internal services.</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3.1 BACKUP & DR (Added) -->
+        <section id="backup">
+            <h2><i class="fa-solid fa-floppy-disk"></i> Backup & Disaster Recovery</h2>
+            <p>Data integrity is paramount. I engineered a custom backup solution that ensures the 3-2-1 backup strategy is automated and verifiable.</p>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <span class="feature-title"><i class="fa-brands fa-google-drive" style="color:var(--accent-blue)"></i> Off-Site Replication</span>
+                    <span class="feature-desc">
+                        Custom Docker container (<code>backrest-rclone</code>) mounts persistent volumes and syncs encrypted snapshots to Google Drive.
+                    </span>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-title"><i class="fa-solid fa-box-archive" style="color:var(--accent-orange)"></i> Infrastructure State</span>
+                    <span class="feature-desc">
+                        Since infrastructure is defined as code, restoring a destroyed server takes minutes: Install OS -> Clone Repo -> Run <code>installer.sh</code>.
+                    </span>
                 </div>
             </div>
         </section>
