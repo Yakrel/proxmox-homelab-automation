@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yakrel's Homelab Infrastructure</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-body: #0d1117;
+            --bg-sidebar: #161b22;
+            --bg-card: #161b22;
+            --border: #30363d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-orange: #d29922;
+            --accent-purple: #a371f7;
+            --accent-red: #ff7b72;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background: var(--bg-body);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            position: fixed;
+            height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .profile-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .profile-img {
+            width: 50px;
+            height: 50px;
+            background: var(--accent-purple);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .brand-text h3 { margin: 0; font-size: 1rem; color: var(--text-main); }
+        .brand-text p { margin: 3px 0 0 0; font-size: 0.75rem; color: var(--text-muted); }
+
+        .nav-links { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 5px; }
+        .nav-item {
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-muted);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .nav-item:hover, .nav-item.active {
+            background: rgba(88, 166, 255, 0.1);
+            color: var(--accent-blue);
+        }
+        .nav-item i { width: 20px; text-align: center; }
+
+        /* --- MAIN CONTENT --- */
+        .main-content {
+            margin-left: 280px;
+            padding: 40px 60px;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        section { margin-bottom: 80px; scroll-margin-top: 40px; }
+
+        h1 { font-size: 2.5rem; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
+        h2 { font-size: 1.8rem; color: var(--text-main); margin-top: 0; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        h2 i { color: var(--accent-blue); font-size: 1.4rem; }
+        
+        p { line-height: 1.7; color: var(--text-muted); margin-bottom: 20px; }
+
+        /* CODE BLOCKS */
+        .code-block {
+            background: #1e1e1e; /* VS Code dark like */
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            color: #d4d4d4;
+            overflow-x: auto;
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .code-lang {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: var(--border);
+            padding: 2px 8px;
+            border-bottom-left-radius: 8px;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .c-cmd { color: #dcdcaa; }
+        .c-arg { color: #9cdcfe; }
+        .c-comment { color: #6a9955; }
+        .c-str { color: #ce9178; }
+
+        /* CARDS FOR FEATURES */
+        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .feature-title { font-weight: bold; margin-bottom: 10px; display: block; color: var(--text-main); }
+        .feature-desc { font-size: 0.85rem; color: var(--text-muted); }
+
+        /* --- NETWORK TOPOLOGY (Imported) --- */
+        .topology-container {
+            background: rgba(13, 17, 23, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 40px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .node-card {
+            background: rgba(22, 27, 34, 0.9);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 140px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            transition: all 0.3s;
+            z-index: 2;
+        }
+        .node-card:hover { transform: translateY(-5px); border-color: var(--accent-blue); }
+        .node-icon { font-size: 1.5rem; margin-bottom: 5px; }
+        .layer { display: flex; justify-content: center; gap: 40px; }
+        .c-cloud { border-top: 3px solid var(--accent-blue); }
+        .c-edge { border-top: 3px solid var(--accent-orange); }
+        .c-infra { border-top: 3px solid var(--accent-purple); }
+        
+        /* --- INVENTORY GRID (JS Target) --- */
+        #stack-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .inv-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+        .inv-card:hover { transform: translateY(-3px); border-color: var(--text-muted); }
+        .inv-header { padding: 15px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .inv-body { padding: 15px; }
+        .svc-row { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px; color: var(--text-muted); }
+        .svc-row i { width: 20px; text-align: center; margin-right: 5px; }
+        
+        .badge { padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; background: var(--border); }
+        .badge.gpu { background: #76b900; color: black; }
+
+        /* --- SCREENSHOTS --- */
+        .screenshot-container {
+            margin-top: 20px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #000;
+        }
+        .screenshot-container img {
+            width: 100%;
+            display: block;
+            opacity: 0.9;
+            transition: opacity 0.3s;
+        }
+        .screenshot-container img:hover { opacity: 1; }
+        .screenshot-caption {
+            background: var(--bg-card);
+            padding: 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        /* --- LIGHTBOX --- */
+        .lightbox {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            justify-content: center;
+            align-items: center;
+            cursor: zoom-out;
+            animation: fadeIn 0.3s;
+        }
+        .lightbox img {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 4px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            animation: zoomIn 0.3s;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes zoomIn { from { transform: scale(0.9); } to { transform: scale(1); } }
+
+        .screenshot-container img {
+            cursor: zoom-in; /* Indicate clickable */
+        }
+
+        /* --- TOOLTIPS --- */
+        .tooltip {
+            border-bottom: 1px dotted var(--accent-blue);
+            cursor: help;
+            position: relative;
+        }
+        .tooltip:hover::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            z-index: 1000;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+        }
+        .tooltip:hover::before { /* Arrow */
+            content: "";
+            position: absolute;
+            bottom: 115%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: rgba(0,0,0,0.9) transparent transparent transparent;
+            z-index: 1000;
+        }
+
+        @media (max-width: 900px) {
+            .sidebar { display: none; } /* Mobile todo: Hamburger */
+            .main-content { margin-left: 0; padding: 20px; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR NAV -->
+    <nav class="sidebar">
+        <div class="profile-section">
+            <div class="profile-img">BY</div>
+            <div class="brand-text">
+                <h3>Berkay Yetgin</h3>
+                <p>System Administrator</p>
+            </div>
+        </div>
+
+        <ul class="nav-links">
+            <li><a href="#overview" class="nav-item active"><i class="fa-solid fa-house"></i> Overview</a></li>
+            <li><a href="#iac" class="nav-item"><i class="fa-solid fa-code"></i> Infrastructure as Code</a></li>
+            <li><a href="#security" class="nav-item"><i class="fa-solid fa-shield-halved"></i> Security & Secrets</a></li>
+            <li><a href="#observability" class="nav-item"><i class="fa-solid fa-chart-line"></i> Observability</a></li>
+            <li><a href="#topology" class="nav-item"><i class="fa-solid fa-network-wired"></i> Network Topology</a></li>
+            <li><a href="#virtualization" class="nav-item"><i class="fa-brands fa-docker"></i> Virtualization Strategy</a></li>
+            <li><a href="#inventory" class="nav-item"><i class="fa-solid fa-server"></i> Live Inventory</a></li>
+        </ul>
+
+        <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted);">
+            <p>Last Update: Dec 2025</p>
+            <p><a href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" style="color:var(--accent-blue); text-decoration:none;">View on GitHub</a></p>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <!-- 1. OVERVIEW -->
+        <section id="overview">
+            <div style="background: linear-gradient(135deg, rgba(88, 166, 255, 0.1), rgba(163, 113, 247, 0.1)); padding: 40px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 40px;">
+                <h1 style="border:none; margin:0;">Proxmox Homelab Automation</h1>
+                <p style="font-size: 1.1rem; color: var(--text-main); margin-top: 10px;">
+                    A production-grade, highly automated microservices environment. Orchestrated by 2000+ lines of custom Bash, secured by Zero Trust principles, and monitored by a full observability stack.
+                </p>
+                <div style="display: flex; gap: 15px; margin-top: 20px;">
+                    <span class="badge" style="background:var(--accent-blue); color:black;"><i class="fa-brands fa-docker"></i> 40+ Services</span>
+                    <span class="badge" style="background:var(--accent-purple); color:black;"><i class="fa-solid fa-code"></i> <span class="tooltip" data-tip="Modular scripts ensuring reproducible deployments (Idempotency)">Bash IaC</span></span>
+                    <span class="badge" style="background:var(--accent-green); color:black;"><i class="fa-solid fa-shield"></i> <span class="tooltip" data-tip="AES-256-CBC encryption via OpenSSL for .env files">OpenSSL Encrypted</span></span>
+                </div>
+
+                <!-- Main Dashboard Screenshot -->
+                <div class="screenshot-container">
+                    <img src="assets/main-dashboard.png" alt="Homepage Dashboard">
+                    <div class="screenshot-caption">
+                        <strong>Centralized Command Center:</strong> Single-pane-of-glass dashboard showing real-time service status, disk usage, and environment metrics.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <span class="feature-title"><i class="fa-solid fa-rotate" style="color:var(--accent-blue)"></i> Continuous Delivery</span>
+                    <span class="feature-desc"><span class="tooltip" data-tip="Automated workflows triggered by git push">GitHub Actions pipelines</span> build custom Docker images. Post-backup hooks automatically trigger Rclone sync to Google Drive.</span>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-title"><i class="fa-solid fa-user-shield" style="color:var(--accent-orange)"></i> Zero Trust Access</span>
+                    <span class="feature-desc">No inbound WAN ports. <span class="tooltip" data-tip="Reverse tunnel daemon running inside the network">Cloudflare Tunnels</span> handling ingress with Email OTP policies for admin areas.</span>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-title"><i class="fa-solid fa-microchip" style="color:var(--accent-green)"></i> Hardware Passthrough</span>
+                    <span class="feature-desc">Unprivileged LXC containers leveraging <span class="tooltip" data-tip="Linux Control Groups for resource isolation">cgroup v2</span> mapping for NVIDIA transcoding.</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. IAC & AUTOMATION -->
+        <section id="iac">
+            <h2><i class="fa-solid fa-terminal"></i> Infrastructure as Code</h2>
+            <p>The entire infrastructure is defined in code. It's not just "installed"; it's orchestrated. The system uses a modular Bash framework to ensure idempotency.</p>
+            
+            <div class="feature-grid" style="margin-bottom: 20px;">
+                <div class="feature-card">
+                    <span class="feature-title">Why Bash?</span>
+                    <span class="feature-desc">Eliminates dependencies (like Ansible/Python) on the bare-metal host. Runs on any fresh Debian/Proxmox install instantly.</span>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-title">Idempotency</span>
+                    <span class="feature-desc">Scripts check state before executing. Running <code>installer.sh</code> 10 times results in the same stable state as running it once.</span>
+                </div>
+            </div>
+
+            <!-- CLI Screenshot -->
+            <div class="screenshot-container" style="margin-bottom: 20px;">
+                <img src="assets/automation-cli.png" alt="Interactive CLI Installer">
+                <div class="screenshot-caption">
+                    <strong>Interactive Automation:</strong> The <code>installer.sh</code> script in action, provisioning a new LXC stack with encrypted secrets.
+                </div>
+            </div>
+
+            <div class="code-block">
+                <span class="code-lang">deploy-stack.sh</span>
+                <div style="line-height: 1.5;">
+<span class="c-comment"># Example: Atomic deployment with secret decryption</span>
+<span class="c-cmd">function</span> <span class="c-arg">deploy_stack()</span> {
+    <span class="c-cmd">local</span> stack_name=$1
+    
+    <span class="c-comment"># 1. Decrypt secrets in memory only (OpenSSL AES-256-CBC)</span>
+    <span class="c-cmd">printf</span> '%s' "$MASTER_KEY" | \
+        <span class="c-cmd">openssl</span> enc -d -aes-256-cbc -pbkdf2 -salt -pass stdin \
+        -in .env.enc -out .env
+        
+    <span class="c-comment"># 2. Pull & Deploy</span>
+    <span class="c-cmd">docker</span> compose pull
+    <span class="c-cmd">docker</span> compose up -d --remove-orphans
+    
+    <span class="c-comment"># 3. Cleanup secrets immediately</span>
+    <span class="c-cmd">rm</span> -f .env
+}
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. SECURITY -->
+        <section id="security">
+            <h2><i class="fa-solid fa-lock"></i> Security & Secrets Management</h2>
+            <p>Security is baked in, not bolted on. I follow the "Encryption at Rest" principle for the repository and "Least Privilege" for runtime.</p>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <span class="feature-title">AES-256 Encryption (OpenSSL)</span>
+                    <span class="feature-desc">Configuration files contain sensitive API keys. In the repo, they exist only as <code>.env.enc</code>. They are encrypted using OpenSSL (AES-256-CBC + PBKDF2 + Salt) with a master key.</span>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-title">Fail2Ban Integration</span>
+                    <span class="feature-desc">While Cloudflare protects the edge, local Fail2Ban jails monitor log files for brute-force attempts on internal services.</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3.5 OBSERVABILITY (New for SysAdmin Focus) -->
+        <section id="observability">
+            <h2><i class="fa-solid fa-chart-line"></i> Observability & Logs</h2>
+            <p>A System Admin cannot manage what they cannot measure. I implemented a centralized observability stack to ensure high availability and rapid root-cause analysis.</p>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <span class="feature-title"><i class="fa-solid fa-fire" style="color:var(--accent-orange)"></i> Prometheus & Node Exporter</span>
+                    <span class="feature-desc">
+                        Real-time metrics collection from the Proxmox host, ZFS pools, and every Docker container. 
+                        Alerts are configured for high load, disk usage, or down services.
+                    </span>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-title"><i class="fa-solid fa-list" style="color:var(--accent-blue)"></i> Loki (Log Aggregation)</span>
+                    <span class="feature-desc">
+                        No more SSH-ing into servers to <code>tail -f</code> logs. All container logs are pushed to Loki and searchable instantly via Grafana.
+                    </span>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-title"><i class="fa-solid fa-table-columns" style="color:var(--accent-green)"></i> Grafana Dashboards</span>
+                    <span class="feature-desc">
+                        Single-pane-of-glass visualization for Hardware, Network Traffic, and Application health.
+                    </span>
+                </div>
+            </div>
+
+            <!-- Grafana Screenshot -->
+            <div class="screenshot-container">
+                <img src="assets/grafana-metrics.png" alt="Grafana Dashboard">
+                <div class="screenshot-caption">
+                    <strong>Operational Visibility:</strong> Real-time monitoring of Proxmox host resources (CPU/RAM) and individual LXC container performance.
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. NETWORK TOPOLOGY -->
+        <section id="topology">
+            <h2><i class="fa-solid fa-network-wired"></i> Network Topology</h2>
+            <p>A hybrid architecture solving the "Split-Horizon DNS" problem. It provides seamless access for family members (via local routing) while strictly securing remote access (via Cloudflare Tunnels).</p>
+            
+            <!-- REUSED TOPOLOGY DIAGRAM -->
+            <div class="topology-container" style="align-items: center; gap: 10px;">
+                <!-- Layers -->
+                <div class="layer" style="width:100%; justify-content: space-around;">
+                    <div class="node-card c-cloud">
+                        <i class="fa-solid fa-globe node-icon" style="color:var(--accent-blue)"></i>
+                        <span style="font-weight:bold;">Public Internet</span>
+                        <span style="font-size:0.7rem; color:var(--text-muted);">*.byetgin.com</span>
+                    </div>
+                    <div class="node-card c-edge">
+                        <i class="fa-solid fa-mobile-screen node-icon" style="color:var(--accent-orange)"></i>
+                        <span style="font-weight:bold;">Roaming Device</span>
+                        <span style="font-size:0.7rem; color:var(--text-muted);">WARP VPN</span>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:center; width:100%;">
+                    <i class="fa-solid fa-arrow-down" style="color:var(--text-muted);"></i>
+                </div>
+
+                <!-- Tunnel -->
+                <div style="background:var(--bg-card); border:1px solid var(--accent-purple); padding:10px 30px; border-radius:30px; color:var(--accent-purple); font-size:0.9rem;">
+                    <i class="fa-solid fa-lock"></i> Encrypted Cloudflare Tunnel (No Inbound WAN Ports)
+                </div>
+
+                <div style="display:flex; justify-content:center; width:100%;">
+                    <i class="fa-solid fa-arrow-down" style="color:var(--text-muted);"></i>
+                </div>
+
+                <!-- Gateway -->
+                <div class="node-card c-infra" style="width: 100%; max-width: 500px; flex-direction: row; justify-content: space-around;">
+                    <div style="text-align:center;">
+                        <i class="fa-brands fa-cloudflare node-icon"></i>
+                        <div>cloudflared</div>
+                    </div>
+                    <div style="font-family:monospace; font-size:0.7rem; color:var(--text-muted);">TO REVERSE PROXY &rarr;</div>
+                    <div style="text-align:center;">
+                        <i class="fa-solid fa-shuffle node-icon" style="color:var(--accent-green)"></i>
+                        <div>Nginx Proxy</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NPM Screenshot -->
+            <div class="screenshot-container">
+                <img src="assets/proxy-routing.png" alt="Nginx Proxy Manager">
+                <div class="screenshot-caption">
+                    <strong>Traffic Routing:</strong> Nginx Proxy Manager handling SSL termination and routing public subdomains to internal container IPs.
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. VIRTUALIZATION -->
+        <section id="virtualization">
+            <h2><i class="fa-brands fa-docker"></i> Virtualization Strategy</h2>
+            <p>I utilize a "Best of Both Worlds" approach: LXC for system-like containers and Docker for application microservices. All configurations are fully automated.</p>
+            
+            <div class="feature-grid" style="margin-bottom:20px;">
+                <div class="feature-card">
+                    <span class="feature-title">Docker inside LXC (Automated)</span>
+                    <span class="feature-desc">
+                        My <code>lxc-manager.sh</code> script automatically provisions containers with <code>nesting=1</code> and <code>keyctl=1</code> features, enabling seamless Docker execution.
+                    </span>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-title">Automated GPU Passthrough</span>
+                    <span class="feature-desc">
+                        No manual config required. The script detects the NVIDIA card on the host, installs drivers, and programmatically injects <code>cgroup v2</code> rules into the LXC config file.
+                    </span>
+                </div>
+            </div>
+
+            <div class="code-block">
+                <span class="code-lang">lxc-manager.sh (Snippet)</span>
+                <div style="line-height: 1.5;">
+<span class="c-comment"># Programmatic Injection of GPU Rules</span>
+<span class="c-cmd">gpu_passthrough_lines</span>=(
+    <span class="c-str">'lxc.cgroup2.devices.allow: c 195:* rwm'</span>  <span class="c-comment"># NVIDIA GPU</span>
+    <span class="c-str">'lxc.cgroup2.devices.allow: c 510:* rwm'</span>  <span class="c-comment"># nvidia-uvm</span>
+    <span class="c-str">'lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file'</span>
+)
+
+<span class="c-cmd">for</span> line in <span class="c-str">"${gpu_passthrough_lines[@]}"</span>; <span class="c-cmd">do</span>
+    <span class="c-cmd">if</span> ! <span class="c-cmd">grep</span> -Fxq <span class="c-str">"$line"</span> <span class="c-str">"$LXC_CONFIG_PATH"</span>; <span class="c-cmd">then</span>
+        <span class="c-cmd">echo</span> <span class="c-str">"$line"</span> >> <span class="c-str">"$LXC_CONFIG_PATH"</span>
+    <span class="c-cmd">fi</span>
+<span class="c-cmd">done</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. LIVE INVENTORY -->
+        <section id="inventory">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2><i class="fa-solid fa-server"></i> Live Inventory</h2>
+                <div style="font-size:0.8rem; color:var(--text-muted);"><i class="fa-solid fa-circle" style="color:var(--accent-green); font-size:0.6rem;"></i> Systems Operational</div>
+            </div>
+            
+            <!-- JS INJECTED GRID -->
+            <div id="stack-grid">
+                <div style="text-align:center; padding:40px; color:var(--text-muted); grid-column:1/-1;">
+                    Loading infrastructure data...
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- DATA SOURCE -->
+    <script src="architecture-data.js"></script>
+    
+    <!-- LIGHTBOX OVERLAY -->
+    <div id="lightbox" class="lightbox">
+        <img id="lightbox-img" src="" alt="Zoomed Screenshot">
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- LIGHTBOX LOGIC ---
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImg = document.getElementById('lightbox-img');
+            const screenshots = document.querySelectorAll('.screenshot-container img');
+
+            // Open Lightbox
+            screenshots.forEach(img => {
+                img.addEventListener('click', () => {
+                    lightboxImg.src = img.src;
+                    lightbox.style.display = 'flex';
+                });
+            });
+
+            // Close Lightbox (Click or ESC)
+            lightbox.addEventListener('click', () => {
+                lightbox.style.display = 'none';
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') lightbox.style.display = 'none';
+            });
+
+
+            // 1. Sidebar Navigation Logic
+            const navItems = document.querySelectorAll('.nav-item');
+            
+            navItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    navItems.forEach(n => n.classList.remove('active'));
+                    item.classList.add('active');
+                });
+            });
+
+            // 2. Data Rendering Logic
+            const grid = document.getElementById('stack-grid');
+            
+            if (typeof ARCHITECTURE_DATA !== 'undefined' && ARCHITECTURE_DATA.stacks) {
+                grid.innerHTML = '';
+                
+                ARCHITECTURE_DATA.stacks.forEach(stack => {
+                    const card = document.createElement('div');
+                    card.className = 'inv-card';
+                    
+                    // Header Color
+                    let headerColor = 'var(--text-muted)';
+                    if (stack.category === 'Infrastructure') headerColor = 'var(--accent-orange)';
+                    if (stack.category === 'Media') headerColor = 'var(--accent-green)';
+                    if (stack.category === 'Utilities') headerColor = 'var(--accent-blue)';
+                    
+                    // Services
+                    let servicesHtml = '';
+                    stack.services.forEach(svc => {
+                        let iconColor = 'var(--text-muted)';
+                        if (svc.name.includes('Jellyfin') || svc.name.includes('Immich')) iconColor = 'var(--accent-green)';
+                        
+                        servicesHtml += `
+                            <div class="svc-row">
+                                <div><i class="${svc.icon}" style="color:${iconColor}"></i> ${svc.name}</div>
+                                <span>${svc.port}</span>
+                            </div>
+                        `;
+                    });
+
+                    // Badges
+                    let gpuBadge = stack.specs.gpu ? '<span class="badge gpu">GPU</span>' : '';
+
+                    card.innerHTML = `
+                        <div class="inv-header" style="border-left: 4px solid ${headerColor}">
+                            <div>
+                                <div style="font-weight:bold; font-size:0.95rem;">${stack.name}</div>
+                                <div style="font-size:0.75rem; color:var(--text-muted); font-family:monospace;">${stack.ip}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:0.75rem;">${stack.specs.cpu} CPU / ${stack.specs.ram}</div>
+                                ${gpuBadge}
+                            </div>
+                        </div>
+                        <div class="inv-body">
+                            ${servicesHtml}
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
