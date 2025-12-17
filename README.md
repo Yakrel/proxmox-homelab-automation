@@ -25,9 +25,19 @@ Interactive menu guides you through stack selection and deployment. Only one pas
 - **Shared Hardware Acceleration**: Centralized NVIDIA driver management on host, mapped to multiple containers for concurrent CUDA/NVENC workloads.
 
 ### **Enterprise-Grade Security & Networking**
-- **Zero Trust Architecture**: Cloudflare Access protects public endpoints with Email OTP & Geo-blocking (Turkey only).
-- **Secure Remote Access**: Cloudflare WARP integration for full VPN-less access to internal subnets (`192.168.1.0/24`).
-- **Wildcard SSL**: Automated Let's Encrypt wildcard certificates via DNS challenge for full internal HTTPS.
+
+#### **Network Topology & Access Architecture**
+A visualization of the Zero Trust architecture, highlighting how **WARP** provides seamless "LAN-like" experience for family devices while **Cloudflare Tunnel** secures public web access.
+
+> 🗺️ **Interactive Architecture Dashboard**
+>
+> Explore the live system topology, data flow, and microservices map:
+> **[👉 Launch Interactive Dashboard](https://yakrel.github.io/proxmox-homelab-automation/)**
+
+- **Seamless Family Experience**: Mobile devices run **Cloudflare WARP** in "Always-On" mode. This creates a secure, transparent VPN directly to the home network.
+  - *Result:* The wife and child can open the Jellyfin app anywhere in the world and it works exactly as if they were on the couch. No logins, no OTPs.
+- **Strict Public Access**: Browser-based access (e.g., from a work computer) is protected by **Cloudflare Access** with Wildcard Email OTP policies.
+- **Zero Trust Tunnel**: No open ports on the router. All ingress traffic is routed through `cloudflared` daemon.
 
 #### **Hybrid Access Strategy (Split Subdomains)**
 A sophisticated solution to bypass Cloudflare's "Split DNS" paywall (Enterprise feature), ensuring optimal routing for both local and remote access:
