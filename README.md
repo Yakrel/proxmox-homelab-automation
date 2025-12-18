@@ -2,7 +2,7 @@
 
 Production homelab architected with enterprise-grade practices, demonstrating advanced DevOps capabilities. Orchestrates **40+ microservices** across **8 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**, and **full-stack observability**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** mimicking bare-metal provisioning.
 
-> **About**: My production homelab that I actively use and develop. Publicly shared to demonstrate DevOps, infrastructure automation, and advanced Linux system administration capabilities. All values are hardcoded for my specific environment for maximum reliability.
+> **About**: A production-grade **Hybrid Cloud Simulation** architected to demonstrate enterprise DevOps capabilities. Features a **Declarative Infrastructure** managed as code, **Zero Trust** security posture, and a **Disaster Recovery Ready** architecture.
 
 ---
 
@@ -66,16 +66,16 @@ Two custom images built and maintained with automated pipelines:
 - Published to DockerHub: `yakrel93/desktop-workspace`, `yakrel93/backrest-rclone`
 
 ### **DevOps & Automation Practices**
-- **Bash-based Orchestration**: 2100+ lines of modular, idempotent shell scripts treating the entire homelab as code.
+- **Declarative Infrastructure (IaC)**: Entire infrastructure state defined in `stacks.yaml` (Single Source of Truth).
+- **Idempotent Orchestration**: Bash scripts perform state reconciliation, ensuring reproducible deployments without side effects.
 - **Secret Management**: Production-grade secret handling using AES-256-CBC encryption for all configuration files.
 - **Full-Stack Observability**: Centralized logging (Loki) and metrics (Prometheus) stack monitoring host, containers, and services.
-- **GitOps Workflow**: Infrastructure changes are version-controlled, tested in dev containers, and deployed via pull mechanisms.
 
-### **Automated Offsite Backups**
-- Pre-configured Backrest with restic repositories
-- Post-backup hooks trigger rclone sync to Google Drive
-- Encrypted offsite backups with OAuth2 authentication
-- CI/CD pipeline ensures latest versions
+### **Business Continuity & Disaster Recovery**
+- **3-2-1 Strategy**: Local ZFS snapshots (Hot) + Encrypted Cloud Archives (Cold).
+- **Deduplicated Offsite Sync**: Restic repositories synced to Google Drive via Rclone post-backup hooks.
+- **Secure Archives**: Client-side encryption ensuring data privacy in public cloud environments.
+- **CI/CD Maintained**: Custom `backrest-rclone` image automatically rebuilt twice a week for up-to-date security and cloud sync compatibility.
 
 ---
 

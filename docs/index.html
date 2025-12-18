@@ -647,89 +647,89 @@
             en: {
                 nav_overview: "Overview",
                 nav_iac: "Infrastructure as Code",
-                nav_security: "Security & Secrets",
-                nav_backup: "Backup & Recovery",
+                nav_security: "Zero Trust Architecture",
+                nav_backup: "Disaster Recovery (DR)",
                 nav_observability: "Observability",
                 nav_topology: "Network Topology",
                 nav_virtualization: "Virtualization Strategy",
                 nav_inventory: "Live Inventory",
                 
-                hero_title: "Proxmox Homelab Automation",
-                hero_desc: "My personal homelab where I simulate a production environment. 40+ Docker containers, custom Bash automation, and enterprise-grade security. It's not just a hobby, it's my practice ground.",
+                hero_title: "Proxmox Hybrid Cloud Automation",
+                hero_desc: "A production-grade, fully automated personal data center simulation. Featuring 40+ microservices, declarative Bash-based infrastructure management, and an enterprise-level Zero Trust architecture.",
                 
-                img_dash_title: "Centralized Command Center:",
-                img_dash_desc: "My main dashboard. I use this to check service health and disk usage at a glance.",
+                img_dash_title: "Central Command Panel:",
+                img_dash_desc: "Primary operations dashboard monitoring service health, resource consumption, and storage metrics in real-time.",
                 
-                feat_cd_title: "Continuous Delivery",
-                feat_cd_desc: "When I push code, GitHub Actions builds my Docker images. I also set up automated hooks to sync backups to Google Drive.",
+                feat_cd_title: "Continuous Delivery (CI/CD)",
+                feat_cd_desc: "Automated Docker image builds via GitHub Actions and event-driven backup synchronization integrated with Google Drive.",
                 
                 feat_zt_title: "Zero Trust Access",
-                feat_zt_desc: "I don't open ports to the internet. Access is handled via Cloudflare Tunnels, protected by Email OTPs.",
+                feat_zt_desc: "Secure, closed-port access using identity-aware Cloudflare Tunnels instead of traditional port forwarding.",
                 
                 feat_hw_title: "Hardware Passthrough",
-                feat_hw_desc: "My media server needs GPU power. I mapped the NVIDIA card directly to the LXC container using cgroups.",
+                feat_hw_desc: "Direct, zero-overhead assignment of NVIDIA GPU resources to LXC containers via cgroup v2 rules for high-performance media processing.",
                 
-                iac_title: "Infrastructure as Code",
-                iac_intro: "I didn't want to configure servers manually every time. So, I built a setup where I define everything in one YAML file (<code>stacks.yaml</code>), and my scripts handle the installation automatically.",
+                iac_title: "Infrastructure as Code (IaC)",
+                iac_intro: "An automation architecture where the entire infrastructure is defined as a 'Single Source of Truth' in <code>stacks.yaml</code>, eliminating manual configuration drift.",
                 
-                iac_ssot_title: "Single Source of Truth",
-                iac_ssot_desc: "I manage all my containers and networks in <code>stacks.yaml</code>. If it's not in that file, it doesn't exist on the server.",
+                iac_ssot_title: "Declarative Configuration",
+                iac_ssot_desc: "Network definitions, storage volumes, and container orchestration are managed from a single YAML manifest, ensuring full traceability and version control.",
                 
-                iac_idem_title: "Idempotency",
-                iac_idem_desc: "I can run my installer script 10 times, and it won't break anything. It only applies changes if something is missing.",
+                iac_idem_title: "Idempotent Architecture",
+                iac_idem_desc: "Bash-based automation scripts analyze system state and apply only necessary changes (State Reconciliation), ensuring reproducible and error-free deployments.",
                 
-                img_cli_title: "Interactive Automation:",
-                img_cli_desc: "The <code>installer.sh</code> script reading from <code>stacks.yaml</code> to provision resources.",
+                img_cli_title: "Interactive CLI Automation:",
+                img_cli_desc: "The <code>installer.sh</code> script dynamically provisioning resources by parsing the declarative infrastructure code (stacks.yaml).",
                 
                 sec_title: "Security & Secrets Management",
-                sec_intro: "I treat this homelab like a real production server. No open ports to the outside world, and all my API keys are encrypted in the repo so I don't accidentally leak them.",
+                sec_intro: "The system is protected via 'Defense in Depth' principles, enforcing network-level isolation and encrypted secrets management within the repository.",
                 
-                sec_enc_title: "AES-256 Encryption (OpenSSL)",
-                sec_enc_desc: "I store sensitive keys as <code>.env.enc</code> in Git. They are encrypted with OpenSSL, so even if the repo is public, the secrets are safe.",
+                sec_enc_title: "GitOps & Encryption (AES-256)",
+                sec_enc_desc: "Sensitive credentials (API Keys, Passwords) are stored encrypted (<code>.env.enc</code>) using AES-256-CBC standards. Decryption occurs only in memory during deployment.",
                 
-                sec_f2b_title: "Fail2Ban Integration",
-                sec_f2b_desc: "Even though I use Cloudflare, I also run Fail2Ban locally to block anyone trying to brute-force my internal services.",
+                sec_f2b_title: "Intrusion Prevention (IPS)",
+                sec_f2b_desc: "Internal traffic and Cloudflare logs are analyzed to proactively block brute-force attacks in real-time using Fail2Ban.",
 
-                backup_title: "Backup & Disaster Recovery",
-                backup_intro: "I use a mix of local snapshots for quick fixes and encrypted cloud backups for real disasters. If the server dies, my data survives.",
+                backup_title: "Data Integrity & Disaster Recovery",
+                backup_intro: "A multi-layered data protection strategy adhering to the 3-2-1 rule, ensuring Business Continuity even in catastrophic failure scenarios.",
                 
-                backup_l1_title: "Layer 1: Local ZFS Snapshots",
-                backup_l1_desc: "Managed by <strong>Sanoid</strong>. If I accidentally delete a file, I can roll back in seconds using ZFS snapshots.",
+                backup_l1_title: "Layer 1: Instant Recovery (ZFS)",
+                backup_l1_desc: "Periodic Copy-on-Write (CoW) snapshots managed by <strong>Sanoid</strong> allow for second-level recovery from data corruption or accidental deletion.",
                 
-                backup_l2_title: "Layer 2: Off-Site Archival",
-                backup_l2_desc: "I use <strong>Restic</strong> to send encrypted backups to Google Drive. It only sends the changes (deduplication), so it saves space and bandwidth.",
+                backup_l2_title: "Layer 2: Encrypted Off-Site Archive",
+                backup_l2_desc: "<strong>Restic</strong> is used for client-side encrypted, incremental, and deduplicated data transfer to Google Drive.",
                 
-                backup_l3_title: "Layer 3: Infrastructure Code",
-                backup_l3_desc: "Since my setup is code, I can rebuild the whole server from scratch just by running my <code>installer.sh</code> script.",
+                backup_l3_title: "Layer 3: Infrastructure Continuity",
+                backup_l3_desc: "In a disaster scenario, the entire server fleet can be rebuilt from 'Bare-Metal' in minutes using the <code>installer.sh</code> automation suite.",
 
-                obs_title: "Observability & Logs",
-                obs_intro: "I hate logging into servers one by one just to check if they are running. I set up a monitoring stack to see everything in one place.",
+                obs_title: "Observability & Telemetry",
+                obs_intro: "Comprehensive metric collection and log analysis to understand not just 'if' the system is running, but 'how' it is performing.",
                 
-                obs_prom_desc: "Collects metrics from Proxmox and Docker. If disk usage goes high or a service goes down, I get an alert.",
+                obs_prom_desc: "Real-time metrics collection from Proxmox hosts and Docker containers. Proactive alerting on critical thresholds (Disk I/O, CPU Saturation).",
                 
-                obs_loki_desc: "Instead of using <code>tail -f</code> on every server, I send all logs to Loki. I can search through them easily in Grafana.",
+                obs_loki_desc: "Centralized aggregation of distributed service logs in Loki. Accelerates debugging and Root Cause Analysis (RCA) via log correlation.",
                 
-                obs_graf_desc: "My central dashboard for visualizing hardware stats, network traffic, and application health.",
+                obs_graf_desc: "A 'Single Pane of Glass' operational dashboard for visualizing infrastructure health, network traffic, and service metrics.",
                 
                 img_graf_title: "Operational Visibility:",
-                img_graf_desc: "Real-time monitoring of Proxmox host resources (CPU/RAM) and individual LXC container performance.",
+                img_graf_desc: "Real-time analysis of Proxmox resources and container performance metrics.",
 
-                topo_title: "Network Topology",
-                topo_intro: "I set up a hybrid network. My family accesses services locally (fast), while I access them securely from outside using Cloudflare Tunnels.",
+                topo_title: "Network Topology & Access",
+                topo_intro: "Hybrid access strategy utilizing Split-DNS and Tunnel architecture. Combines local network performance with secure remote access.",
                 
-                topo_tunnel: "Encrypted Cloudflare Tunnel (No Inbound WAN Ports)",
+                topo_tunnel: "Secure Access behind CGNAT (Cloudflare Tunnel)",
                 
                 img_npm_title: "Traffic Routing:",
-                img_npm_desc: "Nginx Proxy Manager handling SSL termination and routing public subdomains to internal container IPs.",
+                img_npm_desc: "Nginx Proxy Manager handling SSL Termination and Host-based routing management.",
 
-                virt_title: "Virtualization Strategy",
-                virt_intro: "I use LXC for things that need to act like full operating systems, and Docker for running apps. My scripts handle the complex config to make them work together.",
+                virt_title: "Hybrid Virtualization Strategy",
+                virt_intro: "Leveraging LXC (OS-Level) for resource efficiency and Docker for application isolation in a hybrid architecture.",
                 
-                virt_dind_title: "Docker inside LXC (Automated)",
-                virt_dind_desc: "My <code>lxc-manager.sh</code> script automatically configures the container settings (nesting, keys) so I can run Docker inside LXC without issues.",
+                virt_dind_title: "Nested Virtualization (Docker-in-LXC)",
+                virt_dind_desc: "Optimized OverlayFS and AppArmor profiles enabling isolated Docker environments within LXC containers with near-native performance.",
                 
-                virt_gpu_title: "Automated GPU Passthrough",
-                virt_gpu_desc: "Instead of editing config files manually, my script detects the NVIDIA card and injects the right permissions into the LXC config automatically.",
+                virt_gpu_title: "Unprivileged GPU Passthrough",
+                virt_gpu_desc: "Direct mapping of NVIDIA GPU resources to containers using cgroup v2 rules, maintaining security (Unprivileged mode) without sacrificing performance.",
 
                 inv_title: "Live Inventory",
                 inv_status: "Systems Operational"
@@ -737,89 +737,89 @@
             tr: {
                 nav_overview: "Genel Bakış",
                 nav_iac: "Kod Olarak Altyapı",
-                nav_security: "Güvenlik & Sırlar",
-                nav_backup: "Yedekleme & Kurtarma",
+                nav_security: "Sıfır Güven Mimarisi",
+                nav_backup: "Felaket Kurtarma (DR)",
                 nav_observability: "Gözlenebilirlik",
                 nav_topology: "Ağ Topolojisi",
                 nav_virtualization: "Sanallaştırma Stratejisi",
                 nav_inventory: "Canlı Envanter",
                 
-                hero_title: "Proxmox Ev Laboratuvarı Otomasyonu",
-                hero_desc: "Üretim ortamı simülasyonu yaptığım kişisel laboratuvarım. 40+ Docker konteyneri, kendi yazdığım otomasyon scriptleri ve kurumsal seviye güvenlik. Bu sadece bir hobi değil, benim antrenman saham.",
+                hero_title: "Proxmox Hibrit Bulut Otomasyonu",
+                hero_desc: "Üretim ortamı standartlarında tasarlanmış, tam otomatize kişisel veri merkezi simülasyonu. 40+ mikroservis, Bash tabanlı bildirimsel (declarative) altyapı yönetimi ve kurumsal seviye Sıfır Güven (Zero Trust) mimarisi.",
                 
-                img_dash_title: "Merkezi Komuta Merkezi:",
-                img_dash_desc: "Ana paneli kullanarak servislerin sağlığını ve disk durumunu tek bakışta kontrol ediyorum.",
+                img_dash_title: "Merkezi Komuta Paneli:",
+                img_dash_desc: "Servis sağlığı, kaynak tüketimi ve disk doluluk oranlarının anlık izlendiği ana operasyon ekranı.",
                 
-                feat_cd_title: "Sürekli Dağıtım (CD)",
-                feat_cd_desc: "Kod yüklediğimde GitHub Actions imajlarımı derler. Ayrıca yedekleri Google Drive'a eşitlemek için otomatik tetikleyiciler kurdum.",
+                feat_cd_title: "Sürekli Dağıtım (CI/CD)",
+                feat_cd_desc: "GitHub Actions ile otomatik Docker imaj derleme süreçleri ve Google Drive ile entegre, olay tabanlı (event-driven) yedekleme otomasyonu.",
                 
-                feat_zt_title: "Sıfır Güven Erişimi",
-                feat_zt_desc: "İnternete açık port bırakmıyorum. Erişimi, E-posta OTP korumalı Cloudflare Tünelleri üzerinden sağlıyorum.",
+                feat_zt_title: "Sıfır Güven (Zero Trust) Erişimi",
+                feat_zt_desc: "Geleneksel port yönlendirme yerine, kimlik doğrulama katmanlı Cloudflare Tünelleri kullanılarak dış dünyaya kapalı, güvenli erişim.",
                 
                 feat_hw_title: "Donanım Passthrough",
-                feat_hw_desc: "Medya sunucum için GPU gücü lazım. NVIDIA kartını LXC konteynerine doğrudan bağlamak için gerekli ayarları script ile yaptım.",
+                feat_hw_desc: "Medya işleme yükleri için NVIDIA GPU kaynağının, cgroup v2 kuralları ile LXC konteynerine doğrudan ve kayıpsız aktarımı.",
                 
                 iac_title: "Kod Olarak Altyapı (IaC)",
-                iac_intro: "Sunucuları her seferinde elle kurmak istemedim. Bu yüzden her şeyi tek bir YAML dosyasında (<code>stacks.yaml</code>) tanımladığım ve scriptlerin kurulumu otomatik yaptığı bir yapı kurdum.",
+                iac_intro: "Manuel sunucu yönetimini elimine eden, tüm altyapının <code>stacks.yaml</code> üzerinde 'Tek Gerçeklik Kaynağı' (Single Source of Truth) olarak tanımlandığı otomasyon mimarisi.",
                 
-                iac_ssot_title: "Tek Gerçeklik Kaynağı",
-                iac_ssot_desc: "Tüm konteyner ve ağlarımı <code>stacks.yaml</code> dosyasından yönetiyorum. Eğer o dosyada yoksa, sunucuda da yoktur.",
+                iac_ssot_title: "Bildirimsel Konfigürasyon",
+                iac_ssot_desc: "Ağ tanımları, depolama birimleri ve konteyner orkestrasyonu tek bir YAML dosyasından yönetilir. Versiyon kontrolü ile altyapı değişiklikleri tam izlenebilirlik sağlar.",
                 
-                iac_idem_title: "Tekrar Edilebilirlik",
-                iac_idem_desc: "Kurulum scriptimi 10 kere de çalıştırsam sistem bozulmaz. Sadece eksik veya değişmiş bir şey varsa onu düzeltir.",
+                iac_idem_title: "İdempotent Mimari",
+                iac_idem_desc: "Bash tabanlı otomasyon scriptleri, sistemin mevcut durumunu analiz eder ve yalnızca gerekli değişiklikleri uygular (State Reconciliation). Bu, hatasız ve tekrar edilebilir kurulum sağlar.",
                 
-                img_cli_title: "İnteraktif Otomasyon:",
-                img_cli_desc: "<code>installer.sh</code> scripti <code>stacks.yaml</code> dosyasını okuyarak kaynakları provizyonlarken.",
+                img_cli_title: "İnteraktif CLI Otomasyonu:",
+                img_cli_desc: "<code>installer.sh</code> scriptinin, altyapı kodunu (stacks.yaml) okuyarak kaynakları dinamik olarak provizyonlaması.",
                 
-                sec_title: "Güvenlik ve Sır Yönetimi",
-                sec_intro: "Bu laboratuvarı gerçek bir sunucu gibi yönetiyorum. Dışarıya açık portum yok ve tüm şifrelerimi repoda şifreli tutuyorum, böylece kazara sızdırma riskim olmuyor.",
+                sec_title: "Güvenlik ve Sır Yönetimi (Secrets)",
+                sec_intro: "Sistem, 'Defense in Depth' prensibiyle korunur. Ağ seviyesinde izolasyon ve repo seviyesinde şifreli sır yönetimi esastır.",
                 
-                sec_enc_title: "AES-256 Şifreleme (OpenSSL)",
-                sec_enc_desc: "Hassas anahtarları Git'te <code>.env.enc</code> olarak tutuyorum. OpenSSL ile şifreli oldukları için repo halka açık olsa bile şifrelerim güvende.",
+                sec_enc_title: "GitOps ve Şifreleme (AES-256)",
+                sec_enc_desc: "Hassas veriler (API Key, Parola), repo içerisinde AES-256-CBC standartlarında şifreli (<code>.env.enc</code>) saklanır. Yalnızca deploy anında bellekte deşifre edilir.",
                 
-                sec_f2b_title: "Fail2Ban Entegrasyonu",
-                sec_f2b_desc: "Cloudflare kullansam bile, iç ağda birisi kaba kuvvet (brute-force) denerse diye Fail2Ban ile yerel koruma da sağlıyorum.",
+                sec_f2b_title: "Saldırı Tespiti (IPS)",
+                sec_f2b_desc: "İç ağ trafiği ve Cloudflare logları analiz edilerek, kaba kuvvet (brute-force) saldırıları Fail2Ban ile anlık olarak engellenir.",
 
-                backup_title: "Yedekleme ve Felaket Kurtarma",
-                backup_intro: "Hızlı düzeltmeler için yerel snapshotları, gerçek felaketler için şifreli bulut yedeklerini kullanıyorum. Sunucu yansa bile verim güvende.",
+                backup_title: "Veri Bütünlüğü ve Felaket Kurtarma",
+                backup_intro: "3-2-1 Yedekleme kuralına uygun, çok katmanlı ve şifreli veri koruma stratejisi ile iş sürekliliği (Business Continuity) sağlanır.",
                 
-                backup_l1_title: "Katman 1: Yerel ZFS Snapshot",
-                backup_l1_desc: "<strong>Sanoid</strong> kullanıyorum. Yanlışlıkla bir dosya silersem, ZFS snapshotları sayesinde saniyeler içinde geri getirebiliyorum.",
+                backup_l1_title: "Katman 1: Anlık Kurtarma (ZFS)",
+                backup_l1_desc: "<strong>Sanoid</strong> ile dosya sistemi seviyesinde (CoW) alınan periyodik snapshot'lar, veri bozulmalarına karşı saniyeler içinde geri dönüş imkanı sunar.",
                 
-                backup_l2_title: "Katman 2: Uzak Arşivleme",
-                backup_l2_desc: "Şifreli yedekleri Google Drive'a göndermek için <strong>Restic</strong> kullanıyorum. Sadece değişen veriyi gönderdiği (deduplication) için hem yer hem hız kazanıyorum.",
+                backup_l2_title: "Katman 2: Şifreli Uzak Arşiv",
+                backup_l2_desc: "<strong>Restic</strong> kullanılarak veriler istemci tarafında şifrelenir ve Google Drive'a artımlı (incremental) ve tekilleştirilmiş (deduplicated) olarak transfer edilir.",
                 
-                backup_l3_title: "Katman 3: Altyapı Kodu",
-                backup_l3_desc: "Kurulumum kod tabanlı olduğu için, tüm sunucuyu sadece <code>installer.sh</code> scriptini çalıştırarak sıfırdan kurabilirim.",
+                backup_l3_title: "Katman 3: Altyapı Sürekliliği",
+                backup_l3_desc: "Felaket durumunda, tüm sunucu parkuru <code>installer.sh</code> kullanılarak dakikalar içinde 'Bare-Metal'den itibaren yeniden ayağa kaldırılabilir.",
 
-                obs_title: "Gözlenebilirlik ve Loglar",
-                obs_intro: "Sadece çalışıyorlar mı diye sunuculara tek tek girmekten hoşlanmıyorum. Her şeyi tek yerden görebilmek için bir izleme sistemi kurdum.",
+                obs_title: "Gözlenebilirlik ve Telemetri",
+                obs_intro: "Sistemin sadece çalışması değil, 'nasıl' çalıştığının anlaşılması için tam kapsamlı metrik toplama ve log analizi.",
                 
-                obs_prom_desc: "Proxmox ve Docker verilerini toplar. Disk dolarsa veya bir servis çökerse bana hemen uyarı gelir.",
+                obs_prom_desc: "Proxmox host ve Docker konteynerlerinden gerçek zamanlı metrik toplanır. Kritik eşik aşımlarında (Disk I/O, CPU Saturation) proaktif alarmlar üretilir.",
                 
-                obs_loki_desc: "Her sunucuda <code>tail -f</code> yapmak yerine logları Loki'ye gönderiyorum. Grafana üzerinden hepsini rahatça arayabiliyorum.",
+                obs_loki_desc: "Dağıtık servis logları merkezi Loki sunucusunda toplanır. Log korelasyonu ile hata ayıklama ve kök neden analizi (Root Cause Analysis) hızlandırılır.",
                 
-                obs_graf_desc: "Donanım, ağ ve uygulama durumlarını izlediğim ana ekranım.",
+                obs_graf_desc: "Altyapı sağlığı, ağ trafiği ve servis metriklerinin tek bir camdan (Single Pane of Glass) izlenmesini sağlayan operasyonel dashboard.",
                 
                 img_graf_title: "Operasyonel Görünürlük:",
-                img_graf_desc: "Proxmox sunucu kaynaklarının (CPU/RAM) ve bireysel LXC konteyner performansının gerçek zamanlı izlenmesi.",
+                img_graf_desc: "Proxmox kaynaklarının ve konteyner performansının gerçek zamanlı analizi.",
 
-                topo_title: "Ağ Topolojisi",
-                topo_intro: "Hibrit bir ağ kurdum. Ailem evden hızlıca (yerel) bağlanırken, ben dışarıdan Cloudflare Tünelleri ile güvenli bir şekilde bağlanıyorum.",
+                topo_title: "Ağ Topolojisi ve Erişim",
+                topo_intro: "Split-DNS ve Tünel mimarisi ile hibrit erişim stratejisi. Yerel ağ performansı ve güvenli uzaktan erişim bir arada.",
                 
-                topo_tunnel: "Şifreli Cloudflare Tüneli (Gelen Port Kapalı)",
+                topo_tunnel: "CGNAT Arkasında Güvenli Erişim (Cloudflare Tunnel)",
                 
                 img_npm_title: "Trafik Yönlendirme:",
-                img_npm_desc: "Nginx Proxy Manager, SSL işlerini halleder ve gelen trafiği doğru konteynere yönlendirir.",
+                img_npm_desc: "Nginx Proxy Manager ile SSL sonlandırma (Termination) ve Host tabanlı yönlendirme yönetimi.",
 
-                virt_title: "Sanallaştırma Stratejisi",
-                virt_intro: "İşletim sistemi gibi davranması gerekenler için LXC, uygulamalar için Docker kullanıyorum. Scriptlerim bu ikisinin uyumlu çalışması için gereken karmaşık ayarları hallediyor.",
+                virt_title: "Hibrit Sanallaştırma Stratejisi",
+                virt_intro: "Kaynak verimliliği için LXC (OS-Level) ve uygulama izolasyonu için Docker teknolojilerinin hibrit kullanımı.",
                 
-                virt_dind_title: "LXC içinde Docker (Otomatik)",
-                virt_dind_desc: "<code>lxc-manager.sh</code> scriptim, Docker'ın LXC içinde sorunsuz çalışması için gereken iç içe (nesting) ayarları otomatik yapar.",
+                virt_dind_title: "Nested Sanallaştırma (Docker-in-LXC)",
+                virt_dind_desc: "OverlayFS ve AppArmor profillerinin optimize edilmesiyle, LXC konteynerleri içerisinde performans kaybı olmadan izole Docker ortamları.",
                 
-                virt_gpu_title: "Otomatik GPU Passthrough",
-                virt_gpu_desc: "Config dosyalarını elle düzenlemek yerine scriptim ekran kartını algılar ve gerekli izinleri LXC'ye otomatik tanımlar.",
+                virt_gpu_title: "Ayrıcalıksız (Unprivileged) GPU Passthrough",
+                virt_gpu_desc: "Güvenlikten ödün vermeden (Privileged moda geçmeden), cgroup v2 kuralları ile NVIDIA GPU kaynaklarının konteynerlere doğrudan atanması.",
 
                 inv_title: "Canlı Envanter",
                 inv_status: "Sistemler Operasyonel"
