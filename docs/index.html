@@ -631,6 +631,25 @@
             </div>
         </section>
 
+        <!-- 7. ARCHITECTURAL DECISIONS (FAQ) -->
+        <section id="faq">
+            <h2><i class="fa-solid fa-circle-question"></i> <span data-i18n="faq_title">Architectural Decisions</span></h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <span class="feature-title" data-i18n="faq_k8s_q">Why not Kubernetes?</span>
+                    <span class="feature-desc" data-i18n="faq_k8s_a">For a single-node environment, Kubernetes introduces significant resource overhead and operational complexity. I opted for Docker Compose to maintain native performance and simplicity while achieving declarative state via custom automation.</span>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-title" data-i18n="faq_bash_q">Why Bash for IaC?</span>
+                    <span class="feature-desc" data-i18n="faq_bash_a">Instead of adding external dependencies like Ansible, I used modular Bash scripts to stay close to the OS. This ensures the environment is reproducible on any Debian-based Proxmox host with zero pre-requisites.</span>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-title" data-i18n="faq_hybrid_q">Why Hybrid Cloud?</span>
+                    <span class="feature-desc" data-i18n="faq_hybrid_a">I combine Private Cloud (on-prem compute/storage) with Public Cloud (Cloudflare security, Google Drive backups). This strategy ensures high performance for local media while maintaining enterprise-grade security and off-site durability.</span>
+                </div>
+            </div>
+        </section>
+
     </main>
 
     <!-- DATA SOURCE -->
@@ -728,11 +747,19 @@
                 virt_dind_title: "Nested Virtualization (Docker-in-LXC)",
                 virt_dind_desc: "Optimized OverlayFS and AppArmor profiles enabling isolated Docker environments within LXC containers with near-native performance.",
                 
-                virt_gpu_title: "Unprivileged GPU Passthrough",
-                virt_gpu_desc: "Direct mapping of NVIDIA GPU resources to containers using cgroup v2 rules, maintaining security (Unprivileged mode) without sacrificing performance.",
+                virt_gpu_title: "Automated GPU Passthrough",
+                virt_gpu_desc: "Instead of editing config files manually, my script detects the NVIDIA card and injects the right permissions into the LXC config automatically.",
 
                 inv_title: "Live Inventory",
-                inv_status: "Systems Operational"
+                inv_status: "Systems Operational",
+
+                faq_title: "Architectural Decisions",
+                faq_k8s_q: "Why not Kubernetes?",
+                faq_k8s_a: "For a single-node environment, Kubernetes introduces significant resource overhead and operational complexity. I chose Docker Compose to maintain native performance and simplicity while achieving declarative state via custom automation.",
+                faq_bash_q: "Why Bash for IaC?",
+                faq_bash_a: "Instead of adding external dependencies like Ansible, I used modular Bash scripts to stay close to the OS. This ensures the environment is reproducible on any Debian-based Proxmox host with zero pre-requisites.",
+                faq_hybrid_q: "Why Hybrid Cloud?",
+                faq_hybrid_a: "I combine Private Cloud (on-prem compute/storage) with Public Cloud (Cloudflare security, Google Drive backups). This strategy ensures high performance for local media while maintaining enterprise-grade security and off-site durability."
             },
             tr: {
                 nav_overview: "Genel Bakış",
@@ -818,11 +845,19 @@
                 virt_dind_title: "Nested Sanallaştırma (Docker-in-LXC)",
                 virt_dind_desc: "OverlayFS ve AppArmor profillerinin optimize edilmesiyle, LXC konteynerleri içerisinde performans kaybı olmadan izole Docker ortamları.",
                 
-                virt_gpu_title: "Ayrıcalıksız (Unprivileged) GPU Passthrough",
-                virt_gpu_desc: "Güvenlikten ödün vermeden (Privileged moda geçmeden), cgroup v2 kuralları ile NVIDIA GPU kaynaklarının konteynerlere doğrudan atanması.",
+                virt_gpu_title: "Otomatik GPU Passthrough",
+                virt_gpu_desc: "Config dosyalarını elle düzenlemek yerine scriptim ekran kartını algılar ve gerekli izinleri LXC'ye otomatik tanımlar.",
 
                 inv_title: "Canlı Envanter",
-                inv_status: "Sistemler Operasyonel"
+                inv_status: "Sistemler Operasyonel",
+
+                faq_title: "Mimari Kararlar",
+                faq_k8s_q: "Neden Kubernetes Değil?",
+                faq_k8s_a: "Tek sunuculu bir ortamda Kubernetes, ciddi bir kaynak yükü (overhead) ve operasyonel karmaşıklık getirir. Yerel performans ve sadeliği korumak için Docker Compose mimarisini ve kendi yazdığım bildirimsel otomasyonu tercih ettim.",
+                faq_bash_q: "Neden IaC için Bash?",
+                faq_bash_a: "Ansible gibi harici bağımlılıklar eklemek yerine, işletim sistemine en yakın olan modüler Bash scriptlerini kullandım. Bu sayede altyapı, herhangi bir Debian tabanlı Proxmox hostunda sıfır ön gereksinimle kurulabilir durumdadır.",
+                faq_hybrid_q: "Neden Hibrit Bulut?",
+                faq_hybrid_a: "Özel Bulut (yerel hesaplama/depolama) ile Genel Bulutu (Cloudflare güvenliği, Google Drive yedekleri) birleştirdim. Bu strateji, yerel medyada yüksek performans sağlarken, kurumsal seviye güvenlik ve felaket kurtarma imkanı sunar."
             }
         };
 
