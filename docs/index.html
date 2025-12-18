@@ -343,8 +343,10 @@
         </ul>
 
         <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted);">
+            <p><strong>Yakrel's Homelab</strong></p>
             <p>Last Update: Dec 2025</p>
-            <p><a href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" style="color:var(--accent-blue); text-decoration:none;">View on GitHub</a></p>
+            <p><a href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" style="color:var(--accent-blue); text-decoration:none;"><i class="fa-brands fa-github"></i> GitHub</a></p>
+            <p><a href="https://cv.byetgin.com" target="_blank" style="color:var(--accent-green); text-decoration:none;"><i class="fa-solid fa-user"></i> Resume (CV)</a></p>
         </div>
     </nav>
 
@@ -364,10 +366,15 @@
                 <p style="font-size: 1.1rem; color: var(--text-main); margin-top: 10px;" data-i18n="hero_desc">
                     My personal homelab where I simulate a production environment. 40+ Docker containers, custom Bash automation, and enterprise-grade security. It's not just a hobby, it's my practice ground.
                 </p>
-                <div style="display: flex; gap: 15px; margin-top: 20px;">
+                <div style="margin-top: 15px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px; border-left: 4px solid var(--accent-orange);">
+                    <strong style="color: var(--accent-orange);"><i class="fa-solid fa-briefcase"></i> Interview Context:</strong>
+                    <p style="font-size: 0.9rem; margin: 8px 0 0 0;">This infrastructure demonstrates my hands-on experience with production-level system administration: automation, virtualization, security hardening, and operational best practices. Built from scratch to showcase real-world DevOps capabilities.</p>
+                </div>
+                <div style="display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
                     <span class="badge" style="background:var(--accent-blue); color:black;"><i class="fa-brands fa-docker"></i> 40+ Services</span>
-                    <span class="badge" style="background:var(--accent-purple); color:black;"><i class="fa-solid fa-code"></i> <span class="tooltip" data-tip="Modular scripts ensuring reproducible deployments (Idempotency)">Bash IaC</span></span>
+                    <span class="badge" style="background:var(--accent-purple); color:black;"><i class="fa-solid fa-code"></i> <span class="tooltip" data-tip="~3000 lines of modular Bash scripts for reproducible deployments">~3K Lines Bash</span></span>
                     <span class="badge" style="background:var(--accent-green); color:black;"><i class="fa-solid fa-shield"></i> <span class="tooltip" data-tip="AES-256-CBC encryption via OpenSSL for .env files">OpenSSL Encrypted</span></span>
+                    <span class="badge" style="background:var(--accent-orange); color:black;"><i class="fa-solid fa-server"></i> 8 LXC Hosts</span>
                 </div>
 
                 <!-- Main Dashboard Screenshot -->
@@ -375,6 +382,32 @@
                     <img src="assets/main-dashboard.png" alt="Homepage Dashboard">
                     <div class="screenshot-caption">
                         <strong data-i18n="img_dash_title">Centralized Command Center:</strong> <span data-i18n="img_dash_desc">My main dashboard. I use this to check service health and disk usage at a glance.</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Key Metrics Section -->
+            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 30px; margin-bottom: 30px;">
+                <h3 style="margin-top: 0; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-gauge-high" style="color: var(--accent-green);"></i>
+                    <span data-i18n="metrics_title">Project Metrics</span>
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--accent-blue);">~3000</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="metrics_loc">Lines of Automation Code</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--accent-green);">8</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="metrics_lxc">LXC Containers (Orchestrated)</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--accent-purple);">40+</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="metrics_services">Microservices Running</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--accent-orange);">100%</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="metrics_uptime">Target Uptime (Monitored)</div>
                     </div>
                 </div>
             </div>
@@ -391,6 +424,10 @@
                 <div class="feature-card">
                     <span class="feature-title"><i class="fa-solid fa-microchip" style="color:var(--accent-green)"></i> <span data-i18n="feat_hw_title">Hardware Passthrough</span></span>
                     <span class="feature-desc" data-i18n="feat_hw_desc">My media server needs GPU power. I mapped the NVIDIA card directly to the LXC container using cgroups.</span>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-title"><i class="fa-solid fa-code-branch" style="color:var(--accent-purple)"></i> <span data-i18n="feat_iac_title">Infrastructure as Code</span></span>
+                    <span class="feature-desc" data-i18n="feat_iac_desc">~3000 lines of Bash automation. Every server deployment is reproducible and version-controlled.</span>
                 </div>
             </div>
         </section>
@@ -648,6 +685,10 @@
                     <span class="feature-title" data-i18n="faq_hybrid_q">Why Hybrid Cloud?</span>
                     <span class="feature-desc" data-i18n="faq_hybrid_a">I combine Private Cloud (on-prem compute/storage) with Public Cloud (Cloudflare security, Google Drive backups). This strategy ensures high performance for local media while maintaining enterprise-grade security and off-site durability.</span>
                 </div>
+                <div class="feature-card">
+                    <span class="feature-title" data-i18n="faq_lxc_q">Why LXC instead of VMs?</span>
+                    <span class="feature-desc" data-i18n="faq_lxc_a">LXC containers provide near-native performance with minimal overhead (~2-3% vs VMs ~10-15%). For stateless workloads and Docker hosts, this translates to 3x better density on the same hardware.</span>
+                </div>
             </div>
         </section>
 
@@ -675,11 +716,17 @@
                 nav_inventory: "Live Inventory",
                 nav_faq: "Architectural Decisions",
                 
-                hero_title: "Proxmox Hybrid Cloud Automation",
-                hero_desc: "A production-grade, fully automated **Personal Hybrid Cloud Infrastructure**. Featuring 40+ microservices, declarative Bash-based infrastructure management, and an enterprise-level Zero Trust architecture.",
+                hero_title: "Proxmox Homelab Automation",
+                hero_desc: "My personal homelab where I simulate a production environment. 40+ Docker containers, custom Bash automation, and enterprise-grade security. It's not just a hobby, it's my practice ground.",
                 
-                img_dash_title: "Central Command Panel:",
-                img_dash_desc: "Primary operations dashboard monitoring service health, resource consumption, and storage metrics in real-time.",
+                img_dash_title: "Centralized Command Center:",
+                img_dash_desc: "My main dashboard. I use this to check service health and disk usage at a glance.",
+                
+                metrics_title: "Project Metrics",
+                metrics_loc: "Lines of Automation Code",
+                metrics_lxc: "LXC Containers (Orchestrated)",
+                metrics_services: "Microservices Running",
+                metrics_uptime: "Target Uptime (Monitored)",
                 
                 feat_cd_title: "Continuous Delivery (CI/CD)",
                 feat_cd_desc: "Automated Docker image builds via GitHub Actions and event-driven backup synchronization integrated with Google Drive.",
@@ -689,6 +736,9 @@
                 
                 feat_hw_title: "Hardware Passthrough",
                 feat_hw_desc: "Direct, zero-overhead assignment of NVIDIA GPU resources to LXC containers via cgroup v2 rules for high-performance media processing.",
+                
+                feat_iac_title: "Infrastructure as Code",
+                feat_iac_desc: "~3000 lines of Bash automation. Every server deployment is reproducible and version-controlled.",
                 
                 iac_title: "Infrastructure as Code (IaC)",
                 iac_intro: "An automation architecture where the entire infrastructure is defined as a 'Single Source of Truth' in <code>stacks.yaml</code>, eliminating manual configuration drift.",
@@ -761,7 +811,9 @@
                 faq_bash_q: "Why Bash for IaC?",
                 faq_bash_a: "Instead of adding external dependencies like Ansible, I used modular Bash scripts to stay close to the OS. This ensures the environment is reproducible on any Debian-based Proxmox host with zero pre-requisites.",
                 faq_hybrid_q: "Why Hybrid Cloud?",
-                faq_hybrid_a: "I combine Private Cloud (on-prem compute/storage) with Public Cloud (Cloudflare security, Google Drive backups). This strategy ensures high performance for local media while maintaining enterprise-grade security and off-site durability."
+                faq_hybrid_a: "I combine Private Cloud (on-prem compute/storage) with Public Cloud (Cloudflare security, Google Drive backups). This strategy ensures high performance for local media while maintaining enterprise-grade security and off-site durability.",
+                faq_lxc_q: "Why LXC instead of VMs?",
+                faq_lxc_a: "LXC containers provide near-native performance with minimal overhead (~2-3% vs VMs ~10-15%). For stateless workloads and Docker hosts, this translates to 3x better density on the same hardware."
             },
             tr: {
                 nav_overview: "Genel Bakış",
@@ -780,6 +832,12 @@
                 img_dash_title: "Merkezi Komuta Paneli:",
                 img_dash_desc: "Servis sağlığı, kaynak tüketimi ve disk doluluk oranlarının anlık izlendiği ana operasyon ekranı.",
                 
+                metrics_title: "Proje Metrikleri",
+                metrics_loc: "Otomasyon Kod Satırı",
+                metrics_lxc: "LXC Konteyner (Orkestra)",
+                metrics_services: "Aktif Mikroservis",
+                metrics_uptime: "Hedef Uptime (İzleniyor)",
+                
                 feat_cd_title: "Sürekli Dağıtım (CI/CD)",
                 feat_cd_desc: "GitHub Actions ile otomatik Docker imaj derleme süreçleri ve Google Drive ile entegre, olay tabanlı (event-driven) yedekleme otomasyonu.",
                 
@@ -788,6 +846,9 @@
                 
                 feat_hw_title: "Donanım Passthrough",
                 feat_hw_desc: "Medya işleme yükleri için NVIDIA GPU kaynağının, cgroup v2 kuralları ile LXC konteynerine doğrudan ve kayıpsız aktarımı.",
+                
+                feat_iac_title: "Kod Olarak Altyapı",
+                feat_iac_desc: "~3000 satır Bash otomasyonu. Her sunucu kurulumu tekrar edilebilir ve versiyon kontrollü.",
                 
                 iac_title: "Kod Olarak Altyapı (IaC)",
                 iac_intro: "Manuel sunucu yönetimini elimine eden, tüm altyapının <code>stacks.yaml</code> üzerinde 'Tek Gerçeklik Kaynağı' (Single Source of Truth) olarak tanımlandığı otomasyon mimarisi.",
@@ -860,7 +921,9 @@
                 faq_bash_q: "Neden IaC için Bash?",
                 faq_bash_a: "Ansible gibi harici bağımlılıklar eklemek yerine, işletim sistemine en yakın olan modüler Bash scriptlerini kullandım. Bu sayede altyapı, herhangi bir Debian tabanlı Proxmox hostunda sıfır ön gereksinimle kurulabilir durumdadır.",
                 faq_hybrid_q: "Neden Hibrit Bulut?",
-                faq_hybrid_a: "Özel Bulut (yerel hesaplama/depolama) ile Genel Bulutu (Cloudflare güvenliği, Google Drive yedekleri) birleştirdim. Bu strateji, yerel medyada yüksek performans sağlarken, kurumsal seviye güvenlik ve felaket kurtarma imkanı sunar."
+                faq_hybrid_a: "Özel Bulut (yerel hesaplama/depolama) ile Genel Bulutu (Cloudflare güvenliği, Google Drive yedekleri) birleştirdim. Bu strateji, yerel medyada yüksek performans sağlarken, kurumsal seviye güvenlik ve felaket kurtarma imkanı sunar.",
+                faq_lxc_q: "Neden VM yerine LXC?",
+                faq_lxc_a: "LXC konteynerler minimal overhead ile native performansa yakın hız sunar (~%2-3 vs VM'lerde ~%10-15). Stateless workloadlar ve Docker hostlar için aynı donanımda 3 kat daha yüksek yoğunluk sağlar."
             }
         };
 
