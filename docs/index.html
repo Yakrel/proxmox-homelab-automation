@@ -120,7 +120,7 @@
         .lang-switch:hover { border-color: var(--accent-blue); color: var(--text-main); }
         .lang-active { color: var(--accent-blue); font-weight: bold; }
 
-        section { margin-bottom: 80px; scroll-margin-top: 40px; }
+        section { margin-bottom: 80px; scroll-margin-top: 60px; }
 
         h1 { font-size: 2.5rem; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
         h2 { font-size: 1.8rem; color: var(--text-main); margin-top: 0; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
@@ -339,6 +339,7 @@
             <li><a href="#topology" class="nav-item"><i class="fa-solid fa-network-wired"></i> <span data-i18n="nav_topology">Network Topology</span></a></li>
             <li><a href="#virtualization" class="nav-item"><i class="fa-brands fa-docker"></i> <span data-i18n="nav_virtualization">Virtualization Strategy</span></a></li>
             <li><a href="#inventory" class="nav-item"><i class="fa-solid fa-server"></i> <span data-i18n="nav_inventory">Live Inventory</span></a></li>
+            <li><a href="#faq" class="nav-item"><i class="fa-solid fa-circle-question"></i> <span data-i18n="nav_faq">Architectural Decisions</span></a></li>
         </ul>
 
         <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted);">
@@ -672,6 +673,7 @@
                 nav_topology: "Network Topology",
                 nav_virtualization: "Virtualization Strategy",
                 nav_inventory: "Live Inventory",
+                nav_faq: "Architectural Decisions",
                 
                 hero_title: "Proxmox Hybrid Cloud Automation",
                 hero_desc: "A production-grade, fully automated **Personal Hybrid Cloud Infrastructure**. Featuring 40+ microservices, declarative Bash-based infrastructure management, and an enterprise-level Zero Trust architecture.",
@@ -770,6 +772,7 @@
                 nav_topology: "Ağ Topolojisi",
                 nav_virtualization: "Sanallaştırma Stratejisi",
                 nav_inventory: "Canlı Envanter",
+                nav_faq: "Mimari Kararlar",
                 
                 hero_title: "Proxmox Hibrit Bulut Otomasyonu",
                 hero_desc: "Üretim ortamı standartlarında tasarlanmış, tam otomatize **Kişisel Hibrit Bulut Altyapısı**. 40+ mikroservis, Bash tabanlı bildirimsel (declarative) altyapı yönetimi ve kurumsal seviye Sıfır Güven (Zero Trust) mimarisi.",
@@ -922,7 +925,7 @@
                         if (activeItem) activeItem.classList.add('active');
                     }
                 });
-            }, { root: null, rootMargin: '-20% 0px -70% 0px', threshold: 0 });
+            }, { root: null, rootMargin: '-10% 0px -50% 0px', threshold: 0 });
 
             sections.forEach(section => observer.observe(section));
 
