@@ -1,6 +1,6 @@
 # Proxmox Homelab Automation
 
-Production homelab architected with enterprise-grade practices, demonstrating advanced DevOps capabilities. Orchestrates **40+ microservices** across **8 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**, and **full-stack observability**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** mimicking bare-metal provisioning.
+Production homelab architected with enterprise-grade practices, demonstrating advanced DevOps capabilities. Orchestrates **40+ microservices** across **8 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**, and **full-stack observability**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
 
 > **About**: A production-grade **Hybrid Cloud Simulation** architected to demonstrate enterprise DevOps capabilities. Features a **Declarative Infrastructure** managed as code, **Zero Trust** security posture, and a **Disaster Recovery Ready** architecture.
 
@@ -73,9 +73,10 @@ Two custom images built and maintained with automated pipelines:
 
 ### **Business Continuity & Disaster Recovery**
 - **3-2-1 Strategy**: Local ZFS snapshots (Hot) + Encrypted Cloud Archives (Cold).
-- **Deduplicated Offsite Sync**: Restic repositories synced to Google Drive via Rclone post-backup hooks.
+- **Automated Cloud Sync**: Backrest repositories synced to Google Drive via post-backup hooks (rclone).
 - **Secure Archives**: Client-side encryption ensuring data privacy in public cloud environments.
 - **CI/CD Maintained**: Custom `backrest-rclone` image automatically rebuilt twice a week for up-to-date security and cloud sync compatibility.
+- **Layer 3 Recovery**: In a disaster scenario, the entire server fleet can be rebuilt on the **Proxmox Host** in minutes using the `installer.sh` automation suite.
 
 ---
 
@@ -116,13 +117,13 @@ Extensible development environment
 - **Timezone**: `Europe/Istanbul`
 - **Secrets**: Pre-encrypted in `.env.enc` files
 
-**Not plug-and-play.** This project demonstrates infrastructure automation and DevOps skills. To adapt for your environment: fork, modify hardcoded values, re-encrypt secrets, test thoroughly.
+**Not plug-and-play.** This project demonstrates infrastructure automation and DevOps skills. To adapt for your environment: fork, perform necessary network/storage refactoring, re-encrypt secrets, and test thoroughly.
 
 ## 📁 Project Structure
 
 ```
 ├── installer.sh              # One-line installer
-├── scripts/                  # 2100+ lines of deployment automation
+├── scripts/                  # ~3000 lines of deployment automation
 │   ├── deploy-stack.sh      # Main orchestrator
 │   ├── lxc-manager.sh       # LXC lifecycle management
 │   ├── modules/             # Specialized deployment modules

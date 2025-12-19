@@ -495,3 +495,54 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  stash:
+    image: stashapp/stash:latest
+    container_name: stash
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+      - STASH_STDOUT_LOG_LEVEL=info
+      # Custom paths inside container
+      - STASH_STASH=/data/
+      - STASH_GENERATED=/generated/
+      - STASH_METADATA=/metadata/
+      - STASH_CACHE=/cache/
+      - STASH_PORT=9999
+      # NVIDIA GPU support
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      # Config stays in config datapool
+      - /datapool/config/stash:/root/.stash
+      # Main collection (Best Practice: Use a dedicated subfolder)
+      - /datapool/private/stash-content:/data
+      # NSFW generated content and metadata goes to private
+      - /datapool/private/stash-system/metadata:/metadata
+      - /datapool/private/stash-system/cache:/cache
+      - /datapool/private/stash-system/blobs:/blobs
+      - /datapool/private/stash-system/generated:/generated
+      # CUDA libraries for hardware acceleration
+      - /usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu/nvidia/current:ro
+      - /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:ro
+      - /usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:/usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:ro
+    devices:
+      # NVIDIA GPU devices
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    ports:
+      - "9999:9999"
+    networks:
+      - media-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

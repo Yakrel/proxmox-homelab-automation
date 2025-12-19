@@ -326,7 +326,7 @@
             <div class="profile-img">BY</div>
             <div class="brand-text">
                 <h3>Berkay Yetgin</h3>
-                <p>System Administrator</p>
+                <p data-i18n="sidebar_role">System Administrator</p>
             </div>
         </div>
 
@@ -343,10 +343,10 @@
         </ul>
 
         <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted);">
-            <p><strong>Yakrel's Homelab</strong></p>
-            <p>Last Update: Dec 2025</p>
+            <p><strong data-i18n="sidebar_brand">Yakrel's Homelab</strong></p>
+            <p><span data-i18n="sidebar_update">Last Update:</span> Dec 2025</p>
             <p><a href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" style="color:var(--accent-blue); text-decoration:none;"><i class="fa-brands fa-github"></i> GitHub</a></p>
-            <p><a href="https://cv.byetgin.com" target="_blank" style="color:var(--accent-green); text-decoration:none;"><i class="fa-solid fa-user"></i> Resume (CV)</a></p>
+            <p><a href="https://cv.byetgin.com" target="_blank" style="color:var(--accent-green); text-decoration:none;"><i class="fa-solid fa-user"></i> <span data-i18n="sidebar_cv">Resume (CV)</span></a></p>
         </div>
     </nav>
 
@@ -366,15 +366,11 @@
                 <p style="font-size: 1.1rem; color: var(--text-main); margin-top: 10px;" data-i18n="hero_desc">
                     My personal homelab where I simulate a production environment. 40+ Docker containers, custom Bash automation, and enterprise-grade security. It's not just a hobby, it's my practice ground.
                 </p>
-                <div style="margin-top: 15px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px; border-left: 4px solid var(--accent-orange);">
-                    <strong style="color: var(--accent-orange);"><i class="fa-solid fa-briefcase"></i> Interview Context:</strong>
-                    <p style="font-size: 0.9rem; margin: 8px 0 0 0;">This infrastructure demonstrates my hands-on experience with production-level system administration: automation, virtualization, security hardening, and operational best practices. Built from scratch to showcase real-world DevOps capabilities.</p>
-                </div>
                 <div style="display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
-                    <span class="badge" style="background:var(--accent-blue); color:black;"><i class="fa-brands fa-docker"></i> 40+ Services</span>
-                    <span class="badge" style="background:var(--accent-purple); color:black;"><i class="fa-solid fa-code"></i> <span class="tooltip" data-tip="~3000 lines of modular Bash scripts for reproducible deployments">~3K Lines Bash</span></span>
-                    <span class="badge" style="background:var(--accent-green); color:black;"><i class="fa-solid fa-shield"></i> <span class="tooltip" data-tip="AES-256-CBC encryption via OpenSSL for .env files">OpenSSL Encrypted</span></span>
-                    <span class="badge" style="background:var(--accent-orange); color:black;"><i class="fa-solid fa-server"></i> 8 LXC Hosts</span>
+                    <span class="badge" style="background:var(--accent-blue); color:black;"><i class="fa-brands fa-docker"></i> <span data-i18n="badge_services">40+ Services</span></span>
+                    <span class="badge" style="background:var(--accent-purple); color:black;"><i class="fa-solid fa-code"></i> <span class="tooltip" data-tip-i18n="badge_bash_tip"><span data-i18n="badge_bash">~3K Lines Bash</span></span></span>
+                    <span class="badge" style="background:var(--accent-green); color:black;"><i class="fa-solid fa-shield"></i> <span class="tooltip" data-tip-i18n="badge_ssl_tip"><span data-i18n="badge_ssl">OpenSSL Encrypted</span></span></span>
+                    <span class="badge" style="background:var(--accent-orange); color:black;"><i class="fa-solid fa-server"></i> <span data-i18n="badge_lxc">8 LXC Hosts</span></span>
                 </div>
 
                 <!-- Main Dashboard Screenshot -->
@@ -415,7 +411,7 @@
             <div class="feature-grid">
                 <div class="feature-card">
                     <span class="feature-title"><i class="fa-solid fa-rotate" style="color:var(--accent-blue)"></i> <span data-i18n="feat_cd_title">Continuous Delivery</span></span>
-                    <span class="feature-desc" data-i18n="feat_cd_desc">When I push code, GitHub Actions builds my Docker images. I also set up automated hooks to sync backups to Google Drive.</span>
+                    <span class="feature-desc" data-i18n="feat_cd_desc">When I push code, GitHub Actions builds my Docker images. Backrest handles automated backups with post-success hooks syncing to Google Drive.</span>
                 </div>
                 <div class="feature-card">
                     <span class="feature-title"><i class="fa-solid fa-user-shield" style="color:var(--accent-orange)"></i> <span data-i18n="feat_zt_title">Zero Trust Access</span></span>
@@ -455,28 +451,6 @@
                     <strong data-i18n="img_cli_title">Interactive Automation:</strong> <span data-i18n="img_cli_desc">The <code>installer.sh</code> script reading from <code>stacks.yaml</code> to provision resources.</span>
                 </div>
             </div>
-
-            <div class="code-block">
-                <span class="code-lang">deploy-stack.sh</span>
-                <div style="line-height: 1.5;">
-<span class="c-comment"># Example: Atomic deployment with secret decryption</span>
-<span class="c-cmd">function</span> <span class="c-arg">deploy_stack()</span> {
-    <span class="c-cmd">local</span> stack_name=$1
-    
-    <span class="c-comment"># 1. Decrypt secrets in memory only (OpenSSL AES-256-CBC)</span>
-    <span class="c-cmd">printf</span> '%s' "$MASTER_KEY" | \
-        <span class="c-cmd">openssl</span> enc -d -aes-256-cbc -pbkdf2 -salt -pass stdin \
-        -in .env.enc -out .env
-        
-    <span class="c-comment"># 2. Pull & Deploy</span>
-    <span class="c-cmd">docker</span> compose pull
-    <span class="c-cmd">docker</span> compose up -d --remove-orphans
-    
-    <span class="c-comment"># 3. Cleanup secrets immediately</span>
-    <span class="c-cmd">rm</span> -f .env
-}
-                </div>
-            </div>
         </section>
 
         <!-- 3. SECURITY -->
@@ -511,7 +485,7 @@
                 <div class="feature-card">
                     <span class="feature-title"><i class="fa-brands fa-google-drive" style="color:var(--accent-blue)"></i> <span data-i18n="backup_l2_title">Layer 2: Off-Site Archival</span></span>
                     <span class="feature-desc" data-i18n="backup_l2_desc">
-                        I use <strong>Restic</strong> to send encrypted backups to Google Drive. It only sends the changes (deduplication), so it saves space and bandwidth.
+                        <strong>Backrest</strong> creates encrypted, deduplicated snapshots. Configuration data backed up daily, media library twice weekly. Post-success hooks automatically sync to Google Drive via rclone.
                     </span>
                 </div>
                 <div class="feature-card">
@@ -679,7 +653,7 @@
                 </div>
                 <div class="feature-card">
                     <span class="feature-title" data-i18n="faq_bash_q">Why Bash for IaC?</span>
-                    <span class="feature-desc" data-i18n="faq_bash_a">Instead of adding external dependencies like Ansible, I used modular Bash scripts to stay close to the OS. This ensures the environment is reproducible on any Debian-based Proxmox host with zero pre-requisites.</span>
+                    <span class="feature-desc" data-i18n="faq_bash_a">Instead of adding external dependencies like Ansible, I used modular Bash scripts to stay close to the OS. This ensures the environment is fully reproducible on my Proxmox host, though adapting it to other networks requires configuration changes.</span>
                 </div>
                 <div class="feature-card">
                     <span class="feature-title" data-i18n="faq_hybrid_q">Why Hybrid Cloud?</span>
@@ -719,6 +693,18 @@
                 hero_title: "Proxmox Homelab Automation",
                 hero_desc: "My personal homelab where I simulate a production environment. 40+ Docker containers, custom Bash automation, and enterprise-grade security. It's not just a hobby, it's my practice ground.",
                 
+                sidebar_brand: "Yakrel's Homelab",
+                sidebar_update: "Last Update:",
+                sidebar_cv: "Resume (CV)",
+                sidebar_role: "System Administrator",
+                
+                badge_services: "40+ Services",
+                badge_bash: "~3K Lines Bash",
+                badge_bash_tip: "~3000 lines of modular Bash scripts for reproducible deployments",
+                badge_ssl: "OpenSSL Encrypted",
+                badge_ssl_tip: "AES-256-CBC encryption via OpenSSL for .env files",
+                badge_lxc: "8 LXC Hosts",
+                
                 img_dash_title: "Centralized Command Center:",
                 img_dash_desc: "My main dashboard. I use this to check service health and disk usage at a glance.",
                 
@@ -729,7 +715,7 @@
                 metrics_uptime: "Target Uptime (Monitored)",
                 
                 feat_cd_title: "Continuous Delivery (CI/CD)",
-                feat_cd_desc: "Automated Docker image builds via GitHub Actions and event-driven backup synchronization integrated with Google Drive.",
+                feat_cd_desc: "Automated Docker image builds via GitHub Actions. Backrest handles scheduled backups (daily configs, twice-weekly media) with post-success hooks syncing to Google Drive via rclone.",
                 
                 feat_zt_title: "Zero Trust Access",
                 feat_zt_desc: "Secure, closed-port access using identity-aware Cloudflare Tunnels instead of traditional port forwarding.",
@@ -758,8 +744,8 @@
                 sec_enc_title: "GitOps & Encryption (AES-256)",
                 sec_enc_desc: "Sensitive credentials (API Keys, Passwords) are stored encrypted (<code>.env.enc</code>) using AES-256-CBC standards. Decryption occurs only in memory during deployment.",
                 
-                sec_f2b_title: "Intrusion Prevention (IPS)",
-                sec_f2b_desc: "Internal traffic and Cloudflare logs are analyzed to proactively block brute-force attacks in real-time using Fail2Ban.",
+                sec_f2b_title: "Fail2Ban (Local Protection)",
+                sec_f2b_desc: "Monitors authentication logs to detect and automatically block brute-force attempts on internal services (SSH, web apps).",
 
                 backup_title: "Data Integrity & Disaster Recovery",
                 backup_intro: "A multi-layered data protection strategy adhering to the 3-2-1 rule, ensuring Business Continuity even in catastrophic failure scenarios.",
@@ -767,11 +753,11 @@
                 backup_l1_title: "Layer 1: Instant Recovery (ZFS)",
                 backup_l1_desc: "Periodic Copy-on-Write (CoW) snapshots managed by <strong>Sanoid</strong> allow for second-level recovery from data corruption or accidental deletion.",
                 
-                backup_l2_title: "Layer 2: Encrypted Off-Site Archive",
-                backup_l2_desc: "<strong>Restic</strong> is used for client-side encrypted, incremental, and deduplicated data transfer to Google Drive.",
+                backup_l2_title: "Layer 2: Off-Site Archival",
+                backup_l2_desc: "Backrest creates encrypted, deduplicated snapshots locally. Configuration data backed up daily, media library twice weekly. Post-backup hooks trigger sync-to-gdrive.sh to upload to Google Drive via rclone.",
                 
                 backup_l3_title: "Layer 3: Infrastructure Continuity",
-                backup_l3_desc: "In a disaster scenario, the entire server fleet can be rebuilt from 'Bare-Metal' in minutes using the <code>installer.sh</code> automation suite.",
+                backup_l3_desc: "In a disaster scenario, the entire server fleet can be rebuilt on the <strong>Proxmox Host</strong> in minutes using the <code>installer.sh</code> automation suite.",
 
                 obs_title: "Observability & Telemetry",
                 obs_intro: "Comprehensive metric collection and log analysis to understand not just 'if' the system is running, but 'how' it is performing.",
@@ -809,7 +795,7 @@
                 faq_k8s_q: "Why not Kubernetes?",
                 faq_k8s_a: "For a single-node environment, Kubernetes introduces significant resource overhead and operational complexity. I chose Docker Compose to maintain native performance and simplicity while achieving declarative state via custom automation.",
                 faq_bash_q: "Why Bash for IaC?",
-                faq_bash_a: "Instead of adding external dependencies like Ansible, I used modular Bash scripts to stay close to the OS. This ensures the environment is reproducible on any Debian-based Proxmox host with zero pre-requisites.",
+                faq_bash_a: "Instead of adding external dependencies like Ansible, I used modular Bash scripts to stay close to the OS. This ensures the environment is fully reproducible on my Proxmox host, though adapting it to other networks requires configuration changes.",
                 faq_hybrid_q: "Why Hybrid Cloud?",
                 faq_hybrid_a: "I combine Private Cloud (on-prem compute/storage) with Public Cloud (Cloudflare security, Google Drive backups). This strategy ensures high performance for local media while maintaining enterprise-grade security and off-site durability.",
                 faq_lxc_q: "Why LXC instead of VMs?",
@@ -827,7 +813,19 @@
                 nav_faq: "Mimari Kararlar",
                 
                 hero_title: "Proxmox Hibrit Bulut Otomasyonu",
-                hero_desc: "Üretim ortamı standartlarında tasarlanmış, tam otomatize **Kişisel Hibrit Bulut Altyapısı**. 40+ mikroservis, Bash tabanlı bildirimsel (declarative) altyapı yönetimi ve kurumsal seviye Sıfır Güven (Zero Trust) mimarisi.",
+                hero_desc: "Üretim ortamı standartlarında tasarlanmış, tam otomatize <strong>Kişisel Hibrit Bulut Altyapısı</strong>. 40+ mikroservis, Bash ile kod olarak altyapı yönetimi ve Sıfır Güven (Zero Trust) mimarisi.",
+                
+                sidebar_brand: "Yakrel'in Homelab'ı",
+                sidebar_update: "Son Güncelleme:",
+                sidebar_cv: "Özgeçmiş (CV)",
+                sidebar_role: "Sistem Yöneticisi",
+                
+                badge_services: "40+ Servis",
+                badge_bash: "~3B Satır Bash",
+                badge_bash_tip: "Tekrar edilebilir kurulumlar için ~3000 satır modüler Bash scripti",
+                badge_ssl: "OpenSSL Şifreli",
+                badge_ssl_tip: ".env dosyaları için AES-256-CBC şifreleme standardı",
+                badge_lxc: "8 LXC Host",
                 
                 img_dash_title: "Merkezi Komuta Paneli:",
                 img_dash_desc: "Servis sağlığı, kaynak tüketimi ve disk doluluk oranlarının anlık izlendiği ana operasyon ekranı.",
@@ -839,7 +837,7 @@
                 metrics_uptime: "Hedef Uptime (İzleniyor)",
                 
                 feat_cd_title: "Sürekli Dağıtım (CI/CD)",
-                feat_cd_desc: "GitHub Actions ile otomatik Docker imaj derleme süreçleri ve Google Drive ile entegre, olay tabanlı (event-driven) yedekleme otomasyonu.",
+                feat_cd_desc: "GitHub Actions ile otomatik Docker imaj derleme. Backrest zamanlanmış yedeklemeler yapar (günlük config, haftalık medya), başarılı backup sonrası rclone ile Google Drive'a senkronize eden hook'lar ile.",
                 
                 feat_zt_title: "Sıfır Güven (Zero Trust) Erişimi",
                 feat_zt_desc: "Geleneksel port yönlendirme yerine, kimlik doğrulama katmanlı Cloudflare Tünelleri kullanılarak dış dünyaya kapalı, güvenli erişim.",
@@ -868,8 +866,8 @@
                 sec_enc_title: "GitOps ve Şifreleme (AES-256)",
                 sec_enc_desc: "Hassas veriler (API Key, Parola), repo içerisinde AES-256-CBC standartlarında şifreli (<code>.env.enc</code>) saklanır. Yalnızca deploy anında bellekte deşifre edilir.",
                 
-                sec_f2b_title: "Saldırı Tespiti (IPS)",
-                sec_f2b_desc: "İç ağ trafiği ve Cloudflare logları analiz edilerek, kaba kuvvet (brute-force) saldırıları Fail2Ban ile anlık olarak engellenir.",
+                sec_f2b_title: "Fail2Ban (Yerel Koruma)",
+                sec_f2b_desc: "Kimlik doğrulama loglarını izleyerek iç servislere (SSH, web uygulamaları) yapılan brute-force denemelerini otomatik olarak engeller.",
 
                 backup_title: "Veri Bütünlüğü ve Felaket Kurtarma",
                 backup_intro: "3-2-1 Yedekleme kuralına uygun, çok katmanlı ve şifreli veri koruma stratejisi ile iş sürekliliği (Business Continuity) sağlanır.",
@@ -878,10 +876,10 @@
                 backup_l1_desc: "<strong>Sanoid</strong> ile dosya sistemi seviyesinde (CoW) alınan periyodik snapshot'lar, veri bozulmalarına karşı saniyeler içinde geri dönüş imkanı sunar.",
                 
                 backup_l2_title: "Katman 2: Şifreli Uzak Arşiv",
-                backup_l2_desc: "<strong>Restic</strong> kullanılarak veriler istemci tarafında şifrelenir ve Google Drive'a artımlı (incremental) ve tekilleştirilmiş (deduplicated) olarak transfer edilir.",
+                backup_l2_desc: "Backrest şifreli ve tekilleştirilmiş snapshot'lar alır. Konfigürasyon verisi günlük, medya kütüphanesi haftada iki kez yedeklenir. Backup sonrası hook tetiklenerek sync-to-gdrive.sh scripti rclone ile Google Drive'a yükler.",
                 
                 backup_l3_title: "Katman 3: Altyapı Sürekliliği",
-                backup_l3_desc: "Felaket durumunda, tüm sunucu parkuru <code>installer.sh</code> kullanılarak dakikalar içinde 'Bare-Metal'den itibaren yeniden ayağa kaldırılabilir.",
+                backup_l3_desc: "Felaket durumunda, tüm sunucu parkuru <code>installer.sh</code> kullanılarak dakikalar içinde <strong>Proxmox Host</strong> üzerinde yeniden ayağa kaldırılabilir.",
 
                 obs_title: "Gözlenebilirlik ve Telemetri",
                 obs_intro: "Sistemin sadece çalışması değil, 'nasıl' çalıştığının anlaşılması için tam kapsamlı metrik toplama ve log analizi.",
@@ -917,13 +915,13 @@
 
                 faq_title: "Mimari Kararlar",
                 faq_k8s_q: "Neden Kubernetes Değil?",
-                faq_k8s_a: "Tek sunuculu bir ortamda Kubernetes, ciddi bir kaynak yükü (overhead) ve operasyonel karmaşıklık getirir. Yerel performans ve sadeliği korumak için Docker Compose mimarisini ve kendi yazdığım bildirimsel otomasyonu tercih ettim.",
+                faq_k8s_a: "Tek sunuculu bir ortamda Kubernetes gereksiz karmaşa ve kaynak israfı yaratıyor. Yerel performansı korumak için Docker Compose ve kendi yazdığım otomasyonu tercih ettim.",
                 faq_bash_q: "Neden IaC için Bash?",
-                faq_bash_a: "Ansible gibi harici bağımlılıklar eklemek yerine, işletim sistemine en yakın olan modüler Bash scriptlerini kullandım. Bu sayede altyapı, herhangi bir Debian tabanlı Proxmox hostunda sıfır ön gereksinimle kurulabilir durumdadır.",
+                faq_bash_a: "Ansible gibi harici bağımlılıklar eklemek yerine, işletim sistemine en yakın olan modüler Bash scriptlerini kullandım. Bu sayede kendi ortamımda kurulum tamamen tekrar edilebilir durumdadır; ancak farklı ağ yapılarında yapılandırma değişikliği gerektirir.",
                 faq_hybrid_q: "Neden Hibrit Bulut?",
-                faq_hybrid_a: "Özel Bulut (yerel hesaplama/depolama) ile Genel Bulutu (Cloudflare güvenliği, Google Drive yedekleri) birleştirdim. Bu strateji, yerel medyada yüksek performans sağlarken, kurumsal seviye güvenlik ve felaket kurtarma imkanı sunar.",
+                faq_hybrid_a: "Özel Bulut (kendi sunucum) ile Genel Bulutu (Cloudflare + Google Drive) birleştirdim. Yerel medyada yüksek hız, dışarıdan güvenli erişim ve yedeklerin bulutta saklanması.",
                 faq_lxc_q: "Neden VM yerine LXC?",
-                faq_lxc_a: "LXC konteynerler minimal overhead ile native performansa yakın hız sunar (~%2-3 vs VM'lerde ~%10-15). Stateless workloadlar ve Docker hostlar için aynı donanımda 3 kat daha yüksek yoğunluk sağlar."
+                faq_lxc_a: "LXC konteynerler çok daha hafif ve hızlı (kayıp ~%2-3, VM'lerde ~%10-15). Aynı donanımda 3 kat daha fazla servis çalıştırabiliyorum.",
             }
         };
 
@@ -935,6 +933,14 @@
                 const key = el.getAttribute('data-i18n');
                 if (I18N[currentLang][key]) {
                     el.innerHTML = I18N[currentLang][key];
+                }
+            });
+
+            // Update Tooltips
+            document.querySelectorAll('[data-tip-i18n]').forEach(el => {
+                const key = el.getAttribute('data-tip-i18n');
+                if (I18N[currentLang][key]) {
+                    el.setAttribute('data-tip', I18N[currentLang][key]);
                 }
             });
 
