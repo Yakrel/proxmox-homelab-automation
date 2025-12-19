@@ -95,8 +95,9 @@
         .main-content {
             margin-left: 280px;
             padding: 40px 60px;
-            width: 100%;
-            max-width: 1200px;
+            /* Allow content to fill the remaining width */
+            width: auto; 
+            max-width: none;
             position: relative;
         }
 
@@ -120,7 +121,14 @@
         .lang-switch:hover { border-color: var(--accent-blue); color: var(--text-main); }
         .lang-active { color: var(--accent-blue); font-weight: bold; }
 
-        section { margin-bottom: 80px; scroll-margin-top: 60px; }
+        section { 
+            margin-bottom: 80px; 
+            scroll-margin-top: 60px;
+            /* Center content and increase width for large screens */
+            max-width: 1600px; 
+            margin-left: auto; 
+            margin-right: auto; 
+        }
 
         h1 { font-size: 2.5rem; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
         h2 { font-size: 1.8rem; color: var(--text-main); margin-top: 0; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
@@ -310,15 +318,73 @@
             z-index: 1000;
         }
 
+        /* --- HAMBURGER MENU (Mobile) --- */
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        
+        /* Overlay for mobile sidebar */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 99;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .sidebar-overlay.active { display: block; opacity: 1; }
+
+        @media (max-width: 1200px) {
+            .main-content { padding: 40px 30px; }
+            section { margin-bottom: 60px; }
+        }
+
         @media (max-width: 900px) {
-            .sidebar { display: none; } /* Mobile todo: Hamburger */
-            .main-content { margin-left: 0; padding: 20px; }
-            .lang-switch { right: 20px; }
+            .menu-toggle { display: block; }
+            
+            .sidebar { 
+                display: flex; 
+                transform: translateX(-100%); 
+                transition: transform 0.3s ease-in-out;
+                box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+            }
+            .sidebar.active { transform: translateX(0); }
+            
+            .main-content { margin-left: 0; padding: 80px 20px 20px 20px; } /* Top padding for menu button */
+            .lang-switch { top: 20px; right: 20px; }
+            
+            /* Responsive Topology */
+            .layer { flex-direction: column; gap: 20px; align-items: center; }
+            .node-card { width: 100%; max-width: 300px; }
+            .topology-container { padding: 20px; }
         }
 
     </style>
 </head>
 <body>
+
+    <!-- MOBILE MENU TOGGLE -->
+    <button class="menu-toggle" onclick="toggleSidebar()">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+    
+    <!-- OVERLAY -->
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
     <!-- SIDEBAR NAV -->
     <nav class="sidebar">
@@ -997,6 +1063,21 @@
             }, { root: null, rootMargin: '-10% 0px -50% 0px', threshold: 0 });
 
             sections.forEach(section => observer.observe(section));
+
+            // --- MOBILE SIDEBAR LOGIC ---
+            window.toggleSidebar = function() {
+                document.querySelector('.sidebar').classList.toggle('active');
+                document.querySelector('.sidebar-overlay').classList.toggle('active');
+            }
+
+            // Close sidebar when clicking a nav item (mobile UX)
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    if (window.innerWidth <= 900) {
+                        toggleSidebar();
+                    }
+                });
+            });
 
             // --- INVENTORY RENDER ---
             const grid = document.getElementById('stack-grid');
