@@ -675,23 +675,6 @@
                 </div>
             </div>
 
-            <div class="code-block">
-                <span class="code-lang">lxc-manager.sh (Snippet)</span>
-                <div style="line-height: 1.5;">
-<span class="c-comment"># Programmatic Injection of GPU Rules</span>
-<span class="c-cmd">gpu_passthrough_lines</span>=(
-    <span class="c-str">'lxc.cgroup2.devices.allow: c 195:* rwm'</span>  <span class="c-comment"># NVIDIA GPU</span>
-    <span class="c-str">'lxc.cgroup2.devices.allow: c 510:* rwm'</span>  <span class="c-comment"># nvidia-uvm</span>
-    <span class="c-str">'lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file'</span>
-)
-
-<span class="c-cmd">for</span> line in <span class="c-str">"${gpu_passthrough_lines[@]}"</span>; <span class="c-cmd">do</span>
-    <span class="c-cmd">if</span> ! <span class="c-cmd">grep</span> -Fxq <span class="c-str">"$line"</span> <span class="c-str">"$LXC_CONFIG_PATH"</span>; <span class="c-cmd">then</span>
-        <span class="c-cmd">echo</span> <span class="c-str">"$line"</span> >> <span class="c-str">"$LXC_CONFIG_PATH"</span>
-    <span class="c-cmd">fi</span>
-<span class="c-cmd">done</span>
-                </div>
-            </div>
         </section>
 
         <!-- 6. LIVE INVENTORY -->
