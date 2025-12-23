@@ -35,6 +35,9 @@ services:
   adguard:
     image: adguard/adguardhome:latest
     container_name: adguard
+    user: "1000:1000"
+    cap_add:
+      - NET_BIND_SERVICE
     restart: unless-stopped
     ports:
       - "53:53/tcp"
