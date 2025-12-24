@@ -37,21 +37,22 @@ A visualization of the Zero Trust architecture, highlighting how **WARP** provid
 - **Seamless Family Experience**: Mobile devices run **Cloudflare WARP** in "Always-On" mode. This creates a secure, transparent VPN directly to the home network.
   - *Result:* The wife and child can open the Jellyfin app anywhere in the world and it works exactly as if they were on the couch. No logins, no OTPs.
 - **Strict Public Access**: Browser-based access (e.g., from a work computer) is protected by **Cloudflare Access** with Wildcard Email OTP policies.
-- **Zero Trust Tunnel**: No open ports on the router. All ingress traffic is routed through `cloudflared` daemon.
+- **Dual-Layer Tunneling**:
+  - **Tailscale (Primary VPN)**: Used for high-performance, direct "LAN-like" access to the entire network (`192.168.1.0/24`). Ideal for admin tasks, gaming, and bypassing restrictive ISP firewalls.
+  - **Cloudflare Tunnel (Web Services)**: Routes public ingress traffic for web applications without opening ports.
 
-#### **Hybrid Access Strategy (Split Subdomains)**
-A sophisticated solution to bypass Cloudflare's "Split DNS" paywall (Enterprise feature), ensuring optimal routing for both local and remote access:
+#### **Hybrid Access Strategy**
+A robust dual-path architecture ensuring reliable access even in restrictive network environments (e.g., corporate firewalls, mobile carrier NATs):
 
-| Access Method | Domain Format | Route | Features |
-|--------------|---------------|-------|----------|
-| **Remote (Public)** | `service.byetgin.com` | Internet -> Cloudflare Tunnel -> Home | Protected by Cloudflare Access, slower |
-| **Local / WARP** | `service.local.byetgin.com` | Device -> WARP -> Local Network -> NPM | Direct connection, max speed, no auth prompt |
-| **Internal Only** | `service.byetgin.com` | Device -> WARP -> Local Network -> NPM | Services without public CNAME records resolve directly to local IP via wildcard DNS |
+| Access Method | Technology | Route | Use Case |
+|--------------|------------|-------|----------|
+| **Admin / VPN** | **Tailscale** | Device -> Tailscale (P2P/DERP) -> Home Network | Full network access, SSH, Gaming, Proxmox GUI |
+| **Web App** | **Cloudflare** | Internet -> Cloudflare Edge -> Cloudflared -> NPM | User-friendly HTTPS access (e.g., `immich.byetgin.com`) |
+| **Local** | **Direct LAN** | Device -> WiFi -> Nginx Proxy Manager | Maximum speed for media streaming at home |
 
 **Implementation:**
-- **Cloudflare DNS**: `*.byetgin.com` -> `192.168.1.100` (DNS Only) handles all internal/local traffic.
-- **Nginx Proxy Manager**: Hosts configured with dual domains (`service` + `service.local`) and wildcard SSL.
-- **Homepage**: Smart linking uses `.local` domains for public services to force direct connection when using WARP.
+- **Tailscale Subnet Router**: Runs as a lightweight sidecar in the Proxy stack, advertising the `192.168.1.0/24` route to authenticated devices.
+- **Cloudflare Tunnel**: Dedicated purely to serving web applications via public domains, protected by Zero Trust policies.
 
 ### **Custom Docker Images + Automated CI/CD**
 Two custom images built and maintained with automated pipelines:
@@ -95,7 +96,7 @@ JDownloader 2, MeTube, Palmr
 Homepage, Desktop Workspace, CouchDB, Vaultwarden
 
 ### **Proxy & DNS** (LXC 100 - 192.168.1.100)
-Nginx Proxy Manager, AdGuard Home, Cloudflared, Promtail, Watchtower
+Nginx Proxy Manager, AdGuard Home, Cloudflared, Tailscale, Promtail, Watchtower
 
 ### **Backup** (LXC 106 - 192.168.1.106)
 Backrest-Rclone (custom image with Google Drive sync)

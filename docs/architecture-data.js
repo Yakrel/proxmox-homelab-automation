@@ -13,6 +13,7 @@ const ARCHITECTURE_DATA = {
     ],
     // High-Level Timeline of changes
     timeline: [
+        { date: "2025-12-24", title: "VPN Architecture Upgrade", desc: "Deployed Tailscale as primary VPN; repurposed Cloudflare for Web Tunnel only." },
         { date: "2025-12-15", title: "Game Server Expansion", desc: "Added Palworld & Satisfactory with automated switching." },
         { date: "2025-11-20", title: "GPU Passthrough", desc: "Implemented Unprivileged LXC Nvidia passthrough for Jellyfin." },
         { date: "2025-10-01", title: "Zero Trust Migration", desc: "Moved all ingress to Cloudflare Tunnels, closed port 443." }
@@ -28,7 +29,8 @@ const ARCHITECTURE_DATA = {
             services: [
                 { name: "Nginx Proxy Manager", icon: "fa-solid fa-arrow-right-to-bracket", port: "80/443", url: "https://npm.byetgin.com", desc: "Reverse Proxy & SSL Management", status: "active" },
                 { name: "AdGuard Home", icon: "fa-solid fa-shield-dog", port: "53", url: "http://192.168.1.100:3000", desc: "Network-wide Ad Blocking & DNS", status: "active" },
-                { name: "Cloudflared", icon: "fa-brands fa-cloudflare", port: "Tunnel", desc: "Secure Tunnel to Cloudflare Edge", status: "active" }
+                { name: "Tailscale", icon: "fa-solid fa-network-wired", port: "VPN", desc: "Mesh VPN & Subnet Router", status: "active" },
+                { name: "Cloudflared", icon: "fa-brands fa-cloudflare", port: "Tunnel", desc: "Web Services Tunnel (Ingress)", status: "active" }
             ]
         },
         {
