@@ -80,6 +80,24 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale
+    restart: unless-stopped
+    network_mode: "host"
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY:?Tailscale auth key must be defined}
+      - TS_ROUTES=192.168.1.0/24
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+    volumes:
+      - /datapool/config/tailscale:/var/lib/tailscale
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
