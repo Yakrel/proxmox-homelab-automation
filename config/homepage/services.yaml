@@ -67,6 +67,20 @@
           username: "{{HOMEPAGE_VAR_ADGUARD_USERNAME}}"
           password: "{{HOMEPAGE_VAR_ADGUARD_PASSWORD}}"
 
+    - Tailscale:
+        description: VPN & Network
+        href: https://login.tailscale.com/admin/machines
+        icon: tailscale.png
+        widget:
+          type: tailscale
+          deviceid: "{{HOMEPAGE_VAR_TAILSCALE_DEVICEID}}"
+          key: "{{HOMEPAGE_VAR_TAILSCALE_API_KEY}}"
+
+    - Cloudflare Zero Trust:
+        description: Network Security
+        href: https://one.dash.cloudflare.com/9a9852b8b3a0e43cadac66ada7aadeb1/overview?tab=overview&duration=24h
+        icon: cloudflare.png
+
     - Palmr:
         description: S3 Storage
         href: https://palmr.local.byetgin.com
