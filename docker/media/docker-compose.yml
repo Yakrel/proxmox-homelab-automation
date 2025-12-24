@@ -77,7 +77,7 @@ services:
     ports:
       - "6767:6767"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6767/ping"]
+      test: ["CMD", "curl", "-f", "http://localhost:6767/api"]
       interval: 30s
       timeout: 10s
       retries: 3
