@@ -85,11 +85,15 @@ services:
     container_name: tailscale
     restart: unless-stopped
     network_mode: "host"
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
     environment:
       - TS_AUTHKEY=${TAILSCALE_AUTH_KEY:?Tailscale auth key must be defined}
       - TS_ROUTES=192.168.1.0/24
       - TS_STATE_DIR=/var/lib/tailscale
-      - TS_USERSPACE=true
+      - TS_USERSPACE=false
     volumes:
       - /datapool/config/tailscale:/var/lib/tailscale
     logging:

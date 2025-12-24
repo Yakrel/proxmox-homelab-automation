@@ -156,8 +156,45 @@ EOF
     fi
 fi
 
-# Ensure container is running
+# --- Proxy Stack Specific Configuration (TUN Device) ---
+if [[ "$STACK_NAME" == "proxy" ]]; then
+    print_info "Configuring TUN device for Proxy (Tailscale compatibility)..."
+    
+    # Ensure TUN module is loaded on HOST
+    if ! lsmod | grep -q "^tun"; then
+        print_info "Loading tun module on host"
+        modprobe tun || true
+    fi
+
+    # Ensure /dev/net/tun exists on HOST
+    if [ ! -c /dev/net/tun ]; then
+        print_info "Creating /dev/net/tun on host"
+        mkdir -p /dev/net
+        mknod /dev/net/tun c 10 200
+        chmod 666 /dev/net/tun
+    fi
+
+    LXC_CONFIG="/etc/pve/lxc/${CT_ID}.conf"
+    
+    # Check if config already exists in file
+    if ! grep -q "/dev/net/tun" "$LXC_CONFIG"; then
+        print_info "Adding TUN device entry to LXC config"
+        cat >> "$LXC_CONFIG" << 'EOFTUN'
+
+# Enable TUN device for Tailscale
+lxc.cgroup2.devices.allow: c 10:200 rwm
+lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+EOFTUN
+    else
+        print_info "TUN device configuration already exists in LXC config"
+    fi
+    
+    print_success "TUN device configured for Proxy"
+fi
+
+# Ensure container is running (Start AFTER all config changes)
 CT_STATUS=$(pct status "$CT_ID" | awk '{print $2}')
+
 if [[ "$CT_STATUS" != "running" ]]; then
     print_info "Starting container"
     pct start "$CT_ID"
