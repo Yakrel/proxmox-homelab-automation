@@ -71,10 +71,6 @@
         description: VPN & Network
         href: https://login.tailscale.com/admin/machines
         icon: tailscale.png
-        widget:
-          type: tailscale
-          deviceid: "{{HOMEPAGE_VAR_TAILSCALE_DEVICEID}}"
-          key: "{{HOMEPAGE_VAR_TAILSCALE_API_KEY}}"
 
     - Cloudflare Zero Trust:
         description: Network Security

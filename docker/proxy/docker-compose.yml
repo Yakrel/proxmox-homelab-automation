@@ -83,7 +83,6 @@ services:
   tailscale:
     image: tailscale/tailscale:latest
     container_name: tailscale
-    user: "1000:1000"
     restart: unless-stopped
     network_mode: "host"
     cap_add:
