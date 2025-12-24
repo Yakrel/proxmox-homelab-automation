@@ -157,6 +157,54 @@ deploy_docker_services() {
     print_success "Services deployed"
 }
 
+# Setup aliases and MOTD for game servers
+setup_gameserver_aliases() {
+    local ct_id="$1"
+    print_info "Configuring Game Server aliases"
+
+    # Define the marker used to identify our block
+    local start_marker="# --- Game Server Manager Aliases ---"
+    local end_marker="# --- End Game Server Manager ---"
+
+    # Create the alias content locally
+    local alias_file="/tmp/gameserver_aliases.sh"
+    cat <<EOF > "$alias_file"
+
+$start_marker
+alias start-palworld='cd /root && docker compose --profile palworld up -d && docker compose --profile satisfactory stop && echo "Starting Palworld, stopping Satisfactory..."'
+alias start-satisfactory='cd /root && docker compose --profile satisfactory up -d && docker compose --profile palworld stop && echo "Starting Satisfactory, stopping Palworld..."'
+alias stop-games='cd /root && docker compose --profile palworld stop && docker compose --profile satisfactory stop && echo "Stopping all game servers..."'
+alias game-status='cd /root && docker compose ps'
+
+# --- Game Server MOTD ---
+if [ -z "\$SSH_CLIENT" ] || [ -n "\$SSH_TTY" ]; then
+    echo -e "\033[1;36m=====================================================\033[0m"
+    echo -e "\033[1;32m       Proxmox Homelab Game Server Manager           \033[0m"
+    echo -e "\033[1;36m=====================================================\033[0m"
+    echo -e " Available Commands:"
+    echo -e "  \033[1;33mstart-palworld\033[0m      : Start Palworld (stops others)"
+    echo -e "  \033[1;33mstart-satisfactory\033[0m  : Start Satisfactory (stops others)"
+    echo -e "  \033[1;33mstop-games\033[0m          : Stop all running games"
+    echo -e "  \033[1;33mgame-status\033[0m         : Show running containers"
+    echo -e "\033[1;36m=====================================================\033[0m"
+    echo
+fi
+$end_marker
+EOF
+
+    # Clean existing block if present (Idempotency)
+    # We use a temporary sed script inside the container to remove the old block
+    pct exec "$ct_id" -- sh -c "if grep -qF '$start_marker' /root/.bashrc; then sed -i '/$start_marker/,/$end_marker/d' /root/.bashrc; fi"
+
+    # Push to container and append to .bashrc
+    pct push "$ct_id" "$alias_file" "/tmp/aliases.sh"
+    pct exec "$ct_id" -- bash -c "cat /tmp/aliases.sh >> /root/.bashrc"
+    pct exec "$ct_id" -- rm -f "/tmp/aliases.sh"
+    rm -f "$alias_file"
+
+    print_success "Game aliases configured (Idempotent)"
+}
+
 # Full Docker deployment workflow
 deploy_docker_stack() {
     local stack_name="$1"
@@ -192,6 +240,11 @@ deploy_docker_stack() {
 
     setup_docker_compose "$stack_name" "$ct_id"
     deploy_docker_services "$stack_name" "$ct_id"
+
+    # Setup aliases for gameservers stack
+    if [[ "$stack_name" == "gameservers" ]]; then
+        setup_gameserver_aliases "$ct_id"
+    fi
     
     print_success "Stack deployed: $stack_name"
 }

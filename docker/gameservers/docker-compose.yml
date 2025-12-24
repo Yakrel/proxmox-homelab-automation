@@ -1,5 +1,7 @@
-# Base Game Servers Stack - Watchtower and Shared Network Only
-# Use this as the foundation, then deploy individual games separately
+# Proxmox Homelab Game Servers Stack
+# Uses Docker Compose Profiles to manage resources efficiently.
+# Common services (Watchtower, Promtail, cAdvisor) run always.
+# Games run only when their specific profile is activated.
 
 name: gameservers
 
@@ -8,6 +10,9 @@ networks:
     driver: bridge
 
 services:
+  # ---------------------------------------------------------------------------
+  # Core Services (Always Running)
+  # ---------------------------------------------------------------------------
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: cadvisor
@@ -59,10 +64,8 @@ services:
     container_name: watchtower-gameservers
     environment:
       - TZ=${TZ:-Europe/Istanbul}
-      - WATCHTOWER_CLEANUP=true
-      # Game servers require more frequent updates (hourly) with rolling restarts
-      # to minimize downtime for active players
-      - WATCHTOWER_POLL_INTERVAL=3600  # Check every hour
+      - WATCHTOWER_CLEANUP=${WATCHTOWER_CLEANUP:-true}
+      - WATCHTOWER_POLL_INTERVAL=${WATCHTOWER_POLL_INTERVAL:-3600}
       - WATCHTOWER_ROLLING_RESTART=true
       - PUID=1000
       - PGID=1000
@@ -77,3 +80,86 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Palworld Server (Profile: palworld)
+  # Start with: docker compose --profile palworld up -d
+  # ---------------------------------------------------------------------------
+  palworld-server:
+    image: jammsen/docker-palworld-dedicated-server:latest
+    container_name: palworld-server
+    profiles: ["palworld"]
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+      - COMMUNITY_SERVER=${PALWORLD_COMMUNITY_SERVER:-false}
+      - MULTITHREAD_ENABLED=true
+      - PUBLIC_IP=${PALWORLD_PUBLIC_IP}
+      - PUBLIC_PORT=8211
+      - SERVER_NAME=${PALWORLD_SERVER_NAME}
+      - SERVER_DESCRIPTION=${PALWORLD_SERVER_DESCRIPTION}
+      - ADMIN_PASSWORD=${PALWORLD_ADMIN_PASSWORD}
+      - SERVER_PASSWORD=${PALWORLD_SERVER_PASSWORD}
+      - MAX_PLAYERS=${PALWORLD_MAX_PLAYERS:-32}
+      - UPDATE_ON_BOOT=true
+    volumes:
+      - /datapool/config/palworld:/palworld
+    ports:
+      - "8211:8211/udp"  # Game port
+      - "27015:27015/udp"  # Query port
+    networks:
+      - gameserver-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -an | grep -q ':8211'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ---------------------------------------------------------------------------
+  # Satisfactory Server (Profile: satisfactory)
+  # Start with: docker compose --profile satisfactory up -d
+  # ---------------------------------------------------------------------------
+  satisfactory-server:
+    image: wolveix/satisfactory-server:latest
+    container_name: satisfactory-server
+    profiles: ["satisfactory"]
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+      - SERVERNAME=${SATISFACTORY_SERVERNAME}
+      - PASSWORD=${SATISFACTORY_PASSWORD}
+      - PLAYERS=${SATISFACTORY_MAXPLAYERS:-10}
+      - PUBLIC=false
+      - AUTOSAVEINTERVAL=300
+      - AUTOSAVENUM=20
+      - CRASHREPORT=false
+    volumes:
+      - /datapool/config/satisfactory:/config
+    ports:
+      - "7777:7777/udp"  # Game port
+      - "7777:7777/tcp"  # Game port TCP
+      - "15000:15000/udp"  # Query port
+      - "15777:15777/udp"  # Beacon port
+    networks:
+      - gameserver-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -an | grep -q ':7777'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
