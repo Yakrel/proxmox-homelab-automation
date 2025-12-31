@@ -232,6 +232,18 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  tor-proxy:
+    image: peterdavehello/tor-socks-proxy:latest
+    container_name: tor-proxy
+    restart: unless-stopped
+    networks:
+      - media-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
@@ -243,6 +255,8 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
+      # Route FlareSolverr traffic through Tor Proxy to bypass ISP blocks
+      - PROXY=socks5://tor-proxy:9150
     ports:
       - "8191:8191"
     healthcheck:
