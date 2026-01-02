@@ -496,15 +496,15 @@ services:
       - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      # Config stays in config datapool
-      - /datapool/config/stash:/root/.stash
+      # Config stays in config datapool - NOW SECURED
+      - /datapool/data-secure/stash/config:/root/.stash
       # Main collection
-      - /datapool/private/stash/media:/data
+      - /datapool/data-secure/stash/media:/data
       # Generated content and metadata
-      - /datapool/private/stash/metadata:/metadata
-      - /datapool/private/stash/cache:/cache
-      - /datapool/private/stash/blobs:/blobs
-      - /datapool/private/stash/generated:/generated
+      - /datapool/data-secure/stash/metadata:/metadata
+      - /datapool/data-secure/stash/cache:/cache
+      - /datapool/data-secure/stash/blobs:/blobs
+      - /datapool/data-secure/stash/generated:/generated
       # CUDA libraries for hardware acceleration
       - /usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu/nvidia/current:ro
       - /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:ro
@@ -520,7 +520,7 @@ services:
       - "9999:9999"
     networks:
       - media-net
-    restart: unless-stopped
+    restart: no
     logging:
       driver: "json-file"
       options:

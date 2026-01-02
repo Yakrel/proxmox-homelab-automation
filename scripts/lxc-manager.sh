@@ -90,6 +90,23 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
     if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "webtools" ]]; then
         print_info "Configuring GPU passthrough for $STACK_NAME container (cgroup v2 method)"
 
+        # --- FUSE Configuration for Media Stack (gocryptfs support) ---
+        if [[ "$STACK_NAME" == "media" ]]; then
+            print_info "Configuring FUSE device for Media (Encryption support)"
+            LXC_CONFIG_PATH="/etc/pve/lxc/${CT_ID}.conf"
+            [[ -f "$LXC_CONFIG_PATH" ]] || touch "$LXC_CONFIG_PATH"
+
+            if ! grep -q "lxc.cgroup2.devices.allow: c 10:229 rwm" "$LXC_CONFIG_PATH"; then
+                cat >> "$LXC_CONFIG_PATH" << 'EOFFUSE'
+
+# FUSE Support for Encrypted Vault (gocryptfs)
+lxc.cgroup2.devices.allow: c 10:229 rwm
+lxc.mount.entry: /dev/fuse dev/fuse none bind,create=file 0 0
+EOFFUSE
+            fi
+        fi
+
+
         # Create systemd service for persistent NVIDIA device setup (survives reboots)
         cat > /etc/systemd/system/nvidia-persistenced.service << 'EOF'
 [Unit]
