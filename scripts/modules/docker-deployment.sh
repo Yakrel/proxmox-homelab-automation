@@ -236,6 +236,11 @@ deploy_docker_stack() {
     # Setup Immich directories for media stack
     if [[ "$stack_name" == "media" ]]; then
         setup_immich_directories
+        
+        # Setup secure vault infrastructure requirements
+        print_info "Installing security tools for media stack"
+        pct exec "$ct_id" -- apt-get update
+        pct exec "$ct_id" -- apt-get install -y gocryptfs
     fi
 
     setup_docker_compose "$stack_name" "$ct_id"
