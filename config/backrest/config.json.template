@@ -42,7 +42,8 @@
       "id": "config-backup",
       "repo": "{{REPO_ID}}",
       "paths": [
-        "/backup-sources/config"
+        "/backup-sources/config",
+        "/backup-sources/data-vault"
       ],
       "excludes": [
         "/backup-sources/config/desktop-workspace",
@@ -89,10 +90,10 @@
       "retention": {
         "policyTimeBucketed": {
           "hourly": 0,
-          "daily": 30,
-          "weekly": 8,
-          "monthly": 12,
-          "yearly": 3
+          "daily": 14,
+          "weekly": 4,
+          "monthly": 3,
+          "yearly": 0
         }
       }
     },
@@ -103,7 +104,7 @@
         "/backup-sources/immich"
       ],
       "schedule": {
-        "cron": "0 2 * * 0,3",
+        "cron": "0 2 * * *",
         "clock": "CLOCK_LAST_RUN_TIME"
       },
       "retention": {
@@ -111,7 +112,8 @@
           "hourly": 0,
           "daily": 7,
           "weekly": 4,
-          "monthly": 6
+          "monthly": 12,
+          "yearly": 3
         }
       }
     }

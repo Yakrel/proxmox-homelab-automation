@@ -21,6 +21,7 @@ services:
       # Backup sources
       - /datapool/config:/backup-sources/config:rw
       - /datapool/media/immich:/backup-sources/immich:rw
+      - /datapool/data-vault:/backup-sources/data-vault:ro
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PUID=1000

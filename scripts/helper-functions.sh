@@ -263,16 +263,18 @@ show_interactive_menu() {
 
 # Fix LXC container permissions globally
 fix_all_permissions() {
-    print_info "Ensuring shared permissions on /datapool (config, backup, media)"
+    print_info "Ensuring shared permissions on /datapool (config, backup, media, vault)"
     
     # Create base directories if they don't exist
-    mkdir -p /datapool/config /datapool/backup /datapool/media
+    mkdir -p /datapool/config /datapool/backup /datapool/media /datapool/data-vault /datapool/data-secure
 
     # Recursively set owner to 101000:101000 for all critical directories
     # Since file count is manageable, this is safe to run on every deploy
     chown -R 101000:101000 /datapool/config
     chown -R 101000:101000 /datapool/backup
     chown -R 101000:101000 /datapool/media
+    chown -R 101000:101000 /datapool/data-vault
+    chown -R 101000:101000 /datapool/data-secure
     
     print_success "Permissions updated for /datapool"
 }
