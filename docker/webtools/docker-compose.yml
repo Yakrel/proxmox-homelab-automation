@@ -204,8 +204,62 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
       - /datapool/config/vaultwarden:/data
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  questarr:
+    image: yakrel93/questarr:latest
+    container_name: questarr
+    restart: unless-stopped
     ports:
-      - 8201:80
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - HOST=0.0.0.0
+      - DATABASE_URL=postgresql://${QUESTARR_DB_USER}:${QUESTARR_DB_PASSWORD}@questarr-db:5432/${QUESTARR_DB_NAME}
+      - JWT_SECRET=${QUESTARR_JWT_SECRET}
+      - IGDB_CLIENT_ID=${IGDB_CLIENT_ID}
+      - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET}
+    volumes:
+      - /datapool/torrents/games:/downloads
+    depends_on:
+      questarr-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  questarr-db:
+    image: postgres:16-alpine
+    container_name: questarr-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${QUESTARR_DB_USER}
+      - POSTGRES_PASSWORD=${QUESTARR_DB_PASSWORD}
+      - POSTGRES_DB=${QUESTARR_DB_NAME}
+    volumes:
+      - /datapool/config/questarr/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${QUESTARR_DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - webtools-net
     logging:
