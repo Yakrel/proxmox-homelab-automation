@@ -1,7 +1,0 @@
-#!/bin/bash
-
-BIN=/opt/obsidian/obsidian
-
-${BIN} \
-  --no-sandbox \
-  "$@"
