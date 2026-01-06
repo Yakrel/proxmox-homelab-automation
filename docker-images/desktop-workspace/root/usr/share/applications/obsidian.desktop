@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=Obsidian
-Comment=Knowledge base and note-taking application
-Exec=/usr/bin/obsidian %U
-Type=Application
-Terminal=false
-Categories=Office;Utility;TextEditor;
-MimeType=x-scheme-handler/obsidian;
-StartupWMClass=obsidian

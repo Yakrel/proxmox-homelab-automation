@@ -1,5 +1,0 @@
-if [ "$(whoami)" != "abc" ]; then
-  sudo lsiown -R $(id -u):$(id -u) \
-    /opt/obsidian
-fi
-tint2 &
