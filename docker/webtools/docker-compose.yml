@@ -84,7 +84,7 @@ services:
     security_opt:
       - seccomp:unconfined
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001"]
+      test: ["CMD", "curl", "-k", "-f", "https://localhost:3001"]
       interval: 30s
       timeout: 10s
       retries: 3
