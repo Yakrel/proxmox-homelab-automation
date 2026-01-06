@@ -3,7 +3,7 @@
 BIN=/usr/bin/google-chrome
 
 # Cleanup
-if pgrep chrome > /dev/null;then
+if ! pgrep chrome > /dev/null;then
   rm -f $HOME/.config/google-chrome/Singleton*
 fi
 
@@ -15,4 +15,4 @@ ${BIN} \
   --start-maximized \
   --test-type \
   --user-data-dir \
-   "$@"
+   "$@" > /dev/null 2>&1
