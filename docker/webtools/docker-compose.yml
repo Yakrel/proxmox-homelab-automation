@@ -100,49 +100,6 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
 
   couchdb:
-  browser-workspace:
-    image: ghcr.io/yakrel/docker-browser-workspace:latest
-    container_name: browser-workspace
-    restart: unless-stopped
-    security_opt:
-      - seccomp:unconfined
-    runtime: nvidia
-    ports:
-      - "3002:3001"
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=${TZ:-Europe/Istanbul}
-      - SUBFOLDER=/
-      - TITLE=Browser Workspace
-      - CUSTOM_USER=${DESKTOP_USER:?User must be defined}
-      - PASSWORD=${DESKTOP_PASSWORD:?Password must be defined}
-    volumes:
-      - /datapool/config/browser-workspace:/config
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [compute,video,graphics,utility]
-    shm_size: "2gb"
-    healthcheck:
-      test: ["CMD", "curl", "-k", "-f", "https://localhost:3001"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    networks:
-      - webtools-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
-
     image: couchdb:latest
     container_name: couchdb-obsidian
     restart: unless-stopped
