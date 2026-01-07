@@ -198,6 +198,8 @@ services:
     image: vaultwarden/server:latest
     container_name: vaultwarden
     restart: unless-stopped
+    ports:
+      - "8201:80"
     environment:
       - WEBSOCKET_ENABLED=true
       - SIGNUPS_ALLOWED=true
