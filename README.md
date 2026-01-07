@@ -54,17 +54,19 @@ A robust dual-path architecture ensuring reliable access even in restrictive net
 - **Tailscale Subnet Router**: Runs as a lightweight sidecar in the Proxy stack, advertising the `192.168.1.0/24` route to authenticated devices.
 - **Cloudflare Tunnel**: Dedicated purely to serving web applications via public domains, protected by Zero Trust policies.
 
-### **Custom Docker Images + Automated CI/CD**
-Two custom images built and maintained with automated pipelines:
-- **desktop-workspace**: Multi-app web environment (Chrome + Obsidian + file manager)
-- **backrest-rclone**: Backup solution with Google Drive sync hooks
+### **Maintained Custom Docker Images**
+This project utilizes custom Docker images that are maintained in separate repositories and built via automated CI/CD pipelines on GitHub Actions.
+
+| Image | Repository | Description |
+| :--- | :--- | :--- |
+| **desktop-workspace** | [Yakrel/docker-desktop-workspace](https://github.com/Yakrel/docker-desktop-workspace) | Multi-app web environment (Chrome + Obsidian + file manager) |
+| **backrest-rclone** | [Yakrel/docker-backrest-rclone](https://github.com/Yakrel/docker-backrest-rclone) | Backup solution with Google Drive sync hooks |
+| **questarr** | [Yakrel/docker-questarr](https://github.com/Yakrel/docker-questarr) | Automated build for Questarr game manager |
 
 **Pipeline Features:**
-- Bi-weekly automatic rebuilds (always fresh base images)
-- Multi-stage builds with layer caching
-- Automated tag management (keep last 3 versions)
-- Zero-downtime updates via Watchtower
-- Published to DockerHub: `yakrel93/desktop-workspace`, `yakrel93/backrest-rclone`
+- Bi-weekly automatic rebuilds
+- Automated tag management via GHCR
+- Published to GHCR: `ghcr.io/yakrel/...`
 
 ### **DevOps & Automation Practices**
 - **Declarative Infrastructure (IaC)**: Entire infrastructure state defined in `stacks.yaml` (Single Source of Truth).
@@ -129,9 +131,6 @@ Extensible development environment
 │   ├── lxc-manager.sh       # LXC lifecycle management
 │   ├── modules/             # Specialized deployment modules
 │   └── helper-*.sh          # Utility functions
-├── docker-images/            # Custom Docker images with CI/CD
-│   ├── desktop-workspace/   # Chrome + Obsidian web environment
-│   └── backrest-rclone/     # Backup solution with cloud sync
 ├── docker/                   # Docker Compose stacks
 │   ├── media/               # Media automation + GPU acceleration
 │   ├── monitoring/          # Prometheus + Grafana + Loki
