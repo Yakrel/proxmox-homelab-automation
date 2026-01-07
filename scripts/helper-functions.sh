@@ -268,18 +268,15 @@ fix_all_permissions() {
     # Create base directories if they don't exist
     mkdir -p /datapool/config /datapool/backup /datapool/media /datapool/data-vault /datapool/data-secure
 
-    # Optimized: Only chown files that don't already have correct ownership
-    # This is much faster for large directories (e.g., immich with thousands of photos)
+    # Ultra-fast: Single pass with xargs parallel execution
+    # Only processes files with wrong ownership, runs chown in parallel batches
     local dirs=("/datapool/config" "/datapool/backup" "/datapool/media" "/datapool/data-vault" "/datapool/data-secure")
     
     for dir in "${dirs[@]}"; do
         if [[ -d "$dir" ]]; then
-            # Count files needing change (for progress info)
-            local count=$(find "$dir" \( -not -user 101000 -o -not -group 101000 \) 2>/dev/null | wc -l)
-            if [[ $count -gt 0 ]]; then
-                print_info "Fixing permissions for $count files in $dir..."
-                find "$dir" \( -not -user 101000 -o -not -group 101000 \) -exec chown 101000:101000 {} + 2>/dev/null
-            fi
+            # Single pass: find + parallel chown (no counting, just fix)
+            find "$dir" \( -not -user 101000 -o -not -group 101000 \) -print0 2>/dev/null | \
+                xargs -0 -r -P 4 -n 500 chown 101000:101000 2>/dev/null
         fi
     done
     
