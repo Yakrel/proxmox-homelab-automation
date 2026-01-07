@@ -268,13 +268,20 @@ fix_all_permissions() {
     # Create base directories if they don't exist
     mkdir -p /datapool/config /datapool/backup /datapool/media /datapool/data-vault /datapool/data-secure
 
-    # Recursively set owner to 101000:101000 for all critical directories
-    # Since file count is manageable, this is safe to run on every deploy
-    chown -R 101000:101000 /datapool/config
-    chown -R 101000:101000 /datapool/backup
-    chown -R 101000:101000 /datapool/media
-    chown -R 101000:101000 /datapool/data-vault
-    chown -R 101000:101000 /datapool/data-secure
+    # Optimized: Only chown files that don't already have correct ownership
+    # This is much faster for large directories (e.g., immich with thousands of photos)
+    local dirs=("/datapool/config" "/datapool/backup" "/datapool/media" "/datapool/data-vault" "/datapool/data-secure")
+    
+    for dir in "${dirs[@]}"; do
+        if [[ -d "$dir" ]]; then
+            # Count files needing change (for progress info)
+            local count=$(find "$dir" \( -not -user 101000 -o -not -group 101000 \) 2>/dev/null | wc -l)
+            if [[ $count -gt 0 ]]; then
+                print_info "Fixing permissions for $count files in $dir..."
+                find "$dir" \( -not -user 101000 -o -not -group 101000 \) -exec chown 101000:101000 {} + 2>/dev/null
+            fi
+        fi
+    done
     
     print_success "Permissions updated for /datapool"
 }
