@@ -7,7 +7,7 @@ networks:
 services:
   backrest:
     # Custom image with rclone built-in, built and pushed by CI/CD
-    image: yakrel93/backrest-rclone:latest
+    image: ghcr.io/yakrel/docker-backrest-rclone:latest
     container_name: backrest
     restart: unless-stopped
     ports:

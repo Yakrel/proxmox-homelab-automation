@@ -55,7 +55,7 @@ services:
         max-file: "3"
 
   desktop-workspace:
-    image: yakrel93/desktop-workspace:latest
+    image: ghcr.io/yakrel/docker-desktop-workspace:latest
     container_name: desktop-workspace
     restart: unless-stopped
     runtime: nvidia
@@ -215,7 +215,7 @@ services:
         max-file: "3"
 
   questarr:
-    image: yakrel93/questarr:latest
+    image: ghcr.io/yakrel/docker-questarr:latest
     container_name: questarr
     restart: unless-stopped
     ports:
