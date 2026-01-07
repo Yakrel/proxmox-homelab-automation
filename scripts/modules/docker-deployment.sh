@@ -171,13 +171,15 @@ setup_gameserver_aliases() {
     cat <<EOF > "$alias_file"
 
 $start_marker
+# Aliases
 alias start-palworld='cd /root && docker compose --profile palworld up -d && docker compose --profile satisfactory stop && echo "Starting Palworld, stopping Satisfactory..."'
 alias start-satisfactory='cd /root && docker compose --profile satisfactory up -d && docker compose --profile palworld stop && echo "Starting Satisfactory, stopping Palworld..."'
 alias stop-games='cd /root && docker compose --profile palworld stop && docker compose --profile satisfactory stop && echo "Stopping all game servers..."'
 alias game-status='cd /root && docker compose ps'
 
-# --- Game Server MOTD ---
-if [ -z "\$SSH_CLIENT" ] || [ -n "\$SSH_TTY" ]; then
+# --- Game Server MOTD (Login Message) ---
+# Display only on interactive shell login
+if [ -t 0 ]; then
     echo -e "\033[1;36m=====================================================\033[0m"
     echo -e "\033[1;32m       Proxmox Homelab Game Server Manager           \033[0m"
     echo -e "\033[1;36m=====================================================\033[0m"
@@ -192,17 +194,29 @@ fi
 $end_marker
 EOF
 
-    # Clean existing block if present (Idempotency)
-    # We use a temporary sed script inside the container to remove the old block
-    pct exec "$ct_id" -- sh -c "if grep -qF '$start_marker' /root/.bashrc; then sed -i '/$start_marker/,/$end_marker/d' /root/.bashrc; fi"
-
-    # Push to container and append to .bashrc
+    # Target files for aliases (Alpine uses .profile by default, Bash uses .bashrc)
+    local target_files=("/root/.bashrc" "/root/.profile")
+    
+    # Push the alias file to the container
     pct push "$ct_id" "$alias_file" "/tmp/aliases.sh"
-    pct exec "$ct_id" -- bash -c "cat /tmp/aliases.sh >> /root/.bashrc"
+
+    # Loop through targets and apply changes
+    for target in "${target_files[@]}"; do
+        # Create file if it doesn't exist
+        pct exec "$ct_id" -- touch "$target"
+        
+        # Clean existing block if present (Idempotency) using sed
+        pct exec "$ct_id" -- sh -c "if grep -qF '$start_marker' '$target'; then sed -i '/$start_marker/,/$end_marker/d' '$target'; fi"
+        
+        # Append new block
+        pct exec "$ct_id" -- sh -c "cat /tmp/aliases.sh >> '$target'"
+    done
+
+    # Cleanup
     pct exec "$ct_id" -- rm -f "/tmp/aliases.sh"
     rm -f "$alias_file"
 
-    print_success "Game aliases configured (Idempotent)"
+    print_success "Game Server aliases configured"
 }
 
 # Full Docker deployment workflow
