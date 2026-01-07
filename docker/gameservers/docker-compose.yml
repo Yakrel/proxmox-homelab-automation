@@ -86,7 +86,7 @@ services:
   # Start with: docker compose --profile palworld up -d
   # ---------------------------------------------------------------------------
   palworld-server:
-    image: jammsen/docker-palworld-dedicated-server:latest
+    image: thijsvanloef/palworld-server-docker:latest
     container_name: palworld-server
     profiles: ["palworld"]
     environment:
