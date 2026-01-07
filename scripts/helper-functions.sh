@@ -268,15 +268,15 @@ fix_all_permissions() {
     # Create base directories if they don't exist
     mkdir -p /datapool/config /datapool/backup /datapool/media /datapool/data-vault /datapool/data-secure
 
-    # Ultra-fast: Single pass with xargs parallel execution
-    # Only processes files with wrong ownership, runs chown in parallel batches
+    # Performance Optimization: Shallow fix only (Top-level folder permissions)
+    # Recursive scanning 60k+ files (especially in config/media) caused massive delays.
+    # Containers usually inherit correct permissions or manage their own files.
     local dirs=("/datapool/config" "/datapool/backup" "/datapool/media" "/datapool/data-vault" "/datapool/data-secure")
     
     for dir in "${dirs[@]}"; do
         if [[ -d "$dir" ]]; then
-            # Single pass: find + parallel chown (no counting, just fix)
-            find "$dir" \( -not -user 101000 -o -not -group 101000 \) -print0 2>/dev/null | \
-                xargs -0 -r -P 4 -n 500 chown 101000:101000 2>/dev/null
+            # Only fix the root folder permissions, skip recursive scan
+            chown 101000:101000 "$dir" 2>/dev/null
         fi
     done
     
