@@ -215,7 +215,7 @@ services:
         max-file: "3"
 
   questarr:
-    image: ghcr.io/yakrel/docker-questarr:latest
+    image: ghcr.io/doezer/questarr:production-latest
     container_name: questarr
     restart: unless-stopped
     ports:

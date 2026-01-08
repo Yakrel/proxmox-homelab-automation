@@ -61,7 +61,6 @@ This project utilizes custom Docker images that are maintained in separate repos
 | :--- | :--- | :--- |
 | **desktop-workspace** | [Yakrel/docker-desktop-workspace](https://github.com/Yakrel/docker-desktop-workspace) | Multi-app web environment (Chrome + Obsidian + file manager) |
 | **backrest-rclone** | [Yakrel/docker-backrest-rclone](https://github.com/Yakrel/docker-backrest-rclone) | Backup solution with Google Drive sync hooks |
-| **questarr** | [Yakrel/docker-questarr](https://github.com/Yakrel/docker-questarr) | Automated build for Questarr game manager |
 
 **Pipeline Features:**
 - Bi-weekly automatic rebuilds
