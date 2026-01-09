@@ -19,18 +19,14 @@ deploy_stack_handler() {
     
     stack=$(get_stack_from_menu_index "$index") || { print_error "Failed to get stack for index $index"; return; }
     
-    if [[ "$stack" == "gameservers" ]]; then
-        bash "$WORK_DIR/scripts/gaming-menu.sh"
-    else
-        bash "$WORK_DIR/scripts/deploy-stack.sh" "$stack"
-        local exit_code=$?
-        
-        # If deployment failed, pause to let user see the error
-        if [[ $exit_code -ne 0 ]]; then
-            echo
-            print_error "Stack deployment failed with exit code $exit_code"
-            press_enter_to_continue
-        fi
+    bash "$WORK_DIR/scripts/deploy-stack.sh" "$stack"
+    local exit_code=$?
+    
+    # If deployment failed, pause to let user see the error
+    if [[ $exit_code -ne 0 ]]; then
+        echo
+        print_error "Stack deployment failed with exit code $exit_code"
+        press_enter_to_continue
     fi
 }
 
