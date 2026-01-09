@@ -172,8 +172,8 @@ setup_gameserver_aliases() {
 
 $start_marker
 # Aliases
-alias start-palworld='cd /root && git pull && docker compose --profile palworld pull && docker compose --profile palworld up -d && docker compose --profile satisfactory stop && echo "Starting Palworld, stopping Satisfactory..."'
-alias start-satisfactory='cd /root && git pull && docker compose --profile satisfactory pull && docker compose --profile satisfactory up -d && docker compose --profile palworld stop && echo "Starting Satisfactory, stopping Palworld..."'
+alias start-palworld='cd /root && docker compose --profile palworld pull && docker compose --profile palworld up -d && docker compose --profile satisfactory stop && echo "Starting Palworld, stopping Satisfactory..."'
+alias start-satisfactory='cd /root && docker compose --profile satisfactory pull && docker compose --profile satisfactory up -d && docker compose --profile palworld stop && echo "Starting Satisfactory, stopping Palworld..."'
 alias stop-games='cd /root && docker compose --profile palworld stop && docker compose --profile satisfactory stop && echo "Stopping all game servers..."'
 alias game-status='cd /root && docker compose ps'
 
