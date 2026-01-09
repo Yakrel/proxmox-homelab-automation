@@ -390,7 +390,7 @@ else
     apk upgrade
     
     # Alpine stacks: Docker runtime + Bash (for script compatibility)
-    apk add --no-cache docker docker-cli-compose util-linux bash
+    apk add --no-cache docker docker-cli-compose util-linux bash git
     
     # Add docker to boot runlevel and start
     rc-update add docker boot
