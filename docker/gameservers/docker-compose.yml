@@ -103,6 +103,7 @@ services:
       - SERVER_PASSWORD=${PALWORLD_SERVER_PASSWORD}
       - MAX_PLAYERS=${PALWORLD_MAX_PLAYERS:-32}
       - UPDATE_ON_BOOT=true
+      - USEAUTH=false
     volumes:
       - /datapool/config/palworld:/palworld
     ports:
