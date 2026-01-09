@@ -105,7 +105,9 @@ services:
       - UPDATE_ON_BOOT=true
       - USEAUTH=false
     volumes:
-      - /datapool/config/palworld:/palworld
+      - /root/palworld:/palworld
+      - /datapool/config/palworld/Saved:/palworld/Pal/Saved
+      - /datapool/config/palworld/backups:/palworld/backups
     ports:
       - "8211:8211/udp"  # Game port
       - "27015:27015/udp"  # Query port
@@ -145,6 +147,7 @@ services:
       - CRASHREPORT=false
     volumes:
       - /datapool/config/satisfactory:/config
+      - /root/satisfactory:/config/gamefiles
     ports:
       - "7777:7777/udp"  # Game port
       - "7777:7777/tcp"  # Game port TCP
