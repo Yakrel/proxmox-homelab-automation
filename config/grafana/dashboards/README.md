@@ -1,306 +1,425 @@
-# Grafana Dashboards
-
-Comprehensive monitoring dashboards for Proxmox homelab with cAdvisor container metrics.
-
-## Design Philosophy
-
-- **Comprehensive**: Cover all important metrics across infrastructure and applications
-- **Organized**: Separate dashboards for different concerns (infrastructure vs containers vs logs)
-- **Actionable**: Focus on metrics you actually use for troubleshooting and monitoring
-- **Clean**: Clear visual hierarchy, sorted by importance with color-coded thresholds
-
-## Available Dashboards
-
-### 1. Infrastructure Overview (`infrastructure-overview.json`)
-
-**Proxmox host and LXC container monitoring** - Focus on virtualization infrastructure health.
-
-**Dashboard Structure:**
-
-#### Top Section: Critical Host Metrics
-- **Proxmox CPU/Memory**: Host resource gauges with color thresholds (green/yellow/red)
-- **Running LXCs**: Total count of active LXC containers
-- **Total Containers**: Docker container count across all hosts
-- **OOM Events**: Out-of-memory events in last 5 minutes
-
-#### LXC Infrastructure
-- **LXC Overview Table**: All LXCs with status, CPU %, Memory % (gradient gauges, sortable)
-- **LXC CPU Usage**: Time series with mean/max in legend, sorted by max
-- **LXC Memory Usage**: Time series with mean/max in legend, sorted by max
-- **LXC Disk I/O**: Read (bottom) / Write (top) - sorted by max I/O to identify storage bottlenecks
-- **LXC Network I/O**: RX (bottom) / TX (top) - sorted by max throughput
-
-**Key Features:**
-- Auto-refresh every 30s
-- 1-hour default time range
-- Legend sorted by max values - **resource hogs appear at top**
-- Color-coded thresholds (green < 70% < yellow < 85% < red)
-
-**Use Cases:**
-- Infrastructure health monitoring
-- Identify which LXC is consuming resources
-- Track Proxmox host capacity
-- Spot disk/network bottlenecks at the LXC level
-
----
-
-### 2. Container Monitoring (`container-monitoring.json`)
-
-**Detailed Docker container metrics from cAdvisor** - Deep dive into application container performance.
-
-**Dashboard Structure:**
-
-#### Top Section: Container Health Metrics
-- **Total Containers**: Count of running Docker containers
-- **OOM Events (5m)**: Out-of-memory events with color thresholds
-- **Scrape Errors**: cAdvisor metric collection errors
-- **Network Errors (5m)**: Network receive/transmit errors across all containers
-
-#### Container Overview Table
-- All containers with Host, Name, CPU %, Memory, Memory %, Memory Limit
-- Gradient gauges for CPU and Memory usage with color thresholds
-- Sortable by any column to quickly find resource hogs
-
-#### Detailed Container Metrics
-- **CPU Usage**: Per-container CPU percentage with mean/max stats
-- **Memory Usage**: Working set memory (actual memory used)
-- **Disk I/O**: Filesystem read/write rates (bytes per second)
-- **Network I/O**: Network transmit/receive rates (bytes per second)
-- **Filesystem Usage**: Total filesystem usage per container
-- **Network Packet Drops**: Dropped packets indicating network issues
-
-**Key Features:**
-- All metrics have mean/max calculations in legend
-- Legend sorted by max values - highest usage at top
-- Color-coded thresholds (green < 70% < yellow < 90% < red for CPU/Memory)
-- Excludes monitoring infrastructure containers (cadvisor, prometheus, grafana, loki, promtail, watchtower)
-
-**Use Cases:**
-- Application performance monitoring
-- Container resource optimization
-- Identify memory leaks (check memory trends)
-- Network troubleshooting (errors, drops, bandwidth)
-- Filesystem usage tracking
-
----
-
-### 3. Logs Monitoring (`logs-monitoring.json`)
-
-**Real-time log viewer** with advanced filtering for Docker container logs via Loki.
-
-**Dashboard Structure:**
-
-#### Log Volume Chart
-- Stacked histogram showing log volume per container over time
-- Helps identify log spikes and chatty containers
-
-#### Container Logs Panel
-- Live log streaming with syntax highlighting
-- Full log details on expansion
-- Sorted by newest first
-
-**Filtering Variables:**
-- **Host**: Select LXC host (dropdown, All by default)
-- **Container**: Multi-select container names (All by default)
-- **Stream**: stdout, stderr, or All
-- **Search**: Free-text regex search box
-
-**Key Features:**
-- Auto-refresh every 10s
-- 1-hour default time range
-- Live mode enabled
-- Dynamic container list based on selected host
-
-**Use Cases:**
-- Real-time container troubleshooting
-- Filter errors only (stream=stderr)
-- Search for specific events across all containers
-- Track log volume spikes
-
----
-
-## Dashboard Organization
-
-The 3-dashboard structure provides **separation of concerns**:
-
-1. **Infrastructure Overview** → For infrastructure/ops team monitoring LXC health
-2. **Container Monitoring** → For application/dev team monitoring container performance
-3. **Logs Monitoring** → For troubleshooting and debugging
-
-**Benefits:**
-- Faster dashboard loading (smaller JSON files, less data per view)
-- Clearer context per dashboard
-- Easier to share specific views with different teams
-- Better performance with focused queries
-
----
-
-## Data Sources
-
-### Prometheus (UID: `prometheus`)
-- **Proxmox VE Exporter** (port 9221): LXC/VM metrics
-- **cAdvisor** (port 8080): Per-container metrics from all Docker hosts
-
-### Loki (UID: `loki`)
-- **Promtail agents**: Log shipping from all Docker hosts
-- 30-day retention
-
----
-
-## Prometheus Configuration
-
-Required scrape configs in `prometheus.yml`:
-
-```yaml
-scrape_configs:
-  # Proxmox VE Exporter
-  - job_name: 'proxmox'
-    static_configs:
-      - targets: ['192.168.1.10']
-    metrics_path: /pve
-    params:
-      module: [default]
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: __param_target
-      - source_labels: [__param_target]
-        target_label: instance
-      - target_label: __address__
-        replacement: prometheus-pve-exporter:9221
-
-  # cAdvisor - Per-container metrics
-  - job_name: 'cadvisor'
-    static_configs:
-      - targets:
-        - '192.168.1.100:8080'  # lxc-proxy-01
-        - '192.168.1.101:8080'  # lxc-media-01
-        - '192.168.1.102:8080'  # lxc-files-01
-        - '192.168.1.103:8080'  # lxc-webtools-01
-        - '192.168.1.104:8080'  # lxc-monitoring-01
-        - '192.168.1.105:8080'  # lxc-gameservers-01
-    relabel_configs:
-      - source_labels: [__address__]
-        regex: '192.168.1.100:8080'
-        target_label: instance
-        replacement: 'lxc-proxy-01'
-      - source_labels: [__address__]
-        regex: '192.168.1.101:8080'
-        target_label: instance
-        replacement: 'lxc-media-01'
-      # ... (remaining relabel configs for other LXCs)
-```
-
-**Note:** Old Docker daemon metrics (port 9323) removed - cAdvisor provides better per-container data.
-
----
-
-## Deployment
-
-Dashboards are automatically deployed:
-
-```bash
-./installer.sh
-# Select: Deploy monitoring stack
-```
-
-The script:
-1. Downloads dashboard JSONs to `/datapool/config/grafana/dashboards/`
-2. Grafana auto-loads via provisioning
-3. Datasource UIDs pre-configured
-
----
-
-## Manual Installation
-
-To manually import:
-
-1. Grafana UI → Dashboards → Import
-2. Upload JSON file or paste contents
-3. Select datasources: `prometheus` and `loki`
-4. Click Import
-
----
-
-## Troubleshooting
-
-### "No data" in panels
-
-**Check Prometheus targets:**
-```bash
-curl http://192.168.1.104:9090/api/v1/targets
-```
-All should show `"health":"up"`.
-
-**Verify cAdvisor metrics:**
-```bash
-curl -s http://192.168.1.104:9090/api/v1/label/__name__/values | jq -r '.data[]' | grep "^container_"
-```
-
-**Verify Proxmox metrics:**
-```bash
-curl -s http://192.168.1.104:9090/api/v1/label/__name__/values | jq -r '.data[]' | grep "^pve_"
-```
-
-### Loki logs not showing
-
-**Check Promtail:**
-```bash
-docker ps | grep promtail
-```
-
-**Verify Loki labels:**
-```bash
-curl -s http://192.168.1.104:3100/loki/api/v1/labels | jq
-```
-Should see: `host`, `container_name`, `stream`, `job`.
-
-### Container metrics missing from some hosts
-
-Ensure cAdvisor is deployed to all Docker LXCs. Check if running:
-```bash
-ssh root@192.168.1.100 "docker ps | grep cadvisor"
-```
-
----
-
-## Metrics Reference
-
-See `MONITORING-PLAN.md` for complete metric definitions.
-
-**Metrics Used by Dashboard:**
-
-### Infrastructure Overview Dashboard
-*Proxmox VE Metrics:*
-- `pve_cpu_usage_ratio` - Host and LXC CPU usage (0.0-1.0)
-- `pve_memory_usage_bytes`, `pve_memory_size_bytes` - Memory usage and capacity
-- `pve_disk_read_bytes`, `pve_disk_write_bytes` - Cumulative disk I/O (use rate())
-- `pve_network_receive_bytes`, `pve_network_transmit_bytes` - Cumulative network I/O (use rate())
-- `pve_up` - LXC status (1=running, 0=stopped)
-- `pve_guest_info` - LXC metadata (name, type)
-
-### Container Monitoring Dashboard
-*cAdvisor Metrics:*
-- `container_cpu_usage_seconds_total` - Total CPU time (use rate() for percentage)
-- `container_memory_working_set_bytes` - Active memory usage **[PRIMARY METRIC]**
-- `container_spec_memory_limit_bytes` - Memory limit for percentage calculation
-- `container_fs_usage_bytes` - Filesystem space used
-- `container_fs_reads_bytes_total`, `container_fs_writes_bytes_total` - Disk I/O (use rate())
-- `container_network_receive_bytes_total`, `container_network_transmit_bytes_total` - Network I/O (use rate())
-- `container_network_receive_errors_total`, `container_network_transmit_errors_total` - Network errors
-- `container_network_receive_packets_dropped_total`, `container_network_transmit_packets_dropped_total` - Packet drops
-- `container_oom_events_total` - Out of memory events
-- `container_scrape_error` - Metric collection errors
-- `container_last_seen` - Container presence indicator
-
----
-
-## Contributing
-
-To update dashboards:
-
-1. Edit in Grafana UI
-2. Export: Settings → JSON Model
-3. Clean: remove `id`, set `"id": null`
-4. Ensure datasource UIDs: `prometheus` and `loki`
-5. Save to this repo
-6. Update this README
+ALERTS_FOR_STATE
+cadvisor_version_info
+container:cpu_usage:rate5m
+container:fs_read:rate5m
+container:fs_write:rate5m
+container:network_receive:rate5m
+container:network_transmit:rate5m
+container_blkio_device_usage_total
+container_cpu_load_average_10s
+container_cpu_load_d_average_10s
+container_cpu_system_seconds_total
+container_cpu_usage_seconds_total
+container_cpu_user_seconds_total
+container_fs_inodes_free
+container_fs_inodes_total
+container_fs_io_current
+container_fs_io_time_seconds_total
+container_fs_io_time_weighted_seconds_total
+container_fs_limit_bytes
+container_fs_read_seconds_total
+container_fs_reads_bytes_total
+container_fs_reads_merged_total
+container_fs_reads_total
+container_fs_sector_reads_total
+container_fs_sector_writes_total
+container_fs_usage_bytes
+container_fs_write_seconds_total
+container_fs_writes_bytes_total
+container_fs_writes_merged_total
+container_fs_writes_total
+container_health_state
+container_last_seen
+container_memory_cache
+container_memory_failcnt
+container_memory_failures_total
+container_memory_kernel_usage
+container_memory_mapped_file
+container_memory_max_usage_bytes
+container_memory_rss
+container_memory_swap
+container_memory_total_active_file_bytes
+container_memory_total_inactive_file_bytes
+container_memory_usage_bytes
+container_memory_working_set_bytes
+container_network_receive_bytes_total
+container_network_receive_errors_total
+container_network_receive_packets_dropped_total
+container_network_receive_packets_total
+container_network_transmit_bytes_total
+container_network_transmit_errors_total
+container_network_transmit_packets_dropped_total
+container_network_transmit_packets_total
+container_oom_events_total
+container_pressure_cpu_stalled_seconds_total
+container_pressure_cpu_waiting_seconds_total
+container_pressure_io_stalled_seconds_total
+container_pressure_io_waiting_seconds_total
+container_pressure_memory_stalled_seconds_total
+container_pressure_memory_waiting_seconds_total
+container_scrape_error
+container_spec_cpu_period
+container_spec_cpu_shares
+container_spec_memory_limit_bytes
+container_spec_memory_reservation_limit_bytes
+container_spec_memory_swap_limit_bytes
+container_start_time_seconds
+container_tasks_state
+data:ALERTS
+deprecated_flags_inuse_total
+grpc_concurrent_streams_by_conn_max
+kv_request_duration_seconds_bucket
+kv_request_duration_seconds_count
+kv_request_duration_seconds_sum
+logql_query_duration_seconds_bucket
+logql_query_duration_seconds_count
+logql_query_duration_seconds_sum
+loki_azure_blob_egress_bytes_total
+loki_boltdb_shipper_compact_tables_operation_duration_seconds
+loki_boltdb_shipper_compact_tables_operation_last_successful_run_timestamp_seconds
+loki_boltdb_shipper_compact_tables_operation_total
+loki_boltdb_shipper_compactor_running
+loki_boltdb_shipper_retention_marker_count_total
+loki_boltdb_shipper_retention_marker_table_processed_duration_seconds_bucket
+loki_boltdb_shipper_retention_marker_table_processed_duration_seconds_count
+loki_boltdb_shipper_retention_marker_table_processed_duration_seconds_sum
+loki_boltdb_shipper_retention_marker_table_processed_total
+loki_boltdb_shipper_retention_sweeper_chunk_deleted_duration_seconds_bucket
+loki_boltdb_shipper_retention_sweeper_chunk_deleted_duration_seconds_count
+loki_boltdb_shipper_retention_sweeper_chunk_deleted_duration_seconds_sum
+loki_boltdb_shipper_retention_sweeper_marker_file_processing_current_time
+loki_boltdb_shipper_retention_sweeper_marker_files_current
+loki_boltdb_shipper_retention_sweeper_marker_files_deleted_total
+loki_build_info
+loki_bytes_per_line_bucket
+loki_bytes_per_line_count
+loki_bytes_per_line_sum
+loki_cache_corrupt_chunks_total
+loki_cache_fetched_keys
+loki_cache_hits
+loki_cache_request_duration_seconds_bucket
+loki_cache_request_duration_seconds_count
+loki_cache_request_duration_seconds_sum
+loki_cache_value_size_bytes_bucket
+loki_cache_value_size_bytes_count
+loki_cache_value_size_bytes_sum
+loki_chunk_fetcher_fetched_size_bytes_bucket
+loki_chunk_fetcher_fetched_size_bytes_count
+loki_chunk_fetcher_fetched_size_bytes_sum
+loki_chunk_store_chunks_per_query_bucket
+loki_chunk_store_chunks_per_query_count
+loki_chunk_store_chunks_per_query_sum
+loki_chunk_store_deduped_bytes_total
+loki_chunk_store_deduped_chunks_total
+loki_chunk_store_index_entries_per_chunk_bucket
+loki_chunk_store_index_entries_per_chunk_count
+loki_chunk_store_index_entries_per_chunk_sum
+loki_chunk_store_index_lookups_per_query_bucket
+loki_chunk_store_index_lookups_per_query_count
+loki_chunk_store_index_lookups_per_query_sum
+loki_chunk_store_series_post_intersection_per_query_bucket
+loki_chunk_store_series_post_intersection_per_query_count
+loki_chunk_store_series_post_intersection_per_query_sum
+loki_chunk_store_series_pre_intersection_per_query_bucket
+loki_chunk_store_series_pre_intersection_per_query_count
+loki_chunk_store_series_pre_intersection_per_query_sum
+loki_chunk_store_stored_chunk_bytes_total
+loki_chunk_store_stored_chunks_total
+loki_compactor_apply_retention_last_successful_run_timestamp_seconds
+loki_compactor_apply_retention_operation_duration_seconds
+loki_compactor_apply_retention_operation_total
+loki_compactor_grpc_request_duration_seconds_bucket
+loki_compactor_grpc_request_duration_seconds_count
+loki_compactor_grpc_request_duration_seconds_sum
+loki_compactor_load_pending_requests_attempts_total
+loki_compactor_locked_table_successive_compaction_skips
+loki_compactor_manifest_chunks_selected_total
+loki_compactor_oldest_pending_delete_request_age_seconds
+loki_compactor_pending_delete_requests_count
+loki_consul_request_duration_seconds_bucket
+loki_consul_request_duration_seconds_count
+loki_consul_request_duration_seconds_sum
+loki_delete_request_lookups_failed_total
+loki_delete_request_lookups_total
+loki_distributor_bytes_received_total
+loki_distributor_ingest_limits_requests_failed_total
+loki_distributor_ingest_limits_requests_total
+loki_distributor_ingester_appends_total
+loki_distributor_ingester_clients
+loki_distributor_kafka_latency_seconds_bucket
+loki_distributor_kafka_latency_seconds_count
+loki_distributor_kafka_latency_seconds_sum
+loki_distributor_kafka_records_per_write_request_bucket
+loki_distributor_kafka_records_per_write_request_count
+loki_distributor_kafka_records_per_write_request_sum
+loki_distributor_kafka_sent_bytes_total
+loki_distributor_lag_ms_total
+loki_distributor_lines_received_total
+loki_distributor_replication_factor
+loki_distributor_structured_metadata_bytes_received_total
+loki_dns_failures_total
+loki_dns_lookups_total
+loki_embeddedcache_added_new_total
+loki_embeddedcache_entries
+loki_embeddedcache_evicted_total
+loki_embeddedcache_memory_bytes
+loki_experimental_features_in_use_total
+loki_frontend_query_range_duration_seconds_bucket
+loki_frontend_query_range_duration_seconds_count
+loki_frontend_query_range_duration_seconds_sum
+loki_grpc_concurrent_streams_limit
+loki_index_chunk_refs_total
+loki_index_request_duration_seconds_bucket
+loki_index_request_duration_seconds_count
+loki_index_request_duration_seconds_sum
+loki_inflight_requests
+loki_ingester_autoforget_unhealthy_ingesters_total
+loki_ingester_blocks_per_chunk_bucket
+loki_ingester_blocks_per_chunk_count
+loki_ingester_blocks_per_chunk_sum
+loki_ingester_checkpoint_creations_failed_total
+loki_ingester_checkpoint_creations_total
+loki_ingester_checkpoint_deletions_failed_total
+loki_ingester_checkpoint_deletions_total
+loki_ingester_checkpoint_duration_seconds
+loki_ingester_checkpoint_duration_seconds_count
+loki_ingester_checkpoint_duration_seconds_sum
+loki_ingester_checkpoint_logged_bytes_total
+loki_ingester_chunk_age_seconds_bucket
+loki_ingester_chunk_age_seconds_count
+loki_ingester_chunk_age_seconds_sum
+loki_ingester_chunk_bounds_hours_bucket
+loki_ingester_chunk_bounds_hours_count
+loki_ingester_chunk_bounds_hours_sum
+loki_ingester_chunk_compression_ratio_bucket
+loki_ingester_chunk_compression_ratio_count
+loki_ingester_chunk_compression_ratio_sum
+loki_ingester_chunk_encode_time_seconds_bucket
+loki_ingester_chunk_encode_time_seconds_count
+loki_ingester_chunk_encode_time_seconds_sum
+loki_ingester_chunk_entries_bucket
+loki_ingester_chunk_entries_count
+loki_ingester_chunk_entries_sum
+loki_ingester_chunk_size_bytes_bucket
+loki_ingester_chunk_size_bytes_count
+loki_ingester_chunk_size_bytes_sum
+loki_ingester_chunk_stored_bytes_total
+loki_ingester_chunk_utilization_bucket
+loki_ingester_chunk_utilization_count
+loki_ingester_chunk_utilization_sum
+loki_ingester_chunks_created_total
+loki_ingester_chunks_encoded_total
+loki_ingester_chunks_flush_failures_total
+loki_ingester_chunks_flush_requests_total
+loki_ingester_chunks_flushed_total
+loki_ingester_chunks_stored_total
+loki_ingester_client_request_duration_seconds_bucket
+loki_ingester_client_request_duration_seconds_count
+loki_ingester_client_request_duration_seconds_sum
+loki_ingester_flush_queue_length
+loki_ingester_limiter_enabled
+loki_ingester_memory_chunks
+loki_ingester_memory_streams
+loki_ingester_memory_streams_labels_bytes
+loki_ingester_not_owned_streams
+loki_ingester_samples_per_chunk_bucket
+loki_ingester_samples_per_chunk_count
+loki_ingester_samples_per_chunk_sum
+loki_ingester_shutdown_marker
+loki_ingester_streams_created_total
+loki_ingester_streams_ownership_check_duration_ms_bucket
+loki_ingester_streams_ownership_check_duration_ms_count
+loki_ingester_streams_ownership_check_duration_ms_sum
+loki_ingester_streams_removed_total
+loki_ingester_wal_bytes_in_use
+loki_ingester_wal_corruptions_total
+loki_ingester_wal_discarded_bytes_total
+loki_ingester_wal_discarded_samples_total
+loki_ingester_wal_disk_full_failures_total
+loki_ingester_wal_duplicate_entries_total
+loki_ingester_wal_logged_bytes_total
+loki_ingester_wal_records_logged_total
+loki_ingester_wal_recovered_bytes_total
+loki_ingester_wal_recovered_chunks_total
+loki_ingester_wal_recovered_entries_total
+loki_ingester_wal_recovered_streams_total
+loki_ingester_wal_replay_active
+loki_ingester_wal_replay_duration_seconds
+loki_ingester_wal_replay_flushing
+loki_internal_log_messages_total
+loki_kv_request_duration_seconds_bucket
+loki_kv_request_duration_seconds_count
+loki_kv_request_duration_seconds_sum
+loki_lifecycler_read_only
+loki_log_flushes_bucket
+loki_log_flushes_count
+loki_log_flushes_sum
+loki_log_messages_total
+loki_logql_querystats_bytes_processed_per_seconds_bucket
+loki_logql_querystats_bytes_processed_per_seconds_count
+loki_logql_querystats_bytes_processed_per_seconds_sum
+loki_logql_querystats_chunk_download_latency_seconds_bucket
+loki_logql_querystats_chunk_download_latency_seconds_count
+loki_logql_querystats_chunk_download_latency_seconds_sum
+loki_logql_querystats_downloaded_chunk_total
+loki_logql_querystats_duplicates_total
+loki_logql_querystats_ingester_sent_lines_total
+loki_logql_querystats_latency_seconds_bucket
+loki_logql_querystats_latency_seconds_count
+loki_logql_querystats_latency_seconds_sum
+loki_member_consul_heartbeats_total
+loki_objstore_bucket_last_successful_upload_time
+loki_panic_total
+loki_querier_index_cache_corruptions_total
+loki_querier_index_cache_encode_errors_total
+loki_querier_index_cache_gets_total
+loki_querier_index_cache_hits_total
+loki_querier_index_cache_puts_total
+loki_querier_query_frontend_clients
+loki_querier_query_frontend_request_duration_seconds_bucket
+loki_querier_query_frontend_request_duration_seconds_count
+loki_querier_query_frontend_request_duration_seconds_sum
+loki_querier_tail_active
+loki_querier_tail_active_streams
+loki_querier_tail_bytes_total
+loki_querier_worker_concurrency
+loki_querier_worker_inflight_queries
+loki_query_frontend_connected_schedulers
+loki_query_frontend_log_result_cache_hit_total
+loki_query_frontend_log_result_cache_miss_total
+loki_query_frontend_partitions_bucket
+loki_query_frontend_partitions_count
+loki_query_frontend_partitions_sum
+loki_query_frontend_queries_in_progress
+loki_query_frontend_query_label_filters_bucket
+loki_query_frontend_query_label_filters_count
+loki_query_frontend_query_label_filters_sum
+loki_query_frontend_retries_bucket
+loki_query_frontend_retries_count
+loki_query_frontend_retries_sum
+loki_query_frontend_shard_factor_bucket
+loki_query_frontend_shard_factor_count
+loki_query_frontend_shard_factor_sum
+loki_query_frontend_sharding_parsed_queries_total
+loki_query_scheduler_connected_frontend_clients
+loki_query_scheduler_connected_querier_clients
+loki_query_scheduler_enqueue_count
+loki_query_scheduler_inflight_requests
+loki_query_scheduler_inflight_requests_count
+loki_query_scheduler_inflight_requests_sum
+loki_query_scheduler_queue_duration_seconds_bucket
+loki_query_scheduler_queue_duration_seconds_count
+loki_query_scheduler_queue_duration_seconds_sum
+loki_query_scheduler_queue_length
+loki_query_scheduler_running
+loki_rate_store_expired_streams_total
+loki_rate_store_max_stream_rate_bytes
+loki_rate_store_max_stream_shards
+loki_rate_store_max_unique_stream_rate_bytes
+loki_rate_store_refresh_duration_seconds_bucket
+loki_rate_store_refresh_duration_seconds_count
+loki_rate_store_refresh_duration_seconds_sum
+loki_rate_store_refresh_failures_total
+loki_rate_store_stream_rate_bytes_bucket
+loki_rate_store_stream_rate_bytes_count
+loki_rate_store_stream_rate_bytes_sum
+loki_rate_store_stream_shards_bucket
+loki_rate_store_stream_shards_count
+loki_rate_store_stream_shards_sum
+loki_rate_store_streams
+loki_request_duration_seconds_bucket
+loki_request_duration_seconds_count
+loki_request_duration_seconds_sum
+loki_request_message_bytes_bucket
+loki_request_message_bytes_count
+loki_request_message_bytes_sum
+loki_response_message_bytes_bucket
+loki_response_message_bytes_count
+loki_response_message_bytes_sum
+loki_results_cache_version_comparisons_total
+loki_ring_member_heartbeats_total
+loki_ring_member_tokens_owned
+loki_ring_member_tokens_to_own
+loki_ring_members
+loki_ring_oldest_member_timestamp
+loki_ring_tokens_total
+loki_ruler_clients
+loki_ruler_managers_total
+loki_ruler_ring_check_errors_total
+loki_ruler_sync_rules_total
+loki_store_chunk_ref_lookups_bypassed_total
+loki_store_chunks_downloaded_total
+loki_store_chunks_per_batch_bucket
+loki_store_chunks_per_batch_count
+loki_store_chunks_per_batch_sum
+loki_store_series_total
+loki_stream_sharding_count
+loki_tcp_connections
+loki_tcp_connections_limit
+loki_tsdb_build_index_attempts_total
+loki_tsdb_build_index_last_successful_timestamp_seconds
+loki_tsdb_head_rotation_attempts_total
+loki_tsdb_head_series_not_found_total
+loki_tsdb_shipper_query_time_table_download_duration_seconds
+loki_tsdb_shipper_query_wait_time_seconds_bucket
+loki_tsdb_shipper_query_wait_time_seconds_count
+loki_tsdb_shipper_query_wait_time_seconds_sum
+loki_tsdb_shipper_table_sync_latency_seconds_bucket
+loki_tsdb_shipper_table_sync_latency_seconds_count
+loki_tsdb_shipper_table_sync_latency_seconds_sum
+loki_tsdb_shipper_tables_download_operation_duration_seconds
+loki_tsdb_shipper_tables_sync_operation_total
+loki_tsdb_shipper_tables_upload_operation_total
+loki_tsdb_wal_truncation_attempts_total
+lxc:disk_read:rate5m
+lxc:disk_write:rate5m
+lxc:memory_usage:percent
+lxc:network_receive:rate5m
+lxc:network_transmit:rate5m
+machine_cpu_cores
+machine_cpu_physical_cores
+machine_cpu_sockets
+machine_memory_bytes
+machine_nvm_avg_power_budget_watts
+machine_nvm_capacity
+machine_scrape_error
+machine_swap_bytes
+net_conntrack_dialer_conn_attempted_total
+net_conntrack_dialer_conn_closed_total
+net_conntrack_dialer_conn_established_total
+net_conntrack_dialer_conn_failed_total
+net_conntrack_listener_conn_accepted_total
+net_conntrack_listener_conn_closed_total
+pve_cpu_usage_limit
+pve_cpu_usage_ratio
+pve_disk_read_bytes
+pve_disk_read_bytes_total
+pve_disk_size_bytes
+pve_disk_usage_bytes
+pve_disk_write_bytes
+pve_disk_written_bytes_total
+pve_guest_info
+pve_ha_state
+pve_lock_state
+pve_memory_size_bytes
+pve_memory_usage_bytes
+pve_network_receive_bytes
+pve_network_receive_bytes_total
+pve_network_transmit_bytes
+pve_network_transmit_bytes_total
+pve_node_info
+pve_not_backed_up_info
+pve_not_backed_up_total
+pve_onboot_status
+pve_storage_info
+pve_storage_shared
+pve_subscription_info
+pve_subscription_status
+pve_up
+pve_uptime_seconds
+pve_version_info
+ring_member_heartbeats_total
+ring_member_tokens_owned
+ring_member_tokens_to_own
+up}
+{status:success
