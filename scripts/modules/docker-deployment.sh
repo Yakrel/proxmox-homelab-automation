@@ -171,11 +171,15 @@ setup_gameserver_aliases() {
     cat <<EOF > "$alias_file"
 
 $start_marker
-# Aliases
-alias start-palworld='cd /root && docker compose --profile palworld pull && docker compose --profile palworld up -d && docker compose --profile satisfactory stop && echo "Starting Palworld, stopping Satisfactory..."'
-alias start-satisfactory='cd /root && docker compose --profile satisfactory pull && docker compose --profile satisfactory up -d && docker compose --profile palworld stop && echo "Starting Satisfactory, stopping Palworld..."'
-alias stop-games='cd /root && docker compose --profile palworld stop && docker compose --profile satisfactory stop && echo "Stopping all game servers..."'
-alias game-status='cd /root && docker compose ps'
+# Aliases for Game Server Management
+# Core services (cadvisor, promtail, watchtower) always run via base compose
+# Game servers are managed separately via profiles
+
+# Ensure core services are always running, then start/stop game containers
+alias start-palworld='cd /root && echo "Starting Palworld..." && docker stop satisfactory-server 2>/dev/null || true && docker compose up -d && docker compose --profile palworld up -d --pull always'
+alias start-satisfactory='cd /root && echo "Starting Satisfactory..." && docker stop palworld-server 2>/dev/null || true && docker compose up -d && docker compose --profile satisfactory up -d --pull always'
+alias stop-games='cd /root && echo "Stopping all game servers..." && docker stop palworld-server satisfactory-server 2>/dev/null || true'
+alias game-status='cd /root && docker compose ps -a'
 
 # --- Game Server MOTD (Login Message) ---
 # Display only on interactive shell login
