@@ -82,6 +82,7 @@
         "/backup-sources/config/*/asp",
         "/backup-sources/config/vaultwarden/ssl/key.pem",
         "/backup-sources/config/tailscale/tailscaled.state",
+        "/backup-sources/config/questarr/db",
         "**/postmaster.pid",
         "**/pg_internal.init",
         "**/pg_logical/replorigin_checkpoint",
