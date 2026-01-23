@@ -20,15 +20,10 @@ services:
       - /datapool:/datapool
     ports:
       - "8989:8989"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8989/ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
     networks:
       - media-net
     restart: unless-stopped
+    stop_grace_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -57,6 +52,7 @@ services:
     networks:
       - media-net
     restart: unless-stopped
+    stop_grace_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -137,6 +133,7 @@ services:
     networks:
       - media-net
     restart: unless-stopped
+    stop_grace_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -199,6 +196,7 @@ services:
     networks:
       - media-net
     restart: unless-stopped
+    stop_grace_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -403,6 +401,7 @@ services:
       - media-net
     shm_size: 128mb
     restart: unless-stopped
+    stop_grace_period: 120s
     logging:
       driver: "json-file"
       options:
