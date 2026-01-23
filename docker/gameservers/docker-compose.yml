@@ -114,6 +114,7 @@ services:
     networks:
       - gameserver-net
     restart: unless-stopped
+    stop_grace_period: 120s
     healthcheck:
       test: ["CMD-SHELL", "netstat -an | grep -q ':8211'"]
       interval: 30s
@@ -156,6 +157,7 @@ services:
     networks:
       - gameserver-net
     restart: unless-stopped
+    stop_grace_period: 120s
     healthcheck:
       test: ["CMD-SHELL", "netstat -an | grep -q ':7777'"]
       interval: 30s
