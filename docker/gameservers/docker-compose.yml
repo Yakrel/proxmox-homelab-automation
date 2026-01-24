@@ -104,6 +104,8 @@ services:
       - MAX_PLAYERS=${PALWORLD_MAX_PLAYERS:-32}
       - UPDATE_ON_BOOT=true
       - USEAUTH=false
+      - RCON_ENABLED=true
+      - PAL_EGG_DEFAULT_HATCHING_TIME=${PAL_EGG_DEFAULT_HATCHING_TIME:-1}
     volumes:
       - /root/palworld:/palworld
       - /datapool/config/palworld/Saved:/palworld/Pal/Saved
