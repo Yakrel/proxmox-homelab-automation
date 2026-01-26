@@ -10,6 +10,7 @@ services:
     image: ghcr.io/yakrel/docker-backrest-rclone:latest
     container_name: backrest
     restart: unless-stopped
+    stop_grace_period: 30s
     ports:
       - "9898:9898"
     volumes:

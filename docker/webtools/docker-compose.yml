@@ -103,6 +103,7 @@ services:
     image: couchdb:latest
     container_name: couchdb-obsidian
     restart: unless-stopped
+    stop_grace_period: 30s
     user: "1000:1000"
     ports:
       - "5984:5984"
@@ -198,6 +199,7 @@ services:
     image: vaultwarden/server:latest
     container_name: vaultwarden
     restart: unless-stopped
+    stop_grace_period: 30s
     ports:
       - "8201:80"
     environment:
@@ -251,6 +253,7 @@ services:
     image: postgres:16-alpine
     container_name: questarr-db
     restart: unless-stopped
+    stop_grace_period: 30s
     environment:
       - POSTGRES_USER=${QUESTARR_DB_USER}
       - POSTGRES_PASSWORD=${QUESTARR_DB_PASSWORD}
