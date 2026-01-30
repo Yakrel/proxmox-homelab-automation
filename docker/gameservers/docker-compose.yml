@@ -93,26 +93,55 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Istanbul
-      - COMMUNITY_SERVER=${PALWORLD_COMMUNITY_SERVER:-false}
-      - MULTITHREAD_ENABLED=true
-      - PUBLIC_IP=${PALWORLD_PUBLIC_IP}
-      - PUBLIC_PORT=8211
+      # --- Server Identity & Security ---
       - SERVER_NAME=${PALWORLD_SERVER_NAME}
       - SERVER_DESCRIPTION=${PALWORLD_SERVER_DESCRIPTION}
-      - ADMIN_PASSWORD=${PALWORLD_ADMIN_PASSWORD}
       - SERVER_PASSWORD=${PALWORLD_SERVER_PASSWORD}
-      - MAX_PLAYERS=${PALWORLD_MAX_PLAYERS:-32}
-      - UPDATE_ON_BOOT=true
+      - ADMIN_PASSWORD=${PALWORLD_ADMIN_PASSWORD}
+      - COMMUNITY_SERVER=${PALWORLD_COMMUNITY_SERVER:-false}
+      - PUBLIC_IP=${PALWORLD_PUBLIC_IP}
+      - PUBLIC_PORT=8211
+      - MAX_PLAYERS=${PALWORLD_MAX_PLAYERS:-4}
       - USEAUTH=false
+      
+      # --- Performance & System ---
+      - MULTITHREAD_ENABLED=true
+      - UPDATE_ON_BOOT=true
       - RCON_ENABLED=true
-      - PAL_EGG_DEFAULT_HATCHING_TIME=${PAL_EGG_DEFAULT_HATCHING_TIME:-0.5}
+      
+      # --- REST API (Enabled for management) ---
+      - REST_API_ENABLED=true
+      - REST_API_PORT=8212
+
+      # --- Backup Settings ---
+      - BACKUP_ENABLED=true
+      - BACKUP_CRON_EXPRESSION=0 */6 * * *
+      - DELETE_OLD_BACKUPS=true
+      - OLD_BACKUP_DAYS=7
+
+      # --- Auto Reboot (Memory Leak Protection) ---
+      - AUTO_REBOOT_ENABLED=true
+      - AUTO_REBOOT_CRON_EXPRESSION=0 4 * * *
+
+      # --- Solo / AFK Friendly Game Settings ---
+      - DEATH_PENALTY=Item                    # Drops items only (Keeps equipment/Pals)
+      - COLLECTION_DROP_RATE=2.0              # 2x Resources (Balanced for solo)
+      - WORK_SPEED_RATE=1.5                   # 50% Faster crafting
+      - PAL_EGG_DEFAULT_HATCHING_TIME=0       # Instant hatching
+      - AUTO_PAUSE_ENABLED=false              # Keep running for AFK farming
+      - ENABLE_NON_LOGIN_PENALTY=false        # No penalty for offline days
+      - AUTO_SAVE_SPAN=300                    # Auto-save every 5 minutes
+      - BASE_CAMP_WORKER_MAX_NUM=20           # Increase base workers to 20
+      
     volumes:
       - /root/palworld:/palworld
       - /datapool/config/palworld/Saved:/palworld/Pal/Saved
       - /datapool/config/palworld/backups:/palworld/backups
+      - /datapool/config/palworld/mods:/palworld/Pal/Content/Paks/~mods:ro
     ports:
       - "8211:8211/udp"  # Game port
       - "27015:27015/udp"  # Query port
+      - "8212:8212/tcp"  # REST API
     networks:
       - gameserver-net
     restart: unless-stopped
