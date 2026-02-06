@@ -81,6 +81,24 @@ setup_immich_directories() {
     print_success "Immich configured"
 }
 
+# Setup Tdarr directories
+setup_tdarr_directories() {
+    print_info "Preparing Tdarr directories"
+
+    # Create config and temp directories
+    mkdir -p /datapool/config/tdarr/{server,configs,logs}
+    mkdir -p /datapool/temp/tdarr
+
+    # Ensure correct ownership for LXC user (101000 mapping for user 1000)
+    chown -R 101000:101000 /datapool/config/tdarr
+    chown -R 101000:101000 /datapool/temp/tdarr
+
+    # Ensure correct permissions for the temp directory (transcoding needs write access)
+    chmod -R 777 /datapool/temp/tdarr
+
+    print_success "Tdarr configured"
+}
+
 # Setup Promtail configuration for log aggregation
 setup_promtail_config() {
     local ct_id="$1"
@@ -254,6 +272,7 @@ deploy_docker_stack() {
     # Setup Immich directories for media stack
     if [[ "$stack_name" == "media" ]]; then
         setup_immich_directories
+        setup_tdarr_directories
         
         # Setup secure vault infrastructure requirements
         print_info "Installing security tools for media stack"
