@@ -390,11 +390,34 @@ else
     apk upgrade
     
     # Alpine stacks: Docker runtime + Bash (for script compatibility)
-    apk add --no-cache docker docker-cli-compose util-linux bash
+    # Proxy stack requires iptables for MSS clamping (Tailscale hotspot fix)
+    if [ "$STACK_NAME" = "proxy" ]; then
+        apk add --no-cache docker docker-cli-compose util-linux bash iptables
+    else
+        apk add --no-cache docker docker-cli-compose util-linux bash
+    fi
     
     # Add docker to boot runlevel and start
     rc-update add docker boot
     service docker start || rc-service docker start || true
+
+    # Proxy-specific network optimization (MSS Clamping)
+    # Required for Tailscale connectivity over mobile hotspots/restricted MTU networks
+    if [ "$STACK_NAME" = "proxy" ]; then
+        mkdir -p /etc/local.d
+        cat > /etc/local.d/mss-clamping.start << 'EOF'
+#!/bin/sh
+# Idempotent MSS Clamping for Tailscale/Hotspot
+# Sets MSS to 1200 to ensure packets fit through VPN/Mobile tunnels
+if ! iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 2>/dev/null; then
+    iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
+fi
+EOF
+        chmod +x /etc/local.d/mss-clamping.start
+        rc-update add local default
+        # Run immediately
+        /etc/local.d/mss-clamping.start
+    fi
 
     # Alpine autologin
     sed -i 's|^tty1::|#&|' /etc/inittab || true

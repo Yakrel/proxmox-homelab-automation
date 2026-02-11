@@ -131,7 +131,7 @@ services:
       - AUTO_PAUSE_ENABLED=false              # Keep running for AFK farming
       - ENABLE_NON_LOGIN_PENALTY=false        # No penalty for offline days
       - AUTO_SAVE_SPAN=300                    # Auto-save every 5 minutes
-      - BASE_CAMP_WORKER_MAX_NUM=20           # Increase base workers to 20
+      - BASE_CAMP_WORKER_MAX_NUM=50           # Increase base workers to 50
       
     volumes:
       - /root/palworld:/palworld
