@@ -52,7 +52,7 @@ Shell-based automation for deploying containerized services in LXC containers on
 ## Technical Guidelines
 
 ### Security and Encryption
-Always use `-pbkdf2` and `-salt` with openssl for env file encryption/decryption.
+Always use `-pbkdf2` and `-salt` with openssl for env file encryption/decryption. Do not use `-iter` unless explicitly required by the environment.
 
 ### Environment Secrets
 The repository uses encrypted `.env.enc` files for sensitive configuration. Use `ENV_ENC_KEY` from GitHub secrets (available as environment variable in CI/CD) for decryption/encryption with openssl. The same `ENV_ENC_KEY` can be used to decrypt any `.env.enc` file in the repository for inspection or modification. Always commit only `.env.enc` files, never decrypted `.env` files.
@@ -61,7 +61,7 @@ The repository uses encrypted `.env.enc` files for sensitive configuration. Use 
 - **NEVER** use "Generated with [AI Tool]" in commits
 - Commit as the actual developer (Yakrel), not as AI
 - Always check code to ensure no secrets or passwords are committed
-- **Git Configuration**: Use `git config user.email "85676216+Yakrel@users.noreply.github.com"` and `git config user.name "Yakrel"` before committing
+- **Git Configuration**: Use `git config user.email "85676216+Yakrel@users.noreply.github.com"` and `git config user.name "Berkay Yetgin"` before committing
 
 ## Project Context
 

@@ -216,31 +216,34 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  questarr:
-    image: ghcr.io/doezer/questarr:production-latest
-    container_name: questarr
+  repackarr:
+    image: ghcr.io/yakrel/repackarr:latest
+    container_name: repackarr
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "8090:3000"
     environment:
-      - NODE_ENV=production
-      - PORT=5000
-      - HOST=0.0.0.0
-      - DATABASE_URL=postgresql://${QUESTARR_DB_USER}:${QUESTARR_DB_PASSWORD}@questarr-db:5432/${QUESTARR_DB_NAME}
-      - JWT_SECRET=${QUESTARR_JWT_SECRET}
-      - IGDB_CLIENT_ID=${IGDB_CLIENT_ID}
-      - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET}
+      - TZ=${TZ:-Europe/Istanbul}
+      - QBIT_HOST=${REPACKARR_QBIT_HOST}
+      - QBIT_USERNAME=${REPACKARR_QBIT_USERNAME}
+      - QBIT_PASSWORD=${REPACKARR_QBIT_PASSWORD}
+      - QBIT_CATEGORY=${REPACKARR_QBIT_CATEGORY}
+      - PROWLARR_URL=${REPACKARR_PROWLARR_URL}
+      - PROWLARR_API_KEY=${REPACKARR_PROWLARR_API_KEY}
+      - CRON_INTERVAL_MINUTES=${REPACKARR_CRON_INTERVAL_MINUTES}
+      - PLATFORM_FILTER=${REPACKARR_PLATFORM_FILTER}
+      - IGNORED_KEYWORDS=${REPACKARR_IGNORED_KEYWORDS}
+      - ALLOWED_INDEXERS=${REPACKARR_ALLOWED_INDEXERS}
+      - IGDB_CLIENT_ID=${REPACKARR_IGDB_CLIENT_ID}
+      - IGDB_CLIENT_SECRET=${REPACKARR_IGDB_CLIENT_SECRET}
     volumes:
-      - /datapool/torrents/games:/downloads
-    depends_on:
-      questarr-db:
-        condition: service_healthy
+      - /datapool/config/repackarr/data:/app/data
+      - /datapool/config/repackarr/logs:/app/logs
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
     networks:
       - webtools-net
     logging:
@@ -248,23 +251,3 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-  questarr-db:
-    image: postgres:16-alpine
-    container_name: questarr-db
-    restart: unless-stopped
-    stop_grace_period: 30s
-    environment:
-      - POSTGRES_USER=${QUESTARR_DB_USER}
-      - POSTGRES_PASSWORD=${QUESTARR_DB_PASSWORD}
-      - POSTGRES_DB=${QUESTARR_DB_NAME}
-    volumes:
-      - /datapool/config/questarr/db:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${QUESTARR_DB_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    networks:
-      - webtools-net
