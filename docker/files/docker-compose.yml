@@ -6,7 +6,7 @@ networks:
 
 services:
   jdownloader2:
-    image: jaymoulin/jdownloader:latest
+    image: ghcr.io/jaymoulin/jdownloader:latest
     container_name: jdownloader2
     environment:
       - MYJD_USER=${MYJD_USER:?MyJDownloader email must be defined}
