@@ -82,7 +82,7 @@
         "/backup-sources/config/*/asp",
         "/backup-sources/config/vaultwarden/ssl/key.pem",
         "/backup-sources/config/tailscale/tailscaled.state",
-        "/backup-sources/config/questarr/db",
+        "/backup-sources/config/tailscale/*.json",
         "**/postmaster.pid",
         "**/pg_internal.init",
         "**/pg_logical/replorigin_checkpoint",
@@ -110,7 +110,7 @@
         "/backup-sources/immich"
       ],
       "schedule": {
-        "cron": "0 2 * * *",
+        "cron": "0 2 */3 * *",
         "clock": "CLOCK_LAST_RUN_TIME"
       },
       "retention": {
