@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yakrel's Homelab Infrastructure</title>
+    <title>Proxmox Homelab Architecture</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
@@ -13,7 +13,6 @@
             --border: #30363d;
             --text-main: #c9d1d9;
             --text-muted: #8b949e;
-            
             --accent-blue: #58a6ff;
             --accent-green: #3fb950;
             --accent-orange: #d29922;
@@ -95,7 +94,6 @@
         .main-content {
             margin-left: 280px;
             padding: 40px 60px;
-            /* Allow content to fill the remaining width */
             width: auto; 
             max-width: none;
             position: relative;
@@ -117,6 +115,7 @@
             align-items: center;
             gap: 8px;
             transition: all 0.2s;
+            z-index: 1000;
         }
         .lang-switch:hover { border-color: var(--accent-blue); color: var(--text-main); }
         .lang-active { color: var(--accent-blue); font-weight: bold; }
@@ -124,7 +123,6 @@
         section { 
             margin-bottom: 80px; 
             scroll-margin-top: 60px;
-            /* Center content and increase width for large screens */
             max-width: 1600px; 
             margin-left: auto; 
             margin-right: auto; 
@@ -136,257 +134,111 @@
         
         p { line-height: 1.7; color: var(--text-muted); margin-bottom: 20px; }
 
-        /* CODE BLOCKS */
-        .code-block {
-            background: #1e1e1e; /* VS Code dark like */
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 20px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 0.85rem;
-            color: #d4d4d4;
-            overflow-x: auto;
-            position: relative;
-            margin-bottom: 20px;
-        }
-        .code-lang {
-            position: absolute;
-            top: 0;
-            right: 0;
-            background: var(--border);
-            padding: 2px 8px;
-            border-bottom-left-radius: 8px;
-            font-size: 0.7rem;
-            color: var(--text-muted);
-        }
-        .c-cmd { color: #dcdcaa; }
-        .c-arg { color: #9cdcfe; }
-        .c-comment { color: #6a9955; }
-        .c-str { color: #ce9178; }
-
         /* CARDS FOR FEATURES */
         .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-        .feature-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            padding: 20px;
-            border-radius: 8px;
-        }
+        .feature-card { background: var(--bg-card); border: 1px solid var(--border); padding: 20px; border-radius: 8px; }
         .feature-title { font-weight: bold; margin-bottom: 10px; display: block; color: var(--text-main); }
         .feature-desc { font-size: 0.85rem; color: var(--text-muted); }
 
-        /* --- NETWORK TOPOLOGY (Imported) --- */
-        .topology-container {
-            background: rgba(13, 17, 23, 0.5);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 40px;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            gap: 40px;
-            background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 20px 20px;
-        }
-        .node-card {
-            background: rgba(22, 27, 34, 0.9);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 15px 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            min-width: 140px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            transition: all 0.3s;
-            z-index: 2;
-        }
-        .node-card:hover { transform: translateY(-5px); border-color: var(--accent-blue); }
-        .node-icon { font-size: 1.5rem; margin-bottom: 5px; }
-        .layer { display: flex; justify-content: center; gap: 40px; }
-        .c-cloud { border-top: 3px solid var(--accent-blue); }
-        .c-edge { border-top: 3px solid var(--accent-orange); }
-        .c-infra { border-top: 3px solid var(--accent-purple); }
-        
-        /* --- INVENTORY GRID (JS Target) --- */
+        /* --- INVENTORY GRID --- */
         #stack-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
         .inv-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 0;
-            overflow: hidden;
+            /* overflow: hidden; Removed to fix tooltip visibility */
             transition: transform 0.2s;
+            position: relative;
         }
         .inv-card:hover { transform: translateY(-3px); border-color: var(--text-muted); }
-        .inv-header { padding: 15px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .inv-header { padding: 15px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; border-radius: 8px 8px 0 0; }
         .inv-body { padding: 15px; }
-        .svc-row { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px; color: var(--text-muted); }
+        .svc-row { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px; color: var(--text-muted); position: relative; }
         .svc-row i { width: 20px; text-align: center; margin-right: 5px; }
         
         .badge { padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; background: var(--border); }
         .badge.gpu { background: #76b900; color: black; }
-
-        /* --- SCREENSHOTS --- */
-        .screenshot-container {
-            margin-top: 20px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            overflow: hidden;
-            background: #000;
-        }
-        .screenshot-container img {
-            width: 100%;
-            display: block;
-            opacity: 0.9;
-            transition: opacity 0.3s;
-        }
-        .screenshot-container img:hover { opacity: 1; }
-        .screenshot-caption {
-            background: var(--bg-card);
-            padding: 10px;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            border-top: 1px solid var(--border);
-            text-align: center;
-        }
-
-        /* --- LIGHTBOX --- */
-        .lightbox {
-            display: none;
-            position: fixed;
-            z-index: 9999;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            justify-content: center;
-            align-items: center;
-            cursor: zoom-out;
-            animation: fadeIn 0.3s;
-        }
-        .lightbox img {
-            max-width: 90%;
-            max-height: 90%;
-            border-radius: 4px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            animation: zoomIn 0.3s;
-        }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes zoomIn { from { transform: scale(0.9); } to { transform: scale(1); } }
-
-        .screenshot-container img {
-            cursor: zoom-in; /* Indicate clickable */
-        }
 
         /* --- TOOLTIPS --- */
         .tooltip {
             border-bottom: 1px dotted var(--accent-blue);
             cursor: help;
             position: relative;
+            display: inline-block;
         }
         .tooltip:hover::after {
             content: attr(data-tip);
             position: absolute;
-            bottom: 125%;
+            bottom: 140%;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.95);
             color: #fff;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            white-space: nowrap;
-            z-index: 1000;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            line-height: 1.4;
+            width: max-content;
+            max-width: 250px;
+            z-index: 10000;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
             border: 1px solid var(--border);
+            text-align: center;
+            white-space: normal;
+            pointer-events: none;
         }
-        .tooltip:hover::before { /* Arrow */
+        .tooltip:hover::before {
             content: "";
             position: absolute;
-            bottom: 115%;
+            bottom: 125%;
             left: 50%;
             margin-left: -5px;
-            border-width: 5px;
+            border-width: 6px;
             border-style: solid;
-            border-color: rgba(0,0,0,0.9) transparent transparent transparent;
-            z-index: 1000;
+            border-color: rgba(0,0,0,0.95) transparent transparent transparent;
+            z-index: 10000;
         }
 
-        /* --- HAMBURGER MENU (Mobile) --- */
-        .menu-toggle {
-            display: none;
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 1001;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 10px;
-            border-radius: 8px;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        }
-        
-        /* Overlay for mobile sidebar */
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            z-index: 99;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        .sidebar-overlay.active { display: block; opacity: 1; }
+        /* --- TOPOLOGY --- */
+        .topology-container { background: rgba(13, 17, 23, 0.5); border: 1px solid var(--border); border-radius: 16px; padding: 40px; position: relative; display: flex; flex-direction: column; gap: 40px; }
+        .node-card { background: rgba(22, 27, 34, 0.9); border: 1px solid var(--border); border-radius: 8px; padding: 15px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-width: 140px; transition: all 0.3s; z-index: 2; }
+        .node-card:hover { transform: translateY(-5px); border-color: var(--accent-blue); }
+        .node-icon { font-size: 1.5rem; margin-bottom: 5px; }
+        .layer { display: flex; justify-content: center; gap: 40px; }
+        .c-cloud { border-top: 3px solid var(--accent-blue); }
+        .c-edge { border-top: 3px solid var(--accent-orange); }
+        .c-infra { border-top: 3px solid var(--accent-purple); }
 
-        @media (max-width: 1200px) {
-            .main-content { padding: 40px 30px; }
-            section { margin-bottom: 60px; }
-        }
+        /* --- SCREENSHOTS --- */
+        .screenshot-container { margin-top: 20px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #000; }
+        .screenshot-container img { width: 100%; display: block; opacity: 0.9; transition: opacity 0.3s; cursor: zoom-in; }
+        .screenshot-container img:hover { opacity: 1; }
+        .screenshot-caption { background: var(--bg-card); padding: 10px; font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid var(--border); text-align: center; }
 
+        /* --- LIGHTBOX --- */
+        .lightbox { display: none; position: fixed; z-index: 9999; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); justify-content: center; align-items: center; cursor: zoom-out; }
+        .lightbox img { max-width: 90%; max-height: 90%; border-radius: 4px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+
+        /* --- MOBILE --- */
+        .menu-toggle { display: none; position: fixed; top: 20px; left: 20px; z-index: 1001; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); padding: 10px; border-radius: 8px; cursor: pointer; }
+        .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99; }
         @media (max-width: 900px) {
             .menu-toggle { display: block; }
-            
-            .sidebar { 
-                display: flex; 
-                transform: translateX(-100%); 
-                transition: transform 0.3s ease-in-out;
-                box-shadow: 5px 0 15px rgba(0,0,0,0.5);
-            }
+            .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
             .sidebar.active { transform: translateX(0); }
-            
-            .main-content { margin-left: 0; padding: 80px 20px 20px 20px; } /* Top padding for menu button */
+            .main-content { margin-left: 0; padding: 80px 20px 20px 20px; }
             .lang-switch { top: 20px; right: 20px; }
-            
-            /* Responsive Topology */
             .layer { flex-direction: column; gap: 20px; align-items: center; }
             .node-card { width: 100%; max-width: 300px; }
-            .topology-container { padding: 20px; }
         }
-
     </style>
 </head>
 <body>
 
-    <!-- MOBILE MENU TOGGLE -->
-    <button class="menu-toggle" onclick="toggleSidebar()">
-        <i class="fa-solid fa-bars"></i>
-    </button>
-    
-    <!-- OVERLAY -->
+    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
     <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
-    <!-- SIDEBAR NAV -->
     <nav class="sidebar">
         <div class="profile-section">
             <div class="profile-img">BY</div>
@@ -395,7 +247,6 @@
                 <p data-i18n="sidebar_role">System Administrator</p>
             </div>
         </div>
-
         <ul class="nav-links">
             <li><a href="#overview" class="nav-item active"><i class="fa-solid fa-house"></i> <span data-i18n="nav_overview">Overview</span></a></li>
             <li><a href="#iac" class="nav-item"><i class="fa-solid fa-code"></i> <span data-i18n="nav_iac">Infrastructure as Code</span></a></li>
@@ -403,26 +254,21 @@
             <li><a href="#backup" class="nav-item"><i class="fa-solid fa-floppy-disk"></i> <span data-i18n="nav_backup">Backup & Recovery</span></a></li>
             <li><a href="#observability" class="nav-item"><i class="fa-solid fa-chart-line"></i> <span data-i18n="nav_observability">Observability</span></a></li>
             <li><a href="#topology" class="nav-item"><i class="fa-solid fa-network-wired"></i> <span data-i18n="nav_topology">Network Topology</span></a></li>
-            <li><a href="#virtualization" class="nav-item"><i class="fa-brands fa-docker"></i> <span data-i18n="nav_virtualization">Virtualization Strategy</span></a></li>
             <li><a href="#inventory" class="nav-item"><i class="fa-solid fa-server"></i> <span data-i18n="nav_inventory">Live Inventory</span></a></li>
-            <li><a href="#faq" class="nav-item"><i class="fa-solid fa-circle-question"></i> <span data-i18n="nav_faq">Architectural Decisions</span></a></li>
+            <li><a href="#faq" class="nav-item"><i class="fa-solid fa-circle-question"></i> <span data-i18n="nav_faq">FAQ</span></a></li>
         </ul>
-
         <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted);">
             <p><strong data-i18n="sidebar_brand">Yakrel's Homelab</strong></p>
-            <p><span data-i18n="sidebar_update">Last Update:</span> Dec 2025</p>
+            <p><span data-i18n="sidebar_update">Last Update:</span> March 2026</p>
             <p><a href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" style="color:var(--accent-blue); text-decoration:none;"><i class="fa-brands fa-github"></i> GitHub</a></p>
             <p><a href="https://cv.byetgin.com" target="_blank" style="color:var(--accent-green); text-decoration:none;"><i class="fa-solid fa-user"></i> <span data-i18n="sidebar_cv">Resume (CV)</span></a></p>
         </div>
     </nav>
 
-    <!-- MAIN CONTENT -->
     <main class="main-content"> 
-        
-        <!-- LANGUAGE SWITCHER -->
         <div class="lang-switch" onclick="toggleLanguage()">
             <i class="fa-solid fa-language"></i>
-            <span id="lang-text">EN / TR</span>
+            <span id="lang-text"><span class="lang-active">EN</span> / TR</span>
         </div>
 
         <!-- 1. OVERVIEW -->
@@ -430,694 +276,216 @@
             <div style="background: linear-gradient(135deg, rgba(88, 166, 255, 0.1), rgba(163, 113, 247, 0.1)); padding: 40px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 40px;">
                 <h1 style="border:none; margin:0;" data-i18n="hero_title">Proxmox Homelab Automation</h1>
                 <p style="font-size: 1.1rem; color: var(--text-main); margin-top: 10px;" data-i18n="hero_desc">
-                    My personal homelab where I simulate a production environment. 40+ Docker containers, custom Bash automation, and enterprise-grade security. It's not just a hobby, it's my practice ground.
+                    My personal homelab where I simulate a production environment. 40+ Docker containers, custom Bash automation, and enterprise-grade security.
                 </p>
                 <div style="display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
                     <span class="badge" style="background:var(--accent-blue); color:black;"><i class="fa-brands fa-docker"></i> <span data-i18n="badge_services">40+ Services</span></span>
-                    <span class="badge" style="background:var(--accent-purple); color:black;"><i class="fa-solid fa-code"></i> <span class="tooltip" data-tip-i18n="badge_bash_tip"><span data-i18n="badge_bash">~3K Lines Bash</span></span></span>
-                    <span class="badge" style="background:var(--accent-green); color:black;"><i class="fa-solid fa-shield"></i> <span class="tooltip" data-tip-i18n="badge_ssl_tip"><span data-i18n="badge_ssl">OpenSSL Encrypted</span></span></span>
-                    <span class="badge" style="background:var(--accent-orange); color:black;"><i class="fa-solid fa-server"></i> <span data-i18n="badge_lxc">8 LXC Hosts</span></span>
+                    <span class="badge" style="background:var(--accent-purple); color:black;"><i class="fa-solid fa-code"></i> <span data-i18n="badge_bash">~3K Lines Bash</span></span>
                 </div>
-
-                <!-- Main Dashboard Screenshot -->
                 <div class="screenshot-container">
-                    <img src="assets/main-dashboard.png" alt="Homepage Dashboard">
-                    <div class="screenshot-caption">
-                        <strong data-i18n="img_dash_title">Centralized Command Center:</strong> <span data-i18n="img_dash_desc">My main dashboard. I use this to check service health and disk usage at a glance.</span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Key Metrics Section -->
-            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 30px; margin-bottom: 30px;">
-                <h3 style="margin-top: 0; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-gauge-high" style="color: var(--accent-green);"></i>
-                    <span data-i18n="metrics_title">Project Metrics</span>
-                </h3>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
-                    <div style="text-align: center;">
-                        <div style="font-size: 2rem; font-weight: bold; color: var(--accent-blue);">~3000</div>
-                        <div style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="metrics_loc">Lines of Automation Code</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 2rem; font-weight: bold; color: var(--accent-green);">8</div>
-                        <div style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="metrics_lxc">LXC Containers (Orchestrated)</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 2rem; font-weight: bold; color: var(--accent-purple);">40+</div>
-                        <div style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="metrics_services">Microservices Running</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 2rem; font-weight: bold; color: var(--accent-orange);">100%</div>
-                        <div style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="metrics_uptime">Target Uptime (Monitored)</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <span class="feature-title"><i class="fa-solid fa-rotate" style="color:var(--accent-blue)"></i> <span data-i18n="feat_cd_title">Continuous Delivery</span></span>
-                    <span class="feature-desc" data-i18n="feat_cd_desc">When I push code, GitHub Actions builds my Docker images. Backrest handles automated backups with post-success hooks syncing to Google Drive.</span>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-title"><i class="fa-solid fa-user-shield" style="color:var(--accent-orange)"></i> <span data-i18n="feat_zt_title">Zero Trust Access</span></span>
-                    <span class="feature-desc" data-i18n="feat_zt_desc">I don't open ports to the internet. Access is handled via Cloudflare Tunnels, protected by Email OTPs.</span>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-title"><i class="fa-solid fa-microchip" style="color:var(--accent-green)"></i> <span data-i18n="feat_hw_title">Hardware Passthrough</span></span>
-                    <span class="feature-desc" data-i18n="feat_hw_desc">My media server needs GPU power. I mapped the NVIDIA card directly to the LXC container using cgroups.</span>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-title"><i class="fa-solid fa-code-branch" style="color:var(--accent-purple)"></i> <span data-i18n="feat_iac_title">Infrastructure as Code</span></span>
-                    <span class="feature-desc" data-i18n="feat_iac_desc">~3000 lines of Bash automation. Every server deployment is reproducible and version-controlled.</span>
+                    <img src="assets/main-dashboard.png" alt="Dashboard">
+                    <div class="screenshot-caption"><strong data-i18n="img_dash_title">Centralized Command Center</strong></div>
                 </div>
             </div>
         </section>
 
-        <!-- 2. IAC & AUTOMATION -->
+        <!-- 2. IAC -->
         <section id="iac">
-            <h2><i class="fa-solid fa-terminal"></i> <span data-i18n="iac_title">Infrastructure as Code</span></h2>
-            <p data-i18n="iac_intro">I didn't want to configure servers manually every time. So, I built a setup where I define everything in one YAML file (<code>stacks.yaml</code>), and my scripts handle the installation automatically.</p>
-            
-            <div class="feature-grid" style="margin-bottom: 20px;">
+            <h2><i class="fa-solid fa-terminal"></i> <span data-i18n="nav_iac">Infrastructure as Code</span></h2>
+            <p data-i18n="iac_intro">I built a setup where I define everything in one YAML file (stacks.yaml), and scripts handle the installation automatically.</p>
+            <div class="feature-grid">
                 <div class="feature-card">
                     <span class="feature-title" data-i18n="iac_ssot_title">Single Source of Truth</span>
-                    <span class="feature-desc" data-i18n="iac_ssot_desc">I manage all my containers and networks in <code>stacks.yaml</code>. If it's not in that file, it doesn't exist on the server.</span>
+                    <span class="feature-desc" data-i18n="iac_ssot_desc">Manage all containers and networks in stacks.yaml. If it's not there, it doesn't exist.</span>
                 </div>
                 <div class="feature-card">
                     <span class="feature-title" data-i18n="iac_idem_title">Idempotency</span>
-                    <span class="feature-desc" data-i18n="iac_idem_desc">I can run my installer script 10 times, and it won't break anything. It only applies changes if something is missing.</span>
-                </div>
-            </div>
-
-            <!-- CLI Screenshot -->
-            <div class="screenshot-container" style="margin-bottom: 20px;">
-                <img src="assets/automation-cli.png" alt="Interactive CLI Installer">
-                <div class="screenshot-caption">
-                    <strong data-i18n="img_cli_title">Interactive Automation:</strong> <span data-i18n="img_cli_desc">The <code>installer.sh</code> script reading from <code>stacks.yaml</code> to provision resources.</span>
+                    <span class="feature-desc" data-i18n="iac_idem_desc">The installer script can run multiple times without breaking anything, only applying necessary changes.</span>
                 </div>
             </div>
         </section>
 
         <!-- 3. SECURITY -->
         <section id="security">
-            <h2><i class="fa-solid fa-lock"></i> <span data-i18n="sec_title">Security & Secrets Management</span></h2>
-            <p data-i18n="sec_intro">I treat this homelab like a real production server. No open ports to the outside world, and all my API keys are encrypted in the repo so I don't accidentally leak them.</p>
-            
+            <h2><i class="fa-solid fa-lock"></i> <span data-i18n="nav_security">Security & Secrets Management</span></h2>
+            <p data-i18n="sec_intro">I treat this homelab like a real production server. No open ports, and all API keys are encrypted in the repo.</p>
             <div class="feature-grid">
                 <div class="feature-card">
                     <span class="feature-title" data-i18n="sec_enc_title">AES-256 Encryption (OpenSSL)</span>
-                    <span class="feature-desc" data-i18n="sec_enc_desc">I store sensitive keys as <code>.env.enc</code> in Git. They are encrypted with OpenSSL, so even if the repo is public, the secrets are safe.</span>
+                    <span class="feature-desc" data-i18n="sec_enc_desc">Sensitive keys are stored as .env.enc in Git, encrypted with OpenSSL.</span>
                 </div>
                 <div class="feature-card">
                     <span class="feature-title" data-i18n="sec_f2b_title">Fail2Ban Integration</span>
-                    <span class="feature-desc" data-i18n="sec_f2b_desc">Even though I use Cloudflare, I also run Fail2Ban locally to block anyone trying to brute-force my internal services.</span>
+                    <span class="feature-desc" data-i18n="sec_f2b_desc">Fail2Ban runs locally to block brute-force attempts on internal services.</span>
                 </div>
             </div>
         </section>
 
-        <!-- 3.1 BACKUP & DR -->
+        <!-- 4. BACKUP -->
         <section id="backup">
-            <h2><i class="fa-solid fa-floppy-disk"></i> <span data-i18n="backup_title">Backup & Disaster Recovery</span></h2>
-            <p data-i18n="backup_intro">I use a mix of local snapshots for quick fixes and encrypted cloud backups for real disasters. If the server dies, my data survives.</p>
-            
+            <h2><i class="fa-solid fa-floppy-disk"></i> <span data-i18n="nav_backup">Backup & Recovery</span></h2>
+            <p data-i18n="backup_intro">Mix of local snapshots for quick fixes and encrypted cloud backups for disasters.</p>
             <div class="feature-grid">
                 <div class="feature-card">
-                    <span class="feature-title"><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-green)"></i> <span data-i18n="backup_l1_title">Layer 1: Local ZFS Snapshots</span></span>
-                    <span class="feature-desc" data-i18n="backup_l1_desc">
-                        Managed by <strong>Sanoid</strong>. If I accidentally delete a file, I can roll back in seconds using ZFS snapshots.
-                    </span>
+                    <span class="feature-title" data-i18n="backup_l1_title">Layer 1: ZFS Snapshots</span>
+                    <span class="feature-desc" data-i18n="backup_l1_desc">Managed by Sanoid. Seconds-level recovery from accidental deletion.</span>
                 </div>
                 <div class="feature-card">
-                    <span class="feature-title"><i class="fa-brands fa-google-drive" style="color:var(--accent-blue)"></i> <span data-i18n="backup_l2_title">Layer 2: Off-Site Archival</span></span>
-                    <span class="feature-desc" data-i18n="backup_l2_desc">
-                        <strong>Backrest</strong> creates encrypted, deduplicated snapshots. Configuration data backed up daily, media library twice weekly. Post-success hooks automatically sync to Google Drive via rclone.
-                    </span>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-title"><i class="fa-solid fa-box-archive" style="color:var(--accent-orange)"></i> <span data-i18n="backup_l3_title">Layer 3: Infrastructure Code</span></span>
-                    <span class="feature-desc" data-i18n="backup_l3_desc">
-                        Since my setup is code, I can rebuild the whole server from scratch just by running my <code>installer.sh</code> script.
-                    </span>
+                    <span class="feature-title" data-i18n="backup_l2_title">Layer 2: Cloud Archival</span>
+                    <span class="feature-desc" data-i18n="backup_l2_desc">Backrest creates encrypted snapshots, synced to Google Drive via rclone.</span>
                 </div>
             </div>
         </section>
 
-        <!-- 3.5 OBSERVABILITY -->
+        <!-- 5. OBSERVABILITY -->
         <section id="observability">
-            <h2><i class="fa-solid fa-chart-line"></i> <span data-i18n="obs_title">Observability & Logs</span></h2>
-            <p data-i18n="obs_intro">I hate logging into servers one by one just to check if they are running. I set up a monitoring stack to see everything in one place.</p>
-            
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <span class="feature-title"><i class="fa-solid fa-fire" style="color:var(--accent-orange)"></i> Prometheus & Node Exporter</span>
-                    <span class="feature-desc" data-i18n="obs_prom_desc">
-                        Collects metrics from Proxmox and Docker. If disk usage goes high or a service goes down, I get an alert.
-                    </span>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-title"><i class="fa-solid fa-list" style="color:var(--accent-blue)"></i> Loki (Log Aggregation)</span>
-                    <span class="feature-desc" data-i18n="obs_loki_desc">
-                        Instead of using <code>tail -f</code> on every server, I send all logs to Loki. I can search through them easily in Grafana.
-                    </span>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-title"><i class="fa-solid fa-table-columns" style="color:var(--accent-green)"></i> Grafana Dashboards</span>
-                    <span class="feature-desc" data-i18n="obs_graf_desc">
-                        My central dashboard for visualizing hardware stats, network traffic, and application health.
-                    </span>
-                </div>
-            </div>
-
-            <!-- Grafana Screenshot -->
+            <h2><i class="fa-solid fa-chart-line"></i> <span data-i18n="nav_observability">Observability & Logs</span></h2>
+            <p data-i18n="obs_intro">A monitoring stack to see everything in one place: Prometheus, Loki, and Grafana.</p>
             <div class="screenshot-container">
-                <img src="assets/grafana-metrics.png" alt="Grafana Dashboard">
-                <div class="screenshot-caption">
-                    <strong data-i18n="img_graf_title">Operational Visibility:</strong> <span data-i18n="img_graf_desc">Real-time monitoring of Proxmox host resources (CPU/RAM) and individual LXC container performance.</span>
-                </div>
+                <img src="assets/grafana-metrics.png" alt="Grafana">
+                <div class="screenshot-caption"><strong data-i18n="img_graf_title">Operational Visibility</strong></div>
             </div>
         </section>
 
-        <!-- 4. NETWORK TOPOLOGY -->
+        <!-- 6. TOPOLOGY -->
         <section id="topology">
-            <h2><i class="fa-solid fa-network-wired"></i> <span data-i18n="topo_title">Network Topology</span></h2>
-            <p data-i18n="topo_intro">I set up a hybrid network. My family accesses services locally (fast), while I access them securely from outside using Cloudflare Tunnels.</p>
-            
-            <!-- REUSED TOPOLOGY DIAGRAM -->
+            <h2><i class="fa-solid fa-network-wired"></i> <span data-i18n="nav_topology">Network Topology</span></h2>
             <div class="topology-container" style="align-items: center; gap: 10px;">
-                <!-- Layers -->
                 <div class="layer" style="width:100%; justify-content: space-around;">
                     <div class="node-card c-cloud">
                         <i class="fa-solid fa-globe node-icon" style="color:var(--accent-blue)"></i>
                         <span style="font-weight:bold;">Public Internet</span>
-                        <span style="font-size:0.7rem; color:var(--text-muted);">*.byetgin.com</span>
                     </div>
                     <div class="node-card c-edge">
                         <i class="fa-solid fa-mobile-screen node-icon" style="color:var(--accent-orange)"></i>
                         <span style="font-weight:bold;">Roaming Device</span>
-                        <span style="font-size:0.7rem; color:var(--text-muted);">WARP VPN</span>
                     </div>
                 </div>
-
-                <div style="display:flex; justify-content:center; width:100%;">
-                    <i class="fa-solid fa-arrow-down" style="color:var(--text-muted);"></i>
-                </div>
-
-                <!-- Tunnel -->
                 <div style="background:var(--bg-card); border:1px solid var(--accent-purple); padding:10px 30px; border-radius:30px; color:var(--accent-purple); font-size:0.9rem;">
-                    <i class="fa-solid fa-lock"></i> <span data-i18n="topo_tunnel">Encrypted Cloudflare Tunnel (No Inbound WAN Ports)</span>
+                    <i class="fa-solid fa-lock"></i> <span data-i18n="topo_tunnel">Encrypted Cloudflare Tunnel</span>
                 </div>
-
-                <div style="display:flex; justify-content:center; width:100%;">
-                    <i class="fa-solid fa-arrow-down" style="color:var(--text-muted);"></i>
-                </div>
-
-                <!-- Gateway -->
                 <div class="node-card c-infra" style="width: 100%; max-width: 500px; flex-direction: row; justify-content: space-around;">
-                    <div style="text-align:center;">
-                        <i class="fa-brands fa-cloudflare node-icon"></i>
-                        <div>cloudflared</div>
-                    </div>
-                    <div style="font-family:monospace; font-size:0.7rem; color:var(--text-muted);">TO REVERSE PROXY &rarr;</div>
-                    <div style="text-align:center;">
-                        <i class="fa-solid fa-shuffle node-icon" style="color:var(--accent-green)"></i>
-                        <div>Nginx Proxy</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- NPM Screenshot -->
-            <div class="screenshot-container">
-                <img src="assets/proxy-routing.png" alt="Nginx Proxy Manager">
-                <div class="screenshot-caption">
-                    <strong data-i18n="img_npm_title">Traffic Routing:</strong> <span data-i18n="img_npm_desc">Nginx Proxy Manager handling SSL termination and routing public subdomains to internal container IPs.</span>
+                    <div><i class="fa-brands fa-cloudflare node-icon"></i><div>cloudflared</div></div>
+                    <div style="font-family:monospace; font-size:0.7rem;">&rarr;</div>
+                    <div><i class="fa-solid fa-shuffle node-icon" style="color:var(--accent-green)"></i><div>Nginx Proxy</div></div>
                 </div>
             </div>
         </section>
 
-        <!-- 5. VIRTUALIZATION -->
-        <section id="virtualization">
-            <h2><i class="fa-brands fa-docker"></i> <span data-i18n="virt_title">Virtualization Strategy</span></h2>
-            <p data-i18n="virt_intro">I use LXC for things that need to act like full operating systems, and Docker for running apps. My scripts handle the complex config to make them work together.</p>
-            
-            <div class="feature-grid" style="margin-bottom:20px;">
-                <div class="feature-card">
-                    <span class="feature-title" data-i18n="virt_dind_title">Docker inside LXC (Automated)</span>
-                    <span class="feature-desc" data-i18n="virt_dind_desc">
-                        My <code>lxc-manager.sh</code> script automatically configures the container settings (nesting, keys) so I can run Docker inside LXC without issues.
-                    </span>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-title" data-i18n="virt_gpu_title">Automated GPU Passthrough</span>
-                    <span class="feature-desc" data-i18n="virt_gpu_desc">
-                        Instead of editing config files manually, my script detects the NVIDIA card and injects the right permissions into the LXC config automatically.
-                    </span>
-                </div>
-            </div>
-
-        </section>
-
-        <!-- 6. LIVE INVENTORY -->
+        <!-- 7. INVENTORY -->
         <section id="inventory">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2><i class="fa-solid fa-server"></i> <span data-i18n="inv_title">Live Inventory</span></h2>
+                <h2><i class="fa-solid fa-server"></i> <span data-i18n="nav_inventory">Live Inventory</span></h2>
                 <div style="font-size:0.8rem; color:var(--text-muted);"><i class="fa-solid fa-circle" style="color:var(--accent-green); font-size:0.6rem;"></i> <span data-i18n="inv_status">Systems Operational</span></div>
             </div>
-            
-            <!-- JS INJECTED GRID -->
-            <div id="stack-grid">
-                <div style="text-align:center; padding:40px; color:var(--text-muted); grid-column:1/-1;">
-                    Loading infrastructure data...
-                </div>
-            </div>
+            <div id="stack-grid">Loading infrastructure data...</div>
         </section>
 
-        <!-- 7. ARCHITECTURAL DECISIONS (FAQ) -->
+        <!-- 8. FAQ -->
         <section id="faq">
-            <h2><i class="fa-solid fa-circle-question"></i> <span data-i18n="faq_title">Architectural Decisions</span></h2>
+            <h2><i class="fa-solid fa-circle-question"></i> <span data-i18n="nav_faq">Architectural Decisions</span></h2>
             <div class="feature-grid">
                 <div class="feature-card">
                     <span class="feature-title" data-i18n="faq_k8s_q">Why not Kubernetes?</span>
-                    <span class="feature-desc" data-i18n="faq_k8s_a">For a single-node environment, Kubernetes introduces significant resource overhead and operational complexity. I opted for Docker Compose to maintain native performance and simplicity while achieving declarative state via custom automation.</span>
+                    <span class="feature-desc" data-i18n="faq_k8s_a">For a single-node environment, Kubernetes introduces significant overhead. Docker Compose maintains native performance.</span>
                 </div>
                 <div class="feature-card">
                     <span class="feature-title" data-i18n="faq_bash_q">Why Bash for IaC?</span>
-                    <span class="feature-desc" data-i18n="faq_bash_a">Instead of adding external dependencies like Ansible, I used modular Bash scripts to stay close to the OS. This ensures the environment is fully reproducible on my Proxmox host, though adapting it to other networks requires configuration changes.</span>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-title" data-i18n="faq_hybrid_q">Why Hybrid Cloud?</span>
-                    <span class="feature-desc" data-i18n="faq_hybrid_a">I combine Private Cloud (on-prem compute/storage) with Public Cloud (Cloudflare security, Google Drive backups). This strategy ensures high performance for local media while maintaining enterprise-grade security and off-site durability.</span>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-title" data-i18n="faq_lxc_q">Why LXC instead of VMs?</span>
-                    <span class="feature-desc" data-i18n="faq_lxc_a">LXC containers provide near-native performance with minimal overhead (~2-3% vs VMs ~10-15%). For stateless workloads and Docker hosts, this translates to 3x better density on the same hardware.</span>
+                    <span class="feature-desc" data-i18n="faq_bash_a">Modular Bash scripts stay close to the OS, ensuring full reproducibility on Proxmox without external dependencies.</span>
                 </div>
             </div>
         </section>
-
     </main>
 
-    <!-- DATA SOURCE -->
+    <div id="lightbox" class="lightbox"><img id="lightbox-img" src=""></div>
+
     <script src="architecture-data.js"></script>
-    
-    <!-- LIGHTBOX OVERLAY -->
-    <div id="lightbox" class="lightbox">
-        <img id="lightbox-img" src="" alt="Zoomed Screenshot">
-    </div>
-
     <script>
-        // --- I18N CONFIGURATION ---
-        const I18N = {
+        const translations = {
             en: {
-                nav_overview: "Overview",
-                nav_iac: "Infrastructure as Code",
-                nav_security: "Zero Trust Architecture",
-                nav_backup: "Disaster Recovery (DR)",
-                nav_observability: "Observability",
-                nav_topology: "Network Topology",
-                nav_virtualization: "Virtualization Strategy",
-                nav_inventory: "Live Inventory",
-                nav_faq: "Architectural Decisions",
-                
-                hero_title: "Proxmox Homelab Automation",
-                hero_desc: "My personal homelab where I simulate a production environment. 40+ Docker containers, custom Bash automation, and enterprise-grade security. It's not just a hobby, it's my practice ground.",
-                
-                sidebar_brand: "Yakrel's Homelab",
-                sidebar_update: "Last Update:",
-                sidebar_cv: "Resume (CV)",
-                sidebar_role: "System Administrator",
-                
-                badge_services: "40+ Services",
-                badge_bash: "~3K Lines Bash",
-                badge_bash_tip: "~3000 lines of modular Bash scripts for reproducible deployments",
-                badge_ssl: "OpenSSL Encrypted",
-                badge_ssl_tip: "AES-256-CBC encryption via OpenSSL for .env files",
-                badge_lxc: "8 LXC Hosts",
-                
-                img_dash_title: "Centralized Command Center:",
-                img_dash_desc: "My main dashboard. I use this to check service health and disk usage at a glance.",
-                
-                metrics_title: "Project Metrics",
-                metrics_loc: "Lines of Automation Code",
-                metrics_lxc: "LXC Containers (Orchestrated)",
-                metrics_services: "Microservices Running",
-                metrics_uptime: "Target Uptime (Monitored)",
-                
-                feat_cd_title: "Continuous Delivery (CI/CD)",
-                feat_cd_desc: "Automated Docker image builds via GitHub Actions. Backrest handles scheduled backups (daily configs, twice-weekly media) with post-success hooks syncing to Google Drive via rclone.",
-                
-                feat_zt_title: "Zero Trust & VPN",
-                feat_zt_desc: "Hybrid security model: Cloudflare Tunnels for public web apps, and Tailscale VPN for secure, direct admin access to the home network.",
-                
-                feat_hw_title: "Hardware Passthrough",
-                feat_hw_desc: "Direct, zero-overhead assignment of NVIDIA GPU resources to LXC containers via cgroup v2 rules for high-performance media processing.",
-                
-                feat_iac_title: "Infrastructure as Code",
-                feat_iac_desc: "~3000 lines of Bash automation. Every server deployment is reproducible and version-controlled.",
-                
-                iac_title: "Infrastructure as Code (IaC)",
-                iac_intro: "An automation architecture where the entire infrastructure is defined as a 'Single Source of Truth' in <code>stacks.yaml</code>, eliminating manual configuration drift.",
-                
-                iac_ssot_title: "Declarative Configuration",
-                iac_ssot_desc: "Network definitions, storage volumes, and container orchestration are managed from a single YAML manifest, ensuring full traceability and version control.",
-                
-                iac_idem_title: "Idempotent Architecture",
-                iac_idem_desc: "Bash-based automation scripts analyze system state and apply only necessary changes (State Reconciliation), ensuring reproducible and error-free deployments.",
-                
-                img_cli_title: "Interactive CLI Automation:",
-                img_cli_desc: "The <code>installer.sh</code> script dynamically provisioning resources by parsing the declarative infrastructure code (stacks.yaml).",
-                
-                sec_title: "Security & Secrets Management",
-                sec_intro: "The system is protected via 'Defense in Depth' principles, enforcing network-level isolation and encrypted secrets management within the repository.",
-                
-                sec_enc_title: "GitOps & Encryption (AES-256)",
-                sec_enc_desc: "Sensitive credentials (API Keys, Passwords) are stored encrypted (<code>.env.enc</code>) using AES-256-CBC standards. Decryption occurs only in memory during deployment.",
-                
-                sec_f2b_title: "Fail2Ban (Local Protection)",
-                sec_f2b_desc: "Monitors authentication logs to detect and automatically block brute-force attempts on internal services (SSH, web apps).",
-
-                backup_title: "Data Integrity & Disaster Recovery",
-                backup_intro: "A multi-layered data protection strategy adhering to the 3-2-1 rule, ensuring Business Continuity even in catastrophic failure scenarios.",
-                
-                backup_l1_title: "Layer 1: Instant Recovery (ZFS)",
-                backup_l1_desc: "Periodic Copy-on-Write (CoW) snapshots managed by <strong>Sanoid</strong> allow for second-level recovery from data corruption or accidental deletion.",
-                
-                backup_l2_title: "Layer 2: Off-Site Archival",
-                backup_l2_desc: "Backrest creates encrypted, deduplicated snapshots locally. Configuration data backed up daily, media library twice weekly. Post-backup hooks trigger sync-to-gdrive.sh to upload to Google Drive via rclone.",
-                
-                backup_l3_title: "Layer 3: Infrastructure Continuity",
-                backup_l3_desc: "In a disaster scenario, the entire server fleet can be rebuilt on the <strong>Proxmox Host</strong> in minutes using the <code>installer.sh</code> automation suite.",
-
-                obs_title: "Observability & Telemetry",
-                obs_intro: "Comprehensive metric collection and log analysis to understand not just 'if' the system is running, but 'how' it is performing.",
-                
-                obs_prom_desc: "Real-time metrics collection from Proxmox hosts and Docker containers. Proactive alerting on critical thresholds (Disk I/O, CPU Saturation).",
-                
-                obs_loki_desc: "Centralized aggregation of distributed service logs in Loki. Accelerates debugging and Root Cause Analysis (RCA) via log correlation.",
-                
-                obs_graf_desc: "A 'Single Pane of Glass' operational dashboard for visualizing infrastructure health, network traffic, and service metrics.",
-                
-                img_graf_title: "Operational Visibility:",
-                img_graf_desc: "Real-time analysis of Proxmox resources and container performance metrics.",
-
-                topo_title: "Network Topology & Access",
-                topo_intro: "Hybrid access strategy utilizing Split-DNS and Tunnel architecture. Combines local network performance with secure remote access.",
-                
-                topo_tunnel: "Secure Access behind CGNAT (Cloudflare Tunnel)",
-                
-                img_npm_title: "Traffic Routing:",
-                img_npm_desc: "Nginx Proxy Manager handling SSL Termination and Host-based routing management.",
-
-                virt_title: "Hybrid Virtualization Strategy",
-                virt_intro: "Leveraging LXC (OS-Level) for resource efficiency and Docker for application isolation in a hybrid architecture.",
-                
-                virt_dind_title: "Nested Virtualization (Docker-in-LXC)",
-                virt_dind_desc: "Optimized OverlayFS and AppArmor profiles enabling isolated Docker environments within LXC containers with near-native performance.",
-                
-                virt_gpu_title: "Automated GPU Passthrough",
-                virt_gpu_desc: "Instead of editing config files manually, my script detects the NVIDIA card and injects the right permissions into the LXC config automatically.",
-
-                inv_title: "Live Inventory",
+                nav_overview: "Overview", nav_iac: "Infrastructure as Code", nav_security: "Security", nav_backup: "Backup", nav_observability: "Observability", nav_topology: "Network Topology", nav_inventory: "Live Inventory", nav_faq: "FAQ",
+                hero_title: "Proxmox Homelab Automation", hero_desc: "My personal homelab where I simulate a production environment. 40+ Docker containers, custom Bash automation, and enterprise-grade security.",
+                sidebar_role: "System Administrator", sidebar_brand: "Yakrel's Homelab", sidebar_update: "Last Update:", sidebar_cv: "Resume (CV)",
+                badge_services: "40+ Services", badge_bash: "~3K Lines Bash", img_dash_title: "Centralized Command Center",
+                iac_intro: "I built a setup where I define everything in one YAML file (stacks.yaml), and scripts handle the installation automatically.",
+                iac_ssot_title: "Single Source of Truth", iac_ssot_desc: "Manage all containers and networks in stacks.yaml. If it's not there, it doesn't exist.",
+                iac_idem_title: "Idempotency", iac_idem_desc: "The installer script can run multiple times without breaking anything, only applying necessary changes.",
+                sec_intro: "I treat this homelab like a real production server. No open ports, and all API keys are encrypted in the repo.",
+                sec_enc_title: "AES-256 Encryption (OpenSSL)", sec_enc_desc: "Sensitive keys are stored as .env.enc in Git, encrypted with OpenSSL.",
+                sec_f2b_title: "Fail2Ban Integration", sec_f2b_desc: "Fail2Ban runs locally to block brute-force attempts on internal services.",
+                backup_intro: "Mix of local snapshots for quick fixes and encrypted cloud backups for disasters.",
+                backup_l1_title: "Layer 1: ZFS Snapshots", backup_l1_desc: "Managed by Sanoid. Seconds-level recovery from accidental deletion.",
+                backup_l2_title: "Layer 2: Cloud Archival", backup_l2_desc: "Backrest creates encrypted snapshots, synced to Google Drive via rclone.",
+                obs_intro: "A monitoring stack to see everything in one place: Prometheus, Loki, and Grafana.",
+                img_graf_title: "Operational Visibility", topo_tunnel: "Encrypted Cloudflare Tunnel",
                 inv_status: "Systems Operational",
-
-                faq_title: "Architectural Decisions",
-                faq_k8s_q: "Why not Kubernetes?",
-                faq_k8s_a: "For a single-node environment, Kubernetes introduces significant resource overhead and operational complexity. I chose Docker Compose to maintain native performance and simplicity while achieving declarative state via custom automation.",
-                faq_bash_q: "Why Bash for IaC?",
-                faq_bash_a: "Instead of adding external dependencies like Ansible, I used modular Bash scripts to stay close to the OS. This ensures the environment is fully reproducible on my Proxmox host, though adapting it to other networks requires configuration changes.",
-                faq_hybrid_q: "Why Hybrid Cloud?",
-                faq_hybrid_a: "I combine Private Cloud (on-prem compute/storage) with Public Cloud (Cloudflare security, Google Drive backups). This strategy ensures high performance for local media while maintaining enterprise-grade security and off-site durability.",
-                faq_lxc_q: "Why LXC instead of VMs?",
-                faq_lxc_a: "LXC containers provide near-native performance with minimal overhead (~2-3% vs VMs ~10-15%). For stateless workloads and Docker hosts, this translates to 3x better density on the same hardware."
+                faq_k8s_q: "Why not Kubernetes?", faq_k8s_a: "For a single-node environment, Kubernetes introduces significant overhead. Docker Compose maintains native performance.",
+                faq_bash_q: "Why Bash for IaC?", faq_bash_a: "Modular Bash scripts stay close to the OS, ensuring full reproducibility on Proxmox without external dependencies."
             },
             tr: {
-                nav_overview: "Genel Bakış",
-                nav_iac: "Kod Olarak Altyapı",
-                nav_security: "Sıfır Güven Mimarisi",
-                nav_backup: "Felaket Kurtarma (DR)",
-                nav_observability: "Gözlenebilirlik",
-                nav_topology: "Ağ Topolojisi",
-                nav_virtualization: "Sanallaştırma Stratejisi",
-                nav_inventory: "Canlı Envanter",
-                nav_faq: "Mimari Kararlar",
-                
-                hero_title: "Proxmox Hibrit Bulut Otomasyonu",
-                hero_desc: "Üretim ortamı standartlarında tasarlanmış, tam otomatize <strong>Kişisel Hibrit Bulut Altyapısı</strong>. 40+ mikroservis, Bash ile kod olarak altyapı yönetimi ve Sıfır Güven (Zero Trust) mimarisi.",
-                
-                sidebar_brand: "Yakrel'in Homelab'ı",
-                sidebar_update: "Son Güncelleme:",
-                sidebar_cv: "Özgeçmiş (CV)",
-                sidebar_role: "Sistem Yöneticisi",
-                
-                badge_services: "40+ Servis",
-                badge_bash: "~3B Satır Bash",
-                badge_bash_tip: "Tekrar edilebilir kurulumlar için ~3000 satır modüler Bash scripti",
-                badge_ssl: "OpenSSL Şifreli",
-                badge_ssl_tip: ".env dosyaları için AES-256-CBC şifreleme standardı",
-                badge_lxc: "8 LXC Host",
-                
-                img_dash_title: "Merkezi Komuta Paneli:",
-                img_dash_desc: "Servis sağlığı, kaynak tüketimi ve disk doluluk oranlarının anlık izlendiği ana operasyon ekranı.",
-                
-                metrics_title: "Proje Metrikleri",
-                metrics_loc: "Otomasyon Kod Satırı",
-                metrics_lxc: "LXC Konteyner (Orkestra)",
-                metrics_services: "Aktif Mikroservis",
-                metrics_uptime: "Hedef Uptime (İzleniyor)",
-                
-                feat_cd_title: "Sürekli Dağıtım (CI/CD)",
-                feat_cd_desc: "GitHub Actions ile otomatik Docker imaj derleme. Backrest zamanlanmış yedeklemeler yapar (günlük config, haftalık medya), başarılı backup sonrası rclone ile Google Drive'a senkronize eden hook'lar ile.",
-                
-                feat_zt_title: "Sıfır Güven ve VPN",
-                feat_zt_desc: "Hibrit güvenlik modeli: Web uygulamaları için Cloudflare Tünelleri, ağ yönetimi ve doğrudan erişim için Tailscale VPN.",
-                
-                feat_hw_title: "Donanım Passthrough",
-                feat_hw_desc: "Medya işleme yükleri için NVIDIA GPU kaynağının, cgroup v2 kuralları ile LXC konteynerine doğrudan ve kayıpsız aktarımı.",
-                
-                feat_iac_title: "Kod Olarak Altyapı",
-                feat_iac_desc: "~3000 satır Bash otomasyonu. Her sunucu kurulumu tekrar edilebilir ve versiyon kontrollü.",
-                
-                iac_title: "Kod Olarak Altyapı (IaC)",
-                iac_intro: "Manuel sunucu yönetimini elimine eden, tüm altyapının <code>stacks.yaml</code> üzerinde 'Tek Gerçeklik Kaynağı' (Single Source of Truth) olarak tanımlandığı otomasyon mimarisi.",
-                
-                iac_ssot_title: "Bildirimsel Konfigürasyon",
-                iac_ssot_desc: "Ağ tanımları, depolama birimleri ve konteyner orkestrasyonu tek bir YAML dosyasından yönetilir. Versiyon kontrolü ile altyapı değişiklikleri tam izlenebilirlik sağlar.",
-                
-                iac_idem_title: "İdempotent Mimari",
-                iac_idem_desc: "Bash tabanlı otomasyon scriptleri, sistemin mevcut durumunu analiz eder ve yalnızca gerekli değişiklikleri uygular (State Reconciliation). Bu, hatasız ve tekrar edilebilir kurulum sağlar.",
-                
-                img_cli_title: "İnteraktif CLI Otomasyonu:",
-                img_cli_desc: "<code>installer.sh</code> scriptinin, altyapı kodunu (stacks.yaml) okuyarak kaynakları dinamik olarak provizyonlaması.",
-                
-                sec_title: "Güvenlik ve Sır Yönetimi (Secrets)",
-                sec_intro: "Sistem, 'Defense in Depth' prensibiyle korunur. Ağ seviyesinde izolasyon ve repo seviyesinde şifreli sır yönetimi esastır.",
-                
-                sec_enc_title: "GitOps ve Şifreleme (AES-256)",
-                sec_enc_desc: "Hassas veriler (API Key, Parola), repo içerisinde AES-256-CBC standartlarında şifreli (<code>.env.enc</code>) saklanır. Yalnızca deploy anında bellekte deşifre edilir.",
-                
-                sec_f2b_title: "Fail2Ban (Yerel Koruma)",
-                sec_f2b_desc: "Kimlik doğrulama loglarını izleyerek iç servislere (SSH, web uygulamaları) yapılan brute-force denemelerini otomatik olarak engeller.",
-
-                backup_title: "Veri Bütünlüğü ve Felaket Kurtarma",
-                backup_intro: "3-2-1 Yedekleme kuralına uygun, çok katmanlı ve şifreli veri koruma stratejisi ile iş sürekliliği (Business Continuity) sağlanır.",
-                
-                backup_l1_title: "Katman 1: Anlık Kurtarma (ZFS)",
-                backup_l1_desc: "<strong>Sanoid</strong> ile dosya sistemi seviyesinde (CoW) alınan periyodik snapshot'lar, veri bozulmalarına karşı saniyeler içinde geri dönüş imkanı sunar.",
-                
-                backup_l2_title: "Katman 2: Şifreli Uzak Arşiv",
-                backup_l2_desc: "Backrest şifreli ve tekilleştirilmiş snapshot'lar alır. Konfigürasyon verisi günlük, medya kütüphanesi haftada iki kez yedeklenir. Backup sonrası hook tetiklenerek sync-to-gdrive.sh scripti rclone ile Google Drive'a yükler.",
-                
-                backup_l3_title: "Katman 3: Altyapı Sürekliliği",
-                backup_l3_desc: "Felaket durumunda, tüm sunucu parkuru <code>installer.sh</code> kullanılarak dakikalar içinde <strong>Proxmox Host</strong> üzerinde yeniden ayağa kaldırılabilir.",
-
-                obs_title: "Gözlenebilirlik ve Telemetri",
-                obs_intro: "Sistemin sadece çalışması değil, 'nasıl' çalıştığının anlaşılması için tam kapsamlı metrik toplama ve log analizi.",
-                
-                obs_prom_desc: "Proxmox host ve Docker konteynerlerinden gerçek zamanlı metrik toplanır. Kritik eşik aşımlarında (Disk I/O, CPU Saturation) proaktif alarmlar üretilir.",
-                
-                obs_loki_desc: "Dağıtık servis logları merkezi Loki sunucusunda toplanır. Log korelasyonu ile hata ayıklama ve kök neden analizi (Root Cause Analysis) hızlandırılır.",
-                
-                obs_graf_desc: "Altyapı sağlığı, ağ trafiği ve servis metriklerinin tek bir camdan (Single Pane of Glass) izlenmesini sağlayan operasyonel dashboard.",
-                
-                img_graf_title: "Operasyonel Görünürlük:",
-                img_graf_desc: "Proxmox kaynaklarının ve konteyner performansının gerçek zamanlı analizi.",
-
-                topo_title: "Ağ Topolojisi ve Erişim",
-                topo_intro: "Split-DNS ve Tünel mimarisi ile hibrit erişim stratejisi. Yerel ağ performansı ve güvenli uzaktan erişim bir arada.",
-                
-                topo_tunnel: "CGNAT Arkasında Güvenli Erişim (Cloudflare Tunnel)",
-                
-                img_npm_title: "Trafik Yönlendirme:",
-                img_npm_desc: "Nginx Proxy Manager ile SSL sonlandırma (Termination) ve Host tabanlı yönlendirme yönetimi.",
-
-                virt_title: "Hibrit Sanallaştırma Stratejisi",
-                virt_intro: "Kaynak verimliliği için LXC (OS-Level) ve uygulama izolasyonu için Docker teknolojilerinin hibrit kullanımı.",
-                
-                virt_dind_title: "Nested Sanallaştırma (Docker-in-LXC)",
-                virt_dind_desc: "OverlayFS ve AppArmor profillerinin optimize edilmesiyle, LXC konteynerleri içerisinde performans kaybı olmadan izole Docker ortamları.",
-                
-                virt_gpu_title: "Otomatik GPU Passthrough",
-                virt_gpu_desc: "Config dosyalarını elle düzenlemek yerine scriptim ekran kartını algılar ve gerekli izinleri LXC'ye otomatik tanımlar.",
-
-                inv_title: "Canlı Envanter",
-                inv_status: "Sistemler Operasyonel",
-
-                faq_title: "Mimari Kararlar",
-                faq_k8s_q: "Neden Kubernetes Değil?",
-                faq_k8s_a: "Tek sunuculu bir ortamda Kubernetes gereksiz karmaşa ve kaynak israfı yaratıyor. Yerel performansı korumak için Docker Compose ve kendi yazdığım otomasyonu tercih ettim.",
-                faq_bash_q: "Neden IaC için Bash?",
-                faq_bash_a: "Ansible gibi harici bağımlılıklar eklemek yerine, işletim sistemine en yakın olan modüler Bash scriptlerini kullandım. Bu sayede kendi ortamımda kurulum tamamen tekrar edilebilir durumdadır; ancak farklı ağ yapılarında yapılandırma değişikliği gerektirir.",
-                faq_hybrid_q: "Neden Hibrit Bulut?",
-                faq_hybrid_a: "Özel Bulut (kendi sunucum) ile Genel Bulutu (Cloudflare + Google Drive) birleştirdim. Yerel medyada yüksek hız, dışarıdan güvenli erişim ve yedeklerin bulutta saklanması.",
-                faq_lxc_q: "Neden VM yerine LXC?",
-                faq_lxc_a: "LXC konteynerler çok daha hafif ve hızlı (kayıp ~%2-3, VM'lerde ~%10-15). Aynı donanımda 3 kat daha fazla servis çalıştırabiliyorum.",
+                nav_overview: "Genel Bakış", nav_iac: "Kod Olarak Altyapı", nav_security: "Güvenlik", nav_backup: "Yedekleme", nav_observability: "Gözlenebilirlik", nav_topology: "Ağ Topolojisi", nav_inventory: "Canlı Envanter", nav_faq: "SSS",
+                hero_title: "Proxmox Homelab Otomasyonu", hero_desc: "Üretim ortamlarını simüle ettiğim kişisel laboratuvarım. 40+ Docker konteyner, özel Bash otomasyonu ve kurumsal düzeyde güvenlik.",
+                sidebar_role: "Sistem Yöneticisi", sidebar_brand: "Yakrel'in Homelab'ı", sidebar_update: "Son Güncelleme:", sidebar_cv: "Özgeçmiş (CV)",
+                badge_services: "40+ Servis", badge_bash: "~3B Satır Bash", img_dash_title: "Merkezi Komuta Paneli",
+                iac_intro: "Tüm altyapıyı tek bir YAML dosyasında (stacks.yaml) tanımladığım ve scriptlerin kurulumu otomatik yaptığı bir sistem kurdum.",
+                iac_ssot_title: "Tek Gerçeklik Kaynağı", iac_ssot_desc: "Tüm konteynerleri ve ağları stacks.yaml üzerinden yönetin. Orada yoksa, sunucuda da yoktur.",
+                iac_idem_title: "İdempotens", iac_idem_desc: "Kurulum scripti hiçbir şeyi bozmadan defalarca çalışabilir, sadece gerekli değişiklikleri uygular.",
+                sec_intro: "Bu laboratuvara gerçek bir üretim sunucusu gibi davranıyorum. Dışarıya açık port yok ve tüm anahtarlar şifreli.",
+                sec_enc_title: "AES-256 Şifreleme (OpenSSL)", sec_enc_desc: "Hassas anahtarlar Git üzerinde OpenSSL ile şifrelenmiş .env.enc olarak saklanır.",
+                sec_f2b_title: "Fail2Ban Entegrasyonu", sec_f2b_desc: "Fail2Ban, iç servislere yapılan brute-force denemelerini engellemek için yerel olarak çalışır.",
+                backup_intro: "Hızlı çözümler için yerel snapshot'lar ve felaketler için şifreli bulut yedekleri.",
+                backup_l1_title: "Katman 1: ZFS Snapshot'ları", backup_l1_desc: "Sanoid ile yönetilir. Kazara silmelere karşı saniyeler içinde geri dönüş sağlar.",
+                backup_l2_title: "Katman 2: Bulut Arşivleme", backup_l2_desc: "Backrest şifreli snapshot'lar oluşturur ve rclone ile Google Drive'a senkronize eder.",
+                obs_intro: "Her şeyi tek bir yerde görmek için izleme yığını: Prometheus, Loki ve Grafana.",
+                img_graf_title: "Operasyonel Görünürlük", topo_tunnel: "Şifreli Cloudflare Tüneli",
+                inv_status: "Sistemler Aktif",
+                faq_k8s_q: "Neden Kubernetes Değil?", faq_k8s_a: "Tek sunuculu bir ortam için Kubernetes çok fazla kaynak tüketir. Docker Compose yerel performansı korur.",
+                faq_bash_q: "Neden IaC için Bash?", faq_bash_a: "Modüler Bash scriptleri işletim sistemine yakın kalır, harici bağımlılık olmadan tam tekrar edilebilirlik sağlar."
             }
         };
 
-        let currentLang = localStorage.getItem('lang') || (navigator.language.startsWith('tr') ? 'tr' : 'en');
-
-        function renderInventory() {
-            const grid = document.getElementById('stack-grid');
-            if (typeof ARCHITECTURE_DATA !== 'undefined' && ARCHITECTURE_DATA.stacks) {
-                grid.innerHTML = '';
-                ARCHITECTURE_DATA.stacks.forEach(stack => {
-                    const card = document.createElement('div');
-                    card.className = 'inv-card';
-                    
-                    let headerColor = 'var(--text-muted)';
-                    const category = stack.category;
-                    if (category === 'Infrastructure') headerColor = 'var(--accent-orange)';
-                    if (category === 'Media') headerColor = 'var(--accent-green)';
-                    if (category === 'Utilities') headerColor = 'var(--accent-blue)';
-                    
-                    const stackName = typeof stack.name === 'object' ? stack.name[currentLang] : stack.name;
-                    
-                    let servicesHtml = '';
-                    stack.services.forEach(svc => {
-                        let iconColor = 'var(--text-muted)';
-                        if (svc.name.includes('Jellyfin') || svc.name.includes('Immich')) iconColor = 'var(--accent-green)';
-                        const svcDesc = typeof svc.desc === 'object' ? svc.desc[currentLang] : svc.desc;
-                        servicesHtml += `
-                            <div class="svc-row">
-                                <div class="tooltip" data-tip="${svcDesc}"><i class="${svc.icon}" style="color:${iconColor}"></i> ${svc.name}</div>
-                                <span>${svc.port}</span>
-                            </div>
-                        `;
-                    });
-
-                    let gpuBadge = stack.specs.gpu ? `<span class="badge gpu">GPU</span>` : '';
-                    const translatedCategory = ARCHITECTURE_DATA.translations[currentLang].categories[category] || category;
-
-                    card.innerHTML = `
-                        <div class="inv-header" style="border-left: 4px solid ${headerColor}">
-                            <div>
-                                <div style="font-weight:bold; font-size:0.95rem;">${stackName}</div>
-                                <div style="font-size:0.75rem; color:var(--text-muted); font-family:monospace;">${stack.ip} | ${translatedCategory}</div>
-                            </div>
-                            <div style="text-align:right;">
-                                <div style="font-size:0.75rem;">${stack.specs.cpu} CPU / ${stack.specs.ram}</div>
-                                ${gpuBadge}
-                            </div>
-                        </div>
-                        <div class="inv-body">${servicesHtml}</div>
-                    `;
-                    grid.appendChild(card);
-                });
-            }
-        }
-
-        function updateContent() {
-            // Update Text Elements
+        function switchLang(lang, save = true) {
+            if (save) localStorage.setItem('lang', lang);
+            document.documentElement.lang = lang;
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
-                if (I18N[currentLang][key]) {
-                    el.innerHTML = I18N[currentLang][key];
-                }
+                if (translations[lang][key]) el.innerHTML = translations[lang][key];
             });
-
-            // Update Tooltips
-            document.querySelectorAll('[data-tip-i18n]').forEach(el => {
-                const key = el.getAttribute('data-tip-i18n');
-                if (I18N[currentLang][key]) {
-                    el.setAttribute('data-tip', I18N[currentLang][key]);
-                }
-            });
-
-            // Update Page Title
-            if (ARCHITECTURE_DATA.translations[currentLang]) {
-                document.title = ARCHITECTURE_DATA.translations[currentLang].title;
-            }
-
-            // Update Switcher Button
             const btn = document.querySelector('.lang-switch span');
-            if (currentLang === 'en') {
-                btn.innerHTML = '<span class="lang-active">EN</span> / TR';
-            } else {
-                btn.innerHTML = 'EN / <span class="lang-active">TR</span>';
-            }
-
-            renderInventory();
+            btn.innerHTML = lang === 'en' ? '<span class="lang-active">EN</span> / TR' : 'EN / <span class="lang-active">TR</span>';
+            renderInventory(lang);
         }
 
-        function toggleLanguage() {
-            currentLang = currentLang === 'en' ? 'tr' : 'en';
-            localStorage.setItem('lang', currentLang);
-            updateContent();
+        function renderInventory(lang) {
+            const grid = document.getElementById('stack-grid');
+            if (typeof ARCHITECTURE_DATA === 'undefined') return;
+            grid.innerHTML = '';
+            ARCHITECTURE_DATA.stacks.forEach(stack => {
+                const stackName = typeof stack.name === 'object' ? stack.name[lang] : stack.name;
+                let servicesHtml = '';
+                stack.services.forEach(svc => {
+                    const svcDesc = typeof svc.desc === 'object' ? svc.desc[lang] : svc.desc;
+                    servicesHtml += `<div class="svc-row"><div class="tooltip" data-tip="${svcDesc}"><i class="${svc.icon}"></i> ${svc.name}</div><span>${svc.port}</span></div>`;
+                });
+                const card = document.createElement('div');
+                card.className = 'inv-card';
+                card.innerHTML = `<div class="inv-header"><div><strong>${stackName}</strong><br><small>${stack.ip}</small></div></div><div class="inv-body">${servicesHtml}</div>`;
+                grid.appendChild(card);
+            });
         }
+
+        function toggleLanguage() { switchLang(document.documentElement.lang === 'en' ? 'tr' : 'en'); }
+        function toggleSidebar() { document.querySelector('.sidebar').classList.toggle('active'); document.querySelector('.sidebar-overlay').classList.toggle('active'); }
 
         document.addEventListener('DOMContentLoaded', () => {
-            updateContent(); // Initial Render
-
-            // --- LIGHTBOX LOGIC ---
+            const savedLang = localStorage.getItem('lang') || (navigator.language.startsWith('tr') ? 'tr' : 'en');
+            switchLang(savedLang, false);
             const lightbox = document.getElementById('lightbox');
             const lightboxImg = document.getElementById('lightbox-img');
-            const screenshots = document.querySelectorAll('.screenshot-container img');
-
-            screenshots.forEach(img => {
-                img.addEventListener('click', () => {
-                    lightboxImg.src = img.src;
-                    lightbox.style.display = 'flex';
-                });
+            document.querySelectorAll('.screenshot-container img').forEach(img => {
+                img.addEventListener('click', () => { lightboxImg.src = img.src; lightbox.style.display = 'flex'; });
             });
-
-            lightbox.addEventListener('click', () => {
-                lightbox.style.display = 'none';
-            });
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') lightbox.style.display = 'none';
-            });
-
-            // --- SCROLLSPY ---
-            const navItems = document.querySelectorAll('.nav-item');
-            const sections = document.querySelectorAll('section');
-
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const id = entry.target.getAttribute('id');
-                        navItems.forEach(item => item.classList.remove('active'));
-                        const activeItem = document.querySelector(`.nav-links a[href="#${id}"]`);
-                        if (activeItem) activeItem.classList.add('active');
-                    }
-                });
-            }, { root: null, rootMargin: '-10% 0px -50% 0px', threshold: 0 });
-
-            sections.forEach(section => observer.observe(section));
-
-            // --- MOBILE SIDEBAR LOGIC ---
-            window.toggleSidebar = function() {
-                document.querySelector('.sidebar').classList.toggle('active');
-                document.querySelector('.sidebar-overlay').classList.toggle('active');
-            }
-
-            // Close sidebar when clicking a nav item (mobile UX)
-            document.querySelectorAll('.nav-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    if (window.innerWidth <= 900) {
-                        toggleSidebar();
-                    }
-                });
-            });
+            lightbox.addEventListener('click', () => lightbox.style.display = 'none');
         });
     </script>
 </body>
