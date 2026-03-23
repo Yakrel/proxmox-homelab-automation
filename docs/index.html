@@ -974,7 +974,57 @@
             }
         };
 
-        let currentLang = localStorage.getItem('lang') || 'en';
+        let currentLang = localStorage.getItem('lang') || (navigator.language.startsWith('tr') ? 'tr' : 'en');
+
+        function renderInventory() {
+            const grid = document.getElementById('stack-grid');
+            if (typeof ARCHITECTURE_DATA !== 'undefined' && ARCHITECTURE_DATA.stacks) {
+                grid.innerHTML = '';
+                ARCHITECTURE_DATA.stacks.forEach(stack => {
+                    const card = document.createElement('div');
+                    card.className = 'inv-card';
+                    
+                    let headerColor = 'var(--text-muted)';
+                    const category = stack.category;
+                    if (category === 'Infrastructure') headerColor = 'var(--accent-orange)';
+                    if (category === 'Media') headerColor = 'var(--accent-green)';
+                    if (category === 'Utilities') headerColor = 'var(--accent-blue)';
+                    
+                    const stackName = typeof stack.name === 'object' ? stack.name[currentLang] : stack.name;
+                    
+                    let servicesHtml = '';
+                    stack.services.forEach(svc => {
+                        let iconColor = 'var(--text-muted)';
+                        if (svc.name.includes('Jellyfin') || svc.name.includes('Immich')) iconColor = 'var(--accent-green)';
+                        const svcDesc = typeof svc.desc === 'object' ? svc.desc[currentLang] : svc.desc;
+                        servicesHtml += `
+                            <div class="svc-row">
+                                <div class="tooltip" data-tip="${svcDesc}"><i class="${svc.icon}" style="color:${iconColor}"></i> ${svc.name}</div>
+                                <span>${svc.port}</span>
+                            </div>
+                        `;
+                    });
+
+                    let gpuBadge = stack.specs.gpu ? `<span class="badge gpu">GPU</span>` : '';
+                    const translatedCategory = ARCHITECTURE_DATA.translations[currentLang].categories[category] || category;
+
+                    card.innerHTML = `
+                        <div class="inv-header" style="border-left: 4px solid ${headerColor}">
+                            <div>
+                                <div style="font-weight:bold; font-size:0.95rem;">${stackName}</div>
+                                <div style="font-size:0.75rem; color:var(--text-muted); font-family:monospace;">${stack.ip} | ${translatedCategory}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:0.75rem;">${stack.specs.cpu} CPU / ${stack.specs.ram}</div>
+                                ${gpuBadge}
+                            </div>
+                        </div>
+                        <div class="inv-body">${servicesHtml}</div>
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+        }
 
         function updateContent() {
             // Update Text Elements
@@ -993,6 +1043,11 @@
                 }
             });
 
+            // Update Page Title
+            if (ARCHITECTURE_DATA.translations[currentLang]) {
+                document.title = ARCHITECTURE_DATA.translations[currentLang].title;
+            }
+
             // Update Switcher Button
             const btn = document.querySelector('.lang-switch span');
             if (currentLang === 'en') {
@@ -1000,6 +1055,8 @@
             } else {
                 btn.innerHTML = 'EN / <span class="lang-active">TR</span>';
             }
+
+            renderInventory();
         }
 
         function toggleLanguage() {
@@ -1061,50 +1118,6 @@
                     }
                 });
             });
-
-            // --- INVENTORY RENDER ---
-            const grid = document.getElementById('stack-grid');
-            if (typeof ARCHITECTURE_DATA !== 'undefined' && ARCHITECTURE_DATA.stacks) {
-                grid.innerHTML = '';
-                ARCHITECTURE_DATA.stacks.forEach(stack => {
-                    const card = document.createElement('div');
-                    card.className = 'inv-card';
-                    
-                    let headerColor = 'var(--text-muted)';
-                    if (stack.category === 'Infrastructure') headerColor = 'var(--accent-orange)';
-                    if (stack.category === 'Media') headerColor = 'var(--accent-green)';
-                    if (stack.category === 'Utilities') headerColor = 'var(--accent-blue)';
-                    
-                    let servicesHtml = '';
-                    stack.services.forEach(svc => {
-                        let iconColor = 'var(--text-muted)';
-                        if (svc.name.includes('Jellyfin') || svc.name.includes('Immich')) iconColor = 'var(--accent-green)';
-                        servicesHtml += `
-                            <div class="svc-row">
-                                <div><i class="${svc.icon}" style="color:${iconColor}"></i> ${svc.name}</div>
-                                <span>${svc.port}</span>
-                            </div>
-                        `;
-                    });
-
-                    let gpuBadge = stack.specs.gpu ? '<span class="badge gpu">GPU</span>' : '';
-
-                    card.innerHTML = `
-                        <div class="inv-header" style="border-left: 4px solid ${headerColor}">
-                            <div>
-                                <div style="font-weight:bold; font-size:0.95rem;">${stack.name}</div>
-                                <div style="font-size:0.75rem; color:var(--text-muted); font-family:monospace;">${stack.ip}</div>
-                            </div>
-                            <div style="text-align:right;">
-                                <div style="font-size:0.75rem;">${stack.specs.cpu} CPU / ${stack.specs.ram}</div>
-                                ${gpuBadge}
-                            </div>
-                        </div>
-                        <div class="inv-body">${servicesHtml}</div>
-                    `;
-                    grid.appendChild(card);
-                });
-            }
         });
     </script>
 </body>
