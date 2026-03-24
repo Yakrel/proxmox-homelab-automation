@@ -87,6 +87,7 @@ services:
     network_mode: "host"
     cap_add:
       - NET_ADMIN
+      - NET_RAW
     devices:
       - /dev/net/tun:/dev/net/tun
     environment:
@@ -94,6 +95,7 @@ services:
       - TS_ROUTES=192.168.1.0/24
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_USERSPACE=false
+      - TS_EXTRA_ARGS=--snat-subnet-routes=true
     volumes:
       - /datapool/config/tailscale:/var/lib/tailscale
     logging:
@@ -101,6 +103,32 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  # Fix for unprivileged LXC networking (Nested Docker FORWARD policy)
+  tailscale-net-fix:
+    image: alpine:latest
+    container_name: tailscale-net-fix
+    restart: unless-stopped
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      - tailscale
+    command: >
+      sh -c "
+      apk add --no-cache iptables &&
+      while ! ip link show tailscale0 > /dev/null 2>&1; do sleep 1; done &&
+      iptables -C FORWARD -i tailscale0 -j ACCEPT || iptables -I FORWARD -i tailscale0 -j ACCEPT &&
+      iptables -C FORWARD -o tailscale0 -j ACCEPT || iptables -I FORWARD -o tailscale0 -j ACCEPT &&
+      iptables -t nat -C POSTROUTING -s 100.64.0.0/10 -o eth0 -j MASQUERADE || iptables -t nat -I POSTROUTING -s 100.64.0.0/10 -o eth0 -j MASQUERADE &&
+      tail -f /dev/null
+      "
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
 
 
   cadvisor:
