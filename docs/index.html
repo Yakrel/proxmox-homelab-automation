@@ -201,7 +201,84 @@
         }
 
         /* --- TOPOLOGY --- */
-        .topology-container { background: rgba(13, 17, 23, 0.5); border: 1px solid var(--border); border-radius: 16px; padding: 40px; position: relative; display: flex; flex-direction: column; gap: 40px; }
+        .topology-container { 
+            background: rgba(13, 17, 23, 0.5); 
+            border: 1px solid var(--border); 
+            border-radius: 16px; 
+            padding: 40px; 
+            position: relative; 
+        }
+        
+        .topo-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        .topo-node { 
+            background: rgba(22, 27, 34, 0.9); 
+            border: 2px solid var(--border); 
+            border-radius: 12px; 
+            padding: 20px 25px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            gap: 10px; 
+            min-width: 160px;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .topo-node:hover { 
+            transform: translateY(-5px); 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .topo-icon { 
+            font-size: 2rem; 
+            margin-bottom: 5px; 
+        }
+        .topo-label {
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+        .topo-sublabel {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        
+        .topo-path {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 20px;
+            background: rgba(88, 166, 255, 0.05);
+            border: 1px solid var(--accent-blue);
+            border-radius: 25px;
+            font-size: 0.85rem;
+            color: var(--accent-blue);
+        }
+        .topo-path.warp { border-color: var(--accent-orange); color: var(--accent-orange); background: rgba(210, 153, 34, 0.05); }
+        .topo-path.tunnel { border-color: var(--accent-purple); color: var(--accent-purple); background: rgba(163, 113, 247, 0.05); }
+        .topo-path.local { border-color: var(--accent-green); color: var(--accent-green); background: rgba(63, 185, 80, 0.05); }
+        
+        .topo-arrow {
+            font-size: 1.2rem;
+            opacity: 0.6;
+        }
+        
+        .topo-layer-title {
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+        }
+
         .node-card { background: rgba(22, 27, 34, 0.9); border: 1px solid var(--border); border-radius: 8px; padding: 15px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-width: 140px; transition: all 0.3s; z-index: 2; }
         .node-card:hover { transform: translateY(-5px); border-color: var(--accent-blue); }
         .node-icon { font-size: 1.5rem; margin-bottom: 5px; }
@@ -231,6 +308,8 @@
             .lang-switch { top: 20px; right: 20px; }
             .layer { flex-direction: column; gap: 20px; align-items: center; }
             .node-card { width: 100%; max-width: 300px; }
+            .topo-row { flex-direction: column; gap: 15px; }
+            .topo-node { width: 100%; max-width: 280px; }
         }
     </style>
 </head>
@@ -350,24 +429,81 @@
         <!-- 6. TOPOLOGY -->
         <section id="topology">
             <h2><i class="fa-solid fa-network-wired"></i> <span data-i18n="nav_topology">Network Topology</span></h2>
-            <div class="topology-container" style="align-items: center; gap: 10px;">
-                <div class="layer" style="width:100%; justify-content: space-around;">
-                    <div class="node-card c-cloud">
-                        <i class="fa-solid fa-globe node-icon" style="color:var(--accent-blue)"></i>
-                        <span style="font-weight:bold;">Public Internet</span>
+            <p data-i18n="topo_intro">Multi-path access architecture with split DNS for seamless connectivity anywhere.</p>
+            
+            <div class="topology-container">
+                <!-- Client Devices -->
+                <div class="topo-layer-title" data-i18n="topo_layer_clients">Client Devices</div>
+                <div class="topo-row">
+                    <div class="topo-node">
+                        <i class="fa-solid fa-mobile-screen topo-icon" style="color:var(--accent-blue)"></i>
+                        <div class="topo-label" data-i18n="topo_phone">Mobile Phone</div>
+                        <div class="topo-sublabel">Tailscale / WARP</div>
                     </div>
-                    <div class="node-card c-edge">
-                        <i class="fa-solid fa-mobile-screen node-icon" style="color:var(--accent-orange)"></i>
-                        <span style="font-weight:bold;">Roaming Device</span>
+                    <div class="topo-node">
+                        <i class="fa-solid fa-laptop topo-icon" style="color:var(--accent-blue)"></i>
+                        <div class="topo-label" data-i18n="topo_laptop">Admin Laptop</div>
+                        <div class="topo-sublabel">Tailscale (Primary)</div>
+                    </div>
+                    <div class="topo-node">
+                        <i class="fa-solid fa-globe topo-icon" style="color:var(--accent-purple)"></i>
+                        <div class="topo-label" data-i18n="topo_browser">Public Browser</div>
+                        <div class="topo-sublabel">Cloudflare Access</div>
                     </div>
                 </div>
-                <div style="background:var(--bg-card); border:1px solid var(--accent-purple); padding:10px 30px; border-radius:30px; color:var(--accent-purple); font-size:0.9rem;">
-                    <i class="fa-solid fa-lock"></i> <span data-i18n="topo_tunnel">Encrypted Cloudflare Tunnel</span>
+
+                <!-- Access Paths -->
+                <div class="topo-layer-title" data-i18n="topo_layer_paths">Access Paths</div>
+                <div class="topo-row">
+                    <div class="topo-path">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span data-i18n="topo_path_ts">Tailscale VPN</span>
+                        <span class="topo-arrow">→</span>
+                        <span>192.168.1.0/24</span>
+                    </div>
+                    <div class="topo-path warp">
+                        <i class="fa-solid fa-cloud"></i>
+                        <span data-i18n="topo_path_warp">Cloudflare WARP</span>
+                        <span class="topo-arrow">→</span>
+                        <span>Split DNS</span>
+                    </div>
+                    <div class="topo-path tunnel">
+                        <i class="fa-solid fa-lock"></i>
+                        <span data-i18n="topo_path_tunnel">CF Tunnel + Access</span>
+                        <span class="topo-arrow">→</span>
+                        <span>*.byetgin.com</span>
+                    </div>
+                    <div class="topo-path local">
+                        <i class="fa-solid fa-wifi"></i>
+                        <span data-i18n="topo_path_local">Local WiFi</span>
+                        <span class="topo-arrow">→</span>
+                        <span>Direct LAN</span>
+                    </div>
                 </div>
-                <div class="node-card c-infra" style="width: 100%; max-width: 500px; flex-direction: row; justify-content: space-around;">
-                    <div><i class="fa-brands fa-cloudflare node-icon"></i><div>cloudflared</div></div>
-                    <div style="font-family:monospace; font-size:0.7rem;">&rarr;</div>
-                    <div><i class="fa-solid fa-shuffle node-icon" style="color:var(--accent-green)"></i><div>Nginx Proxy</div></div>
+
+                <!-- Infrastructure -->
+                <div class="topo-layer-title" data-i18n="topo_layer_infra">Homelab Infrastructure</div>
+                <div class="topo-row">
+                    <div class="topo-node" style="border-color: var(--accent-blue);">
+                        <i class="fa-solid fa-network-wired topo-icon" style="color:var(--accent-blue)"></i>
+                        <div class="topo-label">Tailscale Router</div>
+                        <div class="topo-sublabel">Subnet: 192.168.1.0/24</div>
+                    </div>
+                    <div class="topo-node" style="border-color: var(--accent-purple);">
+                        <i class="fa-brands fa-cloudflare topo-icon" style="color:var(--accent-purple)"></i>
+                        <div class="topo-label">cloudflared</div>
+                        <div class="topo-sublabel">Tunnel Connector</div>
+                    </div>
+                    <div class="topo-node" style="border-color: var(--accent-green);">
+                        <i class="fa-solid fa-shuffle topo-icon" style="color:var(--accent-green)"></i>
+                        <div class="topo-label">Nginx Proxy</div>
+                        <div class="topo-sublabel">Reverse Proxy + DNS</div>
+                    </div>
+                    <div class="topo-node" style="border-color: var(--accent-orange);">
+                        <i class="fa-solid fa-server topo-icon" style="color:var(--accent-orange)"></i>
+                        <div class="topo-label" data-i18n="topo_services">Services</div>
+                        <div class="topo-sublabel">8 LXC / 30+ containers</div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -417,7 +553,12 @@
                 backup_l1_title: "Layer 1: ZFS Snapshots", backup_l1_desc: "Managed by Sanoid. Seconds-level recovery from accidental deletion.",
                 backup_l2_title: "Layer 2: Cloud Archival", backup_l2_desc: "Backrest creates encrypted snapshots, synced to Google Drive via rclone.",
                 obs_intro: "A monitoring stack to see everything in one place: Prometheus, Loki, and Grafana.",
-                img_graf_title: "Operational Visibility", topo_tunnel: "Encrypted Cloudflare Tunnel",
+                img_graf_title: "Operational Visibility",
+                topo_intro: "Multi-path access architecture with split DNS for seamless connectivity anywhere.",
+                topo_layer_clients: "Client Devices", topo_layer_paths: "Access Paths", topo_layer_infra: "Homelab Infrastructure",
+                topo_phone: "Mobile Phone", topo_laptop: "Admin Laptop", topo_browser: "Public Browser",
+                topo_path_ts: "Tailscale VPN", topo_path_warp: "Cloudflare WARP", topo_path_tunnel: "CF Tunnel + Access", topo_path_local: "Local WiFi",
+                topo_services: "Services",
                 inv_status: "Systems Operational",
                 faq_k8s_q: "Why not Kubernetes?", faq_k8s_a: "For a single-node environment, Kubernetes introduces significant overhead. Docker Compose maintains native performance.",
                 faq_bash_q: "Why Bash for IaC?", faq_bash_a: "Modular Bash scripts stay close to the OS, ensuring full reproducibility on Proxmox without external dependencies."
@@ -437,7 +578,12 @@
                 backup_l1_title: "Katman 1: ZFS Snapshot'ları", backup_l1_desc: "Sanoid ile yönetilir. Kazara silmelere karşı saniyeler içinde geri dönüş sağlar.",
                 backup_l2_title: "Katman 2: Bulut Arşivleme", backup_l2_desc: "Backrest şifreli snapshot'lar oluşturur ve rclone ile Google Drive'a senkronize eder.",
                 obs_intro: "Her şeyi tek bir yerde görmek için izleme yığını: Prometheus, Loki ve Grafana.",
-                img_graf_title: "Operasyonel Görünürlük", topo_tunnel: "Şifreli Cloudflare Tüneli",
+                img_graf_title: "Operasyonel Görünürlük",
+                topo_intro: "Split DNS ile her yerden kesintisiz bağlantı sağlayan çok yollu erişim mimarisi.",
+                topo_layer_clients: "İstemci Cihazlar", topo_layer_paths: "Erişim Yolları", topo_layer_infra: "Homelab Altyapısı",
+                topo_phone: "Mobil Telefon", topo_laptop: "Yönetici Laptop", topo_browser: "Genel Tarayıcı",
+                topo_path_ts: "Tailscale VPN", topo_path_warp: "Cloudflare WARP", topo_path_tunnel: "CF Tunnel + Access", topo_path_local: "Yerel WiFi",
+                topo_services: "Servisler",
                 inv_status: "Sistemler Aktif",
                 faq_k8s_q: "Neden Kubernetes Değil?", faq_k8s_a: "Tek sunuculu bir ortam için Kubernetes çok fazla kaynak tüketir. Docker Compose yerel performansı korur.",
                 faq_bash_q: "Neden IaC için Bash?", faq_bash_a: "Modüler Bash scriptleri işletim sistemine yakın kalır, harici bağımlılık olmadan tam tekrar edilebilirlik sağlar."
