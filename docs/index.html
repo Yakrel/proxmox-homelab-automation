@@ -487,20 +487,30 @@
                     <div class="topo-node" style="border-color: var(--accent-blue);">
                         <i class="fa-solid fa-network-wired topo-icon" style="color:var(--accent-blue)"></i>
                         <div class="topo-label">Tailscale Router</div>
-                        <div class="topo-sublabel">Subnet: 192.168.1.0/24</div>
+                        <div class="topo-sublabel">LXC 100 - Subnet Router</div>
+                    </div>
+                    <div class="topo-node" style="border-color: var(--accent-orange);">
+                        <i class="fa-solid fa-shield-halved topo-icon" style="color:var(--accent-orange)"></i>
+                        <div class="topo-label">AdGuard Home</div>
+                        <div class="topo-sublabel">Split DNS (*.byetgin.com)</div>
                     </div>
                     <div class="topo-node" style="border-color: var(--accent-purple);">
                         <i class="fa-brands fa-cloudflare topo-icon" style="color:var(--accent-purple)"></i>
                         <div class="topo-label">cloudflared</div>
-                        <div class="topo-sublabel">Tunnel Connector</div>
+                        <div class="topo-sublabel">Tunnel → NPM</div>
                     </div>
                     <div class="topo-node" style="border-color: var(--accent-green);">
                         <i class="fa-solid fa-shuffle topo-icon" style="color:var(--accent-green)"></i>
                         <div class="topo-label">Nginx Proxy</div>
-                        <div class="topo-sublabel">Reverse Proxy + DNS</div>
+                        <div class="topo-sublabel">LXC 100 - Reverse Proxy</div>
                     </div>
-                    <div class="topo-node" style="border-color: var(--accent-orange);">
-                        <i class="fa-solid fa-server topo-icon" style="color:var(--accent-orange)"></i>
+                </div>
+                
+                <!-- Services -->
+                <div class="topo-layer-title" data-i18n="topo_layer_services">Application Layer</div>
+                <div class="topo-row">
+                    <div class="topo-node" style="border-color: var(--text-muted); min-width: auto; padding: 15px 20px;">
+                        <i class="fa-solid fa-server topo-icon" style="color:var(--accent-orange); font-size: 1.5rem;"></i>
                         <div class="topo-label" data-i18n="topo_services">Services</div>
                         <div class="topo-sublabel">8 LXC / 30+ containers</div>
                     </div>
@@ -555,7 +565,7 @@
                 obs_intro: "A monitoring stack to see everything in one place: Prometheus, Loki, and Grafana.",
                 img_graf_title: "Operational Visibility",
                 topo_intro: "Multi-path access architecture with split DNS for seamless connectivity anywhere.",
-                topo_layer_clients: "Client Devices", topo_layer_paths: "Access Paths", topo_layer_infra: "Homelab Infrastructure",
+                topo_layer_clients: "Client Devices", topo_layer_paths: "Access Paths", topo_layer_infra: "Homelab Infrastructure", topo_layer_services: "Application Layer",
                 topo_phone: "Mobile Phone", topo_laptop: "Admin Laptop", topo_browser: "Public Browser",
                 topo_path_ts: "Tailscale VPN", topo_path_warp: "Cloudflare WARP", topo_path_tunnel: "CF Tunnel + Access", topo_path_local: "Local WiFi",
                 topo_services: "Services",
@@ -580,7 +590,7 @@
                 obs_intro: "Her şeyi tek bir yerde görmek için izleme yığını: Prometheus, Loki ve Grafana.",
                 img_graf_title: "Operasyonel Görünürlük",
                 topo_intro: "Split DNS ile her yerden kesintisiz bağlantı sağlayan çok yollu erişim mimarisi.",
-                topo_layer_clients: "İstemci Cihazlar", topo_layer_paths: "Erişim Yolları", topo_layer_infra: "Homelab Altyapısı",
+                topo_layer_clients: "İstemci Cihazlar", topo_layer_paths: "Erişim Yolları", topo_layer_infra: "Homelab Altyapısı", topo_layer_services: "Uygulama Katmanı",
                 topo_phone: "Mobil Telefon", topo_laptop: "Yönetici Laptop", topo_browser: "Genel Tarayıcı",
                 topo_path_ts: "Tailscale VPN", topo_path_warp: "Cloudflare WARP", topo_path_tunnel: "CF Tunnel + Access", topo_path_local: "Yerel WiFi",
                 topo_services: "Servisler",
