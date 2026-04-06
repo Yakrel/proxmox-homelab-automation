@@ -244,7 +244,7 @@
             <div class="profile-img">BY</div>
             <div class="brand-text">
                 <h3>Berkay Yetgin</h3>
-                <p data-i18n="sidebar_role">System Administrator</p>
+                <p data-i18n="sidebar_role">IT Specialist</p>
             </div>
         </div>
         <ul class="nav-links">
@@ -276,10 +276,10 @@
             <div style="background: linear-gradient(135deg, rgba(88, 166, 255, 0.1), rgba(163, 113, 247, 0.1)); padding: 40px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 40px;">
                 <h1 style="border:none; margin:0;" data-i18n="hero_title">Proxmox Homelab Automation</h1>
                 <p style="font-size: 1.1rem; color: var(--text-main); margin-top: 10px;" data-i18n="hero_desc">
-                    My personal homelab where I simulate a production environment. 40+ Docker containers, custom Bash automation, and enterprise-grade security.
+                    Production homelab running family services. 30+ services across 8 LXC containers with GPU passthrough, automated deployment, and full-stack monitoring.
                 </p>
                 <div style="display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
-                    <span class="badge" style="background:var(--accent-blue); color:black;"><i class="fa-brands fa-docker"></i> <span data-i18n="badge_services">40+ Services</span></span>
+                    <span class="badge" style="background:var(--accent-blue); color:black;"><i class="fa-brands fa-docker"></i> <span data-i18n="badge_services">30+ Services</span></span>
                     <span class="badge" style="background:var(--accent-purple); color:black;"><i class="fa-solid fa-code"></i> <span data-i18n="badge_bash">~3K Lines Bash</span></span>
                 </div>
                 <div class="screenshot-container">
@@ -404,9 +404,9 @@
         const translations = {
             en: {
                 nav_overview: "Overview", nav_iac: "Infrastructure as Code", nav_security: "Security", nav_backup: "Backup", nav_observability: "Observability", nav_topology: "Network Topology", nav_inventory: "Live Inventory", nav_faq: "FAQ",
-                hero_title: "Proxmox Homelab Automation", hero_desc: "My personal homelab where I simulate a production environment. 40+ Docker containers, custom Bash automation, and enterprise-grade security.",
-                sidebar_role: "System Administrator", sidebar_brand: "Yakrel's Homelab", sidebar_update: "Last Update:", sidebar_cv: "Resume (CV)",
-                badge_services: "40+ Services", badge_bash: "~3K Lines Bash", img_dash_title: "Centralized Command Center",
+                hero_title: "Proxmox Homelab Automation", hero_desc: "Production homelab running family services. 30+ services across 8 LXC containers with GPU passthrough, automated deployment, and full-stack monitoring.",
+                sidebar_role: "IT Specialist", sidebar_brand: "Yakrel's Homelab", sidebar_update: "Last Update:", sidebar_cv: "Resume (CV)",
+                badge_services: "30+ Services", badge_bash: "~3K Lines Bash", img_dash_title: "Centralized Command Center",
                 iac_intro: "I built a setup where I define everything in one YAML file (stacks.yaml), and scripts handle the installation automatically.",
                 iac_ssot_title: "Single Source of Truth", iac_ssot_desc: "Manage all containers and networks in stacks.yaml. If it's not there, it doesn't exist.",
                 iac_idem_title: "Idempotency", iac_idem_desc: "The installer script can run multiple times without breaking anything, only applying necessary changes.",
@@ -424,9 +424,9 @@
             },
             tr: {
                 nav_overview: "Genel Bakış", nav_iac: "Kod Olarak Altyapı", nav_security: "Güvenlik", nav_backup: "Yedekleme", nav_observability: "Gözlenebilirlik", nav_topology: "Ağ Topolojisi", nav_inventory: "Canlı Envanter", nav_faq: "SSS",
-                hero_title: "Proxmox Homelab Otomasyonu", hero_desc: "Üretim ortamlarını simüle ettiğim kişisel laboratuvarım. 40+ Docker konteyner, özel Bash otomasyonu ve kurumsal düzeyde güvenlik.",
-                sidebar_role: "Sistem Yöneticisi", sidebar_brand: "Yakrel'in Homelab'ı", sidebar_update: "Son Güncelleme:", sidebar_cv: "Özgeçmiş (CV)",
-                badge_services: "40+ Servis", badge_bash: "~3B Satır Bash", img_dash_title: "Merkezi Komuta Paneli",
+                hero_title: "Proxmox Homelab Otomasyonu", hero_desc: "Aile için production homelab. 8 LXC container'da 30+ servis: GPU passthrough, otomatik deployment, full-stack monitoring.",
+                sidebar_role: "BT Uzmanı", sidebar_brand: "Yakrel'in Homelab'ı", sidebar_update: "Son Güncelleme:", sidebar_cv: "Özgeçmiş (CV)",
+                badge_services: "30+ Servis", badge_bash: "~3B Satır Bash", img_dash_title: "Merkezi Komuta Paneli",
                 iac_intro: "Tüm altyapıyı tek bir YAML dosyasında (stacks.yaml) tanımladığım ve scriptlerin kurulumu otomatik yaptığı bir sistem kurdum.",
                 iac_ssot_title: "Tek Gerçeklik Kaynağı", iac_ssot_desc: "Tüm konteynerleri ve ağları stacks.yaml üzerinden yönetin. Orada yoksa, sunucuda da yoktur.",
                 iac_idem_title: "İdempotens", iac_idem_desc: "Kurulum scripti hiçbir şeyi bozmadan defalarca çalışabilir, sadece gerekli değişiklikleri uygular.",

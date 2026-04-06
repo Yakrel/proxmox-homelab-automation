@@ -1,8 +1,8 @@
 # Proxmox Homelab Automation
 
-Production homelab architected with enterprise-grade practices, demonstrating advanced DevOps capabilities. Orchestrates **40+ microservices** across **8 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**, and **full-stack observability**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
+Production homelab architected with enterprise-grade practices, demonstrating infrastructure automation and DevOps practices. Orchestrates **30+ services** across **8 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**, and **full-stack observability**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
 
-> **About**: A production-grade **Hybrid Cloud Simulation** architected to demonstrate enterprise DevOps capabilities. Features a **Declarative Infrastructure** managed as code, **Zero Trust** security posture, and a **Disaster Recovery Ready** architecture.
+> **About**: Production homelab running family media services (Jellyfin, Immich) with enterprise infrastructure patterns. Features **declarative infrastructure-as-code**, **encrypted secret management**, **full-stack monitoring**, and **disaster recovery** architecture.
 
 ---
 
