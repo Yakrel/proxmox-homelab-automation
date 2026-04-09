@@ -85,7 +85,7 @@ This project utilizes custom Docker images that are maintained in separate repos
 ## 📦 Service Stacks
 
 ### **Media Automation** (LXC 101 - 192.168.1.101)
-Jellyfin, Immich, Sonarr, Radarr, Bazarr, Jellyseerr, Prowlarr, qBittorrent, FlareSolverr, Recyclarr, Cleanuperr
+Jellyfin, Immich, Immich Power Tools, Sonarr, Radarr, Bazarr, Jellyseerr, Prowlarr, qBittorrent, FlareSolverr, Recyclarr, Cleanuperr
 
 ### **Monitoring & Observability** (LXC 104 - 192.168.1.104)
 Prometheus, Grafana, Loki, Promtail, PVE Exporter, cAdvisor

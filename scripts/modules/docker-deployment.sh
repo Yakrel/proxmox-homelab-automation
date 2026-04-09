@@ -71,6 +71,7 @@ setup_immich_directories() {
     # Create all required Immich directories
     mkdir -p /datapool/media/immich/{upload,library,thumbs,profile,backups,encoded-video}
     mkdir -p /datapool/config/immich/postgres
+    mkdir -p /datapool/config/immich-power-tools
 
     # Permissions are handled globally by fix_all_permissions
 
