@@ -148,11 +148,6 @@
           key: "{{HOMEPAGE_VAR_IMMICH_API_KEY}}"
           version: 2
 
-    - Immich Power Tools:
-        description: Bulk Immich Admin Tools
-        href: http://192.168.1.101:8001
-        icon: immich.png
-    
     - Cleanuperr:
         description: Media Cleanup
         href: https://cleanuparr.byetgin.com/
@@ -204,4 +199,3 @@
         description: Download Manager
         href: https://my.jdownloader.org
         icon: jdownloader.png
-
