@@ -42,8 +42,7 @@
       "id": "config-backup",
       "repo": "{{REPO_ID}}",
       "paths": [
-        "/backup-sources/config",
-        "/backup-sources/data-vault"
+        "/backup-sources/config"
       ],
       "excludes": [
         "/backup-sources/config/desktop-workspace",
