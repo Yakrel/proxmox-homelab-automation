@@ -43,7 +43,7 @@ services:
       - TZ=Europe/Istanbul
     volumes:
       - /datapool/config/metube:/config
-      - /datapool/media/youtube:/downloads
+      - /datapool/media/kids/youtube:/downloads
     ports:
       - "8081:8081"
     healthcheck:
