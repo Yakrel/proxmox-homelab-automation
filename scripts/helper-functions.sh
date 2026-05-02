@@ -40,28 +40,11 @@ press_enter_to_continue() {
 }
 
 prompt_env_passphrase() {
-    local key_file="/root/.env_enc_key"
     local pass=""
 
-    # Check if saved key exists
-    if [[ -f "$key_file" ]]; then
-        print_info "Using saved passphrase from $key_file" >&2
-        pass=$(tr -d '\n\r' < "$key_file")
-    # Check environment variable
-    elif [[ -n "${ENV_ENC_KEY:-}" ]]; then
-        print_info "Using ENV_ENC_KEY environment variable" >&2
-        pass=$(printf '%s' "$ENV_ENC_KEY" | tr -d '\n\r')
-    # Prompt user
-    else
-        echo -n "Enter encryption passphrase: " >&2
-        read -r -s pass
-        echo >&2
-
-        # Save for future use
-        printf '%s' "$pass" > "$key_file"
-        chmod 600 "$key_file"
-        print_success "Passphrase saved to $key_file" >&2
-    fi
+    echo -n "Enter encryption passphrase: " >&2
+    read -r -s pass
+    echo >&2
 
     # Return the clean passphrase
     printf '%s' "$pass"
