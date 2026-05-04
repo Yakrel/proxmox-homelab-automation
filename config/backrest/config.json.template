@@ -130,6 +130,9 @@
       "paths": [
         "/backup-sources/immich"
       ],
+      "excludes": [
+        "/backup-sources/immich/backups"
+      ],
       "schedule": {
         "cron": "0 2 */3 * *",
         "clock": "CLOCK_LAST_RUN_TIME"
