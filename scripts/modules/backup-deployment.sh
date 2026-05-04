@@ -107,6 +107,17 @@ configure_rclone_config() {
 # Backrest hook script: Sync backups to Google Drive after successful backup
 
 LOG_FILE="/config/rclone-gdrive-sync.log"
+LOG_MAX_BYTES=5242880
+
+# Keep only the newest log data in a single file. No .1/.2 rotation.
+if [ -f "$LOG_FILE" ]; then
+    log_size=$(wc -c "$LOG_FILE" | awk '{print $1}')
+    if [ "$log_size" -gt "$LOG_MAX_BYTES" ]; then
+        tmp_file="${LOG_FILE}.tmp"
+        tail -c "$LOG_MAX_BYTES" "$LOG_FILE" > "$tmp_file"
+        mv "$tmp_file" "$LOG_FILE"
+    fi
+fi
 
 echo "$(date): Starting Google Drive sync" >> "$LOG_FILE"
 
@@ -116,16 +127,26 @@ echo "$(date): Starting Google Drive sync" >> "$LOG_FILE"
     --log-level=INFO \
     --fast-list \
     --checksum \
+    --transfers=2 \
+    --checkers=4 \
+    --tpslimit=5 \
+    --tpslimit-burst=10 \
+    --retries=20 \
+    --low-level-retries=50 \
+    --retries-sleep=30s \
+    --timeout=5m \
+    --contimeout=30s \
     --drive-use-trash=false \
     --exclude="**/cache/**" \
-    --exclude="**/*.tmp" 2>&1 | tee -a "$LOG_FILE"
+    --exclude="**/*.tmp"
+rclone_exit_code=$?
 
-if [ $? -eq 0 ]; then
+if [ "$rclone_exit_code" -eq 0 ]; then
     echo "$(date): Sync completed successfully" >> "$LOG_FILE"
     exit 0
 else
-    echo "$(date): Sync failed with error code $?" >> "$LOG_FILE"
-    exit 1
+    echo "$(date): Sync failed with exit code $rclone_exit_code" >> "$LOG_FILE"
+    exit "$rclone_exit_code"
 fi
 SYNCEOF
 
