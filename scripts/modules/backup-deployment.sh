@@ -127,10 +127,10 @@ echo "$(date): Starting Google Drive sync" >> "$LOG_FILE"
     --log-level=INFO \
     --fast-list \
     --checksum \
-    --transfers=2 \
-    --checkers=4 \
-    --tpslimit=5 \
-    --tpslimit-burst=10 \
+    --transfers=4 \
+    --checkers=8 \
+    --tpslimit=10 \
+    --tpslimit-burst=20 \
     --retries=20 \
     --low-level-retries=50 \
     --retries-sleep=30s \
