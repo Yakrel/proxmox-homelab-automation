@@ -105,6 +105,7 @@ configure_rclone_config() {
     cat > /datapool/config/backrest/config/sync-to-gdrive.sh << 'SYNCEOF'
 #!/bin/sh
 # Backrest hook script: Sync backups to Google Drive after successful backup
+# Optimized for 20 MB/s connection
 
 LOG_FILE="/config/rclone-gdrive-sync.log"
 LOG_MAX_BYTES=5242880
@@ -119,7 +120,7 @@ if [ -f "$LOG_FILE" ]; then
     fi
 fi
 
-echo "$(date): Starting Google Drive sync" >> "$LOG_FILE"
+echo "$(date): Starting Google Drive sync from /repos to gdrive:homelab-backups" >> "$LOG_FILE"
 
 /usr/bin/rclone sync /repos gdrive:homelab-backups \
     --config=/config/rclone.conf \
@@ -129,13 +130,15 @@ echo "$(date): Starting Google Drive sync" >> "$LOG_FILE"
     --checksum \
     --transfers=4 \
     --checkers=8 \
-    --tpslimit=10 \
-    --tpslimit-burst=20 \
-    --retries=20 \
-    --low-level-retries=50 \
-    --retries-sleep=30s \
-    --timeout=5m \
-    --contimeout=30s \
+    --tpslimit=8 \
+    --tpslimit-burst=16 \
+    --retries=10 \
+    --low-level-retries=20 \
+    --retries-sleep=10s \
+    --timeout=10m \
+    --contimeout=60s \
+    --drive-chunk-size=64M \
+    --drive-upload-cutoff=64M \
     --drive-use-trash=false \
     --exclude="**/cache/**" \
     --exclude="**/*.tmp"
