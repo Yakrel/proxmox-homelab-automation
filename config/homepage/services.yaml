@@ -148,6 +148,14 @@
         href: https://cleanuparr.byetgin.com/
         icon: cleanuperr.png
 
+    - Tdarr:
+        description: Transcoding Automation
+        href: https://tdarr.byetgin.com
+        icon: tdarr.png
+        widget:
+          type: tdarr
+          url: http://192.168.1.101:8265
+
 - Utilities:
     - Desktop Workspace:
         description: Remote Desktop (Selkies)
