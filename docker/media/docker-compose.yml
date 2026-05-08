@@ -29,6 +29,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   radarr:
     image: lscr.io/linuxserver/radarr:latest
@@ -58,6 +60,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   bazarr:
     image: lscr.io/linuxserver/bazarr:latest
@@ -86,6 +90,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   jellyfin:
     image: lscr.io/linuxserver/jellyfin:latest
@@ -139,6 +145,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   jellyseerr:
     image: ghcr.io/seerr-team/seerr:latest
@@ -158,7 +166,7 @@ services:
     ports:
       - "5055:5055"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5055"]
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:5055/api/v1/status', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))\""]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -171,6 +179,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
@@ -203,6 +213,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
@@ -230,11 +242,15 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   tor-proxy:
     image: peterdavehello/tor-socks-proxy:latest
     container_name: tor-proxy
     restart: unless-stopped
+    healthcheck:
+      disable: true
     networks:
       - media-net
     logging:
@@ -242,6 +258,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
@@ -272,6 +290,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   recyclarr:
     image: recyclarr/recyclarr:latest
@@ -291,6 +311,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   # Immich services - version pinning required for component compatibility
   # Immich recommends using version-pinned images and updating docker-compose with each release
@@ -332,6 +354,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   immich-machine-learning:
     container_name: immich-machine-learning
@@ -367,6 +391,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   redis:
     container_name: immich-redis
@@ -381,6 +407,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   database:
     container_name: immich-database
@@ -405,6 +433,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
@@ -432,6 +462,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   promtail:
     image: grafana/promtail:latest
@@ -451,6 +483,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   watchtower:
     image: ghcr.io/nicholas-fedor/watchtower:latest
@@ -472,6 +506,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   tdarr:
     container_name: tdarr
@@ -517,6 +553,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   cleanuperr:
     image: ghcr.io/cleanuparr/cleanuparr:latest
@@ -551,3 +589,5 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"

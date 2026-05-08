@@ -64,7 +64,7 @@ groups:
 
       # Container Out of Memory Event
       - alert: ContainerOOMEvent
-        expr: rate(container_oom_events_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m]) > 0
+        expr: increase(container_oom_events_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m]) > 0
         for: 1m
         labels:
           severity: critical
@@ -72,9 +72,29 @@ groups:
           summary: "Container killed due to out-of-memory"
           description: "Container {{ $labels.name }} on {{ $labels.instance }} experienced an OOM event"
 
+      # Storage Disk Space Low
+      - alert: ProxmoxStorageDiskSpaceLow
+        expr: (pve_disk_usage_bytes{id=~"storage/.*"} / pve_disk_size_bytes{id=~"storage/.*"}) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Proxmox storage usage above 85%"
+          description: "Storage {{ $labels.id }} is {{ $value | humanizePercentage }} full"
+
+      # Storage Disk Space Critical
+      - alert: ProxmoxStorageDiskSpaceCritical
+        expr: (pve_disk_usage_bytes{id=~"storage/.*"} / pve_disk_size_bytes{id=~"storage/.*"}) > 0.95
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Proxmox storage usage above 95%"
+          description: "Storage {{ $labels.id }} is {{ $value | humanizePercentage }} full"
+
       # Prometheus Target Down
       - alert: PrometheusTargetDown
-        expr: up < 1
+        expr: up{job!="promtail"} < 1
         for: 2m
         labels:
           severity: critical
@@ -89,18 +109,18 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Container CPU usage above 90% for 10 minutes"
-          description: "Container {{ $labels.name }} on {{ $labels.instance }} CPU usage is {{ $value | printf \"%.1f\" }}%"
+          summary: "Container is using more than 0.9 CPU cores for 10 minutes"
+          description: "Container {{ $labels.name }} on {{ $labels.instance }} CPU usage is {{ $value | printf \"%.1f\" }} core-percent. Use the LXC CPU alert for host-level pressure."
 
-      # Container Restarts
-      - alert: ContainerRestarting
-        expr: rate(container_start_time_seconds{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[15m]) > 0
+      # Container Restarted Recently
+      - alert: ContainerRestartedRecently
+        expr: changes(container_start_time_seconds{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[15m]) > 0
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Container is restarting frequently"
-          description: "Container {{ $labels.name }} on {{ $labels.instance }} has restarted {{ $value | printf \"%.2f\" }} times in 15 minutes"
+          summary: "Container restarted recently"
+          description: "Container {{ $labels.name }} on {{ $labels.instance }} restarted within the last 15 minutes"
 
       # Container High Memory Usage
       # DISABLED: Docker containers in LXC don't have memory limits set, causing false positives
@@ -133,6 +153,26 @@ groups:
         annotations:
           summary: "Container experiencing high network error rate"
           description: "Container {{ $labels.name }} on {{ $labels.instance }} has high network error rate: {{ $value }} errors/s"
+
+      # Promtail Log Shipping Down
+      - alert: PromtailTargetDown
+        expr: up{job="promtail"} < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Promtail target is unreachable"
+          description: "Promtail on {{ $labels.instance }} is down; logs from this LXC may not reach Loki"
+
+      # Loki Push Errors
+      - alert: LokiPushErrors
+        expr: sum(rate(loki_request_duration_seconds_count{status_code=~"5.."}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Loki is returning server errors"
+          description: "Loki has HTTP 5xx responses while handling requests"
 
       # Too Many Alerts Firing
       - alert: TooManyAlertsFiring

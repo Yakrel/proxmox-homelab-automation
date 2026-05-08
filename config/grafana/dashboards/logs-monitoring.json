@@ -139,12 +139,13 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (container_name) (count_over_time({job=\"dockerlogs\",host=~\"$host\",container_name=~\"$container\"}[$__interval]))",
+          "expr": "sum by (compose_service) (count_over_time({job=\"dockerlogs\",host=~\"$host\",compose_service=~\"$service\",container_name=~\"$container\",stream=~\"$stream\"} != \"caller=metrics.go\" != \"logger=live\" != \"path=/api/live/ws\" [$__interval]))",
           "refId": "A"
         }
       ],
-      "title": "Log Volume by Container",
-      "type": "timeseries"
+      "title": "Log Volume by Service",
+      "type": "timeseries",
+      "description": "Log volume excludes noisy Grafana live websocket and Loki query-metrics lines by default."
     },
     {
       "datasource": {
@@ -175,18 +176,23 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=\"dockerlogs\",host=~\"$host\",container_name=~\"$container\",stream=~\"$stream\"} |~ \"$search\"",
+          "expr": "{job=\"dockerlogs\",host=~\"$host\",compose_service=~\"$service\",container_name=~\"$container\",stream=~\"$stream\"} != \"caller=metrics.go\" != \"logger=live\" != \"path=/api/live/ws\" |~ \"$search\" | line_format \"[{{.container_name}} {{.stream}}] {{__line__}}\"",
           "refId": "A"
         }
       ],
-      "title": "Container Logs",
-      "type": "logs"
+      "title": "Service Logs (Container Prefixed)",
+      "type": "logs",
+      "description": "Each line is prefixed with container/output channel. Noisy Grafana live websocket and Loki query-metrics lines are hidden by default."
     }
   ],
   "refresh": "10s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["homelab", "logs", "docker"],
+  "tags": [
+    "homelab",
+    "logs",
+    "docker"
+  ],
   "templating": {
     "list": [
       {
@@ -223,14 +229,14 @@
           "type": "loki",
           "uid": "loki"
         },
-        "definition": "label_values({job=\"dockerlogs\",host=~\"$host\"},container_name)",
+        "definition": "label_values({job=\"dockerlogs\",host=~\"$host\"},compose_service)",
         "hide": 0,
         "includeAll": true,
-        "label": "Container",
+        "label": "Service",
         "multi": true,
-        "name": "container",
+        "name": "service",
         "options": [],
-        "query": "label_values({job=\"dockerlogs\",host=~\"$host\"},container_name)",
+        "query": "label_values({job=\"dockerlogs\",host=~\"$host\"},compose_service)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -243,32 +249,24 @@
           "text": "All",
           "value": "$__all"
         },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values({job=\"dockerlogs\",host=~\"$host\",compose_service=~\"$service\"},container_name)",
         "hide": 0,
         "includeAll": true,
-        "label": "Stream",
-        "multi": false,
-        "name": "stream",
-        "options": [
-          {
-            "selected": true,
-            "text": "All",
-            "value": "$__all"
-          },
-          {
-            "selected": false,
-            "text": "stdout",
-            "value": "stdout"
-          },
-          {
-            "selected": false,
-            "text": "stderr",
-            "value": "stderr"
-          }
-        ],
-        "query": "All,stdout,stderr",
-        "queryValue": "",
+        "label": "Container",
+        "multi": true,
+        "name": "container",
+        "options": [],
+        "query": "label_values({job=\"dockerlogs\",host=~\"$host\",compose_service=~\"$service\"},container_name)",
+        "refresh": 1,
+        "regex": "",
         "skipUrlSync": false,
-        "type": "custom"
+        "sort": 1,
+        "type": "query",
+        "description": "Optional exact container filter. Service is usually enough; use this when a service has multiple containers."
       },
       {
         "current": {
@@ -289,6 +287,40 @@
         "query": "",
         "skipUrlSync": false,
         "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Output",
+        "multi": false,
+        "name": "stream",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "Standard output",
+            "value": "stdout"
+          },
+          {
+            "selected": false,
+            "text": "Error/warning output",
+            "value": "stderr"
+          }
+        ],
+        "query": "Standard output : stdout, Error/warning output : stderr",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom",
+        "description": "Docker output channel. Most apps use standard output; some write warnings or errors to error output."
       }
     ]
   },

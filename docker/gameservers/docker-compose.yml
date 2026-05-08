@@ -39,6 +39,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   promtail:
     image: grafana/promtail:latest
@@ -58,6 +60,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   watchtower:
     image: ghcr.io/nicholas-fedor/watchtower:latest
@@ -80,6 +84,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   # ---------------------------------------------------------------------------
   # Palworld Server (Profile: palworld)
@@ -157,6 +163,8 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   # ---------------------------------------------------------------------------
   # Satisfactory Server (Profile: satisfactory)
@@ -200,3 +208,5 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"

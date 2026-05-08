@@ -67,6 +67,49 @@ generate_backrest_config() {
     fi
 }
 
+# Read the canonical restic repository ID. Backrest uses this as the repo guid.
+get_restic_repo_guid() {
+    local ct_id="$1"
+    local repo_password="$2"
+    local repo_config="/datapool/backup/config"
+    local image="ghcr.io/yakrel/docker-backrest-rclone:latest"
+
+    if [[ ! -s "$repo_config" ]]; then
+        return 1
+    fi
+
+    pct exec "$ct_id" -- docker run --rm \
+        --user 1000:1000 \
+        -e "RESTIC_PASSWORD=$repo_password" \
+        -e "XDG_CACHE_HOME=/tmp" \
+        -v /datapool/backup:/repos \
+        "$image" \
+        restic -r /repos cat config | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
+}
+
+# Initialize the repository before Backrest starts so config.json and restic agree.
+initialize_restic_repo() {
+    local ct_id="$1"
+    local repo_password="$2"
+    local image="ghcr.io/yakrel/docker-backrest-rclone:latest"
+
+    if [[ -s /datapool/backup/config ]]; then
+        print_info "Restic repository already initialized"
+        return 0
+    fi
+
+    print_info "Initializing restic repository"
+    pct exec "$ct_id" -- docker run --rm \
+        --user 1000:1000 \
+        -e "RESTIC_PASSWORD=$repo_password" \
+        -e "XDG_CACHE_HOME=/tmp" \
+        -v /datapool/backup:/repos \
+        "$image" \
+        restic -r /repos init
+
+    print_success "Restic repository initialized"
+}
+
 # Configure Backrest directories and permissions on host
 configure_backrest_directories() {
     # Create Backrest directories on host (idempotent with -p)
@@ -188,12 +231,29 @@ deploy_backrest() {
     backrest_sync_public_key=$(echo "$env_content" | grep "^BACKREST_SYNC_PUBLIC_KEY=" | cut -d'=' -f2-)
 
     # Validate required variables
-    if [[ -z "$backrest_instance_id" || -z "$backrest_repo_id" || -z "$backrest_repo_guid" || \
+    if [[ -z "$backrest_instance_id" || -z "$backrest_repo_id" || \
           -z "$backrest_auth_username" || -z "$backrest_auth_password_bcrypt" || -z "$backrest_repo_password" || \
           -z "$backrest_sync_key_id" || -z "$backrest_sync_private_key" || -z "$backrest_sync_public_key" ]]; then
         print_error "Missing required environment variables in .env file"
         return 1
     fi
+
+    if ! initialize_restic_repo "$ct_id" "$backrest_repo_password"; then
+        print_error "Failed to initialize restic repository"
+        return 1
+    fi
+
+    local actual_repo_guid
+    actual_repo_guid=$(get_restic_repo_guid "$ct_id" "$backrest_repo_password")
+    if [[ -z "$actual_repo_guid" ]]; then
+        print_error "Could not read restic repository ID from /datapool/backup/config"
+        return 1
+    fi
+
+    if [[ -n "$backrest_repo_guid" && "$backrest_repo_guid" != "$actual_repo_guid" ]]; then
+        print_warning "BACKREST_REPO_GUID differs from restic repository ID, using repository ID"
+    fi
+    backrest_repo_guid="$actual_repo_guid"
 
     # Generate the complete, pre-configured config.json from the template
     if ! generate_backrest_config \

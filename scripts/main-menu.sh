@@ -43,6 +43,17 @@ encrypt_env_handler() {
     fi
 }
 
+fast_redeploy_handler() {
+    bash "$WORK_DIR/scripts/fast-redeploy.sh"
+    local exit_code=$?
+
+    if [[ $exit_code -ne 0 ]]; then
+        echo
+        print_error "Fast redeploy failed with exit code $exit_code"
+        press_enter_to_continue
+    fi
+}
+
 helper_menu_handler() {
     bash "$WORK_DIR/scripts/helper-menu.sh"
     local exit_code=$?
@@ -64,6 +75,7 @@ main_menu() {
     done < <(generate_stack_menu_options "$WORK_DIR/stacks.yaml")
     
     # Add additional options
+    stack_options+=("Fast redeploy running Docker stacks...")
     stack_options+=("Encrypt .env files from containers...")
     stack_options+=("Run Proxmox Helper Scripts...")
     
@@ -78,6 +90,7 @@ main_menu() {
     done < <(get_available_stacks "$WORK_DIR/stacks.yaml")
     
     # Add additional handlers
+    handlers+=("fast_redeploy_handler")
     handlers+=("encrypt_env_handler")
     handlers+=("helper_menu_handler")
     
