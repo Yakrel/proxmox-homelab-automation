@@ -31,6 +31,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   adguard:
     image: adguard/adguardhome:latest
@@ -55,6 +57,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -67,11 +71,7 @@ services:
       - PGID=1000
       - TZ=${TZ:-Europe/Istanbul}
     healthcheck:
-      test: ["CMD", "cloudflared", "tunnel", "info"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
+      disable: true
     networks:
       - proxy-net
     logging:
@@ -79,6 +79,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   tailscale:
     image: tailscale/tailscale:latest
@@ -103,6 +105,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   # Fix for unprivileged LXC networking (Nested Docker FORWARD policy)
   tailscale-net-fix:
@@ -129,6 +133,8 @@ services:
       options:
         max-size: "1m"
         max-file: "1"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
 
   cadvisor:
@@ -157,6 +163,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   promtail:
     image: grafana/promtail:latest
@@ -176,6 +184,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   watchtower:
     image: ghcr.io/nicholas-fedor/watchtower:latest
@@ -197,3 +207,5 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"

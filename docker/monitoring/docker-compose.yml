@@ -24,8 +24,6 @@ services:
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--storage.tsdb.retention.time=30d'
-      - '--web.enable-lifecycle'
-      - '--web.enable-admin-api'
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PUID=1000
@@ -45,6 +43,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   grafana:
     image: grafana/grafana:latest
@@ -79,6 +79,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   loki:
     image: grafana/loki:latest
@@ -95,12 +97,6 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
       - PUID=1000
       - PGID=1000
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/ready"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
     networks:
       - monitoring-net
     stop_grace_period: 60s
@@ -109,6 +105,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
 
   promtail:
@@ -129,13 +127,13 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   prometheus-pve-exporter:
     image: prompve/prometheus-pve-exporter:latest
     container_name: prometheus-pve-exporter
     restart: unless-stopped
-    ports:
-      - "9221:9221"
     volumes:
       - /datapool/config/prometheus-pve-exporter:/etc/prometheus:ro
     environment:
@@ -149,6 +147,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
@@ -176,6 +176,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   watchtower:
     image: ghcr.io/nicholas-fedor/watchtower:latest
@@ -197,3 +199,5 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"

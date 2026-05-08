@@ -76,3 +76,44 @@ scrape_configs:
   - job_name: 'loki'
     static_configs:
       - targets: ['loki:3100']
+
+  # Promtail - Log shipping health from each Docker LXC
+  - job_name: 'promtail'
+    static_configs:
+      - targets:
+        - '192.168.1.100:9080'  # proxy
+        - '192.168.1.101:9080'  # media
+        - '192.168.1.102:9080'  # files
+        - '192.168.1.103:9080'  # webtools
+        - '192.168.1.104:9080'  # monitoring
+        - '192.168.1.105:9080'  # gameservers
+        - '192.168.1.106:9080'  # backup
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '192.168.1.100:9080'
+        target_label: instance
+        replacement: 'lxc-proxy-01'
+      - source_labels: [__address__]
+        regex: '192.168.1.101:9080'
+        target_label: instance
+        replacement: 'lxc-media-01'
+      - source_labels: [__address__]
+        regex: '192.168.1.102:9080'
+        target_label: instance
+        replacement: 'lxc-files-01'
+      - source_labels: [__address__]
+        regex: '192.168.1.103:9080'
+        target_label: instance
+        replacement: 'lxc-webtools-01'
+      - source_labels: [__address__]
+        regex: '192.168.1.104:9080'
+        target_label: instance
+        replacement: 'lxc-monitoring-01'
+      - source_labels: [__address__]
+        regex: '192.168.1.105:9080'
+        target_label: instance
+        replacement: 'lxc-gameservers-01'
+      - source_labels: [__address__]
+        regex: '192.168.1.106:9080'
+        target_label: instance
+        replacement: 'lxc-backup-01'

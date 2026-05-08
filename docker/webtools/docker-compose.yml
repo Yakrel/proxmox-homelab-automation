@@ -53,6 +53,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   desktop-workspace:
     image: ghcr.io/yakrel/docker-desktop-workspace:latest
@@ -84,7 +86,7 @@ services:
     security_opt:
       - seccomp:unconfined
     healthcheck:
-      test: ["CMD", "curl", "-k", "-f", "https://localhost:3001"]
+      test: ["CMD-SHELL", "curl -k -s -o /dev/null https://127.0.0.1:3001 || curl -s -o /dev/null http://127.0.0.1:3001"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -96,6 +98,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 
@@ -115,7 +119,7 @@ services:
       - /datapool/config/couchdb/data:/opt/couchdb/data
       - /datapool/config/couchdb/local.d:/opt/couchdb/etc/local.d
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5984/_up"]
+      test: ["CMD-SHELL", "curl -f -u \"$${COUCHDB_USER}:$${COUCHDB_PASSWORD}\" http://localhost:5984/_up"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -127,6 +131,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
@@ -154,6 +160,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   promtail:
     image: grafana/promtail:latest
@@ -173,6 +181,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   watchtower:
     image: ghcr.io/nicholas-fedor/watchtower:latest
@@ -194,6 +204,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   vaultwarden:
     image: vaultwarden/server:latest
@@ -215,6 +227,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
 
   repackarr:
     image: ghcr.io/yakrel/repackarr:latest
@@ -251,3 +265,5 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"

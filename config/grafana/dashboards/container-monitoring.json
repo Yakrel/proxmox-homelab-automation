@@ -178,7 +178,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(container_oom_events_total{name!=\"\",instance=~\"$lxc_host\"}[5m]))",
+          "expr": "sum(increase(container_oom_events_total{name!=\"\",instance=~\"$lxc_host\"}[5m]))",
           "refId": "A"
         }
       ],
@@ -651,8 +651,9 @@
           "refId": "A"
         }
       ],
-      "title": "CPU Usage by Container",
-      "type": "timeseries"
+      "title": "CPU Usage by Container (Core Share)",
+      "type": "timeseries",
+      "description": "cAdvisor reports container CPU as CPU cores consumed. 1.0 means roughly one full core; use LXC CPU panels for host-level pressure."
     },
     {
       "datasource": {
@@ -1025,99 +1026,6 @@
               }
             ]
           },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 30
-      },
-      "id": 10,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true,
-          "sortBy": "Max",
-          "sortDesc": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "pluginVersion": "10.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "container_fs_usage_bytes{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}",
-          "legendFormat": "{{instance}}/{{name}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Filesystem Usage by Container",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
           "unit": "short"
         },
         "overrides": []
@@ -1171,7 +1079,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 38
+        "y": 30
       },
       "id": 12,
       "panels": [
@@ -1285,7 +1193,11 @@
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["homelab", "docker", "containers"],
+  "tags": [
+    "homelab",
+    "docker",
+    "containers"
+  ],
   "templating": {
     "list": [
       {
