@@ -147,10 +147,7 @@ EOF
 
         gpu_passthrough_lines=(
             # cgroup device permissions for NVIDIA GPU
-            'lxc.cgroup.devices.allow: c 195:* rwm'   # NVIDIA GPU devices (195:0 = nvidia0)
-            'lxc.cgroup.devices.allow: c 510:* rwm'   # nvidia-uvm (510:0)
-            'lxc.cgroup.devices.allow: c 511:* rwm'   # nvidia-uvm (511:0 on some systems)
-            'lxc.cgroup2.devices.allow: c 195:* rwm'  # cgroup v2 permissions
+            'lxc.cgroup2.devices.allow: c 195:* rwm'  # NVIDIA GPU devices (195:0 = nvidia0)
             'lxc.cgroup2.devices.allow: c 510:* rwm'  # cgroup v2 for nvidia-uvm
             'lxc.cgroup2.devices.allow: c 511:* rwm'  # cgroup v2 for nvidia-uvm (alternate)
             # Device bind mounts - pass GPU devices into container
