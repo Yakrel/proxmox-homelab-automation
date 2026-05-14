@@ -1,8 +1,8 @@
 # Proxmox Homelab Automation
 
-Production homelab architected with enterprise-grade practices, demonstrating infrastructure automation and DevOps practices. Orchestrates **30+ services** across **8 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**, and **full-stack observability**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
+Production-style homelab architected with enterprise-inspired reliability practices, demonstrating infrastructure automation and DevOps patterns. Orchestrates **30+ services** across **8 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**, and **full-stack observability**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
 
-> **About**: Production homelab running family media services (Jellyfin, Immich) with enterprise infrastructure patterns. Features **declarative infrastructure-as-code**, **encrypted secret management**, **full-stack monitoring**, and **disaster recovery** architecture.
+> **About**: Production homelab running family media services (Jellyfin, Immich) with production-grade infrastructure patterns. Features **declarative infrastructure-as-code**, **ZFS-backed storage**, **encrypted secret management**, **full-stack monitoring**, and **disaster recovery** architecture.
 
 ---
 
@@ -23,6 +23,7 @@ Interactive menu guides you through stack selection and deployment. Only one pas
 - **Unprivileged LXC GPU Passthrough**: Engineered secure GPU access for unprivileged containers using cgroup v2 mapping, avoiding security risks of privileged containers.
 - **Nested Docker Optimization**: Configured efficient Docker-in-LXC runtime, combining the lightweight nature of LXC with the portability of Docker.
 - **Shared Hardware Acceleration**: Centralized NVIDIA driver management on host, mapped to multiple containers for concurrent CUDA/NVENC workloads.
+- **ZFS Storage Foundation**: `lz4` compression, automated snapshots, and ARC caching provide a reliable base for mixed workloads without adding operational complexity.
 
 ### **Enterprise-Grade Security & Networking**
 
