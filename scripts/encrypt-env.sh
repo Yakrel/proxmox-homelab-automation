@@ -90,14 +90,14 @@ show_encrypt_menu() {
         local ct_id
         ct_id=$(yq -r ".stacks.$stack.ct_id" "$WORK_DIR/stacks.yaml" 2>/dev/null)
 
-        if [[ "$ct_id" != "null" && -n "$ct_id" && -f "$WORK_DIR/docker/$stack/.env.enc" ]]; then
+        if [[ "$ct_id" != "null" && -n "$ct_id" && -f "$WORK_DIR/docker/$stack/docker-compose.yml" ]]; then
             ENCRYPTABLE_STACKS+=("$stack")
             encrypt_options+=("Encrypt [$stack] .env (LXC $ct_id)")
         fi
     done < <(get_available_stacks)
 
     if [[ ${#encrypt_options[@]} -eq 0 ]]; then
-        print_error "No stacks with encrypted .env files found"
+        print_error "No Docker Compose stacks found"
         return 1
     fi
     
