@@ -6,7 +6,8 @@
 # Specialized deployment for monitoring stack - fail fast approach
 set -euo pipefail
 
-
+MONITORING_PVE_USER="pve-exporter@pve"
+MONITORING_PVE_VERIFY_SSL="false"
 
 # Setup monitoring environment variables
 setup_monitoring_environment() {
@@ -38,6 +39,8 @@ setup_monitoring_environment() {
     pve_url=$(echo "$env_content" | grep '^PVE_URL=' | cut -d'=' -f2-)
     pve_user=$(echo "$env_content" | grep '^PVE_USER=' | cut -d'=' -f2-)
     pve_verify_ssl=$(echo "$env_content" | grep '^PVE_VERIFY_SSL=' | cut -d'=' -f2-)
+    MONITORING_PVE_USER="${pve_user:-pve-exporter@pve}"
+    MONITORING_PVE_VERIFY_SSL="${pve_verify_ssl:-false}"
     
     [[ -z "$gf_admin_password" ]] && {
         print_error "GF_SECURITY_ADMIN_PASSWORD not found in .env file"
@@ -52,10 +55,10 @@ GF_SECURITY_ADMIN_USER=$gf_admin_user
 GF_SECURITY_ADMIN_PASSWORD=$gf_admin_password
 
 # Prometheus configuration  
-PVE_USER=${pve_user:-pve-exporter@pve}
+PVE_USER=$MONITORING_PVE_USER
 PVE_PASSWORD=$PVE_MONITORING_PASSWORD
 PVE_URL=${pve_url:-https://192.168.1.10:8006}
-PVE_VERIFY_SSL=${pve_verify_ssl:-false}
+PVE_VERIFY_SSL=$MONITORING_PVE_VERIFY_SSL
 
 # Timezone
 TZ=Europe/Istanbul
@@ -85,9 +88,23 @@ setup_monitoring_directories() {
     mkdir -p /datapool/config/loki/data
     mkdir -p /datapool/config/grafana/provisioning/datasources
     mkdir -p /datapool/config/grafana/provisioning/dashboards
+    mkdir -p /datapool/config/grafana/dashboards
+    mkdir -p /datapool/config/prometheus-pve-exporter
 
-    # Note: Permissions will be set once at the end of deploy_monitoring_stack()
-    # to avoid redundant chown operations
+    # Fresh deploy needs these user-mapped write roots owned by the LXC user.
+    # Keep Loki shallow: chunks can contain thousands of small files.
+    fix_path_owner /datapool/config/prometheus
+    fix_path_owner /datapool/config/prometheus/data
+    fix_path_owner /datapool/config/prometheus/recording-rules
+    fix_path_owner /datapool/config/grafana
+    fix_path_owner /datapool/config/grafana/data
+    fix_path_owner /datapool/config/grafana/provisioning
+    fix_path_owner /datapool/config/grafana/provisioning/datasources
+    fix_path_owner /datapool/config/grafana/provisioning/dashboards
+    fix_path_owner /datapool/config/grafana/dashboards
+    fix_path_owner /datapool/config/loki
+    fix_path_owner /datapool/config/loki/data
+    fix_path_owner_recursive /datapool/config/prometheus-pve-exporter
 
     print_success "Monitoring directories created"
 }
@@ -267,9 +284,9 @@ validate_monitoring_configs() {
     mkdir -p /datapool/config/prometheus-pve-exporter
     cat > /datapool/config/prometheus-pve-exporter/pve.yml << EOF
 default:
-  user: ${pve_user:-pve-exporter@pve}
+  user: ${MONITORING_PVE_USER}
   password: ${PVE_MONITORING_PASSWORD}
-  verify_ssl: false
+  verify_ssl: ${MONITORING_PVE_VERIFY_SSL}
 EOF
 
     # Setup promtail config for monitoring LXC
@@ -326,4 +343,3 @@ deploy_monitoring_stack() {
 
     print_success "Monitoring stack deployed and verified"
 }
-

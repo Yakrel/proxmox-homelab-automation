@@ -101,6 +101,19 @@ copy_monitoring_configs() {
     mkdir -p /datapool/config/loki/data
     mkdir -p /datapool/config/prometheus-pve-exporter
 
+    fix_path_owner /datapool/config/prometheus
+    fix_path_owner /datapool/config/prometheus/data
+    fix_path_owner /datapool/config/prometheus/recording-rules
+    fix_path_owner /datapool/config/grafana
+    fix_path_owner /datapool/config/grafana/data
+    fix_path_owner /datapool/config/grafana/provisioning
+    fix_path_owner /datapool/config/grafana/provisioning/datasources
+    fix_path_owner /datapool/config/grafana/provisioning/dashboards
+    fix_path_owner /datapool/config/grafana/dashboards
+    fix_path_owner /datapool/config/loki
+    fix_path_owner /datapool/config/loki/data
+    fix_path_owner_recursive /datapool/config/prometheus-pve-exporter
+
     cp "$WORK_DIR/docker/monitoring/prometheus.yml" /datapool/config/prometheus/prometheus.yml
     cp "$WORK_DIR/config/loki/loki.yml" /datapool/config/loki/loki.yml
     cp -r "$WORK_DIR/config/prometheus/rules" /datapool/config/prometheus/
@@ -212,9 +225,12 @@ fast_redeploy_stack() {
     decrypt_stack_env "$stack"
 
     if [[ "$stack" == "webtools" ]]; then
+        setup_webtools_permissions
         setup_homepage_config "$CT_ID"
         setup_couchdb_config "$CT_ID"
         setup_fast_homepage_token "$ENV_DECRYPTED_PATH"
+    elif [[ "$stack" == "files" ]]; then
+        setup_files_permissions
     elif [[ "$stack" == "monitoring" ]]; then
         setup_fast_monitoring_user "$ENV_DECRYPTED_PATH"
         copy_monitoring_configs "$ENV_DECRYPTED_PATH"

@@ -8,6 +8,11 @@
 # Strict error handling
 set -euo pipefail
 
+WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
+
+# --- Load Shared Functions ---
+source "$WORK_DIR/scripts/helper-functions.sh"
+
 # --- Arguments and Setup ---
 if [[ $# -eq 0 ]]; then
     print_error "Usage: $0 <stack-name>"
@@ -16,10 +21,6 @@ if [[ $# -eq 0 ]]; then
 fi
 
 STACK_NAME=$1
-WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
-
-# --- Load Shared Functions ---
-source "$WORK_DIR/scripts/helper-functions.sh"
 
 # --- Load Deployment Modules ---
 source "$WORK_DIR/scripts/modules/docker-deployment.sh"
@@ -258,7 +259,7 @@ print_success "Stack [$STACK_NAME] deployed successfully!"
 echo "═══════════════════════════════════════════"
 echo
 
-# IMPORTANT: Keep this interactive prompt - allows user to review deployment results
-# and see any error messages before returning to main menu. This is a desired feature.
+# IMPORTANT: Keep this interactive prompt so errors and deployment output remain visible
+# before the installer returns to the menu.
 # DO NOT REMOVE - requested by @Yakrel
 press_enter_to_continue
