@@ -101,6 +101,19 @@ copy_monitoring_configs() {
     mkdir -p /datapool/config/loki/data
     mkdir -p /datapool/config/prometheus-pve-exporter
 
+    fix_path_owner /datapool/config/prometheus
+    fix_path_owner /datapool/config/prometheus/data
+    fix_path_owner /datapool/config/prometheus/recording-rules
+    fix_path_owner /datapool/config/grafana
+    fix_path_owner /datapool/config/grafana/data
+    fix_path_owner /datapool/config/grafana/provisioning
+    fix_path_owner /datapool/config/grafana/provisioning/datasources
+    fix_path_owner /datapool/config/grafana/provisioning/dashboards
+    fix_path_owner /datapool/config/grafana/dashboards
+    fix_path_owner /datapool/config/loki
+    fix_path_owner /datapool/config/loki/data
+    fix_path_owner_recursive /datapool/config/prometheus-pve-exporter
+
     cp "$WORK_DIR/docker/monitoring/prometheus.yml" /datapool/config/prometheus/prometheus.yml
     cp "$WORK_DIR/config/loki/loki.yml" /datapool/config/loki/loki.yml
     cp -r "$WORK_DIR/config/prometheus/rules" /datapool/config/prometheus/
@@ -111,17 +124,28 @@ copy_monitoring_configs() {
     pve_user=$(grep '^PVE_USER=' "$env_file" | cut -d'=' -f2- || true)
     pve_password=$(grep '^PVE_MONITORING_PASSWORD=' "$env_file" | cut -d'=' -f2- || true)
     pve_verify_ssl=$(grep '^PVE_VERIFY_SSL=' "$env_file" | cut -d'=' -f2- || true)
+    pve_verify_ssl="${pve_verify_ssl:-false}"
+    pve_verify_ssl="${pve_verify_ssl,,}"
 
     [[ -n "$pve_password" ]] || {
         print_error "PVE_MONITORING_PASSWORD not found in monitoring env"
         exit 1
     }
 
+    case "$pve_verify_ssl" in
+        true|false)
+            ;;
+        *)
+            print_error "PVE_VERIFY_SSL must be true or false"
+            exit 1
+            ;;
+    esac
+
     cat > /datapool/config/prometheus-pve-exporter/pve.yml << EOF
 default:
   user: ${pve_user:-pve-exporter@pve}
   password: ${pve_password}
-  verify_ssl: ${pve_verify_ssl:-false}
+  verify_ssl: ${pve_verify_ssl}
 EOF
 
     cat > /datapool/config/grafana/provisioning/datasources/datasources.yml << 'EOF'
@@ -172,6 +196,15 @@ providers:
     options:
       path: /datapool/config/grafana/dashboards
 EOF
+
+    fix_path_owner /datapool/config/prometheus/prometheus.yml
+    fix_path_owner_recursive /datapool/config/prometheus/rules
+    fix_path_owner_recursive /datapool/config/prometheus/recording-rules
+    fix_path_owner /datapool/config/loki/loki.yml
+    fix_path_owner /datapool/config/grafana/provisioning/datasources/datasources.yml
+    fix_path_owner /datapool/config/grafana/provisioning/dashboards/provider.yml
+    fix_path_owner_recursive /datapool/config/grafana/dashboards
+    fix_path_owner_recursive /datapool/config/prometheus-pve-exporter
 }
 
 copy_promtail_config() {
@@ -212,9 +245,12 @@ fast_redeploy_stack() {
     decrypt_stack_env "$stack"
 
     if [[ "$stack" == "webtools" ]]; then
+        setup_webtools_permissions
         setup_homepage_config "$CT_ID"
         setup_couchdb_config "$CT_ID"
         setup_fast_homepage_token "$ENV_DECRYPTED_PATH"
+    elif [[ "$stack" == "files" ]]; then
+        setup_files_permissions
     elif [[ "$stack" == "monitoring" ]]; then
         setup_fast_monitoring_user "$ENV_DECRYPTED_PATH"
         copy_monitoring_configs "$ENV_DECRYPTED_PATH"

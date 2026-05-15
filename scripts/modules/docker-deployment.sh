@@ -37,6 +37,45 @@ setup_homepage_config() {
     print_success "Homepage configured"
 }
 
+setup_webtools_permissions() {
+    print_info "Preparing Webtools directories"
+
+    mkdir -p /datapool/config/homepage
+    mkdir -p /datapool/config/couchdb/data /datapool/config/couchdb/local.d
+    mkdir -p /datapool/config/repackarr/data /datapool/config/repackarr/logs
+    mkdir -p /datapool/config/desktop-workspace
+    mkdir -p /datapool/config/vaultwarden
+
+    # These are small writable app-config trees; keep large browser/password data shallow.
+    fix_path_owner_recursive /datapool/config/homepage
+    fix_path_owner_recursive /datapool/config/couchdb
+    fix_path_owner_recursive /datapool/config/repackarr
+    fix_path_owner /datapool/config/desktop-workspace
+    fix_path_owner /datapool/config/vaultwarden
+
+    print_success "Webtools directories ready"
+}
+
+setup_files_permissions() {
+    print_info "Preparing Files directories"
+
+    mkdir -p /datapool/config/jdownloader2
+    mkdir -p /datapool/config/metube
+    mkdir -p /datapool/config/palmr/uploads
+    mkdir -p /datapool/torrents/other
+    mkdir -p /datapool/media/kids/youtube
+
+    # Current trees are small and commonly written by user-mapped containers.
+    fix_path_owner_recursive /datapool/config/jdownloader2
+    fix_path_owner_recursive /datapool/config/metube
+    fix_path_owner_recursive /datapool/config/palmr
+    fix_path_owner /datapool/torrents/other
+    fix_path_owner /datapool/media/kids
+    fix_path_owner /datapool/media/kids/youtube
+
+    print_success "Files directories ready"
+}
+
 # Setup CouchDB directories and configuration
 setup_couchdb_config() {
     local ct_id="$1"
@@ -267,8 +306,13 @@ deploy_docker_stack() {
 
     # Setup Homepage config files for webtools stack
     if [[ "$stack_name" == "webtools" ]]; then
+        setup_webtools_permissions
         setup_homepage_config "$ct_id"
         setup_couchdb_config "$ct_id"
+    fi
+
+    if [[ "$stack_name" == "files" ]]; then
+        setup_files_permissions
     fi
 
     # Setup Immich directories for media stack
@@ -317,7 +361,7 @@ remove_docker_services() {
     
     # Stop and remove containers
     if pct exec "$ct_id" -- test -f /root/docker-compose.yml; then
-        pct exec "$ct_id" -- sh -c "cd /root && docker-compose down -v --remove-orphans"
+        pct exec "$ct_id" -- sh -c "cd /root && docker compose down -v --remove-orphans"
     fi
     
     # Remove all containers, networks, and volumes

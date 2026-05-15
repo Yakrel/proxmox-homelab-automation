@@ -64,14 +64,15 @@ encrypt_container_env() {
 # --- Menu handlers ---
 encrypt_stack_handler() {
     local index="$1"
-    local stack
+    local stack="${ENCRYPTABLE_STACKS[$index]:-}"
     
-    if stack=$(get_stack_from_menu_index "$index"); then
-        encrypt_container_env "$stack"
-        press_enter_to_continue
-    else
+    if [[ -z "$stack" ]]; then
         print_error "Failed to get stack for index $index"
+        return 1
     fi
+
+    encrypt_container_env "$stack"
+    press_enter_to_continue
 }
 
 back_to_main() {
@@ -83,34 +84,38 @@ back_to_main() {
 show_encrypt_menu() {
     # Generate dynamic encryption options
     local -a encrypt_options=()
+    ENCRYPTABLE_STACKS=()
+
     while IFS= read -r stack; do
         local ct_id
         ct_id=$(yq -r ".stacks.$stack.ct_id" "$WORK_DIR/stacks.yaml" 2>/dev/null)
-        if [[ "$ct_id" != "null" && -n "$ct_id" ]]; then
-            # Only show stacks that would have Docker compose (skip backup which is native)
-            if [[ "$stack" != "backup" ]]; then
-                encrypt_options+=("Encrypt [$stack] .env (LXC $ct_id)")
-            fi
+
+        if [[ "$ct_id" != "null" && -n "$ct_id" && -f "$WORK_DIR/docker/$stack/docker-compose.yml" ]]; then
+            ENCRYPTABLE_STACKS+=("$stack")
+            encrypt_options+=("Encrypt [$stack] .env (LXC $ct_id)")
         fi
     done < <(get_available_stacks)
+
+    if [[ ${#encrypt_options[@]} -eq 0 ]]; then
+        print_error "No Docker Compose stacks found"
+        return 1
+    fi
     
     # Create handlers array
     local -a handlers=()
-    local stack_count=0
     
-    while IFS= read -r stack; do
-        if [[ "$stack" != "backup" ]]; then
-            handlers+=("encrypt_stack_handler")
-            stack_count=$((stack_count + 1))
-        fi
-    done < <(get_available_stacks)
+    for _ in "${ENCRYPTABLE_STACKS[@]}"; do
+        handlers+=("encrypt_stack_handler")
+    done
     
     # Show interactive menu
     show_interactive_menu "Environment File Encryption Menu" encrypt_options handlers "back_to_main" "back_to_main"
 }
 
 # --- Main execution ---
-if [ -n "$1" ]; then
+declare -a ENCRYPTABLE_STACKS=()
+
+if [[ $# -gt 0 ]]; then
     # Direct stack name provided
     encrypt_container_env "$1"
 else
