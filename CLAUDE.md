@@ -1,7 +1,7 @@
 # Agent Instructions
 
 <!--
-    CRITICAL: This file must be kept identical to AGENTS.md
+    CRITICAL: This file must be kept identical to its counterpart agent instruction file.
     Both files need the same context and guidelines for all AI assistants.
     Any changes made to one file must be mirrored in the other exactly.
 -->
@@ -17,10 +17,11 @@ Shell-based automation for deploying containerized services in LXC containers on
 ### Fail Fast & Simple
 - Ensure idempotency in all operations
 - Let commands fail naturally with their original error messages
-- **NEVER** use `>/dev/null 2>&1` - all output must be visible for debugging
+- Avoid suppressing output from critical deployment commands - errors must stay visible for debugging
 - **EXCEPTION:** Suppress output when it interferes with command parsing (e.g., `apt-get update` output mixing with `yq`/`jq` parsing)
 - **EXCEPTION:** Basic health checks are allowed when immediately needed (e.g., waiting for service to be ready before API call)
 - **EXCEPTION:** Variable capture and parsing - when suppression prevents script failures from command output mixing with variable assignments (e.g., `ct_id=$(yq ... 2>/dev/null)`)
+- **EXCEPTION:** Idempotent existence checks and cleanup commands may suppress expected "not found" output when the next command handles the desired state
 - No retry logic or waiting loops in deployment scripts
 - Focus on main scenario - edge cases should fail fast
 
@@ -82,7 +83,8 @@ This is a personal homelab automation with:
 ### LXC File Permissions
 **CRITICAL: Never do chown inside LXC containers**
 - Always set permissions on Proxmox host with `chown 101000:101000`
-- For shared config files: `chown -R 101000:101000 /datapool/config` (this is sufficient for all LXC containers)
-- **Never** chown to `/datapool` itself (parent directory) - only to `/datapool/config` or subdirectories
+- Prefer targeted ownership fixes for the specific stack directories that need writes
+- Avoid broad recursive chown on large/high-churn trees like Immich media, Jellyfin metadata/cache, Loki chunks, torrents, and full `/datapool/config`
+- **Never** chown to `/datapool` itself (parent directory) - only to `/datapool/config`, `/datapool/media`, `/datapool/backup`, `/datapool/torrents`, or stack-specific subdirectories like `/datapool/temp/tdarr`
 - Files in `/datapool/config` with host UID 101000 automatically map to UID 1000 inside unprivileged LXC containers
 - Docker containers using `user: "1000:1000"` can access these files correctly without additional chown operations

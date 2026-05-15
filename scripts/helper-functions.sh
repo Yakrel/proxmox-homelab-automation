@@ -246,22 +246,36 @@ show_interactive_menu() {
 
 # Fix LXC container permissions globally
 fix_all_permissions() {
-    print_info "Ensuring shared permissions on /datapool (config, backup, media, secure data)"
+    print_info "Ensuring shared permissions on /datapool (config, backup, media, torrents)"
     
     # Create base directories if they don't exist
-    mkdir -p /datapool/config /datapool/backup /datapool/media /datapool/data-secure
+    mkdir -p /datapool/config /datapool/backup /datapool/media /datapool/torrents
 
     # Performance Optimization: Shallow fix only (Top-level folder permissions)
     # Recursive scanning 60k+ files (especially in config/media) caused massive delays.
     # Containers usually inherit correct permissions or manage their own files.
-    local dirs=("/datapool/config" "/datapool/backup" "/datapool/media" "/datapool/data-secure")
+    local dirs=("/datapool/config" "/datapool/backup" "/datapool/media" "/datapool/torrents")
     
     for dir in "${dirs[@]}"; do
         if [[ -d "$dir" ]]; then
             # Only fix the root folder permissions, skip recursive scan
-            chown 101000:101000 "$dir" 2>/dev/null
+            chown 101000:101000 "$dir"
         fi
     done
     
     print_success "Permissions updated for /datapool"
+}
+
+fix_path_owner() {
+    local path="$1"
+
+    [[ -e "$path" ]] || return 0
+    chown 101000:101000 "$path"
+}
+
+fix_path_owner_recursive() {
+    local path="$1"
+
+    [[ -e "$path" ]] || return 0
+    chown -R 101000:101000 "$path"
 }

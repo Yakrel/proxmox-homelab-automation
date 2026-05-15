@@ -6,7 +6,28 @@
 # Specialized deployment for monitoring stack - fail fast approach
 set -euo pipefail
 
+MONITORING_PVE_USER="pve-exporter@pve"
+MONITORING_PVE_VERIFY_SSL="false"
 
+read_env_value() {
+    local key="$1"
+
+    awk -v key="$key" 'index($0, key "=") == 1 { print substr($0, length(key) + 2); exit }'
+}
+
+normalize_monitoring_verify_ssl() {
+    MONITORING_PVE_VERIFY_SSL="${MONITORING_PVE_VERIFY_SSL:-false}"
+    MONITORING_PVE_VERIFY_SSL="${MONITORING_PVE_VERIFY_SSL,,}"
+
+    case "$MONITORING_PVE_VERIFY_SSL" in
+        true|false)
+            ;;
+        *)
+            print_error "PVE_VERIFY_SSL must be true or false"
+            exit 1
+            ;;
+    esac
+}
 
 # Setup monitoring environment variables
 setup_monitoring_environment() {
@@ -33,11 +54,14 @@ setup_monitoring_environment() {
     
     env_content=$(cat "$ENV_DECRYPTED_PATH")
     
-    gf_admin_user=$(echo "$env_content" | grep '^GF_SECURITY_ADMIN_USER=' | cut -d'=' -f2-)
-    gf_admin_password=$(echo "$env_content" | grep '^GF_SECURITY_ADMIN_PASSWORD=' | cut -d'=' -f2-)
-    pve_url=$(echo "$env_content" | grep '^PVE_URL=' | cut -d'=' -f2-)
-    pve_user=$(echo "$env_content" | grep '^PVE_USER=' | cut -d'=' -f2-)
-    pve_verify_ssl=$(echo "$env_content" | grep '^PVE_VERIFY_SSL=' | cut -d'=' -f2-)
+    gf_admin_user=$(read_env_value GF_SECURITY_ADMIN_USER <<< "$env_content")
+    gf_admin_password=$(read_env_value GF_SECURITY_ADMIN_PASSWORD <<< "$env_content")
+    pve_url=$(read_env_value PVE_URL <<< "$env_content")
+    pve_user=$(read_env_value PVE_USER <<< "$env_content")
+    pve_verify_ssl=$(read_env_value PVE_VERIFY_SSL <<< "$env_content")
+    MONITORING_PVE_USER="${pve_user:-pve-exporter@pve}"
+    MONITORING_PVE_VERIFY_SSL="${pve_verify_ssl:-false}"
+    normalize_monitoring_verify_ssl
     
     [[ -z "$gf_admin_password" ]] && {
         print_error "GF_SECURITY_ADMIN_PASSWORD not found in .env file"
@@ -52,10 +76,10 @@ GF_SECURITY_ADMIN_USER=$gf_admin_user
 GF_SECURITY_ADMIN_PASSWORD=$gf_admin_password
 
 # Prometheus configuration  
-PVE_USER=${pve_user:-pve-exporter@pve}
+PVE_USER=$MONITORING_PVE_USER
 PVE_PASSWORD=$PVE_MONITORING_PASSWORD
 PVE_URL=${pve_url:-https://192.168.1.10:8006}
-PVE_VERIFY_SSL=${pve_verify_ssl:-false}
+PVE_VERIFY_SSL=$MONITORING_PVE_VERIFY_SSL
 
 # Timezone
 TZ=Europe/Istanbul
@@ -85,11 +109,36 @@ setup_monitoring_directories() {
     mkdir -p /datapool/config/loki/data
     mkdir -p /datapool/config/grafana/provisioning/datasources
     mkdir -p /datapool/config/grafana/provisioning/dashboards
+    mkdir -p /datapool/config/grafana/dashboards
+    mkdir -p /datapool/config/prometheus-pve-exporter
 
-    # Note: Permissions will be set once at the end of deploy_monitoring_stack()
-    # to avoid redundant chown operations
+    # Fresh deploy needs these user-mapped write roots owned by the LXC user.
+    # Keep Loki shallow: chunks can contain thousands of small files.
+    fix_path_owner /datapool/config/prometheus
+    fix_path_owner /datapool/config/prometheus/data
+    fix_path_owner /datapool/config/prometheus/recording-rules
+    fix_path_owner /datapool/config/grafana
+    fix_path_owner /datapool/config/grafana/data
+    fix_path_owner /datapool/config/grafana/provisioning
+    fix_path_owner /datapool/config/grafana/provisioning/datasources
+    fix_path_owner /datapool/config/grafana/provisioning/dashboards
+    fix_path_owner /datapool/config/grafana/dashboards
+    fix_path_owner /datapool/config/loki
+    fix_path_owner /datapool/config/loki/data
+    fix_path_owner_recursive /datapool/config/prometheus-pve-exporter
 
     print_success "Monitoring directories created"
+}
+
+fix_monitoring_config_ownership() {
+    fix_path_owner /datapool/config/prometheus/prometheus.yml
+    fix_path_owner_recursive /datapool/config/prometheus/rules
+    fix_path_owner_recursive /datapool/config/prometheus/recording-rules
+    fix_path_owner /datapool/config/loki/loki.yml
+    fix_path_owner /datapool/config/grafana/provisioning/datasources/datasources.yml
+    fix_path_owner /datapool/config/grafana/provisioning/dashboards/provider.yml
+    fix_path_owner_recursive /datapool/config/grafana/dashboards
+    fix_path_owner_recursive /datapool/config/prometheus-pve-exporter
 }
 
 # Provision Grafana dashboards as JSON files
@@ -126,9 +175,6 @@ provision_grafana_dashboards() {
     for dashboard in "${failed_dashboards[@]}"; do
         print_warning "Failed to copy ${dashboard} dashboard"
     done
-    
-    # Note: Permissions will be set once at the end of deploy_monitoring_stack()
-    # to avoid redundant chown operations
     
     print_success "Grafana dashboards provisioned"
 }
@@ -267,9 +313,9 @@ validate_monitoring_configs() {
     mkdir -p /datapool/config/prometheus-pve-exporter
     cat > /datapool/config/prometheus-pve-exporter/pve.yml << EOF
 default:
-  user: ${pve_user:-pve-exporter@pve}
+  user: ${MONITORING_PVE_USER}
   password: ${PVE_MONITORING_PASSWORD}
-  verify_ssl: false
+  verify_ssl: ${MONITORING_PVE_VERIFY_SSL}
 EOF
 
     # Setup promtail config for monitoring LXC
@@ -288,9 +334,6 @@ EOF
     # Note: No chown needed inside LXC for /etc/promtail files
     # Files pushed with pct push automatically get correct ownership from root context
     
-    # Note: Permissions will be set once at the end of deploy_monitoring_stack()
-    # to avoid redundant chown operations
-
     print_success "All configuration files validated"
 }
 
@@ -321,9 +364,10 @@ deploy_monitoring_stack() {
     # Provision Grafana dashboard JSON files (before starting Docker)
     provision_grafana_dashboards "$ct_id"
 
+    fix_monitoring_config_ownership
+
     # Deploy Docker services (configurations are now ready)
     deploy_docker_stack "$stack_name" "$ct_id"
 
     print_success "Monitoring stack deployed and verified"
 }
-
