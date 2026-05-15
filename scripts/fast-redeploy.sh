@@ -124,17 +124,28 @@ copy_monitoring_configs() {
     pve_user=$(grep '^PVE_USER=' "$env_file" | cut -d'=' -f2- || true)
     pve_password=$(grep '^PVE_MONITORING_PASSWORD=' "$env_file" | cut -d'=' -f2- || true)
     pve_verify_ssl=$(grep '^PVE_VERIFY_SSL=' "$env_file" | cut -d'=' -f2- || true)
+    pve_verify_ssl="${pve_verify_ssl:-false}"
+    pve_verify_ssl="${pve_verify_ssl,,}"
 
     [[ -n "$pve_password" ]] || {
         print_error "PVE_MONITORING_PASSWORD not found in monitoring env"
         exit 1
     }
 
+    case "$pve_verify_ssl" in
+        true|false)
+            ;;
+        *)
+            print_error "PVE_VERIFY_SSL must be true or false"
+            exit 1
+            ;;
+    esac
+
     cat > /datapool/config/prometheus-pve-exporter/pve.yml << EOF
 default:
   user: ${pve_user:-pve-exporter@pve}
   password: ${pve_password}
-  verify_ssl: ${pve_verify_ssl:-false}
+  verify_ssl: ${pve_verify_ssl}
 EOF
 
     cat > /datapool/config/grafana/provisioning/datasources/datasources.yml << 'EOF'
@@ -185,6 +196,15 @@ providers:
     options:
       path: /datapool/config/grafana/dashboards
 EOF
+
+    fix_path_owner /datapool/config/prometheus/prometheus.yml
+    fix_path_owner_recursive /datapool/config/prometheus/rules
+    fix_path_owner_recursive /datapool/config/prometheus/recording-rules
+    fix_path_owner /datapool/config/loki/loki.yml
+    fix_path_owner /datapool/config/grafana/provisioning/datasources/datasources.yml
+    fix_path_owner /datapool/config/grafana/provisioning/dashboards/provider.yml
+    fix_path_owner_recursive /datapool/config/grafana/dashboards
+    fix_path_owner_recursive /datapool/config/prometheus-pve-exporter
 }
 
 copy_promtail_config() {
