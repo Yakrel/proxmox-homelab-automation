@@ -4,7 +4,7 @@ groups:
     rules:
       # LXC Container Down
       - alert: LXCContainerDown
-        expr: pve_up{id=~"lxc/.*"} < 1
+        expr: lxc:up:state < 1
         for: 1m
         labels:
           severity: critical
@@ -14,7 +14,7 @@ groups:
 
       # LXC High CPU Usage
       - alert: LXCHighCPUUsage
-        expr: pve_cpu_usage_ratio{id=~"lxc/.*"} > 0.9
+        expr: lxc:cpu_usage:ratio > 0.9
         for: 5m
         labels:
           severity: warning
@@ -24,7 +24,7 @@ groups:
 
       # LXC High Memory Usage
       - alert: LXCHighMemoryUsage
-        expr: pve_memory_usage_bytes{id=~"lxc/.*"} / pve_memory_size_bytes{id=~"lxc/.*"} > 0.9
+        expr: lxc:memory_usage:ratio > 0.9
         for: 5m
         labels:
           severity: warning
@@ -34,7 +34,7 @@ groups:
 
       # LXC Disk Space Low
       - alert: LXCDiskSpaceLow
-        expr: (pve_disk_usage_bytes{id=~"lxc/.*"} / pve_disk_size_bytes{id=~"lxc/.*"}) > 0.85
+        expr: lxc:disk_usage:ratio > 0.85
         for: 5m
         labels:
           severity: warning
