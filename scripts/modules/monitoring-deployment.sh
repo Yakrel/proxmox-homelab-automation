@@ -156,7 +156,7 @@ provision_grafana_dashboards() {
     # Copy custom dashboards from our local workspace (already have correct datasource UIDs)
     # These dashboards are maintained in config/grafana/dashboards/ with full documentation
     
-    local dashboards=("infrastructure-overview" "container-monitoring" "logs-monitoring" "alert-overview")
+    local dashboards=("infrastructure-overview" "container-monitoring" "logs-monitoring")
     local failed_dashboards=()
     
     for dashboard in "${dashboards[@]}"; do

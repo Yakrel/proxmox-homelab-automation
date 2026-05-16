@@ -27,34 +27,10 @@
       "keepTime": true,
       "tags": [],
       "targetBlank": false,
-      "title": "Infrastructure Overview",
-      "tooltip": "View LXC and host metrics",
+      "title": "Homelab Overview",
+      "tooltip": "Return to the main dashboard",
       "type": "link",
       "url": "/d/infrastructure-overview"
-    },
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": false,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": false,
-      "title": "Container Monitoring",
-      "tooltip": "View container metrics",
-      "type": "link",
-      "url": "/d/container-monitoring"
-    },
-    {
-      "asDropdown": false,
-      "icon": "bolt",
-      "includeVars": false,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": false,
-      "title": "Alert Overview",
-      "tooltip": "View active alerts",
-      "type": "link",
-      "url": "/d/alert-overview"
     }
   ],
   "liveNow": false,
@@ -115,7 +91,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 12,
         "x": 0,
         "y": 0
       },
@@ -139,13 +115,101 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (compose_service) (count_over_time({job=\"dockerlogs\",host=~\"$host\",compose_service=~\"$service\",container_name=~\"$container\",stream=~\"$stream\"} != \"caller=metrics.go\" != \"logger=live\" != \"path=/api/live/ws\" [$__interval]))",
+          "expr": "sum by (compose_service) (count_over_time({job=~\"dockerlogs|applogs\",host=~\"$host\",compose_service=~\"$service\",container_name=~\"$container\",stream=~\"$stream\"} != \"caller=metrics.go\" != \"logger=live\" != \"path=/api/live/ws\" [$__interval]))",
           "refId": "A"
         }
       ],
       "title": "Log Volume by Service",
       "type": "timeseries",
       "description": "Log volume excludes noisy Grafana live websocket and Loki query-metrics lines by default."
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 100,
+            "gradientMode": "none",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (compose_service) (count_over_time({job=\"dockerlogs\",host=~\"$host\",compose_service=~\"$service\",container_name=~\"$container\",stream=\"stderr\"} != \"caller=metrics.go\" != \"logger=live\" != \"path=/api/live/ws\" [$__interval]))",
+          "refId": "A"
+        }
+      ],
+      "title": "stderr Volume by Service",
+      "type": "timeseries",
+      "description": "Only Docker stderr output. Useful for spotting services that have started warning or failing noisily."
     },
     {
       "datasource": {
@@ -176,7 +240,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=\"dockerlogs\",host=~\"$host\",compose_service=~\"$service\",container_name=~\"$container\",stream=~\"$stream\"} != \"caller=metrics.go\" != \"logger=live\" != \"path=/api/live/ws\" |~ \"$search\" | line_format \"[{{.container_name}} {{.stream}}] {{__line__}}\"",
+          "expr": "{job=~\"dockerlogs|applogs\",host=~\"$host\",compose_service=~\"$service\",container_name=~\"$container\",stream=~\"$stream\"} != \"caller=metrics.go\" != \"logger=live\" != \"path=/api/live/ws\" |~ \"$search\" | line_format \"[{{.compose_service}}/{{.container_name}} {{.stream}}] {{__line__}}\"",
           "refId": "A"
         }
       ],
@@ -229,14 +293,15 @@
           "type": "loki",
           "uid": "loki"
         },
-        "definition": "label_values({job=\"dockerlogs\",host=~\"$host\"},compose_service)",
+        "allValue": "^(?!cadvisor$|grafana$|loki$|prometheus$|promtail$|watchtower$).*$",
+        "definition": "label_values({job=~\"dockerlogs|applogs\",host=~\"$host\",compose_service!~\"cadvisor|grafana|loki|prometheus|promtail|watchtower\"},compose_service)",
         "hide": 0,
         "includeAll": true,
         "label": "Service",
         "multi": true,
         "name": "service",
         "options": [],
-        "query": "label_values({job=\"dockerlogs\",host=~\"$host\"},compose_service)",
+        "query": "label_values({job=~\"dockerlogs|applogs\",host=~\"$host\",compose_service!~\"cadvisor|grafana|loki|prometheus|promtail|watchtower\"},compose_service)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -253,14 +318,14 @@
           "type": "loki",
           "uid": "loki"
         },
-        "definition": "label_values({job=\"dockerlogs\",host=~\"$host\",compose_service=~\"$service\"},container_name)",
+        "definition": "label_values({job=~\"dockerlogs|applogs\",host=~\"$host\",compose_service=~\"$service\"},container_name)",
         "hide": 0,
         "includeAll": true,
         "label": "Container",
         "multi": true,
         "name": "container",
         "options": [],
-        "query": "label_values({job=\"dockerlogs\",host=~\"$host\",compose_service=~\"$service\"},container_name)",
+        "query": "label_values({job=~\"dockerlogs|applogs\",host=~\"$host\",compose_service=~\"$service\"},container_name)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
