@@ -75,3 +75,15 @@ scrape_configs:
           service:
       - output:
           source: message
+
+  - job_name: qbittorrent
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: applogs
+          host: "REPLACE_HOST_LABEL"
+          compose_service: qbittorrent
+          container_name: qbittorrent
+          stream: file
+          __path__: /qbittorrent-logs/qbittorrent.log

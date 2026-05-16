@@ -37,25 +37,58 @@ groups:
   - name: lxc_recording_rules
     interval: 30s
     rules:
+      # Enrich LXC series with guest names from pve_guest_info.
+      - record: lxc:up:state
+        expr: |
+          pve_up{id=~"lxc/.*"}
+          * on(id) group_left(name)
+          pve_guest_info{id=~"lxc/.*"}
+
+      - record: lxc:cpu_usage:ratio
+        expr: |
+          pve_cpu_usage_ratio{id=~"lxc/.*"}
+          * on(id) group_left(name)
+          pve_guest_info{id=~"lxc/.*"}
+
+      - record: lxc:memory_usage:ratio
+        expr: |
+          (pve_memory_usage_bytes{id=~"lxc/.*"} / pve_memory_size_bytes{id=~"lxc/.*"})
+          * on(id) group_left(name)
+          pve_guest_info{id=~"lxc/.*"}
+
+      - record: lxc:disk_usage:ratio
+        expr: |
+          (pve_disk_usage_bytes{id=~"lxc/.*"} / pve_disk_size_bytes{id=~"lxc/.*"})
+          * on(id) group_left(name)
+          pve_guest_info{id=~"lxc/.*"}
+
       # Pre-compute LXC memory percentage
       - record: lxc:memory_usage:percent
         expr: |
-          (pve_memory_usage_bytes{id=~"lxc/.*"} / pve_memory_size_bytes{id=~"lxc/.*"}) * 100
+          lxc:memory_usage:ratio * 100
 
       # Pre-compute LXC disk I/O rates
       - record: lxc:disk_read:rate5m
         expr: |
           rate(pve_disk_read_bytes{id=~"lxc/.*"}[5m])
+          * on(id) group_left(name)
+          pve_guest_info{id=~"lxc/.*"}
       
       - record: lxc:disk_write:rate5m
         expr: |
           rate(pve_disk_write_bytes{id=~"lxc/.*"}[5m])
+          * on(id) group_left(name)
+          pve_guest_info{id=~"lxc/.*"}
 
       # Pre-compute LXC network I/O rates
       - record: lxc:network_receive:rate5m
         expr: |
           rate(pve_network_receive_bytes{id=~"lxc/.*"}[5m])
+          * on(id) group_left(name)
+          pve_guest_info{id=~"lxc/.*"}
       
       - record: lxc:network_transmit:rate5m
         expr: |
           rate(pve_network_transmit_bytes{id=~"lxc/.*"}[5m])
+          * on(id) group_left(name)
+          pve_guest_info{id=~"lxc/.*"}

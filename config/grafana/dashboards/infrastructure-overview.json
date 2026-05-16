@@ -43,18 +43,6 @@
       "tooltip": "View container logs",
       "type": "link",
       "url": "/d/logs-monitoring"
-    },
-    {
-      "asDropdown": false,
-      "icon": "bolt",
-      "includeVars": false,
-      "keepTime": true,
-      "tags": [],
-      "targetBlank": false,
-      "title": "Alert Overview",
-      "tooltip": "View active alerts",
-      "type": "link",
-      "url": "/d/alert-overview"
     }
   ],
   "liveNow": false,
@@ -269,6 +257,10 @@
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
               }
             ]
           },
@@ -304,11 +296,11 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "count(container_last_seen{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\"})",
+          "expr": "count(ALERTS{alertstate=\"firing\"}) OR on() vector(0)",
           "refId": "A"
         }
       ],
-      "title": "Total Containers",
+      "title": "Firing Alerts",
       "type": "stat"
     },
     {
@@ -330,12 +322,8 @@
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 1
-              },
-              {
                 "color": "red",
-                "value": 5
+                "value": 1
               }
             ]
           },
@@ -352,7 +340,7 @@
       "id": 5,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
+        "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
@@ -371,13 +359,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(container_oom_events_total{name!=\"\"}[5m]))",
+          "expr": "count(up == 0) OR on() vector(0)",
           "refId": "A"
         }
       ],
-      "title": "OOM Events (5m)",
+      "title": "Down Targets",
       "type": "stat",
-      "description": "Container out-of-memory kill events observed in the last 5 minutes."
+      "description": "Prometheus scrape targets that are currently unreachable."
     },
     {
       "datasource": {
@@ -631,6 +619,33 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "Disk %"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "gauge"
+                }
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "Status"
             },
             "properties": [
@@ -721,7 +736,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "pve_guest_info{id=~\"lxc/.*\"}",
+          "expr": "pve_up{id=~\"lxc/.*\"} * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
           "format": "table",
           "instant": true,
           "refId": "A"
@@ -731,7 +746,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "pve_up{id=~\"lxc/.*\"}",
+          "expr": "pve_cpu_usage_ratio{id=~\"lxc/.*\"} * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"} * 100",
           "format": "table",
           "instant": true,
           "refId": "B"
@@ -741,7 +756,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "pve_cpu_usage_ratio{id=~\"lxc/.*\"} * 100",
+          "expr": "(pve_memory_usage_bytes{id=~\"lxc/.*\"} / pve_memory_size_bytes{id=~\"lxc/.*\"}) * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"} * 100",
           "format": "table",
           "instant": true,
           "refId": "C"
@@ -751,7 +766,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(pve_memory_usage_bytes{id=~\"lxc/.*\"} / pve_memory_size_bytes{id=~\"lxc/.*\"}) * 100",
+          "expr": "(pve_disk_usage_bytes{id=~\"lxc/.*\"} / pve_disk_size_bytes{id=~\"lxc/.*\"}) * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"} * 100",
           "format": "table",
           "instant": true,
           "refId": "D"
@@ -773,7 +788,6 @@
               "instance": true,
               "job": true,
               "node": true,
-              "Value #A": true,
               "type": true,
               "template": true,
               "Time 1": true,
@@ -783,14 +797,16 @@
             },
             "indexByName": {
               "name": 0,
-              "Value #B": 1,
-              "Value #C": 2,
-              "Value #D": 3
+              "Value #A": 1,
+              "Value #B": 2,
+              "Value #C": 3,
+              "Value #D": 4
             },
             "renameByName": {
-              "Value #B": "Status",
-              "Value #C": "CPU %",
-              "Value #D": "Memory %",
+              "Value #A": "Status",
+              "Value #B": "CPU %",
+              "Value #C": "Memory %",
+              "Value #D": "Disk %",
               "name": "LXC Name"
             }
           }
@@ -800,6 +816,12 @@
           "options": {
             "fields": {
               "CPU %": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "Disk %": {
                 "aggregations": [
                   "last"
                 ],
@@ -832,12 +854,14 @@
               "LXC Name": 0,
               "Status (last)": 1,
               "CPU % (last)": 2,
-              "Memory % (last)": 3
+              "Memory % (last)": 3,
+              "Disk % (last)": 4
             },
             "renameByName": {
               "Status (last)": "Status",
               "CPU % (last)": "CPU %",
-              "Memory % (last)": "Memory %"
+              "Memory % (last)": "Memory %",
+              "Disk % (last)": "Disk %"
             }
           }
         },
@@ -947,7 +971,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "pve_cpu_usage_ratio{id=~\"lxc/.*\"}",
+          "expr": "pve_cpu_usage_ratio{id=~\"lxc/.*\"} * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -1042,7 +1066,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "pve_memory_usage_bytes{id=~\"lxc/.*\"} / pve_memory_size_bytes{id=~\"lxc/.*\"}",
+          "expr": "(pve_memory_usage_bytes{id=~\"lxc/.*\"} / pve_memory_size_bytes{id=~\"lxc/.*\"}) * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -1147,7 +1171,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(pve_disk_write_bytes{id=~\"lxc/.*\"}[5m])",
+          "expr": "rate(pve_disk_write_bytes{id=~\"lxc/.*\"}[5m]) * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
           "legendFormat": "{{name}} write",
           "refId": "A"
         },
@@ -1156,7 +1180,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(pve_disk_read_bytes{id=~\"lxc/.*\"}[5m])",
+          "expr": "rate(pve_disk_read_bytes{id=~\"lxc/.*\"}[5m]) * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
           "legendFormat": "{{name}} read",
           "refId": "B"
         }
@@ -1261,7 +1285,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(pve_network_transmit_bytes{id=~\"lxc/.*\"}[5m])",
+          "expr": "rate(pve_network_transmit_bytes{id=~\"lxc/.*\"}[5m]) * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
           "legendFormat": "{{name}} TX",
           "refId": "A"
         },
@@ -1270,13 +1294,467 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(pve_network_receive_bytes{id=~\"lxc/.*\"}[5m])",
+          "expr": "rate(pve_network_receive_bytes{id=~\"lxc/.*\"}[5m]) * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
           "legendFormat": "{{name}} RX",
           "refId": "B"
         }
       ],
       "title": "LXC Network I/O (Top = TX, Bottom = RX)",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "firing": {
+                        "color": "red",
+                        "index": 0,
+                        "text": "FIRING"
+                      },
+                      "pending": {
+                        "color": "yellow",
+                        "index": 1,
+                        "text": "PENDING"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 39
+      },
+      "id": 13,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "ALERTS",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Active Alerts",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "job": true,
+              "Value": true
+            },
+            "indexByName": {
+              "alertname": 0,
+              "alertstate": 1,
+              "severity": 2,
+              "instance": 3
+            },
+            "renameByName": {
+              "alertname": "Alert",
+              "alertstate": "State",
+              "severity": "Severity",
+              "instance": "Instance"
+            }
+          }
+        },
+        {
+          "id": "filterByValue",
+          "options": {
+            "filters": [
+              {
+                "config": {
+                  "id": "regex",
+                  "options": {
+                    "value": "firing|pending"
+                  }
+                },
+                "fieldName": "State"
+              }
+            ],
+            "match": "any",
+            "type": "include"
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 39
+      },
+      "id": 14,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "up",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Monitoring Targets",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true
+            },
+            "indexByName": {
+              "job": 0,
+              "instance": 1,
+              "Value": 2
+            },
+            "renameByName": {
+              "job": "Job",
+              "instance": "Target",
+              "Value": "Status"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 47
+      },
+      "id": 15,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count(ALERTS{alertstate=\"pending\"}) OR on() vector(0)",
+          "refId": "A"
+        }
+      ],
+      "title": "Pending Alerts",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 47
+      },
+      "id": 16,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count(up == 1)",
+          "refId": "A"
+        }
+      ],
+      "title": "Healthy Targets",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 47
+      },
+      "id": 17,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count(up{job=\"promtail\"} == 1)",
+          "refId": "A"
+        }
+      ],
+      "title": "Promtail Targets Up",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.7
+              },
+              {
+                "color": "red",
+                "value": 0.85
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 47
+      },
+      "id": 18,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "loki_ingester_wal_disk_usage_percent / 100",
+          "refId": "A"
+        }
+      ],
+      "title": "Loki WAL Usage",
+      "type": "stat"
     }
   ],
   "refresh": "30s",
@@ -1285,7 +1763,7 @@
   "tags": [
     "homelab",
     "proxmox",
-    "docker"
+    "overview"
   ],
   "templating": {
     "list": []
@@ -1296,7 +1774,7 @@
   },
   "timepicker": {},
   "timezone": "Europe/Istanbul",
-  "title": "Infrastructure Overview",
+  "title": "Homelab Overview",
   "uid": "infrastructure-overview",
   "version": 0,
   "weekStart": ""

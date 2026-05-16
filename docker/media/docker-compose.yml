@@ -473,6 +473,7 @@ services:
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
+      - /datapool/config/qbittorrent/qBittorrent/logs:/qbittorrent-logs:ro
       - /etc/promtail:/etc/promtail:ro
       - /var/lib/promtail/positions:/var/lib/promtail/positions
     command: -config.file=/etc/promtail/promtail.yml

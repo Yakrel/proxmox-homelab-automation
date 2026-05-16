@@ -4,10 +4,9 @@ Homelab monitoring dashboards for Proxmox + Docker infrastructure.
 
 ## Dashboards
 
-- **Infrastructure Overview** - LXC containers, Proxmox host metrics, and storage usage
-- **Container Monitoring** - Docker container CPU, memory, network, disk I/O
-- **Logs Monitoring** - Centralized log viewing with Loki
-- **Alert Overview** - Active alerts and alert history
+- **Homelab Overview** - Main dashboard for Proxmox host pressure, LXC state, storage, and high-level health
+- **Container Monitoring** - Docker drilldown for container CPU, memory, network, and disk I/O
+- **Logs Monitoring** - Loki drilldown for centralized log inspection and stderr triage
 
 ## Known Limitations
 
@@ -21,7 +20,7 @@ The `container_fs_usage_bytes` metric may show no data. This is a known cAdvisor
 
 **Workaround:** Use Disk I/O metrics (`container_fs_reads_bytes_total`, `container_fs_writes_bytes_total`) which work correctly and show read/write activity per container. The Container Monitoring dashboard intentionally does not use `container_fs_usage_bytes` for capacity decisions.
 
-**Alternative for LXC/storage capacity monitoring:** Use the Infrastructure Overview dashboard which shows LXC-level and storage-level disk usage via PVE exporter (`pve_disk_usage_bytes` / `pve_disk_size_bytes`).
+**Alternative for LXC/storage capacity monitoring:** Use the Homelab Overview dashboard which shows LXC-level and storage-level disk usage via PVE exporter (`pve_disk_usage_bytes` / `pve_disk_size_bytes`).
 
 ## Available Metrics
 
@@ -64,3 +63,5 @@ The `container_fs_usage_bytes` metric may show no data. This is a known cAdvisor
 | `container_name` | Docker container name |
 | `stream` | stdout/stderr |
 | `job` | dockerlogs/systemlogs |
+
+qBittorrent keeps its ongoing application log in a file instead of Docker stdout/stderr. Promtail scrapes `/qbittorrent-logs/qbittorrent.log` as `job="applogs"` so it still appears in Logs Monitoring.
