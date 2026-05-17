@@ -8,8 +8,8 @@ This media stack runs Jellyfin with NVIDIA GPU (GTX 970) hardware acceleration f
 
 Before deploying this stack, you must configure the Proxmox host for GPU passthrough:
 1. Run Helper Menu option **7) Setup GPU Passthrough (NVIDIA)**
-2. Complete both phases (nouveau blacklist + driver installation)
-3. Reboot after each phase as instructed
+2. Let the helper install and pin the latest compatible Proxmox `6.14` kernel for the GTX 970
+3. Reboot when instructed, then run the helper again to install the host NVIDIA driver
 4. Verify drivers are loaded: `lsmod | grep nvidia` and `nvidia-smi`
 
 Then proceed with media stack deployment - it will automatically configure GPU in the LXC container.
@@ -72,6 +72,8 @@ environment:
 ```
 
 #### 3. LXC Configuration (lxc-manager.sh)
+
+The host uses the proprietary NVIDIA driver with device passthrough into the unprivileged LXC; this is not NVIDIA vGPU.
 
 The script automatically:
 - Creates systemd service (`nvidia-persistenced.service`) for persistent NVIDIA device setup
