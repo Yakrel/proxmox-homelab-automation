@@ -264,44 +264,44 @@ run_setup_gpu_passthrough() {
 
     print_info "Setting up NVIDIA GTX 970 for LXC container passthrough..."
 
-    # Check if NVIDIA drivers are already loaded and working
-    # Note: Use [[ ... ]] to avoid pipefail issues with grep -q
-    if [[ $(lsmod | grep -c nvidia) -gt 0 ]]; then
-        print_success "NVIDIA drivers already installed and loaded."
+    # Debian Trixie currently provides NVIDIA 550 for GTX 970. That driver builds
+    # on Proxmox 6.14, but not on the newer 6.17/7.0 kernel API lines.
+    ensure_packages proxmox-kernel-6.14 proxmox-headers-6.14 build-essential dkms
+
+    local latest_compatible_kernel
+    latest_compatible_kernel=$(
+        dpkg-query -W -f='${Package}\n' 'proxmox-kernel-6.14.*-pve*' 2>/dev/null \
+            | sed -n 's/^proxmox-kernel-\(6\.14\..*-pve\)\(-signed\)\?$/\1/p' \
+            | sort -Vu \
+            | tail -n 1
+    )
+    [[ -n "$latest_compatible_kernel" ]] || {
+        print_error "No installed Proxmox 6.14 kernel found after package installation."
+        return 1
+    }
+
+    print_info "Pinning latest compatible kernel: $latest_compatible_kernel"
+    printf 'y\n' | proxmox-boot-tool kernel pin "$latest_compatible_kernel"
+
+    if [[ "$(uname -r)" != "$latest_compatible_kernel" ]]; then
+        print_success "Pinned compatible kernel $latest_compatible_kernel."
+        print_warning "Please reboot and run this option (7) again before installing NVIDIA drivers."
+        return 0
+    fi
+
+    # Check if NVIDIA drivers are already loaded and working.
+    if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
+        print_success "NVIDIA drivers already installed and working."
         print_info "Loaded nvidia modules: $(lsmod | grep nvidia | wc -l)"
-        if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
-            print_info "GPU detected: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)"
-        fi
+        print_info "GPU detected: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)"
         print_info "You can now deploy the media stack to configure GPU in LXC container."
         return 0
     fi
 
-    # Check if nouveau is still loaded
-    if [[ $(lsmod | grep -c nouveau) -gt 0 ]]; then
-        print_info "Phase 1: Kernel downgrade, IOMMU setup, and nouveau blacklist..."
+    print_info "Configuring host prerequisites for NVIDIA passthrough..."
 
-        # TEMPORARY WORKAROUND (November 2025): NVIDIA vGPU drivers are not compatible with kernel 6.17
-        # Pinning to kernel 6.14 until NVIDIA releases updated drivers with 6.17 support
-        # TODO: Remove kernel pinning when NVIDIA vGPU supports kernel 6.17
-        # Reference: https://pve.proxmox.com/wiki/NVIDIA_vGPU_on_Proxmox_VE
-
-        # Step 1: Install and pin kernel to 6.14 (NVIDIA vGPU compatible)
-        print_info "Installing kernel 6.14 for NVIDIA vGPU compatibility..."
-        ensure_packages pve-kernel-6.14 proxmox-headers-6.14
-
-        print_info "Pinning kernel to 6.14..."
-        proxmox-boot-tool kernel pin 6.14.11-4-pve
-
-        print_info "Removing default kernel headers to prevent auto-upgrade..."
-        apt remove -y proxmox-default-headers || true
-
-        print_success "Kernel 6.14 installed and pinned successfully"
-
-        # Step 2: Install build tools for NVIDIA driver
-        ensure_packages build-essential dkms
-
-        # Step 3: Blacklist nouveau
-        cat > /etc/modprobe.d/blacklist-nouveau.conf << 'EOF'
+    # Blacklist nouveau before installing the proprietary NVIDIA driver.
+    cat > /etc/modprobe.d/blacklist-nouveau.conf << 'EOF'
 blacklist nouveau
 blacklist lbm-nouveau
 options nouveau modeset=0
@@ -309,32 +309,24 @@ alias nouveau off
 alias lbm-nouveau off
 EOF
 
-        # Step 4: Configure IOMMU for Intel CPU
-        local grub_file="/etc/default/grub"
-        # Backup once, sed is idempotent (won't duplicate if already present)
-        cp "$grub_file" "${grub_file}.backup" || true
+    # Configure IOMMU for Intel CPU.
+    local grub_file="/etc/default/grub"
+    cp "$grub_file" "${grub_file}.backup" || true
 
-        # Add IOMMU parameters if not present
-        if ! grep -q "intel_iommu=on" "$grub_file"; then
-            sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 intel_iommu=on iommu=pt"/' "$grub_file"
-            sed -i 's/  */ /g' "$grub_file"  # Clean up double spaces
-            update-grub
-        fi
-
-        # Step 5: Update initramfs
-        update-initramfs -u -k all
-
-        print_success "Phase 1 complete. System configured with kernel 6.14 pin."
-        print_warning "Please reboot and run this option (7) again to install NVIDIA drivers."
-        return 0
+    if ! grep -q "intel_iommu=on" "$grub_file"; then
+        sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 intel_iommu=on iommu=pt"/' "$grub_file"
+        sed -i 's/  */ /g' "$grub_file"
+        update-grub
     fi
 
+    update-initramfs -u -k all
+
     # Phase 2: Install NVIDIA drivers on Proxmox host
-    if [[ $(lsmod | grep -c nvidia) -eq 0 ]]; then
+    if ! command -v nvidia-smi &>/dev/null || ! nvidia-smi &>/dev/null; then
         print_info "Phase 2: Installing NVIDIA drivers on Proxmox host..."
 
         # Ensure kernel headers are available
-        ensure_packages pve-headers-$(uname -r)
+        ensure_packages "proxmox-headers-$(uname -r)"
 
         # Configure Debian repositories with non-free components
         # Debian 13 uses .sources format in sources.list.d/debian.sources
@@ -375,9 +367,7 @@ EOF
         return 0
     fi
 
-    # Fallback - drivers installed but not loaded
-    print_warning "NVIDIA drivers appear to be installed but not loaded."
-    print_info "Please reboot to load NVIDIA drivers, then deploy the media stack."
+    print_success "NVIDIA GPU passthrough host setup is complete."
 }
 
 run_datapool_cleanup() {
