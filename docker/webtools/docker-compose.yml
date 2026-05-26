@@ -102,7 +102,7 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
 
   desktop-otp:
-    image: jarylc/simple-nginx-otp:latest
+    image: ghcr.io/yakrel/desktop-otp-gate:latest
     container_name: desktop-otp
     restart: unless-stopped
     ports:
@@ -114,7 +114,9 @@ services:
       - SNO_TITLE=Desktop Workspace OTP
       - SNO_COOKIE_NAME=desktop_otp_session
       - SNO_COOKIE_LENGTH=32
-      - SNO_COOKIE_LIFETIME=1
+      - SNO_COOKIE_LIFETIME_MINUTES=60
+      - SNO_SESSION_COOKIE=false
+      - SNO_COOKIE_SECURE=true
       - SNO_COOKIE_DOMAIN=
       - SNO_RATE_LIMIT_COUNT=3
       - SNO_RATE_LIMIT_LIFETIME=5
