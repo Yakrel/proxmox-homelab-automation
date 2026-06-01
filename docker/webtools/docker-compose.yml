@@ -80,6 +80,14 @@ services:
       - TITLE=Desktop Workspace
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
+      # Selkies streaming settings - locked values prevent sidebar changes
+      # nvh264enc = NVIDIA NVENC hardware H.264 (low CPU, uses GPU)
+      # Single value = locked (UI dropdown hidden), list = user can pick
+      - SELKIES_ENCODER=nvh264enc
+      - SELKIES_FRAMERATE=60
+      - SELKIES_VIDEO_BITRATE=20
+      - SELKIES_H264_CRF=20
+      - SELKIES_RATE_CONTROL_MODE=crf
     shm_size: "1gb"
     security_opt:
       - seccomp:unconfined
