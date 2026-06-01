@@ -64,7 +64,7 @@ services:
       - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+      # Plugins removed: grafana-clock-panel and grafana-simple-json-datasource were unused
       - GF_SECURITY_ALLOW_EMBEDDING=true
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
@@ -169,6 +169,7 @@ services:
       - '--housekeeping_interval=10s'
       - '--docker_only=true'
       - '--store_container_labels=false'
+      - '--disable_metrics=referenced_memory,tcp,udp,advtcp,sched,hugetlb,resctrl,process'
     networks:
       - monitoring-net
     logging:
