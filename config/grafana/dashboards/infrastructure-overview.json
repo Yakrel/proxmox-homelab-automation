@@ -17,7 +17,7 @@
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 1,
+  "graphTooltip": 2,
   "id": null,
   "links": [
     {
@@ -112,7 +112,8 @@
         }
       ],
       "title": "Proxmox CPU",
-      "type": "gauge"
+      "type": "gauge",
+      "description": "Proxmox host CPU utilisation from PVE exporter."
     },
     {
       "datasource": {
@@ -179,7 +180,8 @@
         }
       ],
       "title": "Proxmox Memory",
-      "type": "gauge"
+      "type": "gauge",
+      "description": "Proxmox host memory utilisation from PVE exporter."
     },
     {
       "datasource": {
@@ -701,6 +703,18 @@
                 ]
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Uptime"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dtdurations"
+              }
+            ]
           }
         ]
       },
@@ -736,7 +750,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "pve_up{id=~\"lxc/.*\"} * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
+          "expr": "lxc:up:state",
           "format": "table",
           "instant": true,
           "refId": "A"
@@ -746,7 +760,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "pve_cpu_usage_ratio{id=~\"lxc/.*\"} * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"} * 100",
+          "expr": "lxc:cpu_usage:ratio * 100",
           "format": "table",
           "instant": true,
           "refId": "B"
@@ -756,7 +770,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(pve_memory_usage_bytes{id=~\"lxc/.*\"} / pve_memory_size_bytes{id=~\"lxc/.*\"}) * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"} * 100",
+          "expr": "lxc:memory_usage:ratio * 100",
           "format": "table",
           "instant": true,
           "refId": "C"
@@ -766,13 +780,24 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(pve_disk_usage_bytes{id=~\"lxc/.*\"} / pve_disk_size_bytes{id=~\"lxc/.*\"}) * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"} * 100",
+          "expr": "lxc:disk_usage:ratio * 100",
           "format": "table",
           "instant": true,
           "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "pve_uptime_seconds{id=~\"lxc/.*\"} * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
+          "format": "table",
+          "instant": true,
+          "refId": "E"
         }
       ],
       "title": "LXC Overview",
+      "description": "Status, CPU, memory, and disk usage for each LXC container. Click LXC name to drill down.",
       "transformations": [
         {
           "id": "merge",
@@ -793,20 +818,23 @@
               "Time 1": true,
               "Time 2": true,
               "Time 3": true,
-              "Time 4": true
+              "Time 4": true,
+              "Time 5": true
             },
             "indexByName": {
               "name": 0,
               "Value #A": 1,
               "Value #B": 2,
               "Value #C": 3,
-              "Value #D": 4
+              "Value #D": 4,
+              "Value #E": 5
             },
             "renameByName": {
               "Value #A": "Status",
               "Value #B": "CPU %",
               "Value #C": "Memory %",
               "Value #D": "Disk %",
+              "Value #E": "Uptime",
               "name": "LXC Name"
             }
           }
@@ -842,6 +870,12 @@
                   "last"
                 ],
                 "operation": "aggregate"
+              },
+              "Uptime": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
               }
             }
           }
@@ -855,13 +889,15 @@
               "Status (last)": 1,
               "CPU % (last)": 2,
               "Memory % (last)": 3,
-              "Disk % (last)": 4
+              "Disk % (last)": 4,
+              "Uptime (last)": 5
             },
             "renameByName": {
               "Status (last)": "Status",
               "CPU % (last)": "CPU %",
               "Memory % (last)": "Memory %",
-              "Disk % (last)": "Disk %"
+              "Disk % (last)": "Disk %",
+              "Uptime (last)": "Uptime"
             }
           }
         },
@@ -971,7 +1007,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "pve_cpu_usage_ratio{id=~\"lxc/.*\"} * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
+          "expr": "lxc:cpu_usage:ratio",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -1066,7 +1102,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(pve_memory_usage_bytes{id=~\"lxc/.*\"} / pve_memory_size_bytes{id=~\"lxc/.*\"}) * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
+          "expr": "lxc:memory_usage:ratio",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -1171,7 +1207,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(pve_disk_write_bytes{id=~\"lxc/.*\"}[5m]) * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
+          "expr": "lxc:disk_write:rate5m",
           "legendFormat": "{{name}} write",
           "refId": "A"
         },
@@ -1180,7 +1216,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(pve_disk_read_bytes{id=~\"lxc/.*\"}[5m]) * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
+          "expr": "lxc:disk_read:rate5m",
           "legendFormat": "{{name}} read",
           "refId": "B"
         }
@@ -1285,7 +1321,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(pve_network_transmit_bytes{id=~\"lxc/.*\"}[5m]) * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
+          "expr": "lxc:network_transmit:rate5m",
           "legendFormat": "{{name}} TX",
           "refId": "A"
         },
@@ -1294,7 +1330,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(pve_network_receive_bytes{id=~\"lxc/.*\"}[5m]) * on(id) group_left(name) pve_guest_info{id=~\"lxc/.*\"}",
+          "expr": "lxc:network_receive:rate5m",
           "legendFormat": "{{name}} RX",
           "refId": "B"
         }
@@ -1457,6 +1493,45 @@
         "y": 39
       },
       "id": 14,
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "red",
+                        "index": 1,
+                        "text": "DOWN"
+                      },
+                      "1": {
+                        "color": "green",
+                        "index": 0,
+                        "text": "UP"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          }
+        ]
+      },
       "options": {
         "cellHeight": "sm",
         "footer": {
@@ -1698,26 +1773,16 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "max": 1,
-          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 0.7
-              },
-              {
-                "color": "red",
-                "value": 0.85
               }
             ]
           },
-          "unit": "percentunit"
+          "unit": "Bps"
         },
         "overrides": []
       },
@@ -1749,12 +1814,197 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "loki_ingester_wal_disk_usage_percent / 100",
+          "expr": "sum(rate(loki_distributor_bytes_received_total[5m]))",
           "refId": "A"
         }
       ],
-      "title": "Loki WAL Usage",
+      "title": "Loki Ingestion Rate",
       "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "dtdurations"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 51
+      },
+      "id": 19,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "pve_uptime_seconds{id=\"node/pve01\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "Proxmox Uptime",
+      "type": "stat",
+      "description": "Host uptime since last boot."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 51
+      },
+      "id": 20,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "pve_not_backed_up_total",
+          "refId": "A"
+        }
+      ],
+      "title": "Not Backed Up",
+      "type": "stat",
+      "description": "Number of guests without a recent backup."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 51
+      },
+      "id": 21,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "name"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "pve_version_info",
+          "legendFormat": "PVE {{release}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Proxmox Version",
+      "type": "stat",
+      "description": "Proxmox VE version from PVE exporter."
     }
   ],
   "refresh": "30s",

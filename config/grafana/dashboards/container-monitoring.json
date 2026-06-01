@@ -17,7 +17,7 @@
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 1,
+  "graphTooltip": 2,
   "id": null,
   "links": [
     {
@@ -92,6 +92,7 @@
         }
       ],
       "title": "Total Containers",
+      "description": "Running application containers (monitoring infrastructure excluded).",
       "type": "stat"
     },
     {
@@ -291,6 +292,7 @@
         }
       ],
       "title": "Network Errors (5m)",
+      "description": "Combined RX and TX error rate across all application containers over 5 minutes.",
       "type": "stat"
     },
     {
@@ -428,6 +430,45 @@
                 ]
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Net I/O"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "Bps"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "basic",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "blue",
+                      "value": 1048576
+                    },
+                    {
+                      "color": "orange",
+                      "value": 10485760
+                    }
+                  ]
+                }
+              }
+            ]
           }
         ]
       },
@@ -477,6 +518,16 @@
           "format": "table",
           "instant": true,
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "container:network_receive:rate5m{instance=~\"$lxc_host\"} + container:network_transmit:rate5m{instance=~\"$lxc_host\"}",
+          "format": "table",
+          "instant": true,
+          "refId": "C"
         }
       ],
       "title": "Container Overview",
@@ -519,16 +570,18 @@
               "Time": 0,
               "Value #A": 3,
               "Value #B": 4,
-              "__name__": 5,
-              "id": 6,
-              "image": 7,
+              "Value #C": 5,
+              "__name__": 6,
+              "id": 7,
+              "image": 8,
               "instance": 1,
-              "job": 8,
+              "job": 9,
               "name": 2
             },
             "renameByName": {
               "Value #A": "CPU %",
               "Value #B": "Memory",
+              "Value #C": "Net I/O",
               "instance": "Host",
               "name": "Container"
             }
@@ -622,7 +675,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(container_cpu_usage_seconds_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m])",
+          "expr": "container:cpu_usage:rate5m{instance=~\"$lxc_host\"} / 100",
           "legendFormat": "{{instance}}/{{name}}",
           "refId": "A"
         }
@@ -821,7 +874,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(container_fs_writes_bytes_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m])",
+          "expr": "container:fs_write:rate5m{instance=~\"$lxc_host\"}",
           "legendFormat": "{{instance}}/{{name}} write",
           "refId": "A"
         },
@@ -830,7 +883,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(container_fs_reads_bytes_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m])",
+          "expr": "container:fs_read:rate5m{instance=~\"$lxc_host\"}",
           "legendFormat": "{{instance}}/{{name}} read",
           "refId": "B"
         }
@@ -935,7 +988,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(container_network_transmit_bytes_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m])",
+          "expr": "container:network_transmit:rate5m{instance=~\"$lxc_host\"}",
           "legendFormat": "{{instance}}/{{name}} transmit",
           "refId": "A"
         },
@@ -944,7 +997,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(container_network_receive_bytes_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*\",instance=~\"$lxc_host\"}[5m])",
+          "expr": "container:network_receive:rate5m{instance=~\"$lxc_host\"}",
           "legendFormat": "{{instance}}/{{name}} receive",
           "refId": "B"
         }
