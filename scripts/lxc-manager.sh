@@ -145,11 +145,17 @@ EOF
             printf '\n# GPU Passthrough (cgroup v2)\n' >> "$LXC_CONFIG_PATH"
         fi
 
+        # Dynamically detect host's nvidia-uvm major number to avoid hardcoding dynamic values
+        uvm_major=$(grep -w "nvidia-uvm" /proc/devices | awk '{print $1}')
+        if [[ -z "$uvm_major" ]]; then
+            print_warning "Could not detect host nvidia-uvm major number. Using fallback."
+            uvm_major="236"
+        fi
+
         gpu_passthrough_lines=(
             # cgroup device permissions for NVIDIA GPU
             'lxc.cgroup2.devices.allow: c 195:* rwm'  # NVIDIA GPU devices (195:0 = nvidia0)
-            'lxc.cgroup2.devices.allow: c 510:* rwm'  # cgroup v2 for nvidia-uvm
-            'lxc.cgroup2.devices.allow: c 511:* rwm'  # cgroup v2 for nvidia-uvm (alternate)
+            "lxc.cgroup2.devices.allow: c ${uvm_major}:* rwm"  # cgroup v2 for nvidia-uvm (dynamically detected)
             # Device bind mounts - pass GPU devices into container
             'lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file'
             'lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file'
@@ -331,9 +337,9 @@ DOCKERSOURCES
         sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
         tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
         
-        # Install Docker + NVIDIA drivers and toolkit
+        # Install Docker + NVIDIA user-space libraries and toolkit (avoid compiling kernel modules inside LXC)
         apt-get update -qq
-        apt-get install -y -qq nvidia-driver nvidia-kernel-dkms docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nvidia-container-toolkit
+        apt-get install -y -qq nvidia-smi nvidia-driver-libs libcuda1 libnvidia-encode1 libnvcuvid1 libnvidia-ml1 docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nvidia-container-toolkit
         
         # Configure NVIDIA runtime for Docker (unprivileged LXC compatible)
         nvidia-ctk runtime configure --runtime=docker --config=/etc/docker/daemon.json --set-as-default=false || true
