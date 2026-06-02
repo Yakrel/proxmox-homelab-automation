@@ -145,11 +145,11 @@ EOF
             printf '\n# GPU Passthrough (cgroup v2)\n' >> "$LXC_CONFIG_PATH"
         fi
 
-        # Dynamically detect host's nvidia-uvm major number to avoid hardcoding dynamic values
+        # Dynamically detect host's nvidia-uvm major number
         uvm_major=$(grep -w "nvidia-uvm" /proc/devices | awk '{print $1}')
         if [[ -z "$uvm_major" ]]; then
-            print_warning "Could not detect host nvidia-uvm major number. Using fallback."
-            uvm_major="236"
+            print_error "Could not detect host nvidia-uvm major number from /proc/devices. Make sure the nvidia-uvm module is loaded on the host."
+            exit 1
         fi
 
         gpu_passthrough_lines=(
@@ -173,18 +173,6 @@ EOF
                 echo "$gpu_line" >> "$LXC_CONFIG_PATH"
             fi
         done
-
-        # Install NVIDIA user-space drivers inside the container
-        print_info "Configuring NVIDIA user-space drivers inside container..."
-        pct exec "$CT_ID" -- bash -c '
-            apt-get update && apt-get install -y wget
-            driver_file="/root/NVIDIA-Linux-x86_64-580.159.04.run"
-            if [[ ! -f "$driver_file" ]]; then
-                wget -q --show-progress "https://us.download.nvidia.com/XFree86/Linux-x86_64/580.159.04/NVIDIA-Linux-x86_64-580.159.04.run" -O "$driver_file"
-                chmod +x "$driver_file"
-            fi
-            "$driver_file" --silent --accept-license --no-kernel-module --no-x-check --no-opengl-files
-        ' || print_warning "Failed to install NVIDIA drivers inside LXC. You may need to do it manually."
 
         print_success "GPU passthrough configured for $CT_ID"
     fi
@@ -237,6 +225,75 @@ fi
 # Verify container is ready
 pct exec "$CT_ID" -- test -f /sbin/init
 print_success "Container $CT_ID ready"
+
+# Install NVIDIA user-space drivers inside the container (if applicable)
+if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "webtools" ]]; then
+    print_info "Configuring NVIDIA user-space drivers inside container..."
+    
+    # 1. Auto-detect running host driver version to ensure exact match. If host driver is missing, fail fast.
+    if [[ ! -f /proc/driver/nvidia/version ]]; then
+        print_error "NVIDIA driver kernel module is not loaded on the Proxmox host. Please run Proxmox Helper Scripts (7. Setup GPU Passthrough) first and reboot the host."
+        exit 1
+    fi
+    
+    target_version=""
+    detected_version=$(cat /proc/driver/nvidia/version | grep -oP 'Kernel Module\s+\K[0-9.]+' || true)
+    if [[ -n "$detected_version" ]]; then
+        target_version="$detected_version"
+    else
+        # Try fallback parsing if grep -oP isn't available/fails
+        detected_version=$(awk '/Kernel Module/ {for(i=1;i<=NF;i++) if($i ~ /^[0-9.]+$/) print $i}' /proc/driver/nvidia/version || true)
+        if [[ -n "$detected_version" ]]; then
+            target_version="$detected_version"
+        fi
+    fi
+
+    if [[ -z "$target_version" ]]; then
+        print_error "Could not parse host NVIDIA driver version from /proc/driver/nvidia/version. Aborting."
+        exit 1
+    fi
+    
+    print_info "Detected host NVIDIA driver version: ${target_version}"
+
+    # 2. Download/Cache driver on host to prevent permission denied errors in unprivileged container
+    host_driver_dir="/datapool/config/temp"
+    host_driver_file="$host_driver_dir/NVIDIA-Linux-x86_64-${target_version}.run"
+    
+    mkdir -p "$host_driver_dir"
+    if [[ ! -f "$host_driver_file" ]]; then
+        print_info "Downloading NVIDIA driver version ${target_version} on host to $host_driver_file..."
+        wget -q --show-progress "https://us.download.nvidia.com/XFree86/Linux-x86_64/${target_version}/NVIDIA-Linux-x86_64-${target_version}.run" -O "$host_driver_file"
+        chmod +x "$host_driver_file"
+    fi
+
+    # 3. Run the driver installer inside the container
+    pct exec "$CT_ID" -- bash -c '
+        target_version="'"$target_version"'"
+        driver_file="/datapool/config/temp/NVIDIA-Linux-x86_64-${target_version}.run"
+        
+        installed_version=""
+        if command -v nvidia-smi &>/dev/null; then
+            installed_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader,nounits 2>/dev/null || true)
+        fi
+        
+        lib_check=0
+        if ldconfig -p | grep -q libEGL_nvidia; then
+            lib_check=1
+        fi
+        
+        if [[ "$installed_version" != "$target_version" ]] || [[ "$lib_check" -eq 0 ]]; then
+            if [[ -f "$driver_file" ]]; then
+                echo "Installing NVIDIA user-space drivers version ${target_version} (currently: ${installed_version:-none}, gl_libs: ${lib_check})..."
+                "$driver_file" --silent --accept-license --no-kernel-module --no-x-check
+            else
+                echo "[WARNING] NVIDIA driver installer not found at $driver_file"
+                exit 1
+            fi
+        else
+            echo "NVIDIA user-space drivers are already up-to-date (version ${target_version})."
+        fi
+    ' || { print_error "Failed to install NVIDIA drivers inside LXC. Aborting."; exit 1; }
+fi
 
     # Create docker config directory
     pct exec "$CT_ID" -- mkdir -p /root/.docker
@@ -353,15 +410,19 @@ DOCKERSOURCES
         
         # Install Docker + NVIDIA user-space libraries and toolkit (avoid compiling kernel modules inside LXC)
         apt-get update -qq
-        apt-get install -y -qq nvidia-smi nvidia-driver-libs libcuda1 libnvidia-encode1 libnvcuvid1 libnvidia-ml1 docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nvidia-container-toolkit
+        apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nvidia-container-toolkit
         
         # Configure NVIDIA runtime for Docker (unprivileged LXC compatible)
         nvidia-ctk runtime configure --runtime=docker --config=/etc/docker/daemon.json --set-as-default=false || true
         
-        if [ -f /etc/nvidia-container-runtime/config.toml ]; then
-            sed -i 's|^#no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
-            sed -i 's|^no-cgroups = false|no-cgroups = true|' /etc/nvidia-container-runtime/config.toml || true
-        fi
+        # Configure no-cgroups for unprivileged LXC (using official tool and fallback regex)
+        nvidia-ctk config --set nvidia-container-cli.no-cgroups=true --in-place || true
+        for config_path in /etc/nvidia-container-runtime/config.toml /etc/nvidia-container-toolkit/config.toml; do
+            if [ -f \"\$config_path\" ]; then
+                sed -i 's|^#\s*no-cgroups\s*=\s*false|no-cgroups = true|' \"\$config_path\" || true
+                sed -i 's|^no-cgroups\s*=\s*false|no-cgroups = true|' \"\$config_path\" || true
+            fi
+        done
         
         # Ensure Docker daemon has NVIDIA runtime configured
         mkdir -p /etc/docker
