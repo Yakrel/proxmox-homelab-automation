@@ -156,6 +156,7 @@ EOF
             # cgroup device permissions for NVIDIA GPU
             'lxc.cgroup2.devices.allow: c 195:* rwm'  # NVIDIA GPU devices (195:0 = nvidia0)
             "lxc.cgroup2.devices.allow: c ${uvm_major}:* rwm"  # cgroup v2 for nvidia-uvm (dynamically detected)
+            'lxc.cgroup2.devices.allow: c 226:* rwm'  # DRI/DRM devices for Wayland/Zero-Copy
             # Device bind mounts - pass GPU devices into container
             'lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file'
             'lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file'
@@ -164,6 +165,7 @@ EOF
             'lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file'
             'lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file'
             'lxc.mount.entry: /dev/nvidia-modeset dev/nvidia-modeset none bind,optional,create=file'
+            'lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir'
         )
 
         for gpu_line in "${gpu_passthrough_lines[@]}"; do
@@ -171,6 +173,18 @@ EOF
                 echo "$gpu_line" >> "$LXC_CONFIG_PATH"
             fi
         done
+
+        # Install NVIDIA user-space drivers inside the container
+        print_info "Configuring NVIDIA user-space drivers inside container..."
+        pct exec "$CT_ID" -- bash -c '
+            apt-get update && apt-get install -y wget
+            driver_file="/root/NVIDIA-Linux-x86_64-580.159.04.run"
+            if [[ ! -f "$driver_file" ]]; then
+                wget -q --show-progress "https://us.download.nvidia.com/XFree86/Linux-x86_64/580.159.04/NVIDIA-Linux-x86_64-580.159.04.run" -O "$driver_file"
+                chmod +x "$driver_file"
+            fi
+            "$driver_file" --silent --accept-license --no-kernel-module --no-x-check --no-opengl-files
+        ' || print_warning "Failed to install NVIDIA drivers inside LXC. You may need to do it manually."
 
         print_success "GPU passthrough configured for $CT_ID"
     fi
