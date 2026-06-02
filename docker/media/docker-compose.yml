@@ -102,32 +102,19 @@ services:
       - UMASK=002
       - TZ=Europe/Istanbul
       # NVIDIA GPU environment variables for hardware acceleration
-      # TESTED & VERIFIED: These are all required for GPU transcoding in unprivileged LXC
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
-      # Library path for CUDA libraries (required for GPU transcoding in unprivileged LXC)
-      - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu
     volumes:
       - /datapool/config/jellyfin:/config
       - /datapool:/datapool
-      # CRITICAL: Manual CUDA library mounting for unprivileged LXC containers
-      # nvidia-container-runtime doesn't work properly in unprivileged LXC, so we mount libs directly
-      # This bypasses the runtime and provides direct access to CUDA libraries
-      # TESTED & VERIFIED: All three library mounts are required for GPU transcoding
-      - /usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu/nvidia/current:ro
-      - /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:ro
-      - /usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:/usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:ro
-    devices:
-      # Direct device mounting for NVIDIA GPU (GTX 970)
-      # This approach works better than 'runtime: nvidia' in unprivileged LXC containers
-      # Provides hardware transcoding: decode (cuvid) -> scale (cuda) -> encode (nvenc)
-      # TESTED & VERIFIED: All five devices are required - DO NOT REMOVE ANY
-      # Test results: 447 fps (18.64x real-time) transcoding with full GPU pipeline
-      - /dev/nvidia0:/dev/nvidia0              # GPU device
-      - /dev/nvidiactl:/dev/nvidiactl          # GPU control device
-      - /dev/nvidia-modeset:/dev/nvidia-modeset      # Mode setting
-      - /dev/nvidia-uvm:/dev/nvidia-uvm        # CRITICAL for CUDA initialization
-      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools  # CUDA tools
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [compute,video,graphics,utility]
     ports:
       - "8096:8096"
     healthcheck:
@@ -324,19 +311,17 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
-      - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu
     volumes:
       - ${UPLOAD_LOCATION}:/data
       - /etc/localtime:/etc/localtime:ro
-      - /usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu/nvidia/current:ro
-      - /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:ro
-      - /usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:/usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:ro
-    devices:
-      - /dev/nvidia0:/dev/nvidia0
-      - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-modeset:/dev/nvidia-modeset
-      - /dev/nvidia-uvm:/dev/nvidia-uvm
-      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [compute,video,graphics,utility]
     env_file:
       - .env
     ports:
@@ -363,10 +348,6 @@ services:
     user: "1000:1000"
     volumes:
       - /datapool/config/immich/cache:/cache
-      # CUDA library mounting for GPU acceleration (same as Jellyfin)
-      - /usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu/nvidia/current:ro
-      - /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:ro
-      - /usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:/usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:ro
     env_file:
       - .env
     environment:
@@ -374,13 +355,14 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - HOME=/tmp
       - MPLCONFIGDIR=/tmp/matplotlib
-      - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu
-    devices:
-      - /dev/nvidia0:/dev/nvidia0
-      - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-modeset:/dev/nvidia-modeset
-      - /dev/nvidia-uvm:/dev/nvidia-uvm
-      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [compute,utility]
     healthcheck:
       disable: false
     networks:
@@ -532,23 +514,20 @@ services:
       # NVIDIA GPU environment variables
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
-      - LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu
     volumes:
       - /datapool/config/tdarr/server:/app/server
       - /datapool/config/tdarr/configs:/app/configs
       - /datapool/config/tdarr/logs:/app/logs
       - /datapool/media:/media
       - /datapool/temp/tdarr:/temp
-      # CUDA library mounting (same as Jellyfin)
-      - /usr/lib/x86_64-linux-gnu/nvidia/current:/usr/lib/x86_64-linux-gnu/nvidia/current:ro
-      - /usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:/usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1:ro
-      - /usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:/usr/lib/x86_64-linux-gnu/libnvcuvid.so.1:ro
-    devices:
-      - /dev/nvidia0:/dev/nvidia0
-      - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-modeset:/dev/nvidia-modeset
-      - /dev/nvidia-uvm:/dev/nvidia-uvm
-      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [compute,video,graphics,utility]
     logging:
       driver: "json-file"
       options:

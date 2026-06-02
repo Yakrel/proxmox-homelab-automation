@@ -80,8 +80,8 @@ services:
       - TITLE=Desktop Workspace
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
-      - PIXELFLUX_WAYLAND=true
-      - SELKIES_DESKTOP=true
+      - PIXELFLUX_WAYLAND=false
+      - SELKIES_DESKTOP=false
       - AUTO_GPU=true
       - SELKIES_WEBRTC_ENABLED=true
       # Selkies streaming settings - locked values prevent sidebar changes

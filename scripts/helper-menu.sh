@@ -305,7 +305,9 @@ EOF
     # Install NVIDIA driver via official .run file
     print_info "Downloading NVIDIA 580.159.04 driver..."
     local driver_url="https://us.download.nvidia.com/XFree86/Linux-x86_64/580.159.04/NVIDIA-Linux-x86_64-580.159.04.run"
-    local driver_file="/root/NVIDIA-Linux-x86_64-580.159.04.run"
+    local driver_dir="/datapool/config/temp"
+    mkdir -p "$driver_dir"
+    local driver_file="$driver_dir/NVIDIA-Linux-x86_64-580.159.04.run"
     
     if [[ ! -f "$driver_file" ]]; then
         wget -q --show-progress "$driver_url" -O "$driver_file"
@@ -328,10 +330,9 @@ EOF
     echo "nvidia-uvm" > /etc/modules-load.d/nvidia-uvm.conf
     echo "nvidia-drm" > /etc/modules-load.d/nvidia-drm.conf
 
-    # Create udev rules for nvidia devices
     cat > /etc/udev/rules.d/70-nvidia.rules << 'EOF'
 KERNEL=="nvidia", RUN+="/bin/bash -c '/usr/bin/nvidia-smi -L && /bin/chmod 666 /dev/nvidia*'"
-KERNEL=="nvidia_uvm", RUN+="/bin/bash -c '/usr/bin/nvidia-modprobe -c0 -u && /bin/chmod 666 /dev/nvidia-uvm*'"
+KERNEL=="nvidia_uvm", RUN+="/bin/bash -c '/usr/bin/nvidia-modprobe -c0 -u && /bin/chmod 666 /dev/nvidia-uvm* && /bin/chmod 755 /dev/dri /dev/dri/by-path && /bin/chmod 666 /dev/dri/card* /dev/dri/render*'"
 EOF
 
     print_success "NVIDIA GPU passthrough host setup is complete!"
