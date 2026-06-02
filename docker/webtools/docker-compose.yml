@@ -80,10 +80,16 @@ services:
       - TITLE=Desktop Workspace
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
+      - PIXELFLUX_WAYLAND=true
+      - SELKIES_DESKTOP=true
+      - AUTO_GPU=true
+      - SELKIES_WEBRTC_ENABLED=true
       # Selkies streaming settings - locked values prevent sidebar changes
       # nvh264enc = NVIDIA NVENC hardware H.264 (low CPU, uses GPU)
       # Single value = locked (UI dropdown hidden), list = user can pick
-      - SELKIES_ENCODER=nvh264enc
+      - SELKIES_ENCODER=x264enc
+      - SELKIES_ENCODER_RTC=nvh264enc
+      - SELKIES_MODE=webrtc
       - SELKIES_FRAMERATE=60
       - SELKIES_VIDEO_BITRATE=20
       - SELKIES_H264_CRF=20
@@ -99,6 +105,8 @@ services:
       start_period: 60s
     networks:
       - webtools-net
+    devices:
+      - /dev/dri:/dev/dri
     logging:
       driver: "json-file"
       options:

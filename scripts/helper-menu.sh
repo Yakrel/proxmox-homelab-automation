@@ -262,43 +262,21 @@ EOF
 run_setup_gpu_passthrough() {
     require_root
 
-    print_info "Setting up NVIDIA GTX 970 for LXC container passthrough..."
-
-    # Debian Trixie currently provides NVIDIA 550 for GTX 970. That driver builds
-    # on Proxmox 6.14, but not on the newer 6.17/7.0 kernel API lines.
-    ensure_packages proxmox-kernel-6.14 proxmox-headers-6.14 build-essential dkms
-
-    local latest_compatible_kernel
-    latest_compatible_kernel=$(
-        dpkg-query -W -f='${Package}\n' 'proxmox-kernel-6.14.*-pve*' 2>/dev/null \
-            | sed -n 's/^proxmox-kernel-\(6\.14\..*-pve\)\(-signed\)\?$/\1/p' \
-            | sort -Vu \
-            | tail -n 1
-    )
-    [[ -n "$latest_compatible_kernel" ]] || {
-        print_error "No installed Proxmox 6.14 kernel found after package installation."
-        return 1
-    }
-
-    print_info "Pinning latest compatible kernel: $latest_compatible_kernel"
-    printf 'y\n' | proxmox-boot-tool kernel pin "$latest_compatible_kernel"
-
-    if [[ "$(uname -r)" != "$latest_compatible_kernel" ]]; then
-        print_success "Pinned compatible kernel $latest_compatible_kernel."
-        print_warning "Please reboot and run this option (7) again before installing NVIDIA drivers."
-        return 0
-    fi
+    print_info "Setting up NVIDIA GTX 970 for LXC container passthrough (Wayland/Zero-Copy Support)..."
 
     # Check if NVIDIA drivers are already loaded and working.
     if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
         print_success "NVIDIA drivers already installed and working."
         print_info "Loaded nvidia modules: $(lsmod | grep nvidia | wc -l)"
         print_info "GPU detected: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)"
-        print_info "You can now deploy the media stack to configure GPU in LXC container."
+        print_info "Driver Version: $(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)"
         return 0
     fi
 
     print_info "Configuring host prerequisites for NVIDIA passthrough..."
+
+    # Ensure build tools and latest kernel headers are available for DKMS
+    ensure_packages build-essential dkms "proxmox-headers-$(uname -r)" proxmox-default-headers
 
     # Blacklist nouveau before installing the proprietary NVIDIA driver.
     cat > /etc/modprobe.d/blacklist-nouveau.conf << 'EOF'
@@ -309,65 +287,55 @@ alias nouveau off
 alias lbm-nouveau off
 EOF
 
-    # Configure IOMMU for Intel CPU.
+    # Configure GRUB for IOMMU and NVIDIA DRM (Required for Wayland Zero-Copy / /dev/dri)
     local grub_file="/etc/default/grub"
     cp "$grub_file" "${grub_file}.backup" || true
 
-    if ! grep -q "intel_iommu=on" "$grub_file"; then
-        sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 intel_iommu=on iommu=pt"/' "$grub_file"
-        sed -i 's/  */ /g' "$grub_file"
-        update-grub
-    fi
+    local grub_params="intel_iommu=on iommu=pt nvidia-drm.modeset=1 nvidia_drm.fbdev=1"
+    for param in $grub_params; do
+        if ! grep -q "$param" "$grub_file"; then
+            sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=\"\(.*\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\1 $param\"/" "$grub_file"
+        fi
+    done
+    sed -i 's/  */ /g' "$grub_file"
+    update-grub
 
     update-initramfs -u -k all
 
-    # Phase 2: Install NVIDIA drivers on Proxmox host
-    if ! command -v nvidia-smi &>/dev/null || ! nvidia-smi &>/dev/null; then
-        print_info "Phase 2: Installing NVIDIA drivers on Proxmox host..."
+    # Install NVIDIA driver via official .run file
+    print_info "Downloading NVIDIA 580.159.04 driver..."
+    local driver_url="https://us.download.nvidia.com/XFree86/Linux-x86_64/580.159.04/NVIDIA-Linux-x86_64-580.159.04.run"
+    local driver_file="/root/NVIDIA-Linux-x86_64-580.159.04.run"
+    
+    if [[ ! -f "$driver_file" ]]; then
+        wget -q --show-progress "$driver_url" -O "$driver_file"
+        chmod +x "$driver_file"
+    fi
 
-        # Ensure kernel headers are available
-        ensure_packages "proxmox-headers-$(uname -r)"
+    print_info "Installing NVIDIA proprietary driver (this may take a few minutes)..."
+    # Run the installer silently, accepting the license, building DKMS module, without 32-bit libs, without X11 config
+    "$driver_file" --silent --accept-license --dkms --no-compat32 --no-x-check --no-opengl-files || {
+        print_error "NVIDIA driver installation failed. Please check /var/log/nvidia-installer.log"
+        return 1
+    }
 
-        # Configure Debian repositories with non-free components
-        # Debian 13 uses .sources format in sources.list.d/debian.sources
-        local debian_sources="/etc/apt/sources.list.d/debian.sources"
-        if [ -f "$debian_sources" ]; then
-            print_info "Updating $debian_sources to include non-free repositories"
+    # Load nvidia modules
+    modprobe nvidia || print_warning "Failed to load nvidia module - may need reboot"
+    modprobe nvidia_uvm || print_warning "Failed to load nvidia_uvm module - may need reboot"
+    modprobe nvidia_drm || print_warning "Failed to load nvidia_drm module - may need reboot"
 
-            # Backup original to /root/ (not in /etc/apt/sources.list.d/ to avoid APT warnings)
-            mkdir -p /root/backups
-            cp "$debian_sources" "/root/backups/debian.sources.bak" || true
+    # Persist nvidia modules
+    echo "nvidia-uvm" > /etc/modules-load.d/nvidia-uvm.conf
+    echo "nvidia-drm" > /etc/modules-load.d/nvidia-drm.conf
 
-            # Update Components line to include contrib, non-free, and non-free-firmware
-            sed -i 's/^Components: main.*/Components: main contrib non-free non-free-firmware/' "$debian_sources"
-        fi
-
-        apt update
-
-        # Install NVIDIA driver packages for Debian 13 (latest)
-        print_info "Installing NVIDIA driver packages..."
-        apt install -y nvidia-driver nvidia-smi
-
-        # Load nvidia modules
-        modprobe nvidia || print_warning "Failed to load nvidia module - may need reboot"
-        modprobe nvidia_uvm || print_warning "Failed to load nvidia_uvm module - may need reboot"
-
-        # Persist nvidia-uvm module (idempotent overwrite)
-        echo "nvidia-uvm" > /etc/modules-load.d/nvidia-uvm.conf
-
-        # Create udev rules for nvidia devices (idempotent)
-        cat > /etc/udev/rules.d/70-nvidia.rules << 'EOF'
+    # Create udev rules for nvidia devices
+    cat > /etc/udev/rules.d/70-nvidia.rules << 'EOF'
 KERNEL=="nvidia", RUN+="/bin/bash -c '/usr/bin/nvidia-smi -L && /bin/chmod 666 /dev/nvidia*'"
 KERNEL=="nvidia_uvm", RUN+="/bin/bash -c '/usr/bin/nvidia-modprobe -c0 -u && /bin/chmod 666 /dev/nvidia-uvm*'"
 EOF
 
-        print_success "Phase 2 complete. NVIDIA drivers installed on host."
-        print_warning "Please reboot to fully load NVIDIA drivers."
-        print_info "After reboot, run this option (7) again to verify GPU is detected."
-        return 0
-    fi
-
-    print_success "NVIDIA GPU passthrough host setup is complete."
+    print_success "NVIDIA GPU passthrough host setup is complete!"
+    print_warning "Please REBOOT the Proxmox Host to fully apply kernel parameters and load the driver."
 }
 
 run_datapool_cleanup() {
