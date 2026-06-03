@@ -46,6 +46,7 @@ setting.local.json
 
 # Other
 .gemini/
+.antigravity/
 *.env
 !*.env.example
 !*.env.enc
