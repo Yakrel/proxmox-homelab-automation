@@ -343,9 +343,17 @@ EOS
         npm config set fund false || true
         npm config set update-notifier false || true
 
-        # Install AI CLI tools (optional - failures are non-critical)
+        # Configure locales for Turkish character and UTF-8 support
+        apt-get install -y -qq locales
+        sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+        sed -i 's/^# *tr_TR.UTF-8 UTF-8/tr_TR.UTF-8 UTF-8/' /etc/locale.gen
+        locale-gen
+        update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+        # Install AI CLI tools
         npm install -g @anthropic-ai/claude-code 2>/dev/null || echo 'Note: claude-code installation skipped'
-        npm install -g @google/gemini-cli 2>/dev/null || echo 'Note: gemini-cli installation skipped'
+        curl -fsSL https://antigravity.google/cli/install.sh | bash
+
 
         # Install code-server (latest version)
         CODE_SERVER_VERSION=\$(curl -fsSL https://api.github.com/repos/coder/code-server/releases/latest | grep tag_name | awk '{print substr(\$2, 3, length(\$2)-4)}')
