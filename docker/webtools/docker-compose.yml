@@ -117,6 +117,43 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 
+  guacd:
+    image: guacamole/guacd:latest
+    container_name: guacd
+    restart: unless-stopped
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  guacamole:
+    image: guacamole/guacamole:latest
+    container_name: guacamole
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - GUACD_HOSTNAME=guacd
+      - WEBAPP_CONTEXT=ROOT
+    volumes:
+      - /datapool/config/guacamole:/etc/guacamole:ro
+    depends_on:
+      - guacd
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
   desktop-otp:
     image: ghcr.io/yakrel/desktop-otp-gate:latest
     container_name: desktop-otp

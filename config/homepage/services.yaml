@@ -162,6 +162,11 @@
         href: https://cdn.local.byetgin.com
         icon: chrome.png
 
+    - Guacamole:
+        description: Remote Access Gateway
+        href: https://portal.byetgin.com
+        icon: guacamole.png
+
     - CouchDB:
         description: Obsidian Sync
         href: https://couchdb.byetgin.com/_utils

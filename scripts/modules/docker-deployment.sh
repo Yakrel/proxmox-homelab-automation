@@ -45,6 +45,7 @@ setup_webtools_permissions() {
     mkdir -p /datapool/config/repackarr/data /datapool/config/repackarr/logs
     mkdir -p /datapool/config/desktop-workspace
     mkdir -p /datapool/config/vaultwarden
+    mkdir -p /datapool/config/guacamole
 
     # These are small writable app-config trees; keep large browser/password data shallow.
     fix_path_owner_recursive /datapool/config/homepage
@@ -55,6 +56,7 @@ setup_webtools_permissions() {
     mkdir -p /datapool/config/desktop-workspace/.config
     fix_path_owner_recursive /datapool/config/desktop-workspace/.config
     fix_path_owner /datapool/config/vaultwarden
+    fix_path_owner_recursive /datapool/config/guacamole
 
     print_success "Webtools directories ready"
 }
@@ -105,6 +107,56 @@ setup_couchdb_config() {
 
     print_success "CouchDB configured"
 }
+
+# Setup Guacamole configuration from template
+setup_guacamole_config() {
+    local ct_id="$1"
+
+    print_info "Setting up Guacamole configuration"
+
+    # Source the decrypted environment file to get the variables
+    if [[ -f "${ENV_DECRYPTED_PATH:-}" ]]; then
+        # shellcheck disable=SC1090
+        source "$ENV_DECRYPTED_PATH"
+    else
+        print_error "Decrypted environment file not found at ENV_DECRYPTED_PATH"
+        exit 1
+    fi
+
+    # Fail fast if variables are missing
+    if [[ -z "${GUACAMOLE_USER:-}" || -z "${GUACAMOLE_PASSWORD:-}" || -z "${WINDOWS_IP:-}" || -z "${WINDOWS_RDP_USER:-}" || -z "${WINDOWS_RDP_PASSWORD:-}" ]]; then
+        print_error "Missing required Guacamole or Windows RDP configuration in environment file"
+        exit 1
+    fi
+
+    # Create guacamole config directory on host
+    mkdir -p /datapool/config/guacamole
+
+    local source_template="$WORK_DIR/config/guacamole/user-mapping.xml.template"
+    local dest_file="/datapool/config/guacamole/user-mapping.xml"
+
+    if [[ -f "$source_template" ]]; then
+        # Replace placeholders with environment values
+        sed -e "s|GUACAMOLE_USER_PLACEHOLDER|${GUACAMOLE_USER}|g" \
+            -e "s|GUACAMOLE_PASSWORD_PLACEHOLDER|${GUACAMOLE_PASSWORD}|g" \
+            -e "s|WINDOWS_IP_PLACEHOLDER|${WINDOWS_IP}|g" \
+            -e "s|WINDOWS_USER_PLACEHOLDER|${WINDOWS_RDP_USER}|g" \
+            -e "s|WINDOWS_PASSWORD_PLACEHOLDER|${WINDOWS_RDP_PASSWORD}|g" \
+            "$source_template" > "$dest_file" || {
+                print_error "Failed to generate user-mapping.xml from template"
+                exit 1
+            }
+    else
+        print_error "Guacamole user-mapping.xml.template not found at $source_template"
+        exit 1
+    fi
+
+    # Fix ownership
+    fix_path_owner_recursive /datapool/config/guacamole
+
+    print_success "Guacamole configured"
+}
+
 
 # Setup Immich directories with correct ownership
 setup_immich_directories() {
@@ -312,6 +364,7 @@ deploy_docker_stack() {
         setup_webtools_permissions
         setup_homepage_config "$ct_id"
         setup_couchdb_config "$ct_id"
+        setup_guacamole_config "$ct_id"
     fi
 
     if [[ "$stack_name" == "files" ]]; then
