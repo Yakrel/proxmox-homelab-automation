@@ -487,10 +487,11 @@ else
     rc-update add docker boot
     service docker start || rc-service docker start || true
 
-    # Proxy-specific network optimization (MSS Clamping)
-    # Required for Tailscale connectivity over mobile hotspots/restricted MTU networks
+    # Proxy-specific network optimization: MSS Clamping + Tailscale FORWARD rules
+    # Applied at LXC host level to avoid iptables-nft incompatibility inside containers
     if [ "$STACK_NAME" = "proxy" ]; then
         mkdir -p /etc/local.d
+
         cat > /etc/local.d/mss-clamping.start << 'EOF'
 #!/bin/sh
 # Idempotent MSS Clamping for Tailscale/Hotspot
@@ -499,10 +500,31 @@ if ! iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --se
     iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
 fi
 EOF
-        chmod +x /etc/local.d/mss-clamping.start
+
+        # Tailscale FORWARD rules: allow subnet routing through tailscale0
+        # Runs in background since tailscale0 appears only after Docker+Tailscale container starts
+        cat > /etc/local.d/tailscale-forward.start << 'EOF'
+#!/bin/sh
+# Idempotent Tailscale FORWARD rules for unprivileged LXC nested Docker
+# Waits for tailscale0 in background (appears ~30s after boot when Docker+Tailscale start)
+(
+    sleep 5
+    ip link show tailscale0 > /dev/null 2>&1 || sleep 10
+    ip link show tailscale0 > /dev/null 2>&1 || sleep 15
+    ip link show tailscale0 > /dev/null 2>&1 || sleep 30
+    ip link show tailscale0 > /dev/null 2>&1 || sleep 60
+    ip link show tailscale0 > /dev/null 2>&1 || exit 0
+    iptables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -i tailscale0 -j ACCEPT
+    iptables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -o tailscale0 -j ACCEPT
+    iptables -t nat -C POSTROUTING -s 100.64.0.0/10 -o eth0 -j MASQUERADE 2>/dev/null || iptables -t nat -I POSTROUTING -s 100.64.0.0/10 -o eth0 -j MASQUERADE
+) &
+EOF
+
+        chmod +x /etc/local.d/mss-clamping.start /etc/local.d/tailscale-forward.start
         rc-update add local default
         # Run immediately
         /etc/local.d/mss-clamping.start
+        /etc/local.d/tailscale-forward.start
     fi
 
     # Alpine autologin

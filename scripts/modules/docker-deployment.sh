@@ -74,7 +74,7 @@ setup_webtools_permissions() {
     fix_path_owner_recursive /datapool/config/desktop-workspace/.config
     fix_path_owner /datapool/config/vaultwarden
     fix_path_owner_recursive /datapool/config/guacamole
-    fix_path_owner /datapool/config/sshwifty
+    fix_path_owner_recursive /datapool/config/sshwifty
 
     print_success "Webtools directories ready"
 }
@@ -138,11 +138,16 @@ with open("$dest_file", "w") as f:
     json.dump(config, f, indent=4)
 
 import os
-os.chmod("$dest_file", 0o600)
+os.chmod("$dest_file", 0o644)
 PYEOF
     [[ $? -eq 0 ]] || { print_error "Failed to generate sshwifty.conf.json"; exit 1; }
 
-    fix_path_owner /datapool/config/sshwifty
+    # Enforce correct file permissions on key files and configuration
+    chmod 644 "$dest_file"
+    chmod 600 "$key_file"
+    chmod 644 "${key_file}.pub"
+
+    fix_path_owner_recursive /datapool/config/sshwifty
 
     print_success "sshwifty configured with key-based auth"
 }

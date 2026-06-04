@@ -108,33 +108,9 @@ services:
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
 
-  # Fix for unprivileged LXC networking (Nested Docker FORWARD policy)
-  tailscale-net-fix:
-    image: alpine:latest
-    container_name: tailscale-net-fix
-    restart: unless-stopped
-    network_mode: "host"
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    depends_on:
-      - tailscale
-    command: >
-      sh -c "
-      apk add --no-cache iptables &&
-      while ! ip link show tailscale0 > /dev/null 2>&1; do sleep 1; done &&
-      iptables -C FORWARD -i tailscale0 -j ACCEPT || iptables -I FORWARD -i tailscale0 -j ACCEPT &&
-      iptables -C FORWARD -o tailscale0 -j ACCEPT || iptables -I FORWARD -o tailscale0 -j ACCEPT &&
-      iptables -t nat -C POSTROUTING -s 100.64.0.0/10 -o eth0 -j MASQUERADE || iptables -t nat -I POSTROUTING -s 100.64.0.0/10 -o eth0 -j MASQUERADE &&
-      tail -f /dev/null
-      "
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "1m"
-        max-file: "1"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
+  # Note: Tailscale FORWARD iptables rules are applied at the LXC host level
+  # via /etc/local.d/tailscale-forward.start (set up by lxc-manager.sh).
+  # This avoids iptables-nft incompatibility inside unprivileged LXC containers.
 
 
   cadvisor:
