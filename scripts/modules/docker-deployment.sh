@@ -37,6 +37,22 @@ setup_homepage_config() {
     print_success "Homepage configured"
 }
 
+setup_proxy_permissions() {
+    print_info "Preparing Proxy directories"
+
+    mkdir -p /datapool/config/npm/data
+    mkdir -p /datapool/config/npm/letsencrypt
+    mkdir -p /datapool/config/adguard/work
+    mkdir -p /datapool/config/adguard/conf
+    mkdir -p /datapool/config/tailscale
+
+    fix_path_owner_recursive /datapool/config/npm
+    fix_path_owner_recursive /datapool/config/adguard
+    chown -R 100000:100000 /datapool/config/tailscale
+
+    print_success "Proxy directories ready"
+}
+
 setup_webtools_permissions() {
     print_info "Preparing Webtools directories"
 
@@ -46,6 +62,7 @@ setup_webtools_permissions() {
     mkdir -p /datapool/config/desktop-workspace
     mkdir -p /datapool/config/vaultwarden
     mkdir -p /datapool/config/guacamole
+    mkdir -p /datapool/config/sshwifty
 
     # These are small writable app-config trees; keep large browser/password data shallow.
     fix_path_owner_recursive /datapool/config/homepage
@@ -57,8 +74,77 @@ setup_webtools_permissions() {
     fix_path_owner_recursive /datapool/config/desktop-workspace/.config
     fix_path_owner /datapool/config/vaultwarden
     fix_path_owner_recursive /datapool/config/guacamole
+    fix_path_owner /datapool/config/sshwifty
 
     print_success "Webtools directories ready"
+}
+
+setup_sshwifty_config() {
+    local ct_id="$1"
+
+    print_info "Setting up sshwifty configuration"
+
+    mkdir -p /datapool/config/sshwifty
+    mkdir -p /root/.ssh
+    chmod 700 /root/.ssh
+
+    # Generate SSH key pair for sshwifty → Proxmox auth (idempotent)
+    local key_file="/datapool/config/sshwifty/sshwifty_key"
+    if [[ ! -f "$key_file" ]]; then
+        print_info "Generating ed25519 SSH key for sshwifty"
+        ssh-keygen -t ed25519 -N "" -f "$key_file" -C "sshwifty@homelab" || {
+            print_error "Failed to generate SSH key"
+            exit 1
+        }
+        chmod 600 "$key_file"
+        chmod 644 "${key_file}.pub"
+        print_success "SSH key generated: $key_file"
+    else
+        print_info "SSH key already exists: $key_file"
+    fi
+
+    # Add public key to Proxmox authorized_keys (idempotent)
+    local pub_key
+    pub_key=$(cat "${key_file}.pub")
+    touch /root/.ssh/authorized_keys
+    chmod 600 /root/.ssh/authorized_keys
+
+    if ! grep -qF "$pub_key" /root/.ssh/authorized_keys; then
+        echo "$pub_key" >> /root/.ssh/authorized_keys
+        print_success "sshwifty public key added to Proxmox authorized_keys"
+    else
+        print_info "sshwifty public key already in authorized_keys"
+    fi
+
+    # Build sshwifty.conf.json with private key embedded (Python handles JSON escaping)
+    local source_template="$WORK_DIR/config/sshwifty/sshwifty.conf.json.template"
+    local dest_file="/datapool/config/sshwifty/sshwifty.conf.json"
+
+    [[ -f "$source_template" ]] || { print_error "sshwifty template not found: $source_template"; exit 1; }
+
+    python3 - <<PYEOF
+import json
+
+with open("$source_template") as f:
+    config = json.load(f)
+
+with open("$key_file") as f:
+    private_key = f.read()
+
+# Inject private key into preset
+config["Presets"][0]["Meta"]["PrivateKey"] = private_key
+
+with open("$dest_file", "w") as f:
+    json.dump(config, f, indent=4)
+
+import os
+os.chmod("$dest_file", 0o600)
+PYEOF
+    [[ $? -eq 0 ]] || { print_error "Failed to generate sshwifty.conf.json"; exit 1; }
+
+    fix_path_owner /datapool/config/sshwifty
+
+    print_success "sshwifty configured with key-based auth"
 }
 
 setup_files_permissions() {
@@ -114,17 +200,30 @@ setup_guacamole_config() {
 
     print_info "Setting up Guacamole configuration"
 
-    # Source the decrypted environment file to get the variables
-    if [[ -f "${ENV_DECRYPTED_PATH:-}" ]]; then
-        # shellcheck disable=SC1090
-        source "$ENV_DECRYPTED_PATH"
-    else
+    if [[ ! -f "${ENV_DECRYPTED_PATH:-}" ]]; then
         print_error "Decrypted environment file not found at ENV_DECRYPTED_PATH"
         exit 1
     fi
 
+    # Helper function to read values safely from .env without sourcing (prevents command execution of unquoted values with spaces)
+    get_env_val() {
+        local key="$1"
+        local val
+        val=$(grep "^${key}=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
+        # Strip leading/trailing single/double quotes
+        val=$(echo "$val" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+        echo "$val"
+    }
+
+    local guacamole_user guacamole_password windows_ip windows_rdp_user windows_rdp_password
+    guacamole_user=$(get_env_val "GUACAMOLE_USER")
+    guacamole_password=$(get_env_val "GUACAMOLE_PASSWORD")
+    windows_ip=$(get_env_val "WINDOWS_IP")
+    windows_rdp_user=$(get_env_val "WINDOWS_RDP_USER")
+    windows_rdp_password=$(get_env_val "WINDOWS_RDP_PASSWORD")
+
     # Fail fast if variables are missing
-    if [[ -z "${GUACAMOLE_USER:-}" || -z "${GUACAMOLE_PASSWORD:-}" || -z "${WINDOWS_IP:-}" || -z "${WINDOWS_RDP_USER:-}" || -z "${WINDOWS_RDP_PASSWORD:-}" ]]; then
+    if [[ -z "$guacamole_user" || -z "$guacamole_password" || -z "$windows_ip" || -z "$windows_rdp_user" || -z "$windows_rdp_password" ]]; then
         print_error "Missing required Guacamole or Windows RDP configuration in environment file"
         exit 1
     fi
@@ -137,11 +236,11 @@ setup_guacamole_config() {
 
     if [[ -f "$source_template" ]]; then
         # Replace placeholders with environment values
-        sed -e "s|GUACAMOLE_USER_PLACEHOLDER|${GUACAMOLE_USER}|g" \
-            -e "s|GUACAMOLE_PASSWORD_PLACEHOLDER|${GUACAMOLE_PASSWORD}|g" \
-            -e "s|WINDOWS_IP_PLACEHOLDER|${WINDOWS_IP}|g" \
-            -e "s|WINDOWS_USER_PLACEHOLDER|${WINDOWS_RDP_USER}|g" \
-            -e "s|WINDOWS_PASSWORD_PLACEHOLDER|${WINDOWS_RDP_PASSWORD}|g" \
+        sed -e "s|GUACAMOLE_USER_PLACEHOLDER|${guacamole_user}|g" \
+            -e "s|GUACAMOLE_PASSWORD_PLACEHOLDER|${guacamole_password}|g" \
+            -e "s|WINDOWS_IP_PLACEHOLDER|${windows_ip}|g" \
+            -e "s|WINDOWS_USER_PLACEHOLDER|${windows_rdp_user}|g" \
+            -e "s|WINDOWS_PASSWORD_PLACEHOLDER|${windows_rdp_password}|g" \
             "$source_template" > "$dest_file" || {
                 print_error "Failed to generate user-mapping.xml from template"
                 exit 1
@@ -365,6 +464,7 @@ deploy_docker_stack() {
         setup_homepage_config "$ct_id"
         setup_couchdb_config "$ct_id"
         setup_guacamole_config "$ct_id"
+        setup_sshwifty_config "$ct_id"
     fi
 
     if [[ "$stack_name" == "files" ]]; then
@@ -380,6 +480,10 @@ deploy_docker_stack() {
         print_info "Installing security tools for media stack"
         pct exec "$ct_id" -- apt-get update
         pct exec "$ct_id" -- apt-get install -y gocryptfs
+    fi
+
+    if [[ "$stack_name" == "proxy" ]]; then
+        setup_proxy_permissions
     fi
 
     setup_docker_compose "$stack_name" "$ct_id"

@@ -1,0 +1,32 @@
+{
+    "HostName": "",
+    "SharedKey": "",
+    "UploadBandwidth": 0,
+    "DownloadBandwidth": 0,
+    "ReadTimeout": 0,
+    "InitialTimeout": 0,
+    "MaxConnections": 0,
+    "Servers": [
+        {
+            "ListenInterface": "0.0.0.0",
+            "ListenPort": 8182,
+            "InitialTimeout": 0,
+            "ReadTimeout": 0,
+            "MaxConnections": 0,
+            "TLSCertificateFile": "",
+            "TLSCertificateKeyFile": ""
+        }
+    ],
+    "Presets": [
+        {
+            "Title": "Proxmox VE",
+            "Type": "SSH",
+            "Host": "192.168.1.10:22",
+            "Meta": {
+                "User": "root",
+                "PrivateKey": "SSHWIFTY_PRIVATE_KEY_PLACEHOLDER"
+            }
+        }
+    ],
+    "OnlyAllowPresetRemotes": true
+}
