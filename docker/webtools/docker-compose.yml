@@ -348,3 +348,25 @@ services:
         max-file: "3"
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
+
+  terminal:
+    image: niruix/sshwifty:latest
+    container_name: terminal
+    restart: unless-stopped
+    ports:
+      - "7681:8182"
+    volumes:
+      - /datapool/config/sshwifty/sshwifty.conf.json:/etc/sshwifty/sshwifty.conf.json:ro
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - SSHWIFTY_CONFIG=/etc/sshwifty/sshwifty.conf.json
+    networks:
+      - webtools-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
