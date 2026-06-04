@@ -162,9 +162,14 @@
         href: https://cdn.local.byetgin.com
         icon: chrome.png
 
+    - Terminal:
+        description: Web SSH Client
+        href: https://terminal.byetgin.com
+        icon: sshwifty.png
+
     - Guacamole:
         description: Remote Access Gateway
-        href: https://portal.byetgin.com
+        href: https://remote.byetgin.com
         icon: guacamole.png
 
     - CouchDB:
