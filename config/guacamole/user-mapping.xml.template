@@ -1,0 +1,28 @@
+<user-mapping>
+    <!-- Guacamole Web UI Login Credentials -->
+    <authorize username="GUACAMOLE_USER_PLACEHOLDER" password="GUACAMOLE_PASSWORD_PLACEHOLDER">
+        
+        <!-- Windows RDP Connection -->
+        <connection name="Gaming Desktop">
+            <protocol>rdp</protocol>
+            <param name="hostname">WINDOWS_IP_PLACEHOLDER</param>
+            <param name="port">3389</param>
+            <param name="username">WINDOWS_USER_PLACEHOLDER</param>
+            <param name="password">WINDOWS_PASSWORD_PLACEHOLDER</param>
+            <param name="ignore-cert">true</param>
+            <!-- Performance & Smoothness Optimizations -->
+            <param name="enable-wallpaper">false</param>
+            <param name="enable-theming">true</param>
+            <param name="enable-font-smoothing">true</param>
+            <param name="resize-method">display</param>
+        </connection>
+
+        <!-- Proxmox Host CLI via SSH -->
+        <connection name="Proxmox Host CLI">
+            <protocol>ssh</protocol>
+            <param name="hostname">192.168.1.10</param>
+            <param name="port">22</param>
+        </connection>
+
+    </authorize>
+</user-mapping>
