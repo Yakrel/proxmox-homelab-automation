@@ -51,6 +51,9 @@ setup_webtools_permissions() {
     fix_path_owner_recursive /datapool/config/couchdb
     fix_path_owner_recursive /datapool/config/repackarr
     fix_path_owner /datapool/config/desktop-workspace
+    # Fix all configuration directories (PulseAudio, window manager, themes, etc.) at once
+    mkdir -p /datapool/config/desktop-workspace/.config
+    fix_path_owner_recursive /datapool/config/desktop-workspace/.config
     fix_path_owner /datapool/config/vaultwarden
 
     print_success "Webtools directories ready"
