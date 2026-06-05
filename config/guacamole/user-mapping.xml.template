@@ -18,7 +18,7 @@
         </connection>
 
         <!-- Windows RDP Connection (Laptop) -->
-        <connection name="laptop">
+        <connection name="laptop-workstation">
             <protocol>rdp</protocol>
             <param name="hostname">LAPTOP_IP_PLACEHOLDER</param>
             <param name="port">3389</param>
