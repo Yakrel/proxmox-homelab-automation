@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yakrel's Homelab Network Topology</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #070913;
+            --bg-card: rgba(15, 23, 42, 0.65);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.18);
+            
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            
+            /* Theme Colors */
+            --color-router: #3b82f6;      /* Blue */
+            --color-switch: #06b6d4;      /* Cyan */
+            --color-wifi-5g: #f97316;     /* Orange */
+            --color-wifi-2g: #a855f7;     /* Purple */
+            --color-guest: #ef4444;       /* Red */
+            --color-virtual: #10b981;     /* Emerald */
+            --color-offline: #64748b;     /* Gray */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.05) 0%, transparent 40%);
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 25px 50px;
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff 30%, var(--color-router) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        header h1 i {
+            color: var(--color-router);
+            text-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+
+        .header-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .header-links a:hover {
+            color: var(--text-main);
+            border-color: var(--border-hover);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            flex: 1;
+            padding: 30px 50px;
+            gap: 30px;
+        }
+
+        @media (max-width: 1300px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* --- VISUALIZER PANEL --- */
+        .visualizer-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 30px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            min-height: 700px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 15px;
+        }
+
+        .card-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        /* Topology SVG Tree Styles */
+        .map-container {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-height: 550px;
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.03);
+            overflow: auto;
+        }
+
+        svg#network-svg {
+            width: 100%;
+            height: 100%;
+            min-width: 800px;
+            min-height: 600px;
+            display: block;
+        }
+
+        /* SVG Element Classes */
+        .svg-link {
+            stroke: var(--border);
+            stroke-width: 2;
+            fill: none;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .svg-link:hover, .svg-link.highlighted {
+            stroke-width: 4;
+            filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.4));
+        }
+
+        .svg-link.wifi-5g-link {
+            stroke: var(--color-wifi-5g);
+            stroke-dasharray: 4 4;
+        }
+        .svg-link.wifi-2g-link {
+            stroke: var(--color-wifi-2g);
+            stroke-dasharray: 4 4;
+        }
+        .svg-link.guest-link {
+            stroke: var(--color-guest);
+            stroke-dasharray: 4 4;
+        }
+        .svg-link.virtual-link {
+            stroke: var(--color-virtual);
+            stroke-width: 1.5;
+        }
+        .svg-link.bottleneck-link {
+            stroke: var(--color-guest) !important;
+            stroke-width: 4 !important;
+            stroke-dasharray: 6 3;
+            animation: flow-bottleneck 1s linear infinite;
+        }
+
+        @keyframes flow-bottleneck {
+            to { stroke-dashoffset: -18; }
+        }
+
+        .packet-dot {
+            fill: #fff;
+            filter: drop-shadow(0 0 4px var(--color-router));
+            animation: pulse-dot 1s infinite alternate;
+        }
+
+        /* SVG Nodes */
+        .svg-node {
+            cursor: pointer;
+        }
+
+        .node-rect {
+            fill: #0d1527;
+            stroke: var(--border);
+            stroke-width: 1.5;
+            rx: 10;
+            ry: 10;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .svg-node:hover .node-rect, .svg-node.selected .node-rect {
+            stroke: var(--color-router);
+            fill: #111a36;
+            filter: drop-shadow(0 8px 16px rgba(59, 130, 246, 0.25));
+            transform: translateY(-2px);
+        }
+
+        .svg-node.offline-node .node-rect {
+            opacity: 0.55;
+            stroke: var(--color-offline);
+        }
+        .svg-node.offline-node:hover .node-rect {
+            opacity: 0.85;
+            stroke: var(--text-muted);
+        }
+
+        .node-icon-bg {
+            fill: rgba(255,255,255,0.03);
+            rx: 6;
+            ry: 6;
+        }
+
+        .node-text-title {
+            fill: var(--text-main);
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .node-text-subtitle {
+            fill: var(--text-muted);
+            font-size: 9px;
+            font-family: monospace;
+        }
+
+        .node-badge-text {
+            fill: #fff;
+            font-size: 8px;
+            font-weight: 700;
+        }
+
+        .status-pulse {
+            fill: var(--color-virtual);
+            animation: node-pulse 2s infinite;
+        }
+
+        @keyframes node-pulse {
+            0% { r: 3px; opacity: 1; }
+            50% { r: 6px; opacity: 0.4; }
+            100% { r: 8px; opacity: 0; }
+        }
+
+        /* --- CONTROL SIDEBAR PANEL --- */
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .tab-menu {
+            display: flex;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            padding: 4px;
+            border-radius: 12px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-btn.active {
+            background: var(--color-router);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .panel-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 25px;
+            backdrop-filter: blur(20px);
+            min-height: 480px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-title-sub {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--text-muted);
+            flex: 1;
+            gap: 15px;
+            padding: 40px 10px;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            opacity: 0.2;
+        }
+
+        .empty-state p {
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        /* Details Content */
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            font-size: 0.85rem;
+        }
+
+        .detail-label {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .detail-val {
+            color: var(--text-main);
+            font-family: monospace;
+        }
+
+        /* Bottleneck Alert Box */
+        .bottleneck-box {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 15px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .bottleneck-box i {
+            color: var(--color-guest);
+            font-size: 1.2rem;
+            margin-top: 2px;
+        }
+
+        .bottleneck-text h4 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #fca5a5;
+            margin-bottom: 5px;
+        }
+
+        .bottleneck-text p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* Gauge */
+        .gauge-card {
+            background: rgba(0,0,0,0.25);
+            border: 1px solid rgba(255,255,255,0.02);
+            padding: 15px;
+            border-radius: 12px;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .gauge-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .gauge-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            font-family: 'Outfit', sans-serif;
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+        }
+
+        .gauge-bar-outer {
+            width: 100%;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .gauge-bar-inner {
+            height: 100%;
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* iperf3 Simulator Controls */
+        .sim-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .form-group select {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 10px;
+            color: var(--text-main);
+            outline: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-family: inherit;
+        }
+
+        .form-group select:focus {
+            border-color: var(--color-router);
+        }
+
+        .sim-btn {
+            background: linear-gradient(135deg, var(--color-router) 0%, #2563eb 100%);
+            border: none;
+            color: #fff;
+            padding: 14px;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+        }
+
+        .sim-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+        }
+
+        .sim-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* iperf3 Terminal Mock */
+        .terminal {
+            background: #020617;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 15px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.75rem;
+            color: #38bdf8;
+            flex: 1;
+            margin-top: 20px;
+            overflow-y: auto;
+            max-height: 230px;
+            min-height: 180px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
+
+        .terminal-line {
+            margin-bottom: 4px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+
+        /* Bottleneck description text inside Analysis Tab */
+        .analysis-text {
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .analysis-text p strong {
+            color: var(--text-main);
+        }
+
+        .analysis-list {
+            padding-left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .analysis-list li {
+            list-style-type: square;
+        }
+
+        .analysis-list li strong {
+            color: #fca5a5;
+        }
+
+        /* --- HTML Node Cards inside SVG --- */
+        .node-card-html {
+            width: 100%;
+            height: 100%;
+            background: #0d1527;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            position: relative;
+            text-align: center;
+        }
+
+        .node-card-html:hover, .selected .node-card-html {
+            border-color: var(--color-router);
+            background: #111a36;
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.25);
+            transform: translateY(-2px);
+        }
+
+        .svg-node-html {
+            cursor: pointer;
+        }
+
+        .node-card-html.offline {
+            opacity: 0.55;
+            border-color: var(--color-offline);
+        }
+        .node-card-html.offline:hover {
+            opacity: 0.85;
+            border-color: var(--text-muted);
+        }
+
+        .node-card-html .node-icon {
+            font-size: 1.1rem;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .wan-node .node-icon { color: var(--text-main); }
+        .router-node .node-icon { color: var(--color-router); }
+        .switch-node .node-icon { color: var(--color-switch); }
+        .wifi-5g-node .node-icon { color: var(--color-wifi-5g); }
+        .wifi-2g-node .node-icon { color: var(--color-wifi-2g); }
+        .guest-node .node-icon { color: var(--color-guest); }
+        .virtual-node .node-icon { color: var(--color-virtual); }
+
+        .node-card-html .node-name {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+        }
+
+        .node-card-html .node-sub {
+            font-size: 8px;
+            color: var(--text-muted);
+            font-family: monospace;
+            margin-top: 2px;
+        }
+
+        /* Status Dot */
+        .pulse-dot-html {
+            width: 6px;
+            height: 6px;
+            background-color: var(--color-virtual);
+            border-radius: 50%;
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            box-shadow: 0 0 6px var(--color-virtual);
+        }
+
+        .pulse-dot-html.online {
+            animation: pulse-dot-key 2s infinite;
+        }
+
+        @keyframes pulse-dot-key {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* Bottleneck warning badge */
+        .badge-bottleneck {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            color: var(--color-guest);
+            font-size: 0.7rem;
+            animation: flash-warning 1.5s infinite alternate;
+        }
+
+        @keyframes flash-warning {
+            from { opacity: 0.4; }
+            to { opacity: 1; }
+        }
+
+        /* LXC Node Cards (compact) */
+        .lxc-card-html {
+            padding: 4px 8px;
+            flex-direction: row;
+            gap: 8px;
+            justify-content: flex-start;
+        }
+        .lxc-card-html .node-icon {
+            font-size: 0.85rem;
+            width: 20px;
+            height: 20px;
+            margin-bottom: 0;
+        }
+        .lxc-card-html .node-details-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            overflow: hidden;
+            width: calc(100% - 28px);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1><i class="fa-solid fa-circle-nodes"></i> Yakrel's Homelab Topology Dashboard</h1>
+        <div class="header-links">
+            <a href="index.html"><i class="fa-solid fa-house"></i> Ana Dashboard'a Dön</a>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- SVG MAP PANEL -->
+        <div class="visualizer-card">
+            <div class="card-header">
+                <div class="card-title"><i class="fa-solid fa-network-wired"></i> Ağ Haritası (Interactive Map)</div>
+                <div class="legend">
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-router)"></span> Router</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-switch)"></span> Switch</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-wifi-5g)"></span> 5G Wi-Fi</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-wifi-2g)"></span> 2.4G Wi-Fi</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-virtual)"></span> Virtual</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-offline)"></span> Offline</div>
+                </div>
+            </div>
+
+            <div class="map-container">
+                <svg id="network-svg" viewBox="0 0 1000 920" preserveAspectRatio="xMidYMid meet">
+                    <!-- SVG DEFS FOR GRADIENTS & ARROWS -->
+                    <defs>
+                        <linearGradient id="gradient-line" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="var(--color-router)" stop-opacity="0.3"/>
+                            <stop offset="100%" stop-color="var(--color-switch)" stop-opacity="0.8"/>
+                        </linearGradient>
+                        <filter id="glow-effect" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur stdDeviation="4" result="blur" />
+                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                        </filter>
+                    </defs>
+
+                    <!-- NETWORK LINKS (LINES) -->
+                    <!-- WAN to Router -->
+                    <path d="M 100,155 L 150,155" class="svg-link" id="link-wan-router" onclick="selectLink('wan-router')"></path>
+                    
+                    <!-- Router to Switch (UPLINK 100M BOTTLENECK) -->
+                    <path d="M 260,155 L 320,155" class="svg-link" id="link-router-switch" onclick="selectLink('router-switch')"></path>
+                    
+                    <!-- Router to Wi-Fi Hubs -->
+                    <path d="M 260,155 Q 280,250 320,345" class="svg-link wifi-5g-link" id="link-router-wifi5" onclick="selectLink('router-wifi5')"></path>
+                    <path d="M 260,155 Q 275,390 320,545" class="svg-link wifi-2g-link" id="link-router-wifi2" onclick="selectLink('router-wifi2')"></path>
+                    <path d="M 260,155 Q 270,530 320,745" class="svg-link guest-link" id="link-router-guest" onclick="selectLink('router-guest')"></path>
+
+                    <!-- Switch to Wired Devices -->
+                    <path d="M 430,155 Q 475,65 520,65" class="svg-link" id="link-switch-pc" onclick="selectLink('switch-pc')"></path>
+                    <path d="M 430,155 L 520,145" class="svg-link" id="link-switch-proxmox" onclick="selectLink('switch-proxmox')"></path>
+                    <path d="M 430,155 Q 475,225 520,225" class="svg-link" id="link-switch-pbs" onclick="selectLink('switch-pbs')"></path>
+
+                    <!-- Proxmox Host to LXCs (Virtual vmbr0) -->
+                    <path d="M 640,145 L 760,38" class="svg-link virtual-link" id="link-proxmox-lxc-100" onclick="selectLink('proxmox-lxc-100')"></path>
+                    <path d="M 640,145 L 760,78" class="svg-link virtual-link" id="link-proxmox-lxc-101" onclick="selectLink('proxmox-lxc-101')"></path>
+                    <path d="M 640,145 L 760,118" class="svg-link virtual-link" id="link-proxmox-lxc-102" onclick="selectLink('proxmox-lxc-102')"></path>
+                    <path d="M 640,145 L 760,158" class="svg-link virtual-link" id="link-proxmox-lxc-103" onclick="selectLink('proxmox-lxc-103')"></path>
+                    <path d="M 640,145 L 760,198" class="svg-link virtual-link" id="link-proxmox-lxc-104" onclick="selectLink('proxmox-lxc-104')"></path>
+                    <path d="M 640,145 L 760,238" class="svg-link virtual-link" id="link-proxmox-lxc-105" onclick="selectLink('proxmox-lxc-105')"></path>
+                    <path d="M 640,145 L 760,278" class="svg-link virtual-link" id="link-proxmox-lxc-106" onclick="selectLink('proxmox-lxc-106')"></path>
+                    <path d="M 640,145 L 760,318" class="svg-link virtual-link" id="link-proxmox-lxc-107" onclick="selectLink('proxmox-lxc-107')"></path>
+
+                    <!-- Wi-Fi 5G Hub to clients -->
+                    <path d="M 430,345 L 520,305" class="svg-link wifi-5g-link" id="link-wifi5-poco" onclick="selectLink('wifi5-poco')"></path>
+                    <path d="M 430,345 L 520,365" class="svg-link wifi-5g-link" id="link-wifi5-nb" onclick="selectLink('wifi5-nb')"></path>
+                    <path d="M 430,345 Q 475,425 520,425" class="svg-link wifi-5g-link" id="link-wifi5-ozge" onclick="selectLink('wifi5-ozge')"></path>
+                    <path d="M 430,345 Q 475,485 520,485" class="svg-link wifi-5g-link" id="link-wifi5-ap" onclick="selectLink('wifi5-ap')"></path>
+                    <path d="M 430,345 Q 475,545 520,545" class="svg-link wifi-5g-link" id="link-wifi5-pro" onclick="selectLink('wifi5-pro')"></path>
+
+                    <!-- Wi-Fi 2G Hub to clients -->
+                    <path d="M 430,545 L 520,615" class="svg-link wifi-2g-link" id="link-wifi2-ko" onclick="selectLink('wifi2-ko')"></path>
+                    <path d="M 430,545 Q 475,675 520,675" class="svg-link wifi-2g-link" id="link-wifi2-net1" onclick="selectLink('wifi2-net1')"></path>
+                    <path d="M 430,545 Q 475,735 520,735" class="svg-link wifi-2g-link" id="link-wifi2-net2" onclick="selectLink('wifi2-net2')"></path>
+                    <path d="M 430,545 Q 475,795 520,795" class="svg-link wifi-2g-link" id="link-wifi2-printer" onclick="selectLink('wifi2-printer')"></path>
+
+                    <!-- Guest Hub to clients -->
+                    <path d="M 430,745 L 520,855" class="svg-link guest-link" id="link-guest-redmi" onclick="selectLink('guest-redmi')"></path>
+
+
+                    <!-- NETWORK NODES (HTML Embedded in SVG) -->
+                    <!-- WAN Node -->
+                    <foreignObject x="20" y="120" width="80" height="70" id="node-wan" class="svg-node-html" onclick="selectNode('wan')">
+                        <div class="node-card-html wan-node">
+                            <div class="node-icon"><i class="fa-solid fa-globe"></i></div>
+                            <div class="node-name">Internet (WAN)</div>
+                            <div class="node-sub">Fiber / DSL</div>
+                        </div>
+                    </foreignObject>
+
+                    <!-- Router Node -->
+                    <foreignObject x="150" y="120" width="110" height="70" id="node-router" class="svg-node-html" onclick="selectNode('router')">
+                        <div class="node-card-html router-node">
+                            <div class="node-icon"><i class="fa-solid fa-server"></i></div>
+                            <div class="node-name">Keenetic Extra DSL</div>
+                            <div class="node-sub">192.168.1.1</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+
+                    <!-- Switch Node -->
+                    <foreignObject x="320" y="120" width="110" height="70" id="node-switch" class="svg-node-html" onclick="selectNode('switch')">
+                        <div class="node-card-html switch-node">
+                            <div class="node-icon"><i class="fa-solid fa-network-wired"></i></div>
+                            <div class="node-name">TP-Link Switch</div>
+                            <div class="node-sub">192.168.1.254</div>
+                            <span class="badge-bottleneck"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                        </div>
+                    </foreignObject>
+
+                    <!-- WiFi 5G Hub Node -->
+                    <foreignObject x="320" y="310" width="110" height="70" id="node-wifi-5g" class="svg-node-html" onclick="selectNode('wifi-5g')">
+                        <div class="node-card-html wifi-5g-node">
+                            <div class="node-icon"><i class="fa-solid fa-wifi"></i></div>
+                            <div class="node-name">Wi-Fi 5 GHz</div>
+                            <div class="node-sub">867 Mbps max</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+
+                    <!-- WiFi 2G Hub Node -->
+                    <foreignObject x="320" y="510" width="110" height="70" id="node-wifi-2g" class="svg-node-html" onclick="selectNode('wifi-2g')">
+                        <div class="node-card-html wifi-2g-node">
+                            <div class="node-icon"><i class="fa-solid fa-wifi"></i></div>
+                            <div class="node-name">Wi-Fi 2.4 GHz</div>
+                            <div class="node-sub">270 Mbps max</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+
+                    <!-- Guest Hub Node -->
+                    <foreignObject x="320" y="710" width="110" height="70" id="node-guest-wifi" class="svg-node-html" onclick="selectNode('guest-wifi')">
+                        <div class="node-card-html guest-node">
+                            <div class="node-icon"><i class="fa-solid fa-user-lock"></i></div>
+                            <div class="node-name">Misafir Ağı</div>
+                            <div class="node-sub">10.1.30.1</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+
+
+                    <!-- WIRED DEVICES -->
+                    <!-- Berkay PC -->
+                    <foreignObject x="520" y="40" width="120" height="50" id="node-desktop-wired" class="svg-node-html" onclick="selectNode('desktop-wired')">
+                        <div class="node-card-html switch-node">
+                            <div class="node-icon"><i class="fa-solid fa-desktop"></i></div>
+                            <div class="node-name">Berkay PC</div>
+                            <div class="node-sub">.1.20 (1G)</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+
+                    <!-- Proxmox Host -->
+                    <foreignObject x="520" y="120" width="120" height="50" id="node-proxmox-host" class="svg-node-html" onclick="selectNode('proxmox-host')">
+                        <div class="node-card-html switch-node">
+                            <div class="node-icon"><i class="fa-solid fa-server"></i></div>
+                            <div class="node-name">Proxmox Host</div>
+                            <div class="node-sub">.1.10 (1G)</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+
+                    <!-- PBS -->
+                    <foreignObject x="520" y="200" width="120" height="50" id="node-pbs" class="svg-node-html" onclick="selectNode('pbs')">
+                        <div class="node-card-html switch-node">
+                            <div class="node-icon"><i class="fa-solid fa-server"></i></div>
+                            <div class="node-name">PBS Backup</div>
+                            <div class="node-sub">.1.12 (1G)</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+
+
+                    <!-- VIRTUAL LXCS -->
+                    <!-- LXC 100 -->
+                    <foreignObject x="760" y="20" width="150" height="36" id="node-lxc-100" class="svg-node-html" onclick="selectNode('lxc-100')">
+                        <div class="node-card-html virtual-node lxc-card-html">
+                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
+                            <div class="node-details-text">
+                                <span class="node-name">lxc-proxy</span>
+                                <span class="node-sub">.1.100 (10G)</span>
+                            </div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+                    <!-- LXC 101 -->
+                    <foreignObject x="760" y="60" width="150" height="36" id="node-lxc-101" class="svg-node-html" onclick="selectNode('lxc-101')">
+                        <div class="node-card-html virtual-node lxc-card-html">
+                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
+                            <div class="node-details-text">
+                                <span class="node-name">lxc-media</span>
+                                <span class="node-sub">.1.101 (10G)</span>
+                            </div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+                    <!-- LXC 102 -->
+                    <foreignObject x="760" y="100" width="150" height="36" id="node-lxc-102" class="svg-node-html" onclick="selectNode('lxc-102')">
+                        <div class="node-card-html virtual-node lxc-card-html">
+                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
+                            <div class="node-details-text">
+                                <span class="node-name">lxc-files</span>
+                                <span class="node-sub">.1.102 (10G)</span>
+                            </div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+                    <!-- LXC 103 -->
+                    <foreignObject x="760" y="140" width="150" height="36" id="node-lxc-103" class="svg-node-html" onclick="selectNode('lxc-103')">
+                        <div class="node-card-html virtual-node lxc-card-html">
+                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
+                            <div class="node-details-text">
+                                <span class="node-name">lxc-webtools</span>
+                                <span class="node-sub">.1.103 (10G)</span>
+                            </div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+                    <!-- LXC 104 -->
+                    <foreignObject x="760" y="180" width="150" height="36" id="node-lxc-104" class="svg-node-html" onclick="selectNode('lxc-104')">
+                        <div class="node-card-html virtual-node lxc-card-html">
+                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
+                            <div class="node-details-text">
+                                <span class="node-name">lxc-monitoring</span>
+                                <span class="node-sub">.1.104 (10G)</span>
+                            </div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+                    <!-- LXC 105 -->
+                    <foreignObject x="760" y="220" width="150" height="36" id="node-lxc-105" class="svg-node-html" onclick="selectNode('lxc-105')">
+                        <div class="node-card-html virtual-node lxc-card-html">
+                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
+                            <div class="node-details-text">
+                                <span class="node-name">lxc-gameservers</span>
+                                <span class="node-sub">.1.105 (10G)</span>
+                            </div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+                    <!-- LXC 106 -->
+                    <foreignObject x="760" y="260" width="150" height="36" id="node-lxc-106" class="svg-node-html" onclick="selectNode('lxc-106')">
+                        <div class="node-card-html virtual-node lxc-card-html">
+                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
+                            <div class="node-details-text">
+                                <span class="node-name">lxc-backup</span>
+                                <span class="node-sub">.1.106 (10G)</span>
+                            </div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+                    <!-- LXC 107 -->
+                    <foreignObject x="760" y="300" width="150" height="36" id="node-lxc-107" class="svg-node-html" onclick="selectNode('lxc-107')">
+                        <div class="node-card-html virtual-node lxc-card-html">
+                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
+                            <div class="node-details-text">
+                                <span class="node-name">lxc-development</span>
+                                <span class="node-sub">.1.107 (10G)</span>
+                            </div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+
+
+                    <!-- WI-FI 5G DEVICES -->
+                    <!-- Poco X6 -->
+                    <foreignObject x="520" y="280" width="120" height="50" id="node-poco-x6" class="svg-node-html" onclick="selectNode('poco-x6')">
+                        <div class="node-card-html wifi-5g-node">
+                            <div class="node-icon"><i class="fa-solid fa-mobile-button"></i></div>
+                            <div class="node-name">Poco X6</div>
+                            <div class="node-sub">.1.233 (867M)</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+                    <!-- Laptop NB04 -->
+                    <foreignObject x="520" y="340" width="120" height="50" id="node-nb04btm011" class="svg-node-html" onclick="selectNode('nb04btm011')">
+                        <div class="node-card-html wifi-5g-node">
+                            <div class="node-icon"><i class="fa-solid fa-laptop"></i></div>
+                            <div class="node-name">NB04 Laptop</div>
+                            <div class="node-sub">.1.198 (867M)</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+                    <!-- Ozge A17 -->
+                    <foreignObject x="520" y="400" width="120" height="50" id="node-ozge-a17" class="svg-node-html" onclick="selectNode('ozge-a17')">
+                        <div class="node-card-html wifi-5g-node">
+                            <div class="node-icon"><i class="fa-solid fa-mobile-button"></i></div>
+                            <div class="node-name">Ozge A17</div>
+                            <div class="node-sub">.1.242 (527M)</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+                    <!-- RE315 AP -->
+                    <foreignObject x="520" y="460" width="120" height="50" id="node-tplink-ap" class="svg-node-html" onclick="selectNode('tplink-ap')">
+                        <div class="node-card-html wifi-5g-node">
+                            <div class="node-icon"><i class="fa-solid fa-wifi"></i></div>
+                            <div class="node-name">RE315 AP</div>
+                            <div class="node-sub">.1.253 (527M)</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+                    <!-- POCO X6 Pro -->
+                    <foreignObject x="520" y="520" width="120" height="50" id="node-poco-x6-pro" class="svg-node-html" onclick="selectNode('poco-x6-pro')">
+                        <div class="node-card-html wifi-5g-node">
+                            <div class="node-icon"><i class="fa-solid fa-mobile-button"></i></div>
+                            <div class="node-name">X6 Pro</div>
+                            <div class="node-sub">.1.234 (867M)</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+
+
+                    <!-- WI-FI 2.4G DEVICES -->
+                    <!-- DESKTOP-KO -->
+                    <foreignObject x="520" y="590" width="120" height="50" id="node-desktop-wifi" class="svg-node-html" onclick="selectNode('desktop-wifi')">
+                        <div class="node-card-html wifi-2g-node">
+                            <div class="node-icon"><i class="fa-solid fa-desktop"></i></div>
+                            <div class="node-name">DESKTOP-KO</div>
+                            <div class="node-sub">.1.208 (270M)</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+                    <!-- net-ac Node A -->
+                    <foreignObject x="520" y="650" width="120" height="50" id="node-net-ac-1" class="svg-node-html" onclick="selectNode('net-ac-1')">
+                        <div class="node-card-html wifi-2g-node">
+                            <div class="node-icon"><i class="fa-solid fa-circle-nodes"></i></div>
+                            <div class="node-name">net-ac NodeA</div>
+                            <div class="node-sub">.1.236 (65M)</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+                    <!-- net-ac Node B -->
+                    <foreignObject x="520" y="710" width="120" height="50" id="node-net-ac-2" class="svg-node-html" onclick="selectNode('net-ac-2')">
+                        <div class="node-card-html wifi-2g-node">
+                            <div class="node-icon"><i class="fa-solid fa-circle-nodes"></i></div>
+                            <div class="node-name">net-ac NodeB</div>
+                            <div class="node-sub">.1.80 (65M)</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+                    <!-- Epson Yazici -->
+                    <foreignObject x="520" y="770" width="120" height="50" id="node-epson-printer" class="svg-node-html" onclick="selectNode('epson-printer')">
+                        <div class="node-card-html wifi-2g-node">
+                            <div class="node-icon"><i class="fa-solid fa-print"></i></div>
+                            <div class="node-name">Epson Printer</div>
+                            <div class="node-sub">.1.150 (72M)</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+
+
+                    <!-- GUEST WI-FI DEVICES -->
+                    <!-- Guest Redmi Note 8 -->
+                    <foreignObject x="520" y="830" width="120" height="50" id="node-guest-redmi" class="svg-node-html" onclick="selectNode('guest-redmi')">
+                        <div class="node-card-html guest-node">
+                            <div class="node-icon"><i class="fa-solid fa-mobile-button"></i></div>
+                            <div class="node-name">Guest Redmi</div>
+                            <div class="node-sub">10.1.30.152</div>
+                            <span class="pulse-dot-html online"></span>
+                        </div>
+                    </foreignObject>
+
+                </svg>
+            </div>
+        </div>
+
+        <!-- CONTROL SIDEBAR -->
+        <div class="control-panel">
+            <div class="tab-menu">
+                <button class="tab-btn active" onclick="switchTab('details')"><i class="fa-solid fa-circle-info"></i> Detaylar</button>
+                <button class="tab-btn" onclick="switchTab('analysis')"><i class="fa-solid fa-chart-pie"></i> Ağ Analizi</button>
+            </div>
+
+            <!-- TAB 1: DETAILS PANEL -->
+            <div class="panel-card" id="tab-details">
+                <div class="panel-title-sub"><i class="fa-solid fa-circle-info"></i> Cihaz ve Bağlantı Detayları</div>
+                <div id="details-content" class="panel-body" style="flex:1;">
+                    <div class="empty-state">
+                        <i class="fa-solid fa-network-wired"></i>
+                        <p>Analiz etmek için ağ haritası üzerindeki herhangi bir <strong>cihaza (kutu)</strong> veya <strong>bağlantı çizgisine</strong> tıklayın.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: NETWORK ANALYSIS -->
+            <div class="panel-card" id="tab-analysis" style="display:none;">
+                <div class="panel-title-sub"><i class="fa-solid fa-chart-line"></i> Ev Ağı Bottleneck Analizi</div>
+                <div class="analysis-text">
+                    <p>Yapılan testler ve Keenetic Router'ın istemci verileri incelendiğinde homelab ağınızda çok net bir <strong>fiziksel darboğaz (bottleneck)</strong> tespit edilmiştir.</p>
+                    
+                    <p><strong>Tespit Edilen Yapı:</strong></p>
+                    <ul class="analysis-list">
+                        <li><strong>Gigabit Yerel Bölge:</strong> <code>Berkay PC (192.168.1.20)</code> ve <code>Proxmox Host (192.168.1.10)</code> doğrudan gigabit destekleyen <strong>TP-Link Switch</strong>'e bağlıdir. İki cihaz arası veri akışı RAM üzerinden veya 1 Gbps port hızında (iperf testinizde çıkan <strong>937 Mbps</strong>) gerçekleşir.</li>
+                        <li><strong>100 Mbps İnternet/Uplink Limiti:</strong> Router ile Switch arasındaki bağlantı (Port 1) **100 Mbit/s** hızda kurulmuştur. Bu nedenle, switch arkasındaki PC veya Proxmox sunucusu internete çıkarken ya da Wi-Fi üzerinden bir cihaza veri gönderirken maksimum **100 Mbps** hıza takılır.</li>
+                    </ul>
+
+                    <p><strong>Nedenleri Nedir?</strong></p>
+                    <p>Switch ve PC'ler gigabit desteklediği halde router bağlantısının 100M olmasının 2 temel nedeni olabilir:</p>
+                    <ul class="analysis-list">
+                        <li><strong>Fiziksel Router Sınırı (Donanımsal Darboğaz):</strong> Kullandığınız Keenetic Extra DSL (KN-2111) modelinin LAN portları donanımsal olarak maksimum 100 Mbps (Fast Ethernet) hız desteklemektedir. Bu nedenle aradaki kablo ne kadar hızlı olursa olsun bağlantı 100 Mbps üzerine çıkamaz.</li>
+                        <li><strong>Çözüm (Gigabit Geçişi):</strong> Wi-Fi üzerinden Proxmox sunucunuza gigabit hızlarında (örneğin 500-800 Mbps) erişebilmek için router'ı gigabit portlara sahip bir modelle (örn. KN-2112 veya üstü) değiştirmeniz gerekir.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    <script>
+        // DATA MODEL FOR THE TOPOLOGY
+        const NETWORK_TOPOLOGY = {
+            nodes: {
+                'wan': { name: 'Internet (WAN)', ip: 'Dış Ağ', mac: '—', type: 'Internet Gateway', speed: 'Modem Hızı', status: 'online', color: 'var(--text-main)', icon: 'fa-globe' },
+                'router': { name: 'Keenetic Extra DSL (KN-2111)', ip: '192.168.1.1', mac: 'B4:96:91:0A:11:01', type: 'VDSL2 Modem Router', speed: '100 Mbps (Fast Ethernet)', status: 'online', color: 'var(--color-router)', icon: 'fa-server', note: 'Donanımsal olarak Fast Ethernet (100 Mbps) sınırına sahiptir.' },
+                'switch': { name: 'TP-Link Switch Hub', ip: '192.168.1.254', mac: '24:2F:D0:0F:DD:63', type: 'Gigabit Switch (10/100/1000)', speed: '100 Mbps (Router Uplink Limiti)', status: 'online', color: 'var(--color-switch)', icon: 'fa-network-wired', note: 'Yerel cihazlar arası gigabit transfer yapabilir, ancak router uplink bağlantısı 100 Mbps ile sınırlanmıştır.' },
+                'wifi-5g': { name: 'Wi-Fi 5 GHz Network', ip: 'Home SSID (5G)', mac: '—', type: 'Wireless Access Point', speed: '867 Mbps Max', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-wifi' },
+                'wifi-2g': { name: 'Wi-Fi 2.4 GHz Network', ip: 'Home SSID (2.4G)', mac: '—', type: 'Wireless Access Point', speed: '270 Mbps Max', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-wifi' },
+                'guest-wifi': { name: 'Guest Wi-Fi (MISAFIR)', ip: '10.1.30.1', mac: '—', type: 'Isolated Segment', speed: '58 Mbps Max', status: 'online', color: 'var(--color-guest)', icon: 'fa-user-lock' },
+                
+                // Wired
+                'desktop-wired': { name: 'DESKTOP-P3G9GFN (Berkay PC)', ip: '192.168.1.20', mac: 'A0:36:BC:BB:0E:E6', type: 'Wired Client', speed: '1 Gbps (Switch)', status: 'online', color: 'var(--color-switch)', icon: 'fa-desktop' },
+                'proxmox-host': { name: 'Proxmox VE Host', ip: '192.168.1.10', mac: 'B4:96:91:0B:9E:F8', type: 'Hypervisor Host', speed: '1 Gbps (Switch)', status: 'online', color: 'var(--color-switch)', icon: 'fa-server', note: 'ZFS pool (local-zfs) tabanlı sanallaştırma sunucusu.' },
+                'pbs': { name: 'Proxmox Backup Server', ip: '192.168.1.12', mac: 'BC:24:11:C2:D9:00', type: 'Backup Server', speed: '1 Gbps (Switch)', status: 'online', color: 'var(--color-switch)', icon: 'fa-server' },
+                
+                // 5G Wi-Fi
+                'poco-x6': { name: 'Berkay - Poco X6', ip: '192.168.1.233', mac: '20:3B:34:05:16:2E', type: 'Wi-Fi Client (5 GHz)', speed: '867 Mbps', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-mobile-button' },
+                'nb04btm011': { name: 'NB04BTM011 (Laptop)', ip: '192.168.1.198', mac: 'C4:D0:E3:09:2B:BC', type: 'Wi-Fi Client (5 GHz)', speed: '867 Mbps', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-laptop' },
+                'ozge-a17': { name: 'Ozge-adli-kisiye-ait-A17', ip: '192.168.1.242', mac: 'CA:BC:11:77:7B:28 (private)', type: 'Wi-Fi Client (5 GHz)', speed: '527 Mbps', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-mobile-button' },
+                'tplink-ap': { name: 'TP-Link RE315 Access Point', ip: '192.168.1.253', mac: '60:83:E7:5B:67:32', type: 'Range Extender', speed: '527 Mbps', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-wifi' },
+                'poco-x6-pro': { name: 'POCO-X6-Pro-5G', ip: '192.168.1.234', mac: '42:B4:0D:19:C8:93 (private)', type: 'Wi-Fi Client (5 GHz)', speed: '867 Mbps', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-mobile-button' },
+                
+                // 2.4G Wi-Fi
+                'desktop-wifi': { name: 'DESKTOP-KO5GHLB', ip: '192.168.1.208', mac: '00:E1:8C:91:0F:5A', type: 'Wi-Fi Client (2.4 GHz)', speed: '270 Mbps', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-desktop' },
+                'net-ac-1': { name: 'net-ac-6B3E (Node A)', ip: '192.168.1.236', mac: 'C4:39:60:7A:6B:3E', type: 'Smart Device', speed: '65 Mbps', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-circle-nodes' },
+                'net-ac-2': { name: 'net-ac-6B3E (Node B)', ip: '192.168.1.80', mac: 'C4:39:60:7A:6B:3E', type: 'Smart Device', speed: '65 Mbps', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-circle-nodes' },
+                'epson-printer': { name: 'Epson Yazıcı', ip: '192.168.1.150', mac: '64:C6:D2:49:E7:29', type: 'Network Printer', speed: '72 Mbps', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-print' },
+ 
+                // Guest
+                'guest-redmi': { name: 'Guest-Redmi-Note-8', ip: '10.1.30.152', mac: '1C:CC:D6:B8:12:57', type: 'Guest Client (Isolated)', speed: '58 Mbps', status: 'online', color: 'var(--color-guest)', icon: 'fa-mobile-button' },
+ 
+                // Virtual LXCs
+                'lxc-100': { name: 'lxc-proxy-01 (Proxy Stack)', ip: '192.168.1.100', mac: 'BC:24:11:99:AA:68', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'Nginx Proxy Manager, AdGuard Home, Tailscale ve Cloudflared servislerini barındırır.' },
+                'lxc-101': { name: 'lxc-media-01 (Media Stack)', ip: '192.168.1.101', mac: 'BC:24:11:6B:39:5D', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'Jellyfin, Immich ve torrent otomasyon servisleri. NVIDIA GPU passthrough aktiftir.' },
+                'lxc-102': { name: 'lxc-files-01 (Downloads)', ip: '192.168.1.102', mac: 'BC:24:11:02:61:04', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box' },
+                'lxc-103': { name: 'lxc-webtools-01 (Tools)', ip: '192.168.1.103', mac: 'BC:24:11:99:B4:BE', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box' },
+                'lxc-104': { name: 'lxc-monitoring-01 (Observability)', ip: '192.168.1.104', mac: 'BC:24:11:7E:88:F1', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box' },
+                'lxc-105': { name: 'lxc-gameservers-01 (Satisfactory)', ip: '192.168.1.105', mac: 'BC:24:11:A9:A1:6F', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box' },
+                'lxc-106': { name: 'lxc-backup-01 (Backrest/Rclone)', ip: '192.168.1.106', mac: 'BC:24:11:12:E4:B4', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box' },
+                'lxc-107': { name: 'lxc-development-01 (Dev)', ip: '192.168.1.107', mac: 'BC:24:11:C5:44:38', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box' }
+            },
+            links: {
+                'wan-router': { name: 'WAN Gateway Link', speed: 'Modem Uplink Hızı', type: 'Fiber / DSL', delay: '2 ms', color: 'var(--color-router)', note: 'Evinizin dış dünyaya açılan ana kapısı.' },
+                'router-switch': { name: 'Router - Switch Uplink', speed: '100 Mbps (Darboğaz)', type: 'Wired Fast Ethernet', delay: '1 ms', color: 'var(--color-guest)', isBottleneck: true, note: 'Bu bağlantı 100 Mbps limitinde kaldığı için, kablolu ağdaki sunucu ve bilgisayarlar internete çıkarken 100 Mbps üzerine çıkamaz.' },
+                'router-wifi5': { name: 'Router 5 GHz Radyo Arayüzü', speed: '867 Mbps', type: 'Wireless 802.11ac', delay: '1-3 ms', color: 'var(--color-wifi-5g)' },
+                'router-wifi2': { name: 'Router 2.4 GHz Radyo Arayüzü', speed: '270 Mbps', type: 'Wireless 802.11n', delay: '4-8 ms', color: 'var(--color-wifi-2g)' },
+                'router-guest': { name: 'Misafir Ağı İzolasyonu', speed: '58 Mbps', type: 'Wireless (VLAN)', delay: '5-12 ms', color: 'var(--color-guest)' },
+                
+                'switch-pc': { name: 'Switch - Berkay PC', speed: '1 Gbps (1000M)', type: 'Wired Cat6', delay: '< 1 ms', color: 'var(--color-switch)' },
+                'switch-proxmox': { name: 'Switch - Proxmox Sunucu', speed: '1 Gbps (1000M)', type: 'Wired Cat6', delay: '< 1 ms', color: 'var(--color-switch)', note: 'Fiziksel Hypervisor sunucu ethernet bağlantısı.' },
+                'switch-pbs': { name: 'Switch - PBS Link', speed: '1 Gbps (1000M)', type: 'Wired Cat6', delay: '< 1 ms', color: 'var(--color-switch)' },
+
+                'wifi5-poco': { name: 'Poco X6 - Wi-Fi Link', speed: '867 Mbps', type: '5 GHz Wi-Fi (11ac)', delay: '2 ms', color: 'var(--color-wifi-5g)' },
+                'wifi5-nb': { name: 'NB04 Laptop - Wi-Fi Link', speed: '867 Mbps', type: '5 GHz Wi-Fi (11ac)', delay: '2 ms', color: 'var(--color-wifi-5g)' },
+                'wifi5-ozge': { name: 'Ozge A17 - Wi-Fi Link', speed: '527 Mbps', type: '5 GHz Wi-Fi (11ac)', delay: '4 ms', color: 'var(--color-wifi-5g)' },
+                'wifi5-ap': { name: 'TP-Link AP Extender Link', speed: '527 Mbps', type: '5 GHz Wi-Fi Repeater', delay: '3 ms', color: 'var(--color-wifi-5g)' },
+                'wifi5-pro': { name: 'POCO X6 Pro - Wi-Fi Link', speed: '867 Mbps', type: '5 GHz Wi-Fi (11ac)', delay: '2 ms', color: 'var(--color-wifi-5g)' },
+
+                'wifi2-ko': { name: 'DESKTOP-KO - Wi-Fi Link', speed: '270 Mbps', type: '2.4 GHz Wi-Fi (11n)', delay: '6 ms', color: 'var(--color-wifi-2g)' },
+                'wifi2-net1': { name: 'net-ac Node A Link', speed: '65 Mbps', type: '2.4 GHz Wi-Fi', delay: '12 ms', color: 'var(--color-wifi-2g)' },
+                'wifi2-net2': { name: 'net-ac Node B Link', speed: '65 Mbps', type: '2.4 GHz Wi-Fi', delay: '10 ms', color: 'var(--color-wifi-2g)' },
+                'wifi2-printer': { name: 'Epson Printer Wi-Fi Link', speed: '72 Mbps', type: 'Wi-Fi 2.4G (11n)', delay: '4 ms', color: 'var(--color-wifi-2g)' },
+
+                'guest-redmi': { name: 'Guest Redmi Note 8 Link', speed: '58 Mbps', type: 'Isolated 2.4 GHz Wi-Fi', delay: '8 ms', color: 'var(--color-guest)' },
+
+                'proxmox-lxc-100': { name: 'vmbr0 sanal köprü -> lxc-proxy', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
+                'proxmox-lxc-101': { name: 'vmbr0 sanal köprü -> lxc-media', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
+                'proxmox-lxc-102': { name: 'vmbr0 sanal köprü -> lxc-files', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
+                'proxmox-lxc-103': { name: 'vmbr0 sanal köprü -> lxc-webtools', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
+                'proxmox-lxc-104': { name: 'vmbr0 sanal köprü -> lxc-monitoring', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
+                'proxmox-lxc-105': { name: 'vmbr0 sanal köprü -> lxc-gameservers', speed: '—', type: 'Virtual (Offline)', delay: '—', color: 'var(--color-offline)' },
+                'proxmox-lxc-106': { name: 'vmbr0 sanal köprü -> lxc-backup', speed: '—', type: 'Virtual (Offline)', delay: '—', color: 'var(--color-offline)' },
+                'proxmox-lxc-107': { name: 'vmbr0 sanal köprü -> lxc-development', speed: '—', type: 'Virtual (Offline)', delay: '—', color: 'var(--color-offline)' }
+            }
+        };
+
+        // UI STATE
+        let activeTab = 'details';
+
+        function switchTab(tabId) {
+            activeTab = tabId;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('onclick').includes(tabId));
+            });
+            document.getElementById('tab-details').style.display = tabId === 'details' ? 'flex' : 'none';
+            document.getElementById('tab-analysis').style.display = tabId === 'analysis' ? 'flex' : 'none';
+        }
+
+        // SELECTION LOGIC
+        function selectNode(nodeId) {
+            clearSelection();
+            
+            // Highlight node visually
+            const nodeEl = document.getElementById(`node-${nodeId}`);
+            if (nodeEl) nodeEl.classList.add('selected');
+
+            // Switch to details tab automatically
+            switchTab('details');
+
+            const node = NETWORK_TOPOLOGY.nodes[nodeId];
+            if (!node) return;
+
+            // Highlight path connection
+            highlightPathNodes(nodeId);
+
+            // Render gauge metrics
+            let speedPercent = 0;
+            if (node.speed.includes('10+ Gbps')) speedPercent = 100;
+            else if (node.speed.includes('1 Gbps')) speedPercent = 85;
+            else if (node.speed.includes('867 Mbps')) speedPercent = 70;
+            else if (node.speed.includes('527 Mbps')) speedPercent = 50;
+            else if (node.speed.includes('270 Mbps')) speedPercent = 30;
+            else if (node.speed.includes('100 Mbps')) speedPercent = 12;
+            else if (node.speed.includes('65 Mbps')) speedPercent = 7;
+            else if (node.speed.includes('58 Mbps')) speedPercent = 6;
+
+            let detailsHtml = `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <i class="fa-solid ${node.icon}" style="font-size: 3rem; color: ${node.color}; text-shadow: 0 0 15px ${node.color}50;"></i>
+                    <h3 style="margin: 10px 0 5px 0; font-size: 1.25rem; font-family:'Outfit', sans-serif;">${node.name}</h3>
+                    <span class="badge" style="background: ${node.status === 'online' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}; color: ${node.status === 'online' ? 'var(--color-virtual)' : 'var(--color-guest)'}; border: 1px solid ${node.status === 'online' ? 'var(--color-virtual)' : 'var(--color-guest)'}; padding: 2px 8px; border-radius: 4px; font-size:0.75rem; font-weight:700;">
+                        ${node.status === 'online' ? 'Online' : 'Offline'}
+                    </span>
+                </div>
+
+                <div class="detail-row"><span class="detail-label">IP Adresi</span><span class="detail-val">${node.ip}</span></div>
+                <div class="detail-row"><span class="detail-label">MAC Adresi</span><span class="detail-val">${node.mac}</span></div>
+                <div class="detail-row"><span class="detail-label">Cihaz Türü</span><span class="detail-val">${node.type}</span></div>
+            `;
+
+            if (node.status === 'online' && speedPercent > 0) {
+                detailsHtml += `
+                    <div class="gauge-card">
+                        <div class="gauge-title">Bağlantı Genişliği (Max Link Speed)</div>
+                        <div class="gauge-value" style="color: ${node.color}">${node.speed}</div>
+                        <div class="gauge-bar-outer">
+                            <div class="gauge-bar-inner" style="width: ${speedPercent}%; background: ${node.color};"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Custom specific alerts or information
+            if (nodeId === 'switch') {
+                detailsHtml += `
+                    <div class="bottleneck-box">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="bottleneck-text">
+                            <h4>Fast Ethernet Uplink Darboğazı!</h4>
+                            <p>Switch cihazınız gigabit desteklese de router ile arasındaki Port 1 bağlantısı <strong>100 Mbps</strong> hıza kilitlenmiştir. İnternet indirmeleriniz bu hızla sınırlıdır.</p>
+                        </div>
+                    </div>
+                `;
+            } else if (node.note) {
+                detailsHtml += `
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius:12px; padding:15px; margin-top:15px; font-size:0.8rem; line-height:1.4; color:var(--text-muted);">
+                        <i class="fa-solid fa-info-circle" style="color:var(--color-router); margin-right:5px;"></i> ${node.note}
+                    </div>
+                `;
+            }
+
+            document.getElementById('details-content').innerHTML = detailsHtml;
+        }
+
+        function selectLink(linkId) {
+            clearSelection();
+            
+            // Highlight link visually
+            const linkEl = document.getElementById(`link-${linkId}`);
+            if (linkEl) linkEl.classList.add('highlighted');
+
+            // Switch to details tab automatically
+            switchTab('details');
+
+            const link = NETWORK_TOPOLOGY.links[linkId];
+            if (!link) return;
+
+            let detailsHtml = `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <i class="fa-solid fa-arrows-left-right-to-line" style="font-size: 3rem; color: ${link.color}; text-shadow: 0 0 15px ${link.color}50;"></i>
+                    <h3 style="margin: 10px 0 5px 0; font-size: 1.25rem; font-family:'Outfit', sans-serif;">${link.name}</h3>
+                    <span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border); padding: 2px 8px; border-radius: 4px; font-size:0.75rem; font-weight:700;">
+                        ${link.type}
+                    </span>
+                </div>
+
+                <div class="detail-row"><span class="detail-label">Bağlantı Hızı</span><span class="detail-val" style="font-weight:700; color:${link.color}">${link.speed}</span></div>
+                <div class="detail-row"><span class="detail-label">Gecikme (Ping)</span><span class="detail-val">${link.delay}</span></div>
+            `;
+
+            if (link.isBottleneck) {
+                detailsHtml += `
+                    <div class="bottleneck-box">
+                        <i class="fa-solid fa-triangle-exclamation" style="color:var(--color-guest)"></i>
+                        <div class="bottleneck-text">
+                            <h4>Uplink Hızı Kısıtlı!</h4>
+                            <p>${link.note || 'Uplink bağlantısı 100M olarak kurulmuştur. Gigabit ağınızdan gelen paketler burada yavaşlar.'}</p>
+                        </div>
+                    </div>
+                `;
+            } else if (link.note) {
+                detailsHtml += `
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius:12px; padding:15px; margin-top:15px; font-size:0.8rem; line-height:1.4; color:var(--text-muted);">
+                        <i class="fa-solid fa-info-circle" style="color:var(--color-router); margin-right:5px;"></i> ${link.note}
+                    </div>
+                `;
+            }
+
+            document.getElementById('details-content').innerHTML = detailsHtml;
+        }
+
+        function clearSelection() {
+            document.querySelectorAll('.svg-node-html').forEach(el => el.classList.remove('selected'));
+            document.querySelectorAll('.svg-link').forEach(el => {
+                el.classList.remove('highlighted');
+                el.classList.remove('bottleneck-link');
+                el.style.strokeWidth = '';
+            });
+        }
+
+        function highlightPathNodes(nodeId) {
+            if (['switch', 'desktop-wired', 'proxmox-host', 'pbs', 'lxc-100', 'lxc-101', 'lxc-102', 'lxc-103', 'lxc-104', 'lxc-105', 'lxc-106', 'lxc-107'].includes(nodeId)) {
+                const uplink = document.getElementById('link-router-switch');
+                if (uplink) uplink.classList.add('bottleneck-link');
+            }
+    </script>
+</body>
+</html>

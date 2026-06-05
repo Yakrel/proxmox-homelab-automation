@@ -220,12 +220,27 @@ setup_guacamole_config() {
         echo "$val"
     }
 
-    local guacamole_user guacamole_password windows_ip windows_rdp_user windows_rdp_password
+    local guacamole_user guacamole_password windows_ip windows_rdp_user windows_rdp_password laptop_ip laptop_rdp_user laptop_rdp_password
     guacamole_user=$(get_env_val "GUACAMOLE_USER")
     guacamole_password=$(get_env_val "GUACAMOLE_PASSWORD")
     windows_ip=$(get_env_val "WINDOWS_IP")
     windows_rdp_user=$(get_env_val "WINDOWS_RDP_USER")
     windows_rdp_password=$(get_env_val "WINDOWS_RDP_PASSWORD")
+    laptop_ip=$(get_env_val "LAPTOP_IP")
+    laptop_rdp_user=$(get_env_val "LAPTOP_RDP_USER")
+    laptop_rdp_password=$(get_env_val "LAPTOP_RDP_PASSWORD")
+
+    # Fallback for laptop configuration if not explicitly set
+    if [[ -z "$laptop_rdp_user" ]]; then
+        laptop_rdp_user="$windows_rdp_user"
+    fi
+    if [[ -z "$laptop_rdp_password" ]]; then
+        laptop_rdp_password="$windows_rdp_password"
+    fi
+    if [[ -z "$laptop_ip" ]]; then
+        # Default placeholder to prevent sed failure or invalid XML mapping if missing
+        laptop_ip="192.168.1.21"
+    fi
 
     # Fail fast if variables are missing
     if [[ -z "$guacamole_user" || -z "$guacamole_password" || -z "$windows_ip" || -z "$windows_rdp_user" || -z "$windows_rdp_password" ]]; then
@@ -246,6 +261,9 @@ setup_guacamole_config() {
             -e "s|WINDOWS_IP_PLACEHOLDER|${windows_ip}|g" \
             -e "s|WINDOWS_USER_PLACEHOLDER|${windows_rdp_user}|g" \
             -e "s|WINDOWS_PASSWORD_PLACEHOLDER|${windows_rdp_password}|g" \
+            -e "s|LAPTOP_IP_PLACEHOLDER|${laptop_ip}|g" \
+            -e "s|LAPTOP_USER_PLACEHOLDER|${laptop_rdp_user}|g" \
+            -e "s|LAPTOP_PASSWORD_PLACEHOLDER|${laptop_rdp_password}|g" \
             "$source_template" > "$dest_file" || {
                 print_error "Failed to generate user-mapping.xml from template"
                 exit 1
