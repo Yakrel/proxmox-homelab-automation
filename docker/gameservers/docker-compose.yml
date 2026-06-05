@@ -74,6 +74,9 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
+      - WATCHTOWER_NOTIFICATIONS=${WATCHTOWER_NOTIFICATIONS:-}
+      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
+      - WATCHTOWER_NOTIFICATIONS_LEVEL=${WATCHTOWER_NOTIFICATIONS_LEVEL:-info}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:

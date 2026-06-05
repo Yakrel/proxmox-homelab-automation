@@ -277,6 +277,9 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
+      - WATCHTOWER_NOTIFICATIONS=${WATCHTOWER_NOTIFICATIONS:-}
+      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
+      - WATCHTOWER_NOTIFICATIONS_LEVEL=${WATCHTOWER_NOTIFICATIONS_LEVEL:-info}
     command: ["--schedule", "0 0 2,8,14,20 * * *"]
     networks:
       - webtools-net
