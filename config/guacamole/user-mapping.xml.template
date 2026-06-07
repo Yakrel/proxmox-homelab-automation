@@ -2,23 +2,27 @@
     <!-- Guacamole Web UI Login Credentials -->
     <authorize username="GUACAMOLE_USER_PLACEHOLDER" password="GUACAMOLE_PASSWORD_PLACEHOLDER">
         
-        <!-- Windows RDP Connection (Desktop) -->
-        <connection name="desktop-workstation">
+        <!-- Desktop Workstation RDP Connection (Windows / Fedora GNOME Remote Desktop) -->
+        <connection name="Desktop (RDP)">
             <protocol>rdp</protocol>
             <param name="hostname">WINDOWS_IP_PLACEHOLDER</param>
             <param name="port">3389</param>
             <param name="username">WINDOWS_USER_PLACEHOLDER</param>
             <param name="password">WINDOWS_PASSWORD_PLACEHOLDER</param>
+            <param name="security">nla</param>
             <param name="ignore-cert">true</param>
+            <param name="width">1920</param>
+            <param name="height">1080</param>
+            <param name="color-depth">32</param>
+            <param name="disable-audio">true</param>
             <!-- Performance & Smoothness Optimizations -->
             <param name="enable-wallpaper">false</param>
             <param name="enable-theming">true</param>
             <param name="enable-font-smoothing">true</param>
-            <param name="resize-method">display</param>
         </connection>
 
-        <!-- Windows RDP Connection (Laptop) -->
-        <connection name="laptop-workstation">
+        <!-- Laptop RDP Connection -->
+        <connection name="Laptop (RDP)">
             <protocol>rdp</protocol>
             <param name="hostname">LAPTOP_IP_PLACEHOLDER</param>
             <param name="port">3389</param>
