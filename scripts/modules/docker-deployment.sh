@@ -220,22 +220,35 @@ setup_guacamole_config() {
         echo "$val"
     }
 
-    local guacamole_user guacamole_password windows_ip windows_rdp_user windows_rdp_password laptop_ip laptop_rdp_user laptop_rdp_password
+    local guacamole_user guacamole_password desktop_ip desktop_user desktop_password laptop_ip laptop_rdp_user laptop_rdp_password
     guacamole_user=$(get_env_val "GUACAMOLE_USER")
     guacamole_password=$(get_env_val "GUACAMOLE_PASSWORD")
-    windows_ip=$(get_env_val "WINDOWS_IP")
-    windows_rdp_user=$(get_env_val "WINDOWS_RDP_USER")
-    windows_rdp_password=$(get_env_val "WINDOWS_RDP_PASSWORD")
+    
+    desktop_ip=$(get_env_val "DESKTOP_IP")
+    if [[ -z "$desktop_ip" ]]; then
+        desktop_ip=$(get_env_val "WINDOWS_IP")
+    fi
+    
+    desktop_user=$(get_env_val "DESKTOP_USER")
+    if [[ -z "$desktop_user" ]]; then
+        desktop_user=$(get_env_val "WINDOWS_RDP_USER")
+    fi
+    
+    desktop_password=$(get_env_val "DESKTOP_PASSWORD")
+    if [[ -z "$desktop_password" ]]; then
+        desktop_password=$(get_env_val "WINDOWS_RDP_PASSWORD")
+    fi
+
     laptop_ip=$(get_env_val "LAPTOP_IP")
     laptop_rdp_user=$(get_env_val "LAPTOP_RDP_USER")
     laptop_rdp_password=$(get_env_val "LAPTOP_RDP_PASSWORD")
 
     # Fallback for laptop configuration if not explicitly set
     if [[ -z "$laptop_rdp_user" ]]; then
-        laptop_rdp_user="$windows_rdp_user"
+        laptop_rdp_user="$desktop_user"
     fi
     if [[ -z "$laptop_rdp_password" ]]; then
-        laptop_rdp_password="$windows_rdp_password"
+        laptop_rdp_password="$desktop_password"
     fi
     if [[ -z "$laptop_ip" ]]; then
         # Default placeholder to prevent sed failure or invalid XML mapping if missing
@@ -243,8 +256,8 @@ setup_guacamole_config() {
     fi
 
     # Fail fast if variables are missing
-    if [[ -z "$guacamole_user" || -z "$guacamole_password" || -z "$windows_ip" || -z "$windows_rdp_user" || -z "$windows_rdp_password" ]]; then
-        print_error "Missing required Guacamole or Windows RDP configuration in environment file"
+    if [[ -z "$guacamole_user" || -z "$guacamole_password" || -z "$desktop_ip" || -z "$desktop_user" || -z "$desktop_password" ]]; then
+        print_error "Missing required Guacamole or Desktop workstation configuration in environment file"
         exit 1
     fi
 
@@ -258,9 +271,9 @@ setup_guacamole_config() {
         # Replace placeholders with environment values
         sed -e "s|GUACAMOLE_USER_PLACEHOLDER|${guacamole_user}|g" \
             -e "s|GUACAMOLE_PASSWORD_PLACEHOLDER|${guacamole_password}|g" \
-            -e "s|WINDOWS_IP_PLACEHOLDER|${windows_ip}|g" \
-            -e "s|WINDOWS_USER_PLACEHOLDER|${windows_rdp_user}|g" \
-            -e "s|WINDOWS_PASSWORD_PLACEHOLDER|${windows_rdp_password}|g" \
+            -e "s|WINDOWS_IP_PLACEHOLDER|${desktop_ip}|g" \
+            -e "s|WINDOWS_USER_PLACEHOLDER|${desktop_user}|g" \
+            -e "s|WINDOWS_PASSWORD_PLACEHOLDER|${desktop_password}|g" \
             -e "s|LAPTOP_IP_PLACEHOLDER|${laptop_ip}|g" \
             -e "s|LAPTOP_USER_PLACEHOLDER|${laptop_rdp_user}|g" \
             -e "s|LAPTOP_PASSWORD_PLACEHOLDER|${laptop_rdp_password}|g" \
