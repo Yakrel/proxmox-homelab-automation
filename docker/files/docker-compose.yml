@@ -175,3 +175,24 @@ services:
         max-file: "3"
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
+
+  samba:
+    image: crazymax/samba:latest
+    container_name: samba
+    network_mode: host
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - SAMBA_USER=${SAMBA_USER:?Samba username must be defined}
+      - SAMBA_PASSWORD=${SAMBA_PASSWORD:?Samba password must be defined}
+    volumes:
+      - /datapool/config/samba:/data
+      - /datapool:/datapool
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+

@@ -1,0 +1,20 @@
+auth:
+  - user: ${SAMBA_USER}
+    group: ${SAMBA_USER}
+    uid: 1000
+    gid: 1000
+    password: ${SAMBA_PASSWORD}
+
+global:
+  - "acl allow execute always = yes"
+
+share:
+  - name: datapool
+    path: /datapool
+    browsable: yes
+    readonly: no
+    guestok: no
+    validusers: ${SAMBA_USER}
+    writelist: ${SAMBA_USER}
+    veto: no
+    recycle: no
