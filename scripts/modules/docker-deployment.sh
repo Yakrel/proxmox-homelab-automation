@@ -158,13 +158,20 @@ setup_files_permissions() {
     mkdir -p /datapool/config/jdownloader2
     mkdir -p /datapool/config/metube
     mkdir -p /datapool/config/palmr/uploads
+    mkdir -p /datapool/config/samba
     mkdir -p /datapool/torrents/other
     mkdir -p /datapool/media/kids/youtube
+
+    # Copy Samba configuration if template exists in repository
+    if [[ -f "$WORK_DIR/config/samba/config.yml" ]]; then
+        cp "$WORK_DIR/config/samba/config.yml" /datapool/config/samba/config.yml
+    fi
 
     # Current trees are small and commonly written by user-mapped containers.
     fix_path_owner_recursive /datapool/config/jdownloader2
     fix_path_owner_recursive /datapool/config/metube
     fix_path_owner_recursive /datapool/config/palmr
+    fix_path_owner_recursive /datapool/config/samba
     fix_path_owner /datapool/torrents/other
     fix_path_owner /datapool/media/kids
     fix_path_owner /datapool/media/kids/youtube
