@@ -179,6 +179,17 @@ setup_files_permissions() {
     print_success "Files directories ready"
 }
 
+setup_gameservers_permissions() {
+    print_info "Preparing Gameservers directories"
+
+    mkdir -p /datapool/config/gameservers/palworld
+    mkdir -p /datapool/config/gameservers/satisfactory
+    mkdir -p /datapool/config/gameservers/conan
+
+    fix_path_owner_recursive /datapool/config/gameservers
+    print_success "Gameservers directories ready"
+}
+
 # Setup CouchDB directories and configuration
 setup_couchdb_config() {
     local ct_id="$1"
@@ -432,9 +443,10 @@ $start_marker
 # Game servers are managed separately via profiles
 
 # Ensure core services are always running, then start/stop game containers
-alias start-palworld='cd /root && echo "Starting Palworld..." && docker stop satisfactory-server 2>/dev/null || true && docker compose up -d && docker compose --profile palworld up -d --pull always'
-alias start-satisfactory='cd /root && echo "Starting Satisfactory..." && docker stop palworld-server 2>/dev/null || true && docker compose up -d && docker compose --profile satisfactory up -d --pull always'
-alias stop-games='cd /root && echo "Stopping all game servers..." && docker stop palworld-server satisfactory-server 2>/dev/null || true'
+alias start-palworld='cd /root && echo "Starting Palworld..." && docker stop satisfactory-server conan-exiles-server 2>/dev/null || true && docker compose up -d && docker compose --profile palworld up -d --pull always'
+alias start-satisfactory='cd /root && echo "Starting Satisfactory..." && docker stop palworld-server conan-exiles-server 2>/dev/null || true && docker compose up -d && docker compose --profile satisfactory up -d --pull always'
+alias start-conan='cd /root && echo "Starting Conan Exiles..." && docker stop palworld-server satisfactory-server 2>/dev/null || true && docker compose up -d && docker compose --profile conan up -d --pull always'
+alias stop-games='cd /root && echo "Stopping all game servers..." && docker stop palworld-server satisfactory-server conan-exiles-server 2>/dev/null || true'
 alias game-status='cd /root && docker compose ps -a'
 
 # --- Game Server MOTD (Login Message) ---
@@ -446,6 +458,7 @@ if [ -t 0 ]; then
     echo -e " Available Commands:"
     echo -e "  \033[1;33mstart-palworld\033[0m      : Start Palworld (stops others)"
     echo -e "  \033[1;33mstart-satisfactory\033[0m  : Start Satisfactory (stops others)"
+    echo -e "  \033[1;33mstart-conan\033[0m         : Start Conan Exiles (stops others)"
     echo -e "  \033[1;33mstop-games\033[0m          : Stop all running games"
     echo -e "  \033[1;33mgame-status\033[0m         : Show running containers"
     echo -e "\033[1;36m=====================================================\033[0m"
@@ -512,6 +525,10 @@ deploy_docker_stack() {
 
     if [[ "$stack_name" == "files" ]]; then
         setup_files_permissions
+    fi
+
+    if [[ "$stack_name" == "gameservers" ]]; then
+        setup_gameservers_permissions
     fi
 
     # Setup Immich directories for media stack
