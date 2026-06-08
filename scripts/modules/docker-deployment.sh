@@ -162,16 +162,33 @@ setup_files_permissions() {
     mkdir -p /datapool/torrents/other
     mkdir -p /datapool/media/kids/youtube
 
-    # Copy Samba configuration if template exists in repository
+    # Copy Samba configuration if template exists in repository and replace environment variables
     if [[ -f "$WORK_DIR/config/samba/config.yml" ]]; then
-        cp "$WORK_DIR/config/samba/config.yml" /datapool/config/samba/config.yml
+        if [[ -n "${ENV_DECRYPTED_PATH:-}" && -f "$ENV_DECRYPTED_PATH" ]]; then
+            local samba_user samba_password
+            samba_user=$(grep "^SAMBA_USER=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+            samba_password=$(grep "^SAMBA_PASSWORD=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+            
+            if [[ -n "$samba_user" && -n "$samba_password" ]]; then
+                sed -e "s/\${SAMBA_USER}/$samba_user/g" \
+                    -e "s/\${SAMBA_PASSWORD}/$samba_password/g" \
+                    "$WORK_DIR/config/samba/config.yml" > /datapool/config/samba/config.yml
+            else
+                cp "$WORK_DIR/config/samba/config.yml" /datapool/config/samba/config.yml
+            fi
+        else
+            cp "$WORK_DIR/config/samba/config.yml" /datapool/config/samba/config.yml
+        fi
     fi
 
     # Current trees are small and commonly written by user-mapped containers.
     fix_path_owner_recursive /datapool/config/jdownloader2
     fix_path_owner_recursive /datapool/config/metube
     fix_path_owner_recursive /datapool/config/palmr
+    # Samba directory is owned by 101000, but cache and lib must be world-writable (777) so Samba's root process can manage lock files
+    mkdir -p /datapool/config/samba/cache /datapool/config/samba/lib/private
     fix_path_owner_recursive /datapool/config/samba
+    chmod 777 /datapool/config/samba/cache /datapool/config/samba/lib
     fix_path_owner /datapool/torrents/other
     fix_path_owner /datapool/media/kids
     fix_path_owner /datapool/media/kids/youtube
