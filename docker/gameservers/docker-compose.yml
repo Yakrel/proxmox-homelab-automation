@@ -144,9 +144,9 @@ services:
       
     volumes:
       - /root/palworld:/palworld
-      - /datapool/config/palworld/Saved:/palworld/Pal/Saved
-      - /datapool/config/palworld/backups:/palworld/backups
-      - /datapool/config/palworld/mods:/palworld/Pal/Content/Paks/~mods:ro
+      - /datapool/config/gameservers/palworld/Saved:/palworld/Pal/Saved
+      - /datapool/config/gameservers/palworld/backups:/palworld/backups
+      - /datapool/config/gameservers/palworld/mods:/palworld/Pal/Content/Paks/~mods:ro
     ports:
       - "8211:8211/udp"  # Game port
       - "27015:27015/udp"  # Query port
@@ -189,7 +189,7 @@ services:
       - AUTOSAVENUM=20
       - CRASHREPORT=false
     volumes:
-      - /datapool/config/satisfactory:/config
+      - /datapool/config/gameservers/satisfactory:/config
       - /root/satisfactory:/config/gamefiles
     ports:
       - "7777:7777/udp"  # Game port
@@ -213,3 +213,43 @@ services:
         max-file: "5"
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
+
+  # ---------------------------------------------------------------------------
+  # Conan Exiles Server (Profile: conan)
+  # Start with: docker compose --profile conan up -d
+  # ---------------------------------------------------------------------------
+  conan-exiles-server:
+    image: indifferentbroccoli/conan-exiles-enhanced-server-docker:latest
+    container_name: conan-exiles-server
+    profiles: ["conan"]
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+      - SERVER_NAME=${CONAN_SERVER_NAME:-Proxmox Homelab Conan}
+      - SERVER_PASSWORD=${CONAN_SERVER_PASSWORD}
+      - ADMIN_PASSWORD=${CONAN_ADMIN_PASSWORD}
+      - MAX_PLAYERS=${CONAN_MAX_PLAYERS:-10}
+      - PORT=${CONAN_PORT:-7777}
+      - QUERY_PORT=${CONAN_QUERY_PORT:-27015}
+      - RCON_PORT=${CONAN_RCON_PORT:-25575}
+      - UPDATE_ON_START=true
+    volumes:
+      - /datapool/config/gameservers/conan:/home/steam/server-files
+    ports:
+      - "${CONAN_PORT:-7777}:${CONAN_PORT:-7777}/udp"
+      - "${CONAN_PINGER_PORT:-7778}:${CONAN_PINGER_PORT:-7778}/udp"
+      - "${CONAN_QUERY_PORT:-27015}:${CONAN_QUERY_PORT:-27015}/udp"
+      - "${CONAN_RCON_PORT:-25575}:${CONAN_RCON_PORT:-25575}/tcp"
+    networks:
+      - gameserver-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
