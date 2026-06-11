@@ -127,7 +127,7 @@ configure_backrest_directories() {
 # rclone is now installed inside the Docker image, not in the LXC container
 configure_rclone_config() {
     local rclone_conf="/datapool/config/backrest/config/rclone.conf"
-    local rclone_conf_enc="$WORK_DIR/docker/backup/config/rclone.conf.enc"
+    local rclone_conf_enc="$WORK_DIR/docker/utility/config/rclone.conf.enc"
 
     print_info "Configuring rclone from encrypted configuration"
 

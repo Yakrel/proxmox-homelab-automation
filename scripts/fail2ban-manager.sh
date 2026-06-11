@@ -216,7 +216,7 @@ show_statistics() {
         local total_failed
         total_failed=$(echo "$jail_status" | grep "Total failed:" | sed -E 's/.*Total failed:\s*//')
         local currently_banned
-        currently_banned=$(echo "$jail_status" | grep "Currently banned:" | sed -E 's/.*Currently banned:\s*//' | wc -w)
+        currently_banned=$(echo "$jail_status" | grep "Currently banned:" | sed -E 's/.*Currently banned:\s*//')
         local total_banned
         total_banned=$(echo "$jail_status" | grep "Total banned:" | sed -E 's/.*Total banned:\s*//')
         

@@ -5,34 +5,34 @@ groups:
       # Pre-compute container CPU percentage for faster queries
       - record: container:cpu_usage:rate5m
         expr: |
-          rate(container_cpu_usage_seconds_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m]) * 100
+          rate(container_cpu_usage_seconds_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*"}[5m]) * 100
 
       # Pre-compute container memory percentage
       # DISABLED: Docker containers in LXC don't have memory limits set, causing division by zero
       # Use lxc:memory_usage:percent instead for monitoring memory at LXC level
       # - record: container:memory_usage:percent
       #   expr: |
-      #     (container_memory_working_set_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"} 
+      #     (container_memory_working_set_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*"} 
       #     / 
-      #     container_spec_memory_limit_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}) * 100
+      #     container_spec_memory_limit_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*"}) * 100
 
       # Pre-compute container network I/O rates
       - record: container:network_receive:rate5m
         expr: |
-          rate(container_network_receive_bytes_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m])
+          rate(container_network_receive_bytes_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*"}[5m])
       
       - record: container:network_transmit:rate5m
         expr: |
-          rate(container_network_transmit_bytes_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m])
+          rate(container_network_transmit_bytes_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*"}[5m])
 
       # Pre-compute disk I/O rates
       - record: container:fs_read:rate5m
         expr: |
-          rate(container_fs_reads_bytes_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m])
+          rate(container_fs_reads_bytes_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*"}[5m])
       
       - record: container:fs_write:rate5m
         expr: |
-          rate(container_fs_writes_bytes_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m])
+          rate(container_fs_writes_bytes_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*"}[5m])
 
   - name: lxc_recording_rules
     interval: 30s

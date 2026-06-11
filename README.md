@@ -1,6 +1,6 @@
 # Proxmox Homelab Automation
 
-Production-style homelab architected with enterprise-inspired reliability practices, demonstrating infrastructure automation and DevOps patterns. Orchestrates **30+ services** across **8 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**, and **full-stack observability**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
+Production-style homelab architected with enterprise-inspired reliability practices, demonstrating infrastructure automation and DevOps patterns. Orchestrates **30+ services** across **7 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**, and **full-stack observability**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
 
 > **About**: Production homelab running family media services (Jellyfin, Immich) with production-grade infrastructure patterns. Features **declarative infrastructure-as-code**, **ZFS-backed storage**, **encrypted secret management**, **full-stack monitoring**, and **disaster recovery** architecture.
 
@@ -33,10 +33,10 @@ A visualization of the Zero Trust architecture, highlighting how **WARP** provid
 > 🗺️ **Interactive Architecture Dashboard**
 >
 > Explore the live system topology, data flow, and microservices map:
-> **[👉 Launch Interactive Dashboard](https://yakrel.github.io/proxmox-homelab-automation/)**
+> **[👉 Launch Interactive Dashboard](https://infra.byetgin.com/)**
 
 - **Seamless Family Experience**: Mobile devices run **Cloudflare WARP** in "Always-On" mode. This creates a secure, transparent VPN directly to the home network.
-  - *Result:* The wife and child can open the Jellyfin app anywhere in the world and it works exactly as if they were on the couch. No logins, no OTPs.
+  - *Result:* Family members can open the Jellyfin app anywhere in the world and it works exactly as if they were on the couch. No logins, no OTPs.
 - **Strict Public Access**: Browser-based access (e.g., from a work computer) is protected by **Cloudflare Access** with Wildcard Email OTP policies.
 - **Dual-Layer Tunneling**:
   - **Tailscale (Primary VPN)**: Used for high-performance, direct "LAN-like" access to the entire network (`192.168.1.0/24`). Ideal for admin tasks, gaming, and bypassing restrictive ISP firewalls.
@@ -60,7 +60,7 @@ This project utilizes custom Docker images that are maintained in separate repos
 
 | Image | Repository | Description |
 | :--- | :--- | :--- |
-| **desktop-workspace** | [Yakrel/docker-desktop-workspace](https://github.com/Yakrel/docker-desktop-workspace) | Multi-app web environment (Chrome + Obsidian + file manager) |
+| **desktop-workspace** | [Yakrel/docker-desktop-workspace](https://github.com/Yakrel/docker-desktop-workspace) | Multi-app web environment (Brave + Obsidian) |
 | **backrest-rclone** | [Yakrel/docker-backrest-rclone](https://github.com/Yakrel/docker-backrest-rclone) | Backup solution with Google Drive sync hooks |
 
 **Pipeline Features:**
@@ -85,29 +85,26 @@ This project utilizes custom Docker images that are maintained in separate repos
 
 ## 📦 Service Stacks
 
-### **Media Automation** (LXC 101 - 192.168.1.101)
-Jellyfin, Immich, Sonarr, Radarr, Bazarr, Jellyseerr, Prowlarr, qBittorrent, FlareSolverr, Recyclarr, Cleanuperr
+### **Proxy & DNS (Gateway)** (LXC 100 - `192.168.1.100`)
+Nginx Proxy Manager, AdGuard Home, Cloudflared, Tailscale Subnet Router, Promtail
 
-### **Monitoring & Observability** (LXC 104 - 192.168.1.104)
-Prometheus, Grafana, Loki, Promtail, PVE Exporter, cAdvisor
+### **Media Automation** (LXC 101 - `192.168.1.101`)
+Jellyfin, Immich, Sonarr, Radarr, Bazarr, Jellyseerr, Prowlarr, qBittorrent, FlareSolverr, Recyclarr, Cleanuperr, Tdarr
 
-### **File Management** (LXC 102 - 192.168.1.102)
-JDownloader 2, MeTube, Palmr
+### **Utility & Backup** (LXC 102 - `192.168.1.102`)
+JDownloader 2, Samba, Repackarr, Backrest-Rclone (Backup with Google Drive sync), MeTube
 
-### **Web Tools** (LXC 103 - 192.168.1.103)
-Homepage, Desktop Workspace, CouchDB, Vaultwarden
+### **Desktop Workspace (Web Tools)** (LXC 103 - `192.168.1.103`)
+Homepage, Desktop Workspace, Guacamole, Sshwifty, CouchDB, Vaultwarden
 
-### **Proxy & DNS** (LXC 100 - 192.168.1.100)
-Nginx Proxy Manager, AdGuard Home, Cloudflared, Tailscale, Promtail, Watchtower
+### **Monitoring & Observability** (LXC 104 - `192.168.1.104`)
+Prometheus, Grafana, Loki, Promtail, PVE Exporter, cAdvisor, Diun (update notifications)
 
-### **Backup** (LXC 106 - 192.168.1.106)
-Backrest-Rclone (custom image with Google Drive sync)
+### **Game Servers (Gaming)** (LXC 105 - `192.168.1.105`)
+Palworld, Satisfactory, Conan Exiles
 
-### **Game Servers** (LXC 105 - 192.168.1.105)
-Satisfactory, Palworld
-
-### **Development** (LXC 107 - 192.168.1.107)
-Extensible development environment
+### **Development (Dev)** (LXC 106 - `192.168.1.106`)
+Code-Server, Node.js, Python, Git, Claude Code, Antigravity CLI
 
 ---
 
@@ -122,28 +119,45 @@ Extensible development environment
 
 **Not plug-and-play.** This project demonstrates infrastructure automation and DevOps skills. To adapt for your environment: fork, perform necessary network/storage refactoring, re-encrypt secrets, and test thoroughly.
 
+---
+
 ## 📁 Project Structure
 
 ```
-├── installer.sh              # One-line installer
+├── installer.sh              # One-line installer launcher
+├── stacks.yaml              # Central configuration (LXC resources, IPs, hostnames)
 ├── scripts/                  # ~3000 lines of deployment automation
+│   ├── main-menu.sh         # Main interactive CLI menu
+│   ├── helper-menu.sh       # Proxmox host helpers menu
 │   ├── deploy-stack.sh      # Main orchestrator
 │   ├── lxc-manager.sh       # LXC lifecycle management
-│   ├── modules/             # Specialized deployment modules
-│   └── helper-*.sh          # Utility functions
+│   ├── fast-redeploy.sh     # Fast Docker stack redeploy
+│   ├── fail2ban-manager.sh  # Fail2ban client management
+│   ├── helper-functions.sh  # Common shell utilities
+│   ├── datapool-cleanup.sh  # Cache/log cleaner
+│   ├── setup-tailscale-host.sh # Tailscale host subnet configuration
+│   └── modules/             # Specialized deployment modules
+│       ├── docker-deployment.sh
+│       ├── monitoring-deployment.sh
+│       └── backrest-deployment.sh
 ├── docker/                   # Docker Compose stacks
-│   ├── media/               # Media automation + GPU acceleration
-│   ├── monitoring/          # Prometheus + Grafana + Loki
-│   ├── backup/              # Backrest with Google Drive sync
-│   ├── webtools/            # Dashboard + desktop workspace
-│   ├── files/               # Download managers
-│   ├── proxy/               # Cloudflare tunnel
-│   └── gameservers/         # Game servers
-├── config/                   # Shared configurations
-│   ├── prometheus/          # Metrics + alerting rules
-│   ├── promtail/            # Log collection config
-│   └── homepage/            # Dashboard widgets
-└── stacks.yaml              # Central configuration (LXC resources, IPs, hostnames)
+│   ├── _infra/              # Shared infrastructure (cAdvisor, promtail, etc.)
+│   ├── desktop/             # Dashboard, desktop workspace, guacamole, sshwifty
+│   ├── gaming/              # Satisfactory, Palworld, Conan Exiles servers
+│   ├── gateway/             # Nginx Proxy Manager, AdGuard, Cloudflared
+│   ├── media/               # Media automation + GPU acceleration (Jellyfin, Immich)
+│   ├── monitor/             # Prometheus + Grafana + Loki + Diun
+│   └── utility/             # Download managers, Backrest backup, Samba shares
+└── config/                   # Shared configurations
+    ├── prometheus/          # Metrics + alerting rules
+    ├── promtail/            # Log collection config
+    ├── homepage/            # Dashboard widgets
+    ├── samba/               # Samba share template config
+    ├── sshwifty/            # sshwifty profile template config
+    ├── couchdb-local.ini    # CouchDB local configuration template
+    ├── loki/                # Loki configuration files
+    ├── grafana/             # Grafana dashboard templates
+    └── guacamole/           # Apache Guacamole user-mapping configs
 ```
 
 ## 🔧 Requirements
@@ -158,7 +172,7 @@ Extensible development environment
 - **Encrypted secrets**: AES-256-CBC with pbkdf2
 - **Single master key** decrypts all `.env.enc` files
 - **Network isolation** per stack
-- **Automated security updates** via Watchtower
+- **Centralized container update management** via Diun (Docker Image Update Notifier) on monitoring LXC
 
 ## 📄 License
 

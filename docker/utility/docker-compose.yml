@@ -1,0 +1,163 @@
+name: utility
+
+networks:
+  utility-net:
+    driver: bridge
+
+services:
+  jdownloader2:
+    image: ghcr.io/jaymoulin/jdownloader:latest
+    container_name: jdownloader2
+    environment:
+      - MYJD_USER=${MYJD_USER:?MyJDownloader email must be defined}
+      - MYJD_PASSWORD=${MYJD_PASSWORD:?MyJDownloader password must be defined}
+      - MYJD_DEVICE_NAME=${MYJD_DEVICE_NAME:-homelab-jdownloader}
+    volumes:
+      - /datapool/config/jdownloader2:/opt/JDownloader/app/cfg
+      - /datapool/torrents/other:/opt/JDownloader/Downloads
+    ports:
+      - "3129:3129"
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f JDownloader || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - utility-net
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  samba:
+    image: crazymax/samba:latest
+    container_name: samba
+    network_mode: host
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - SAMBA_USER=${SAMBA_USER:?Samba username must be defined}
+      - SAMBA_PASSWORD=${SAMBA_PASSWORD:?Samba password must be defined}
+    volumes:
+      - /datapool/config/samba:/data
+      - /datapool:/datapool
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  repackarr:
+    image: ghcr.io/yakrel/repackarr:latest
+    container_name: repackarr
+    restart: unless-stopped
+    ports:
+      - "8090:3000"
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - QBIT_HOST=${REPACKARR_QBIT_HOST}
+      - QBIT_USERNAME=${REPACKARR_QBIT_USERNAME}
+      - QBIT_PASSWORD=${REPACKARR_QBIT_PASSWORD}
+      - QBIT_CATEGORY=${REPACKARR_QBIT_CATEGORY}
+      - PROWLARR_URL=${REPACKARR_PROWLARR_URL}
+      - PROWLARR_API_KEY=${REPACKARR_PROWLARR_API_KEY}
+      - CRON_INTERVAL_MINUTES=${REPACKARR_CRON_INTERVAL_MINUTES}
+      - PLATFORM_FILTER=${REPACKARR_PLATFORM_FILTER}
+      - IGNORED_KEYWORDS=${REPACKARR_IGNORED_KEYWORDS}
+      - ALLOWED_INDEXERS=${REPACKARR_ALLOWED_INDEXERS}
+      - IGDB_CLIENT_ID=${REPACKARR_IGDB_CLIENT_ID}
+      - IGDB_CLIENT_SECRET=${REPACKARR_IGDB_CLIENT_SECRET}
+    volumes:
+      - /datapool/config/repackarr/data:/app/data
+      - /datapool/config/repackarr/logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - utility-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  backrest:
+    image: ghcr.io/yakrel/docker-backrest-rclone:latest
+    container_name: backrest
+    restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "9898:9898"
+    volumes:
+      - /datapool/config/backrest/config:/config
+      - /datapool/config/backrest/data:/data
+      - /datapool/config/backrest/cache:/cache
+      - /datapool/backup:/repos
+      - /datapool/config:/backup-sources/config:rw
+      - /datapool/media/immich:/backup-sources/immich:rw
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=1000
+      - PGID=1000
+      - BACKREST_CONFIG=/config/config.json
+      - BACKREST_DATA=/data
+      - BACKREST_PORT=9898
+      - XDG_CACHE_HOME=/cache
+    user: "1000:1000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9898/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - utility-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  metube:
+    image: ghcr.io/alexta69/metube:latest
+    container_name: metube
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /datapool/config/metube:/config
+      - /datapool/media/kids/youtube:/downloads
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081', timeout=5)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - utility-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"

@@ -30,19 +30,6 @@ deploy_stack_handler() {
     fi
 }
 
-encrypt_env_handler() {
-    bash "$WORK_DIR/scripts/encrypt-env.sh"
-    local exit_code=$?
-    
-    # If encryption failed, pause to let user see the error
-    if [[ $exit_code -ne 0 ]]; then
-        echo
-        print_error "Environment encryption failed with exit code $exit_code"
-        print_info "Review the error message above before continuing"
-        press_enter_to_continue
-    fi
-}
-
 fast_redeploy_handler() {
     bash "$WORK_DIR/scripts/fast-redeploy.sh"
     local exit_code=$?
@@ -76,7 +63,6 @@ main_menu() {
     
     # Add additional options
     stack_options+=("Fast redeploy running Docker stacks...")
-    stack_options+=("Encrypt .env files from containers...")
     stack_options+=("Run Proxmox Helper Scripts...")
     
     # Create handlers array
@@ -91,7 +77,6 @@ main_menu() {
     
     # Add additional handlers
     handlers+=("fast_redeploy_handler")
-    handlers+=("encrypt_env_handler")
     handlers+=("helper_menu_handler")
     
     # Show interactive menu

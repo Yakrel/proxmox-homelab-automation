@@ -48,8 +48,9 @@ setup_monitoring_environment() {
     }
     
     # Read Grafana configuration from .env.enc (already decrypted)
-    # Optimization: Read file once and parse 5 variables to avoid 5 file reads
+    # Optimization: Read file once and parse variables to avoid multiple file reads
     local gf_admin_user gf_admin_password pve_url pve_user pve_verify_ssl
+    local diun_telegram_token diun_telegram_chat_ids diun_telegram_template_body
     local env_content
     
     env_content=$(cat "$ENV_DECRYPTED_PATH")
@@ -59,6 +60,9 @@ setup_monitoring_environment() {
     pve_url=$(read_env_value PVE_URL <<< "$env_content")
     pve_user=$(read_env_value PVE_USER <<< "$env_content")
     pve_verify_ssl=$(read_env_value PVE_VERIFY_SSL <<< "$env_content")
+    diun_telegram_token=$(read_env_value DIUN_TELEGRAM_TOKEN <<< "$env_content")
+    diun_telegram_chat_ids=$(read_env_value DIUN_TELEGRAM_CHAT_IDS <<< "$env_content")
+    diun_telegram_template_body=$(read_env_value DIUN_TELEGRAM_TEMPLATE_BODY <<< "$env_content")
     MONITORING_PVE_USER="${pve_user:-pve-exporter@pve}"
     MONITORING_PVE_VERIFY_SSL="${pve_verify_ssl:-false}"
     normalize_monitoring_verify_ssl
@@ -87,6 +91,11 @@ TZ=Europe/Istanbul
 # User mappings for containers
 PUID=1000
 PGID=1000
+
+# Diun Telegram Notifications
+DIUN_TELEGRAM_TOKEN=$diun_telegram_token
+DIUN_TELEGRAM_CHAT_IDS=$diun_telegram_chat_ids
+DIUN_TELEGRAM_TEMPLATE_BODY=$diun_telegram_template_body
 EOF
     
     # Copy to container
@@ -265,7 +274,7 @@ validate_monitoring_configs() {
     print_info "Validating monitoring configuration files"
 
     # Copy prometheus config directly from local workspace to host filesystem
-    local prom_source="$WORK_DIR/docker/monitoring/prometheus.yml"
+    local prom_source="$WORK_DIR/docker/monitor/prometheus.yml"
     if [[ -f "$prom_source" ]]; then
         cp "$prom_source" "/datapool/config/prometheus/prometheus.yml" || {
             print_error "Failed to copy prometheus.yml"
@@ -318,8 +327,8 @@ default:
   verify_ssl: ${MONITORING_PVE_VERIFY_SSL}
 EOF
 
-    # Setup promtail config for monitoring LXC
-    local hostname="lxc-monitoring-01"
+    # Setup promtail config for monitor LXC
+    local hostname="lxc-monitor"
     pct exec "$ct_id" -- mkdir -p /etc/promtail /var/lib/promtail/positions
     
     local temp_promtail="/tmp/promtail_monitoring.yml"

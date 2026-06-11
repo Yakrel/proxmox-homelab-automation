@@ -20,7 +20,7 @@ clean_dir() {
     local dir="$1"
     if [ -d "$dir" ]; then
         local size=$(du -sh "$dir" 2>/dev/null | cut -f1 || echo "0")
-        rm -rf "$dir"/*
+        find "$dir" -mindepth 1 -delete
         echo "  Cleaned: $dir ($size)"
     fi
 }
@@ -76,8 +76,6 @@ remove_dir "/datapool/config/recyclarr/repositories"
 # Temporary upload and runtime data
 clean_dir "/datapool/config/npm/data/nginx/temp"
 clean_dir "/datapool/config/vaultwarden/tmp"
-clean_dir "/datapool/config/palmr/temp-uploads"
-clean_dir "/datapool/config/palmr/minio-data/.minio.sys/tmp"
 clean_dir "/datapool/config/tdarr/server/Tdarr/DB2/JobReports"
 # Sentry error reporting data
 clean_dir "/datapool/config/prowlarr/Sentry"

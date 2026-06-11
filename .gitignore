@@ -53,3 +53,6 @@ setting.local.json
 .env.local
 .env.tmp
 .vault_pass
+
+# Migration Plan
+plan.md

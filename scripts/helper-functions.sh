@@ -168,11 +168,7 @@ check_container_running() {
     [[ "$status" == "running" ]]
 }
 
-exec_in_container() {
-    local ct_id="$1"
-    shift
-    pct exec "$ct_id" -- "$@"
-}
+
 
 # === MENU UTILITIES ===
 # Common menu display patterns
