@@ -1,0 +1,83 @@
+name: gateway
+
+networks:
+  gateway-net:
+    driver: bridge
+
+services:
+  npm:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: npm
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '81:81'
+      - '443:443'
+    volumes:
+      - /datapool/config/npm/data:/data
+      - /datapool/config/npm/letsencrypt:/etc/letsencrypt
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - PUID=1000
+      - PGID=1000
+    networks:
+      - gateway-net
+    healthcheck:
+      test: ["CMD", "/bin/check-health"]
+      interval: 10s
+      timeout: 3s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  adguard:
+    image: adguard/adguardhome:latest
+    container_name: adguard
+    user: "1000:1000"
+    cap_add:
+      - NET_BIND_SERVICE
+    restart: unless-stopped
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "3000:3000" # Web Interface
+    volumes:
+      - /datapool/config/adguard/work:/opt/adguardhome/work
+      - /datapool/config/adguard/conf:/opt/adguardhome/conf
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+    networks:
+      - gateway-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --protocol http2
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARED_TOKEN:?Cloudflare tunnel token must be defined}
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-Europe/Istanbul}
+    healthcheck:
+      disable: true
+    networks:
+      - gateway-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"

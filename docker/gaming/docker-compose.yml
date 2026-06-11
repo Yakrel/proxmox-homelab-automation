@@ -1,98 +1,18 @@
 # Proxmox Homelab Game Servers Stack
 # Uses Docker Compose Profiles to manage resources efficiently.
-# Common services (Watchtower, Promtail, cAdvisor) run always.
+# Common services (Promtail, cAdvisor) run always.
 # Games run only when their specific profile is activated.
 
-name: gameservers
+name: gaming
 
 networks:
-  gameserver-net:
+  gaming-net:
     driver: bridge
 
 services:
   # ---------------------------------------------------------------------------
-  # Core Services (Always Running)
-  # ---------------------------------------------------------------------------
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor
-    restart: unless-stopped
-    ports:
-      - "8082:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    privileged: true
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
-    command:
-      - '--housekeeping_interval=10s'
-      - '--docker_only=true'
-      - '--store_container_labels=false'
-    networks:
-      - gameserver-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
-
-  promtail:
-    image: grafana/promtail:latest
-    container_name: promtail-gameservers
-    restart: unless-stopped
-    network_mode: "host"
-    volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/log:/var/log:ro
-      - /etc/promtail:/etc/promtail:ro
-      - /var/lib/promtail/positions:/var/lib/promtail/positions
-    command: -config.file=/etc/promtail/promtail.yml
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
-
-  watchtower:
-    image: ghcr.io/nicholas-fedor/watchtower:latest
-    container_name: watchtower-gameservers
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
-      - WATCHTOWER_CLEANUP=${WATCHTOWER_CLEANUP:-true}
-      - WATCHTOWER_POLL_INTERVAL=${WATCHTOWER_POLL_INTERVAL:-3600}
-      - WATCHTOWER_ROLLING_RESTART=true
-      - PUID=1000
-      - PGID=1000
-      - UMASK=002
-      - WATCHTOWER_NOTIFICATIONS=${WATCHTOWER_NOTIFICATIONS:-}
-      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
-      - WATCHTOWER_NOTIFICATIONS_LEVEL=${WATCHTOWER_NOTIFICATIONS_LEVEL:-info}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - gameserver-net
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
-
-  # ---------------------------------------------------------------------------
   # Palworld Server (Profile: palworld)
-  # Start with: docker compose --profile palworld up -d
+  # Start with: docker compose -p app -f docker-compose.yml --profile palworld up -d
   # ---------------------------------------------------------------------------
   palworld-server:
     image: thijsvanloef/palworld-server-docker:latest
@@ -152,7 +72,7 @@ services:
       - "27015:27015/udp"  # Query port
       - "8212:8212/tcp"  # REST API
     networks:
-      - gameserver-net
+      - gaming-net
     restart: unless-stopped
     stop_grace_period: 120s
     healthcheck:
@@ -171,7 +91,7 @@ services:
 
   # ---------------------------------------------------------------------------
   # Satisfactory Server (Profile: satisfactory)
-  # Start with: docker compose --profile satisfactory up -d
+  # Start with: docker compose -p app -f docker-compose.yml --profile satisfactory up -d
   # ---------------------------------------------------------------------------
   satisfactory-server:
     image: wolveix/satisfactory-server:latest
@@ -197,7 +117,7 @@ services:
       - "15000:15000/udp"  # Query port
       - "15777:15777/udp"  # Beacon port
     networks:
-      - gameserver-net
+      - gaming-net
     restart: unless-stopped
     stop_grace_period: 120s
     healthcheck:
@@ -216,7 +136,7 @@ services:
 
   # ---------------------------------------------------------------------------
   # Conan Exiles Server (Profile: conan)
-  # Start with: docker compose --profile conan up -d
+  # Start with: docker compose -p app -f docker-compose.yml --profile conan up -d
   # ---------------------------------------------------------------------------
   conan-exiles-server:
     image: indifferentbroccoli/conan-exiles-enhanced-server-docker:latest
@@ -244,7 +164,7 @@ services:
       - "${CONAN_QUERY_PORT:-27015}:${CONAN_QUERY_PORT:-27015}/udp"
       - "${CONAN_RCON_PORT:-25575}:${CONAN_RCON_PORT:-25575}/tcp"
     networks:
-      - gameserver-net
+      - gaming-net
     logging:
       driver: "json-file"
       options:

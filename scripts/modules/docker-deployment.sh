@@ -37,28 +37,25 @@ setup_homepage_config() {
     print_success "Homepage configured"
 }
 
-setup_proxy_permissions() {
-    print_info "Preparing Proxy directories"
+setup_gateway_permissions() {
+    print_info "Preparing Gateway directories"
 
     mkdir -p /datapool/config/npm/data
     mkdir -p /datapool/config/npm/letsencrypt
     mkdir -p /datapool/config/adguard/work
     mkdir -p /datapool/config/adguard/conf
-    mkdir -p /datapool/config/tailscale
 
     fix_path_owner_recursive /datapool/config/npm
     fix_path_owner_recursive /datapool/config/adguard
-    chown -R 100000:100000 /datapool/config/tailscale
 
-    print_success "Proxy directories ready"
+    print_success "Gateway directories ready"
 }
 
-setup_webtools_permissions() {
-    print_info "Preparing Webtools directories"
+setup_desktop_permissions() {
+    print_info "Preparing Desktop directories"
 
     mkdir -p /datapool/config/homepage
     mkdir -p /datapool/config/couchdb/data /datapool/config/couchdb/local.d
-    mkdir -p /datapool/config/repackarr/data /datapool/config/repackarr/logs
     mkdir -p /datapool/config/desktop-workspace
     mkdir -p /datapool/config/vaultwarden
     mkdir -p /datapool/config/guacamole
@@ -67,7 +64,6 @@ setup_webtools_permissions() {
     # These are small writable app-config trees; keep large browser/password data shallow.
     fix_path_owner_recursive /datapool/config/homepage
     fix_path_owner_recursive /datapool/config/couchdb
-    fix_path_owner_recursive /datapool/config/repackarr
     fix_path_owner /datapool/config/desktop-workspace
     # Fix all configuration directories (PulseAudio, window manager, themes, etc.) at once
     mkdir -p /datapool/config/desktop-workspace/.config
@@ -76,7 +72,7 @@ setup_webtools_permissions() {
     fix_path_owner_recursive /datapool/config/guacamole
     fix_path_owner_recursive /datapool/config/sshwifty
 
-    print_success "Webtools directories ready"
+    print_success "Desktop directories ready"
 }
 
 setup_sshwifty_config() {
@@ -152,12 +148,12 @@ PYEOF
     print_success "sshwifty configured with key-based auth"
 }
 
-setup_files_permissions() {
-    print_info "Preparing Files directories"
+setup_utility_permissions() {
+    print_info "Preparing Utility directories"
 
     mkdir -p /datapool/config/jdownloader2
     mkdir -p /datapool/config/metube
-    mkdir -p /datapool/config/palmr/uploads
+    mkdir -p /datapool/config/repackarr/data /datapool/config/repackarr/logs
     mkdir -p /datapool/config/samba
     mkdir -p /datapool/torrents/other
     mkdir -p /datapool/media/kids/youtube
@@ -184,7 +180,7 @@ setup_files_permissions() {
     # Current trees are small and commonly written by user-mapped containers.
     fix_path_owner_recursive /datapool/config/jdownloader2
     fix_path_owner_recursive /datapool/config/metube
-    fix_path_owner_recursive /datapool/config/palmr
+    fix_path_owner_recursive /datapool/config/repackarr
     # Samba directory is owned by 101000, but cache and lib must be world-writable (777) so Samba's root process can manage lock files
     mkdir -p /datapool/config/samba/cache /datapool/config/samba/lib/private
     fix_path_owner_recursive /datapool/config/samba
@@ -193,18 +189,18 @@ setup_files_permissions() {
     fix_path_owner /datapool/media/kids
     fix_path_owner /datapool/media/kids/youtube
 
-    print_success "Files directories ready"
+    print_success "Utility directories ready"
 }
 
-setup_gameservers_permissions() {
-    print_info "Preparing Gameservers directories"
+setup_gaming_permissions() {
+    print_info "Preparing Gaming directories"
 
     mkdir -p /datapool/config/gameservers/palworld
     mkdir -p /datapool/config/gameservers/satisfactory
     mkdir -p /datapool/config/gameservers/conan
 
     fix_path_owner_recursive /datapool/config/gameservers
-    print_success "Gameservers directories ready"
+    print_success "Gaming directories ready"
 }
 
 # Setup CouchDB directories and configuration
@@ -401,13 +397,24 @@ setup_docker_compose() {
     local source_file="$WORK_DIR/docker/$stack_name/docker-compose.yml"
     
     if [[ -f "$source_file" ]]; then
-        # Copy to container root directory directly
+        # Copy app compose to container root directory directly
         pct push "$ct_id" "$source_file" "/root/docker-compose.yml" || { 
             print_error "Failed to push compose file"
             exit 1 
         }
     else
         print_error "docker-compose.yml not found at $source_file"
+        exit 1
+    fi
+
+    local infra_file="$WORK_DIR/docker/_infra/docker-compose.yml"
+    if [[ -f "$infra_file" ]]; then
+        pct push "$ct_id" "$infra_file" "/root/infra-compose.yml" || {
+            print_error "Failed to push infra compose file"
+            exit 1
+        }
+    else
+        print_error "infra compose file not found at $infra_file"
         exit 1
     fi
     
@@ -432,9 +439,13 @@ deploy_docker_services() {
 
     print_info "Deploying services for $stack_name"
 
-    # Pull images and deploy in one command
-    pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --pull always --remove-orphans" || {
-        print_error "Failed to deploy services"
+    pct exec "$ct_id" -- sh -c "cd /root && docker compose -p app -f docker-compose.yml up -d --pull always --remove-orphans" || {
+        print_error "Failed to deploy app services"
+        exit 1
+    }
+
+    pct exec "$ct_id" -- sh -c "cd /root && docker compose -p infra -f infra-compose.yml up -d --pull always --remove-orphans" || {
+        print_error "Failed to deploy infra services"
         exit 1
     }
 
@@ -456,15 +467,14 @@ setup_gameserver_aliases() {
 
 $start_marker
 # Aliases for Game Server Management
-# Core services (cadvisor, promtail, watchtower) always run via base compose
+# Infra services are managed separately by /root/infra-compose.yml
 # Game servers are managed separately via profiles
 
-# Ensure core services are always running, then start/stop game containers
-alias start-palworld='cd /root && echo "Starting Palworld..." && docker stop satisfactory-server conan-exiles-server 2>/dev/null || true && docker compose up -d && docker compose --profile palworld up -d --pull always'
-alias start-satisfactory='cd /root && echo "Starting Satisfactory..." && docker stop palworld-server conan-exiles-server 2>/dev/null || true && docker compose up -d && docker compose --profile satisfactory up -d --pull always'
-alias start-conan='cd /root && echo "Starting Conan Exiles..." && docker stop palworld-server satisfactory-server 2>/dev/null || true && docker compose up -d && docker compose --profile conan up -d --pull always'
+alias start-palworld='cd /root && echo "Starting Palworld..." && docker stop satisfactory-server conan-exiles-server 2>/dev/null || true && docker compose -p app -f docker-compose.yml --profile palworld up -d --pull always'
+alias start-satisfactory='cd /root && echo "Starting Satisfactory..." && docker stop palworld-server conan-exiles-server 2>/dev/null || true && docker compose -p app -f docker-compose.yml --profile satisfactory up -d --pull always'
+alias start-conan='cd /root && echo "Starting Conan Exiles..." && docker stop palworld-server satisfactory-server 2>/dev/null || true && docker compose -p app -f docker-compose.yml --profile conan up -d --pull always'
 alias stop-games='cd /root && echo "Stopping all game servers..." && docker stop palworld-server satisfactory-server conan-exiles-server 2>/dev/null || true'
-alias game-status='cd /root && docker compose ps -a'
+alias game-status='cd /root && docker compose -p app -f docker-compose.yml ps -a'
 
 # --- Game Server MOTD (Login Message) ---
 # Display only on interactive shell login
@@ -524,28 +534,21 @@ deploy_docker_stack() {
     
     verify_docker "$ct_id"
     
-    # Setup Promtail for log aggregation (all Docker stacks except monitoring)
-    if [[ "$stack_name" != "monitoring" ]]; then
-        local hostname
-        hostname=$(yq -r ".stacks.${stack_name}.hostname" "$WORK_DIR/stacks.yaml")
-        setup_promtail_config "$ct_id" "$hostname"
-    fi
-
-    # Setup Homepage config files for webtools stack
-    if [[ "$stack_name" == "webtools" ]]; then
-        setup_webtools_permissions
+    # Setup Homepage config files for desktop stack
+    if [[ "$stack_name" == "desktop" ]]; then
+        setup_desktop_permissions
         setup_homepage_config "$ct_id"
         setup_couchdb_config "$ct_id"
         setup_guacamole_config "$ct_id"
         setup_sshwifty_config "$ct_id"
     fi
 
-    if [[ "$stack_name" == "files" ]]; then
-        setup_files_permissions
+    if [[ "$stack_name" == "utility" ]]; then
+        setup_utility_permissions
     fi
 
-    if [[ "$stack_name" == "gameservers" ]]; then
-        setup_gameservers_permissions
+    if [[ "$stack_name" == "gaming" ]]; then
+        setup_gaming_permissions
     fi
 
     # Setup Immich directories for media stack
@@ -559,50 +562,19 @@ deploy_docker_stack() {
         pct exec "$ct_id" -- apt-get install -y gocryptfs
     fi
 
-    if [[ "$stack_name" == "proxy" ]]; then
-        setup_proxy_permissions
+    if [[ "$stack_name" == "gateway" ]]; then
+        setup_gateway_permissions
     fi
 
     setup_docker_compose "$stack_name" "$ct_id"
     deploy_docker_services "$stack_name" "$ct_id"
 
-    # Setup aliases for gameservers stack
-    if [[ "$stack_name" == "gameservers" ]]; then
+    # Setup aliases for gaming stack
+    if [[ "$stack_name" == "gaming" ]]; then
         setup_gameserver_aliases "$ct_id"
     fi
     
     print_success "Stack deployed: $stack_name"
 }
 
-# Update Docker services
-update_docker_services() {
-    local ct_id="$1"
-    
-    print_info "Updating services"
-    
-    # Pull latest images and recreate containers
-    pct exec "$ct_id" -- sh -c "cd /root && docker compose pull" || { print_error "Failed to pull images"; exit 1; }
-    pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --remove-orphans" || { print_error "Failed to recreate containers"; exit 1; }
-    
-    # Clean up old images
-    pct exec "$ct_id" -- docker image prune -f
-    
-    print_success "Services updated"
-}
 
-# Remove Docker services
-remove_docker_services() {
-    local ct_id="$1"
-    
-    print_info "Removing services"
-    
-    # Stop and remove containers
-    if pct exec "$ct_id" -- test -f /root/docker-compose.yml; then
-        pct exec "$ct_id" -- sh -c "cd /root && docker compose down -v --remove-orphans"
-    fi
-    
-    # Remove all containers, networks, and volumes
-    pct exec "$ct_id" -- docker system prune -af --volumes 2>/dev/null || true
-    
-    print_success "Services removed"
-}

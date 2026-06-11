@@ -57,9 +57,9 @@ else
     SKIP_CREATION=false
     
     # Choose template based on stack type - always use latest
-    # Debian: media (Jellyfin GPU), webtools (Chrome GPU), development (code-server)
+    # Debian: media (Jellyfin GPU), desktop (Brave GPU), dev (code-server)
     # Alpine: all other stacks (lighter, faster)
-    if [ "$STACK_NAME" = "media" ] || [ "$STACK_NAME" = "webtools" ] || [ "$STACK_NAME" = "development" ]; then
+    if [ "$STACK_NAME" = "media" ] || [ "$STACK_NAME" = "desktop" ] || [ "$STACK_NAME" = "dev" ]; then
         LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
     else
         LATEST_TEMPLATE=$(get_latest_template "alpine-.*-default")
@@ -84,10 +84,10 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
     # Mount datapool for all stacks
     pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; exit 1; }
     
-    # GPU passthrough for media and webtools stacks - cgroup v2 method
+    # GPU passthrough for media and desktop stacks - cgroup v2 method
     # media: Jellyfin hardware transcoding (decode/scale/encode) + Immich ML
-    # webtools: LinuxServer Chrome automatically enables hardware acceleration with Nvidia passthrough
-    if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "webtools" ]]; then
+    # desktop: Brave automatically enables hardware acceleration with Nvidia passthrough
+    if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
         print_info "Configuring GPU passthrough for $STACK_NAME container (cgroup v2 method)"
 
         # --- FUSE Configuration for Media Stack (gocryptfs support) ---
@@ -178,42 +178,6 @@ EOF
     fi
 fi
 
-# --- Proxy Stack Specific Configuration (TUN Device) ---
-if [[ "$STACK_NAME" == "proxy" ]]; then
-    print_info "Configuring TUN device for Proxy (Tailscale compatibility)..."
-    
-    # Ensure TUN module is loaded on HOST
-    if ! lsmod | grep -q "^tun"; then
-        print_info "Loading tun module on host"
-        modprobe tun || true
-    fi
-
-    # Ensure /dev/net/tun exists on HOST
-    if [ ! -c /dev/net/tun ]; then
-        print_info "Creating /dev/net/tun on host"
-        mkdir -p /dev/net
-        mknod /dev/net/tun c 10 200
-        chmod 666 /dev/net/tun
-    fi
-
-    LXC_CONFIG="/etc/pve/lxc/${CT_ID}.conf"
-    
-    # Check if config already exists in file
-    if ! grep -q "/dev/net/tun" "$LXC_CONFIG"; then
-        print_info "Adding TUN device entry to LXC config"
-        cat >> "$LXC_CONFIG" << 'EOFTUN'
-
-# Enable TUN device for Tailscale
-lxc.cgroup2.devices.allow: c 10:200 rwm
-lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
-EOFTUN
-    else
-        print_info "TUN device configuration already exists in LXC config"
-    fi
-    
-    print_success "TUN device configured for Proxy"
-fi
-
 # Ensure container is running (Start AFTER all config changes)
 CT_STATUS=$(pct status "$CT_ID" | awk '{print $2}')
 
@@ -227,7 +191,7 @@ pct exec "$CT_ID" -- test -f /sbin/init
 print_success "Container $CT_ID ready"
 
 # Install NVIDIA user-space drivers inside the container (if applicable)
-if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "webtools" ]]; then
+if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
     print_info "Configuring NVIDIA user-space drivers inside container..."
     
     # 1. Auto-detect running host driver version to ensure exact match. If host driver is missing, fail fast.
@@ -307,8 +271,8 @@ pct exec "$CT_ID" -- sh -c "
 set -e
 STACK_NAME='${STACK_NAME}'
 
-# Debian stacks: media (Jellyfin GPU), webtools (Chrome GPU), development (code-server)
-if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'webtools' ] || [ \"\$STACK_NAME\" = 'development' ]; then
+# Debian stacks: media (Jellyfin GPU), desktop (Brave GPU), dev (code-server)
+if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'desktop' ] || [ \"\$STACK_NAME\" = 'dev' ]; then
     export DEBIAN_FRONTEND=noninteractive
     export DEBIAN_PRIORITY=critical
     export LC_ALL=C
@@ -334,8 +298,8 @@ Components: main contrib non-free non-free-firmware
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOS
 
-    # Development stack: code-server + AI CLI tools (no Docker, no GPU)
-    if [ \"\$STACK_NAME\" = 'development' ]; then
+    # Dev stack: code-server + AI CLI tools (no Docker, no GPU)
+    if [ \"\$STACK_NAME\" = 'dev' ]; then
         apt-get update -qq
         apt-get install -y -qq nodejs npm git python3 python3-pip bash nano vim htop
 
@@ -393,7 +357,7 @@ EOFCS
         # Enable code-server service
         systemctl enable --now code-server@root
     else
-        # GPU stacks (media, webtools): Docker + NVIDIA
+        # GPU stacks (media, desktop): Docker + NVIDIA
 
         # Add Docker's official GPG key and repository (following official docs)
         install -m 0755 -d /etc/apt/keyrings
@@ -476,56 +440,16 @@ else
     apk upgrade
     
     # Alpine stacks: Docker runtime + Bash (for script compatibility)
-    # Proxy stack requires iptables for MSS clamping (Tailscale hotspot fix)
-    if [ "$STACK_NAME" = "proxy" ]; then
-        apk add --no-cache docker docker-cli-compose util-linux bash iptables
-    else
-        apk add --no-cache docker docker-cli-compose util-linux bash
-    fi
+    apk add --no-cache docker docker-cli-compose util-linux bash
     
     # Add docker to boot runlevel and start
     rc-update add docker boot
-    service docker start || rc-service docker start || true
-
-    # Proxy-specific network optimization: MSS Clamping + Tailscale FORWARD rules
-    # Applied at LXC host level to avoid iptables-nft incompatibility inside containers
-    if [ "$STACK_NAME" = "proxy" ]; then
-        mkdir -p /etc/local.d
-
-        cat > /etc/local.d/mss-clamping.start << 'EOF'
-#!/bin/sh
-# Idempotent MSS Clamping for Tailscale/Hotspot
-# Sets MSS to 1200 to ensure packets fit through VPN/Mobile tunnels
-if ! iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 2>/dev/null; then
-    iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
-fi
-EOF
-
-        # Tailscale FORWARD rules: allow subnet routing through tailscale0
-        # Runs in background since tailscale0 appears only after Docker+Tailscale container starts
-        cat > /etc/local.d/tailscale-forward.start << 'EOF'
-#!/bin/sh
-# Idempotent Tailscale FORWARD rules for unprivileged LXC nested Docker
-# Waits for tailscale0 in background (appears ~30s after boot when Docker+Tailscale start)
-(
-    sleep 5
-    ip link show tailscale0 > /dev/null 2>&1 || sleep 10
-    ip link show tailscale0 > /dev/null 2>&1 || sleep 15
-    ip link show tailscale0 > /dev/null 2>&1 || sleep 30
-    ip link show tailscale0 > /dev/null 2>&1 || sleep 60
-    ip link show tailscale0 > /dev/null 2>&1 || exit 0
-    iptables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -i tailscale0 -j ACCEPT
-    iptables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -o tailscale0 -j ACCEPT
-    iptables -t nat -C POSTROUTING -s 100.64.0.0/10 -o eth0 -j MASQUERADE 2>/dev/null || iptables -t nat -I POSTROUTING -s 100.64.0.0/10 -o eth0 -j MASQUERADE
-) &
-EOF
-
-        chmod +x /etc/local.d/mss-clamping.start /etc/local.d/tailscale-forward.start
-        rc-update add local default
-        # Run immediately
-        /etc/local.d/mss-clamping.start
-        /etc/local.d/tailscale-forward.start
+    # Configure DOCKER_ULIMIT to bypass LXC resource limit restrictions
+    if [ -f /etc/conf.d/docker ]; then
+        grep -q DOCKER_ULIMIT /etc/conf.d/docker && sed -i '/DOCKER_ULIMIT/d' /etc/conf.d/docker
+        echo 'DOCKER_ULIMIT=\" \"' >> /etc/conf.d/docker
     fi
+    service docker start || rc-service docker start || true
 
     # Alpine autologin
     sed -i 's|^tty1::|#&|' /etc/inittab || true

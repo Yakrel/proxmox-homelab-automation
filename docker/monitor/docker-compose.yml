@@ -1,7 +1,7 @@
-name: monitoring
+name: monitor
 
 networks:
-  monitoring-net:
+  monitor-net:
     driver: bridge
 
 volumes:
@@ -36,7 +36,7 @@ services:
       retries: 3
       start_period: 40s
     networks:
-      - monitoring-net
+      - monitor-net
     stop_grace_period: 60s
     logging:
       driver: "json-file"
@@ -73,7 +73,7 @@ services:
       retries: 3
       start_period: 40s
     networks:
-      - monitoring-net
+      - monitor-net
     logging:
       driver: "json-file"
       options:
@@ -98,30 +98,8 @@ services:
       - PUID=1000
       - PGID=1000
     networks:
-      - monitoring-net
+      - monitor-net
     stop_grace_period: 60s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
-
-
-  promtail:
-    image: grafana/promtail:latest
-    container_name: promtail-monitoring
-    restart: unless-stopped
-    network_mode: "host"
-    volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/log:/var/log:ro
-      - /etc/promtail:/etc/promtail:ro
-      - /var/lib/promtail/positions:/var/lib/promtail/positions
-    command: -config.file=/etc/promtail/promtail.yml
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
     logging:
       driver: "json-file"
       options:
@@ -141,7 +119,7 @@ services:
       - PUID=1000
       - PGID=1000
     networks:
-      - monitoring-net
+      - monitor-net
     logging:
       driver: "json-file"
       options:
@@ -150,58 +128,3 @@ services:
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
 
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor
-    restart: unless-stopped
-    ports:
-      - "8082:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    privileged: true
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
-    command:
-      - '--housekeeping_interval=10s'
-      - '--docker_only=true'
-      - '--store_container_labels=false'
-      - '--disable_metrics=referenced_memory,tcp,udp,advtcp,sched,hugetlb,resctrl,process'
-    networks:
-      - monitoring-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
-
-  watchtower:
-    image: ghcr.io/nicholas-fedor/watchtower:latest
-    container_name: watchtower-monitoring
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
-      - WATCHTOWER_CLEANUP=true
-      - PUID=1000
-      - PGID=1000
-      - UMASK=002
-      - WATCHTOWER_NOTIFICATIONS=${WATCHTOWER_NOTIFICATIONS:-}
-      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
-      - WATCHTOWER_NOTIFICATIONS_LEVEL=${WATCHTOWER_NOTIFICATIONS_LEVEL:-info}
-    command: ["--schedule", "0 0 2,8,14,20 * * *"]
-    networks:
-      - monitoring-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"

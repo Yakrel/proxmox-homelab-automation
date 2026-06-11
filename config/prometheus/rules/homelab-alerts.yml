@@ -64,7 +64,7 @@ groups:
 
       # Container Out of Memory Event
       - alert: ContainerOOMEvent
-        expr: increase(container_oom_events_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m]) > 0
+        expr: increase(container_oom_events_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*"}[5m]) > 0
         for: 1m
         labels:
           severity: critical
@@ -104,7 +104,7 @@ groups:
 
       # Container High CPU Usage
       - alert: ContainerHighCPUUsage
-        expr: rate(container_cpu_usage_seconds_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m]) * 100 > 90
+        expr: rate(container_cpu_usage_seconds_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*"}[5m]) * 100 > 90
         for: 10m
         labels:
           severity: warning
@@ -114,7 +114,7 @@ groups:
 
       # Container Restarted Recently
       - alert: ContainerRestartedRecently
-        expr: changes(container_start_time_seconds{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[15m]) > 0
+        expr: changes(container_start_time_seconds{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*"}[15m]) > 0
         for: 5m
         labels:
           severity: warning
@@ -126,7 +126,7 @@ groups:
       # DISABLED: Docker containers in LXC don't have memory limits set, causing false positives
       # Use LXCHighMemoryUsage instead for monitoring memory at LXC level
       # - alert: ContainerHighMemoryUsage
-      #   expr: container_memory_working_set_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"} / container_spec_memory_limit_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"} > 0.9
+      #   expr: container_memory_working_set_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*"} / container_spec_memory_limit_bytes{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*"} > 0.9
       #   for: 5m
       #   labels:
       #     severity: warning
@@ -146,7 +146,7 @@ groups:
 
       # High Network Errors
       - alert: HighNetworkErrors
-        expr: rate(container_network_receive_errors_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m]) + rate(container_network_transmit_errors_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|watchtower.*"}[5m]) > 10
+        expr: rate(container_network_receive_errors_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*"}[5m]) + rate(container_network_transmit_errors_total{name!="",name!~"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*"}[5m]) > 10
         for: 5m
         labels:
           severity: warning

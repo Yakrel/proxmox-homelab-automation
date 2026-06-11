@@ -8,51 +8,45 @@ storage:
   template_pool: datapool
 
 stacks:
-  proxy:
+  gateway:
     ct_id: 100
-    hostname: lxc-proxy-01
+    hostname: lxc-gateway
     cpu_cores: 2
     memory_mb: 2048
-    disk_gb: 10
+    disk_gb: 8
   media:
     ct_id: 101
-    hostname: lxc-media-01
+    hostname: lxc-media
     cpu_cores: 6
     memory_mb: 10240
     disk_gb: 40
-  files:
+  utility:
     ct_id: 102
-    hostname: lxc-files-01
-    cpu_cores: 2
-    memory_mb: 3072
+    hostname: lxc-utility
+    cpu_cores: 4
+    memory_mb: 4096
     disk_gb: 15
-  webtools:
+  desktop:
     ct_id: 103
-    hostname: lxc-webtools-01
+    hostname: lxc-desktop
     cpu_cores: 4
     memory_mb: 6144
     disk_gb: 30
-  monitoring:
+  monitor:
     ct_id: 104
-    hostname: lxc-monitoring-01
+    hostname: lxc-monitor
     cpu_cores: 4
     memory_mb: 6144
     disk_gb: 15
-  gameservers:
+  gaming:
     ct_id: 105
-    hostname: lxc-gameservers-01
+    hostname: lxc-gaming
     cpu_cores: 8
     memory_mb: 16384
     disk_gb: 50
-  backup:
+  dev:
     ct_id: 106
-    hostname: lxc-backup-01
-    cpu_cores: 4
-    memory_mb: 8192
-    disk_gb: 50
-  development:
-    ct_id: 107
-    hostname: lxc-development-01
+    hostname: lxc-dev
     cpu_cores: 4
     memory_mb: 6144
     disk_gb: 15

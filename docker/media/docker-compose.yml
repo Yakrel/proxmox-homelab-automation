@@ -303,14 +303,14 @@ services:
 
   # Immich services - version pinning required for component compatibility
   # Immich recommends using version-pinned images and updating docker-compose with each release
-  # Reference: https://raw.githubusercontent.com/immich-app/immich/main/docker/docker-compose.yml
+  # Reference: https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
   immich-server:
     container_name: immich-server
     image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
     user: "1000:1000"
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
     volumes:
       - ${UPLOAD_LOCATION}:/data
       - /etc/localtime:/etc/localtime:ro
@@ -320,8 +320,11 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: all
-              capabilities: [compute,video,graphics,utility]
+              count: 1
+              capabilities:
+                - gpu
+                - compute
+                - video
     env_file:
       - .env
     ports:
@@ -361,8 +364,9 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: all
-              capabilities: [compute,utility]
+              count: 1
+              capabilities:
+                - gpu
     healthcheck:
       disable: false
     networks:
@@ -378,7 +382,7 @@ services:
 
   redis:
     container_name: immich-redis
-    image: docker.io/valkey/valkey:9@sha256:3eeb09785cd61ec8e3be35f8804c8892080f3ca21934d628abc24ee4ed1698f6
+    image: docker.io/valkey/valkey:9@sha256:3b55fbaa0cd93cf0d9d961f405e4dfcc70efe325e2d84da207a0a8e6d8fde4f9
     healthcheck:
       test: redis-cli ping || exit 1
     networks:
@@ -410,83 +414,6 @@ services:
     shm_size: 128mb
     restart: always
     stop_grace_period: 120s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor
-    restart: unless-stopped
-    ports:
-      - "8082:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    privileged: true
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
-    command:
-      - '--housekeeping_interval=10s'
-      - '--docker_only=true'
-      - '--store_container_labels=false'
-    networks:
-      - media-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
-
-  promtail:
-    image: grafana/promtail:latest
-    container_name: promtail-media
-    restart: unless-stopped
-    network_mode: "host"
-    volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/log:/var/log:ro
-      - /datapool/config/qbittorrent/qBittorrent/logs:/qbittorrent-logs:ro
-      - /etc/promtail:/etc/promtail:ro
-      - /var/lib/promtail/positions:/var/lib/promtail/positions
-    command: -config.file=/etc/promtail/promtail.yml
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
-
-  watchtower:
-    image: ghcr.io/nicholas-fedor/watchtower:latest
-    container_name: watchtower-media
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
-      - WATCHTOWER_CLEANUP=true
-      - PUID=1000
-      - PGID=1000
-      - UMASK=002
-      - WATCHTOWER_NOTIFICATIONS=${WATCHTOWER_NOTIFICATIONS:-}
-      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
-      - WATCHTOWER_NOTIFICATIONS_LEVEL=${WATCHTOWER_NOTIFICATIONS_LEVEL:-info}
-    command: ["--schedule", "0 0 2,8,14,20 * * *"]
-    networks:
-      - media-net
     logging:
       driver: "json-file"
       options:

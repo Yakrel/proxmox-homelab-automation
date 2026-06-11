@@ -8,7 +8,7 @@ WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 
 source "$WORK_DIR/scripts/helper-functions.sh"
 source "$WORK_DIR/scripts/modules/docker-deployment.sh"
-source "$WORK_DIR/scripts/modules/backup-deployment.sh"
+source "$WORK_DIR/scripts/modules/backrest-deployment.sh"
 
 ENV_ENC_KEY=""
 ENV_DECRYPTED_PATH=""
@@ -114,7 +114,7 @@ copy_monitoring_configs() {
     fix_path_owner /datapool/config/loki/data
     fix_path_owner_recursive /datapool/config/prometheus-pve-exporter
 
-    cp "$WORK_DIR/docker/monitoring/prometheus.yml" /datapool/config/prometheus/prometheus.yml
+    cp "$WORK_DIR/docker/monitor/prometheus.yml" /datapool/config/prometheus/prometheus.yml
     cp "$WORK_DIR/config/loki/loki.yml" /datapool/config/loki/loki.yml
     cp -r "$WORK_DIR/config/prometheus/rules" /datapool/config/prometheus/
     cp -r "$WORK_DIR/config/prometheus/recording-rules" /datapool/config/prometheus/
@@ -221,8 +221,8 @@ copy_promtail_config() {
 fast_redeploy_stack() {
     local stack="$1"
 
-    [[ "$stack" != "development" ]] || {
-        print_info "Skipping development stack (no Docker compose)"
+    [[ "$stack" != "dev" ]] || {
+        print_info "Skipping dev stack (no Docker compose)"
         return 0
     }
 
@@ -239,30 +239,39 @@ fast_redeploy_stack() {
         return 0
     fi
 
+    verify_docker "$CT_ID"
+
     echo
     print_info "Fast redeploying [$stack] on LXC $CT_ID ($CT_HOSTNAME)"
 
     decrypt_stack_env "$stack"
 
-    if [[ "$stack" == "webtools" ]]; then
-        setup_webtools_permissions
+    if [[ "$stack" == "desktop" ]]; then
+        setup_desktop_permissions
         setup_homepage_config "$CT_ID"
         setup_couchdb_config "$CT_ID"
         setup_fast_homepage_token "$ENV_DECRYPTED_PATH"
-    elif [[ "$stack" == "files" ]]; then
-        setup_files_permissions
-    elif [[ "$stack" == "monitoring" ]]; then
+        setup_guacamole_config "$CT_ID"
+        setup_sshwifty_config "$CT_ID"
+    elif [[ "$stack" == "utility" ]]; then
+        setup_utility_permissions
+        deploy_backrest "$CT_ID"
+    elif [[ "$stack" == "monitor" ]]; then
         setup_fast_monitoring_user "$ENV_DECRYPTED_PATH"
         copy_monitoring_configs "$ENV_DECRYPTED_PATH"
-    elif [[ "$stack" == "backup" ]]; then
-        deploy_backrest "$CT_ID"
+    elif [[ "$stack" == "gateway" ]]; then
+        setup_gateway_permissions
+    elif [[ "$stack" == "gaming" ]]; then
+        setup_gaming_permissions
     fi
 
     pct push "$CT_ID" "$ENV_DECRYPTED_PATH" /root/.env
     pct push "$CT_ID" "$compose_file" /root/docker-compose.yml
+    pct push "$CT_ID" "$WORK_DIR/docker/_infra/docker-compose.yml" /root/infra-compose.yml
     copy_promtail_config "$CT_ID" "$CT_HOSTNAME"
 
-    pct exec "$CT_ID" -- sh -c "cd /root && docker compose up -d --remove-orphans"
+    pct exec "$CT_ID" -- sh -c "cd /root && docker compose -p app -f docker-compose.yml up -d --remove-orphans"
+    pct exec "$CT_ID" -- sh -c "cd /root && docker compose -p infra -f infra-compose.yml up -d --remove-orphans"
 
     rm -f "$ENV_DECRYPTED_PATH"
     ENV_DECRYPTED_PATH=""

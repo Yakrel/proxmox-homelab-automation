@@ -291,7 +291,7 @@ EOF
     local grub_file="/etc/default/grub"
     cp "$grub_file" "${grub_file}.backup" || true
 
-    local grub_params="intel_iommu=on iommu=pt nvidia-drm.modeset=1 nvidia_drm.fbdev=1"
+    local grub_params="intel_iommu=on iommu=pt nvidia-drm.modeset=1 nvidia_drm.fbdev=1 nouveau.modeset=0"
     for param in $grub_params; do
         if ! grep -q "$param" "$grub_file"; then
             sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=\"\(.*\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\1 $param\"/" "$grub_file"
@@ -299,6 +299,27 @@ EOF
     done
     sed -i 's/  */ /g' "$grub_file"
     update-grub
+
+    # Configure systemd-boot cmdline if using proxmox-boot-tool
+    local cmdline_file="/etc/kernel/cmdline"
+    if [[ -f "$cmdline_file" ]]; then
+        cp "$cmdline_file" "${cmdline_file}.backup" || true
+        local cmdline_content
+        cmdline_content=$(cat "$cmdline_file")
+        local cmdline_modified=false
+        for param in $grub_params; do
+            if [[ ! " $cmdline_content " == *" $param "* ]]; then
+                cmdline_content="$cmdline_content $param"
+                cmdline_modified=true
+            fi
+        done
+        if [[ "$cmdline_modified" == "true" ]]; then
+            cmdline_content=$(echo "$cmdline_content" | sed 's/  */ /g' | sed 's/^ *//;s/ *$//')
+            echo "$cmdline_content" > "$cmdline_file"
+            print_info "Updating systemd-boot cmdline and refreshing boot tool..."
+            proxmox-boot-tool refresh
+        fi
+    fi
 
     update-initramfs -u -k all
 
@@ -316,7 +337,7 @@ EOF
 
     print_info "Installing NVIDIA proprietary driver (this may take a few minutes)..."
     # Run the installer silently, accepting the license, building DKMS module, without 32-bit libs, without X11 config
-    "$driver_file" --silent --accept-license --dkms --no-compat32 --no-x-check --no-opengl-files || {
+    "$driver_file" --silent --accept-license --dkms --no-install-compat32-libs --no-x-check --no-opengl-files || {
         print_error "NVIDIA driver installation failed. Please check /var/log/nvidia-installer.log"
         return 1
     }

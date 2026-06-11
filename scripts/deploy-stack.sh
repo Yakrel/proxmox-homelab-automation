@@ -25,7 +25,7 @@ STACK_NAME=$1
 # --- Load Deployment Modules ---
 source "$WORK_DIR/scripts/modules/docker-deployment.sh"
 source "$WORK_DIR/scripts/modules/monitoring-deployment.sh"
-source "$WORK_DIR/scripts/modules/backup-deployment.sh"
+source "$WORK_DIR/scripts/modules/backrest-deployment.sh"
 
 # --- Global Variables ---
 PVE_MONITORING_PASSWORD=""
@@ -197,9 +197,9 @@ echo "════════════════════════�
 get_stack_config "$STACK_NAME"
 
 # Step 1: Environment setup
-if [[ "$STACK_NAME" == "development" ]]; then
+if [[ "$STACK_NAME" == "dev" ]]; then
     : # No .env needed
-elif [[ "$STACK_NAME" == "monitoring" ]]; then
+elif [[ "$STACK_NAME" == "monitor" ]]; then
     decrypt_env_for_deploy "$STACK_NAME"
     PVE_MONITORING_PASSWORD=$(grep "^PVE_MONITORING_PASSWORD=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
     [[ -z "$PVE_MONITORING_PASSWORD" ]] && { print_error "PVE_MONITORING_PASSWORD not found"; exit 1; }
@@ -216,10 +216,10 @@ create_lxc
 
 # Step 4: Stack-specific deployment
 case "$STACK_NAME" in
-    "development")
+    "dev")
         : # Setup completed by LXC manager
         ;;
-    "backup")
+    "utility")
         if deploy_backrest "$CT_ID"; then
             print_success "Backrest configured"
         else
@@ -231,14 +231,30 @@ case "$STACK_NAME" in
         configure_promtail_config "$CT_ID"
         deploy_docker_stack "$STACK_NAME" "$CT_ID" || { print_error "Deployment failed"; exit 1; }
         ;;
-    "monitoring")
+    "monitor")
         deploy_monitoring_stack "$STACK_NAME" "$CT_ID" || { print_error "Deployment failed"; exit 1; }
         ;;
-    "webtools")
+    "desktop")
         setup_homepage_proxmox_token
         configure_env
         configure_promtail_config "$CT_ID"
         deploy_docker_stack "$STACK_NAME" "$CT_ID" || { print_error "Deployment failed"; exit 1; }
+        ;;
+    "gateway")
+        configure_env
+        configure_promtail_config "$CT_ID"
+        deploy_docker_stack "$STACK_NAME" "$CT_ID" || { print_error "Deployment failed"; exit 1; }
+        
+        # Install and configure Tailscale on host (idempotent subnet router)
+        if [[ -f "${ENV_DECRYPTED_PATH:-}" ]]; then
+            ts_key=$(grep "^TAILSCALE_AUTH_KEY=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+            if [[ -n "$ts_key" ]]; then
+                print_info "Configuring Tailscale on Proxmox host..."
+                TAILSCALE_AUTH_KEY="$ts_key" bash "$WORK_DIR/scripts/setup-tailscale-host.sh"
+            else
+                print_info "TAILSCALE_AUTH_KEY not defined in gateway environment. Skipping Tailscale host setup."
+            fi
+        fi
         ;;
     *)
         configure_env

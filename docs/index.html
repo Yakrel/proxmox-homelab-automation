@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- Trigger custom Pages deployment workflow -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -355,7 +356,7 @@
             <div style="background: linear-gradient(135deg, rgba(88, 166, 255, 0.1), rgba(163, 113, 247, 0.1)); padding: 40px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 40px;">
                 <h1 style="border:none; margin:0;" data-i18n="hero_title">Proxmox Homelab Automation</h1>
                 <p style="font-size: 1.1rem; color: var(--text-main); margin-top: 10px;" data-i18n="hero_desc">
-                    Production homelab running family services. 30+ services across 8 LXC containers with GPU passthrough, automated deployment, and full-stack monitoring.
+                    Production homelab running family services. 30+ services across 7 LXC containers with GPU passthrough, automated deployment, and full-stack monitoring.
                 </p>
                 <div style="display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
                     <span class="badge" style="background:var(--accent-blue); color:black;"><i class="fa-brands fa-docker"></i> <span data-i18n="badge_services">30+ Services</span></span>
@@ -431,89 +432,13 @@
             <h2><i class="fa-solid fa-network-wired"></i> <span data-i18n="nav_topology">Network Topology</span></h2>
             <p data-i18n="topo_intro">Multi-path access architecture with split DNS for seamless connectivity anywhere.</p>
             
-            <div class="topology-container">
-                <!-- Client Devices -->
-                <div class="topo-layer-title" data-i18n="topo_layer_clients">Client Devices</div>
-                <div class="topo-row">
-                    <div class="topo-node">
-                        <i class="fa-solid fa-mobile-screen topo-icon" style="color:var(--accent-blue)"></i>
-                        <div class="topo-label" data-i18n="topo_phone">Mobile Phone</div>
-                        <div class="topo-sublabel">Tailscale / WARP</div>
-                    </div>
-                    <div class="topo-node">
-                        <i class="fa-solid fa-laptop topo-icon" style="color:var(--accent-blue)"></i>
-                        <div class="topo-label" data-i18n="topo_laptop">Admin Laptop</div>
-                        <div class="topo-sublabel">Tailscale (Primary)</div>
-                    </div>
-                    <div class="topo-node">
-                        <i class="fa-solid fa-globe topo-icon" style="color:var(--accent-purple)"></i>
-                        <div class="topo-label" data-i18n="topo_browser">Public Browser</div>
-                        <div class="topo-sublabel">Cloudflare Access</div>
-                    </div>
-                </div>
-
-                <!-- Access Paths -->
-                <div class="topo-layer-title" data-i18n="topo_layer_paths">Access Paths</div>
-                <div class="topo-row">
-                    <div class="topo-path">
-                        <i class="fa-solid fa-shield-halved"></i>
-                        <span data-i18n="topo_path_ts">Tailscale VPN</span>
-                        <span class="topo-arrow">→</span>
-                        <span>192.168.1.0/24</span>
-                    </div>
-                    <div class="topo-path warp">
-                        <i class="fa-solid fa-cloud"></i>
-                        <span data-i18n="topo_path_warp">Cloudflare WARP</span>
-                        <span class="topo-arrow">→</span>
-                        <span>Split DNS</span>
-                    </div>
-                    <div class="topo-path tunnel">
-                        <i class="fa-solid fa-lock"></i>
-                        <span data-i18n="topo_path_tunnel">CF Tunnel + Access</span>
-                        <span class="topo-arrow">→</span>
-                        <span>*.byetgin.com</span>
-                    </div>
-                    <div class="topo-path local">
-                        <i class="fa-solid fa-wifi"></i>
-                        <span data-i18n="topo_path_local">Local WiFi</span>
-                        <span class="topo-arrow">→</span>
-                        <span>Direct LAN</span>
-                    </div>
-                </div>
-
-                <!-- Infrastructure -->
-                <div class="topo-layer-title" data-i18n="topo_layer_infra">Homelab Infrastructure</div>
-                <div class="topo-row">
-                    <div class="topo-node" style="border-color: var(--accent-blue);">
-                        <i class="fa-solid fa-network-wired topo-icon" style="color:var(--accent-blue)"></i>
-                        <div class="topo-label">Tailscale Router</div>
-                        <div class="topo-sublabel">LXC 100 - Subnet Router</div>
-                    </div>
-                    <div class="topo-node" style="border-color: var(--accent-orange);">
-                        <i class="fa-solid fa-shield-halved topo-icon" style="color:var(--accent-orange)"></i>
-                        <div class="topo-label">AdGuard Home</div>
-                        <div class="topo-sublabel">Split DNS (*.byetgin.com)</div>
-                    </div>
-                    <div class="topo-node" style="border-color: var(--accent-purple);">
-                        <i class="fa-brands fa-cloudflare topo-icon" style="color:var(--accent-purple)"></i>
-                        <div class="topo-label">cloudflared</div>
-                        <div class="topo-sublabel">Tunnel → NPM</div>
-                    </div>
-                    <div class="topo-node" style="border-color: var(--accent-green);">
-                        <i class="fa-solid fa-shuffle topo-icon" style="color:var(--accent-green)"></i>
-                        <div class="topo-label">Nginx Proxy</div>
-                        <div class="topo-sublabel">LXC 100 - Reverse Proxy</div>
-                    </div>
-                </div>
-                
-                <!-- Services -->
-                <div class="topo-layer-title" data-i18n="topo_layer_services">Application Layer</div>
-                <div class="topo-row">
-                    <div class="topo-node" style="border-color: var(--text-muted); min-width: auto; padding: 15px 20px;">
-                        <i class="fa-solid fa-server topo-icon" style="color:var(--accent-orange); font-size: 1.5rem;"></i>
-                        <div class="topo-label" data-i18n="topo_services">Services</div>
-                        <div class="topo-sublabel">8 LXC / 30+ containers</div>
-                    </div>
+            <div style="position: relative; width: 100%; border: 1px solid var(--border); border-radius: 16px; background: rgba(22, 27, 34, 0.4); backdrop-filter: blur(10px); overflow: hidden;">
+                <iframe src="topology.html" style="width: 100%; height: 950px; border: none; display: block;" id="topology-iframe"></iframe>
+                <div style="position: absolute; top: 15px; right: 15px; z-index: 10;">
+                    <a href="topology.html" target="_blank" class="nav-item" style="background: rgba(88, 166, 255, 0.1); border: 1px solid var(--border); padding: 8px 15px; border-radius: 20px; font-size: 0.8rem; text-decoration: none; color: var(--accent-blue); display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                        <i class="fa-solid fa-up-right-from-square"></i>
+                        <span data-i18n="topo_open_new">Open Fullscreen</span>
+                    </a>
                 </div>
             </div>
         </section>
@@ -550,7 +475,7 @@
         const translations = {
             en: {
                 nav_overview: "Overview", nav_iac: "Infrastructure as Code", nav_security: "Security", nav_backup: "Backup", nav_observability: "Observability", nav_topology: "Network Topology", nav_inventory: "Live Inventory", nav_faq: "FAQ",
-                hero_title: "Proxmox Homelab Automation", hero_desc: "Production homelab running family services. 30+ services across 8 LXC containers with GPU passthrough, automated deployment, and full-stack monitoring.",
+                hero_title: "Proxmox Homelab Automation", hero_desc: "Production homelab running family services. 30+ services across 7 LXC containers with GPU passthrough, automated deployment, and full-stack monitoring.",
                 sidebar_role: "IT Specialist", sidebar_brand: "Yakrel's Homelab", sidebar_update: "Last Update:", sidebar_cv: "Resume (CV)",
                 badge_services: "30+ Services", badge_bash: "~3K Lines Bash", img_dash_title: "Centralized Command Center",
                 iac_intro: "I built a setup where I define everything in one YAML file (stacks.yaml), and scripts handle the installation automatically.",
@@ -569,13 +494,14 @@
                 topo_phone: "Mobile Phone", topo_laptop: "Admin Laptop", topo_browser: "Public Browser",
                 topo_path_ts: "Tailscale VPN", topo_path_warp: "Cloudflare WARP", topo_path_tunnel: "CF Tunnel + Access", topo_path_local: "Local WiFi",
                 topo_services: "Services",
+                topo_open_new: "Open Fullscreen",
                 inv_status: "Systems Operational",
                 faq_k8s_q: "Why not Kubernetes?", faq_k8s_a: "For a single-node environment, Kubernetes introduces significant overhead. Docker Compose maintains native performance.",
                 faq_bash_q: "Why Bash for IaC?", faq_bash_a: "Modular Bash scripts stay close to the OS, ensuring full reproducibility on Proxmox without external dependencies."
             },
             tr: {
                 nav_overview: "Genel Bakış", nav_iac: "Kod Olarak Altyapı", nav_security: "Güvenlik", nav_backup: "Yedekleme", nav_observability: "Gözlenebilirlik", nav_topology: "Ağ Topolojisi", nav_inventory: "Canlı Envanter", nav_faq: "SSS",
-                hero_title: "Proxmox Homelab Otomasyonu", hero_desc: "Aile için production homelab. 8 LXC container'da 30+ servis: GPU passthrough, otomatik deployment, full-stack monitoring.",
+                hero_title: "Proxmox Homelab Otomasyonu", hero_desc: "Aile için production homelab. 7 LXC container'da 30+ servis: GPU passthrough, otomatik deployment, full-stack monitoring.",
                 sidebar_role: "BT Uzmanı", sidebar_brand: "Yakrel'in Homelab'ı", sidebar_update: "Son Güncelleme:", sidebar_cv: "Özgeçmiş (CV)",
                 badge_services: "30+ Servis", badge_bash: "~3B Satır Bash", img_dash_title: "Merkezi Komuta Paneli",
                 iac_intro: "Tüm altyapıyı tek bir YAML dosyasında (stacks.yaml) tanımladığım ve scriptlerin kurulumu otomatik yaptığı bir sistem kurdum.",
@@ -594,6 +520,7 @@
                 topo_phone: "Mobil Telefon", topo_laptop: "Yönetici Laptop", topo_browser: "Genel Tarayıcı",
                 topo_path_ts: "Tailscale VPN", topo_path_warp: "Cloudflare WARP", topo_path_tunnel: "CF Tunnel + Access", topo_path_local: "Yerel WiFi",
                 topo_services: "Servisler",
+                topo_open_new: "Tam Ekran Aç",
                 inv_status: "Sistemler Aktif",
                 faq_k8s_q: "Neden Kubernetes Değil?", faq_k8s_a: "Tek sunuculu bir ortam için Kubernetes çok fazla kaynak tüketir. Docker Compose yerel performansı korur.",
                 faq_bash_q: "Neden IaC için Bash?", faq_bash_a: "Modüler Bash scriptleri işletim sistemine yakın kalır, harici bağımlılık olmadan tam tekrar edilebilirlik sağlar."
