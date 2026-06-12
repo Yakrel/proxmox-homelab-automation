@@ -452,6 +452,117 @@ deploy_docker_services() {
     print_success "Services deployed"
 }
 
+# Setup helper functions/aliases for Docker stack management
+setup_stack_aliases() {
+    local ct_id="$1"
+    
+    print_info "Configuring Docker stack aliases"
+
+    local start_marker="# --- Docker Stack Manager Aliases ---"
+    local end_marker="# --- End Docker Stack Manager ---"
+
+    local alias_file="/tmp/stack_aliases.sh"
+    cat <<'EOF' > "$alias_file"
+
+# --- Docker Stack Manager Aliases ---
+# Handy functions for managing Docker Compose stacks: app and infra
+app() {
+    case "${1:-}" in
+        up)
+            shift
+            cd /root && docker compose -p app -f docker-compose.yml up -d "$@"
+            ;;
+        down)
+            shift
+            cd /root && docker compose -p app -f docker-compose.yml down "$@"
+            ;;
+        restart)
+            shift
+            cd /root && docker compose -p app -f docker-compose.yml restart "$@"
+            ;;
+        logs)
+            shift
+            cd /root && docker compose -p app -f docker-compose.yml logs -f "$@"
+            ;;
+        ps)
+            shift
+            cd /root && docker compose -p app -f docker-compose.yml ps "$@"
+            ;;
+        *)
+            cd /root && docker compose -p app -f docker-compose.yml "$@"
+            ;;
+    esac
+}
+
+infra() {
+    case "${1:-}" in
+        up)
+            shift
+            cd /root && docker compose -p infra -f infra-compose.yml up -d "$@"
+            ;;
+        down)
+            shift
+            cd /root && docker compose -p infra -f infra-compose.yml down "$@"
+            ;;
+        restart)
+            shift
+            cd /root && docker compose -p infra -f infra-compose.yml restart "$@"
+            ;;
+        logs)
+            shift
+            cd /root && docker compose -p infra -f infra-compose.yml logs -f "$@"
+            ;;
+        ps)
+            shift
+            cd /root && docker compose -p infra -f infra-compose.yml ps "$@"
+            ;;
+        *)
+            cd /root && docker compose -p infra -f infra-compose.yml "$@"
+            ;;
+    esac
+}
+
+# --- Docker Stack MOTD (Login Message) ---
+# Display only on interactive shell login and avoid double-printing when .profile sources .bashrc
+if [ -t 0 ] && [ -z "${STACK_MOTD_PRINTED:-}" ]; then
+    STACK_MOTD_PRINTED=1
+    printf "\033[1;36m=====================================================\033[0m\n"
+    printf "\033[1;32m         Proxmox Homelab Stack Manager               \033[0m\n"
+    printf "\033[1;36m=====================================================\033[0m\n"
+    printf " Available Helper Commands:\n"
+    printf "  \033[1;33mapp up\033[0m          : Start application stack (NPM, etc.)\n"
+    printf "  \033[1;33mapp down\033[0m        : Stop and remove application stack\n"
+    printf "  \033[1;33mapp logs\033[0m        : View application logs (realtime)\n"
+    printf "  \033[1;33mapp ps\033[0m          : List running applications\n"
+    printf "  \033[1;33mapp restart\033[0m     : Restart application stack\n"
+    printf " -----------------------------------------------------\n"
+    printf "  \033[1;33minfra up\033[0m        : Start infrastructure stack (Monitoring, etc.)\n"
+    printf "  \033[1;33minfra down\033[0m      : Stop and remove infrastructure stack\n"
+    printf "  \033[1;33minfra logs\033[0m      : View infrastructure logs\n"
+    printf "  \033[1;33minfra ps\033[0m        : List running infra containers\n"
+    printf "  \033[1;33minfra restart\033[0m   : Restart infrastructure stack\n"
+    printf "\033[1;36m=====================================================\033[0m\n"
+    printf "\n"
+fi
+# --- End Docker Stack Manager ---
+EOF
+
+    local target_files=("/root/.bashrc" "/root/.profile")
+    
+    pct push "$ct_id" "$alias_file" "/tmp/stack_aliases.sh"
+
+    for target in "${target_files[@]}"; do
+        pct exec "$ct_id" -- touch "$target"
+        pct exec "$ct_id" -- sh -c "if grep -qF '$start_marker' '$target'; then sed -i '/$start_marker/,/$end_marker/d' '$target'; fi"
+        pct exec "$ct_id" -- sh -c "cat /tmp/stack_aliases.sh >> '$target'"
+    done
+
+    pct exec "$ct_id" -- rm -f "/tmp/stack_aliases.sh"
+    rm -f "$alias_file"
+
+    print_success "Docker stack aliases configured"
+}
+
 # Setup aliases and MOTD for game servers
 setup_gameserver_aliases() {
     local ct_id="$1"
@@ -568,6 +679,9 @@ deploy_docker_stack() {
 
     setup_docker_compose "$stack_name" "$ct_id"
     deploy_docker_services "$stack_name" "$ct_id"
+
+    # Setup general stack helper functions/aliases
+    setup_stack_aliases "$ct_id"
 
     # Setup aliases for gaming stack
     if [[ "$stack_name" == "gaming" ]]; then
