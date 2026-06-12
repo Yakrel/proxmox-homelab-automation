@@ -46,7 +46,6 @@
       ],
       "excludes": [
         "/backup-sources/config/desktop-workspace",
-        "/backup-sources/config/webtop",
         "/backup-sources/config/adguard/work/data",
         "/backup-sources/config/*/.cache",
         "/backup-sources/config/*/cache",
@@ -87,8 +86,6 @@
         "/backup-sources/config/vaultwarden/tmp",
         "/backup-sources/config/npm/data/logs",
         "/backup-sources/config/npm/data/nginx/temp",
-        "/backup-sources/config/palmr/temp-uploads",
-        "/backup-sources/config/palmr/minio-data/.minio.sys/tmp",
         "/backup-sources/config/prowlarr/Definitions",
         "/backup-sources/config/*/Backups",
         "/backup-sources/config/*/backups",

@@ -88,62 +88,6 @@ prepare_host() {
     print_success "Host ready"
 }
 
-# Setup Proxmox monitoring user (for monitoring stack)
-setup_proxmox_monitoring_user() {
-    print_info "Setting up PVE monitoring user"
-    
-    local pve_user="pve-exporter@pve"
-    
-    # Check if user already exists (idempotent)
-    if pveum user list | grep -qw "$pve_user"; then
-        pveum passwd "$pve_user" --password "$PVE_MONITORING_PASSWORD"
-    else
-        pveum user add "$pve_user" --password "$PVE_MONITORING_PASSWORD" --comment "Prometheus monitoring user"
-    fi
-    
-    # Grant PVEAuditor role (idempotent)
-    pveum acl modify / --user "$pve_user" --role PVEAuditor
-    
-    print_success "PVE user configured"
-}
-
-# Setup Proxmox API token for Homepage widget
-setup_homepage_proxmox_token() {
-    print_info "Setting up Homepage API token"
-
-    local pve_user="homepage@pve"
-    local token_name="homepage-token"
-    local token_id="$pve_user!$token_name"
-
-    # Create user if not exists (idempotent)
-    if ! pveum user list | grep -qw "$pve_user"; then
-        pveum user add "$pve_user" --comment "Homepage dashboard monitoring"
-    fi
-
-    # Grant PVEAuditor role (idempotent)
-    pveum acl modify / --user "$pve_user" --role PVEAuditor
-
-    # Remove old token if exists, then create fresh one
-    pveum user token remove "$pve_user" "$token_name" 2>/dev/null || true
-
-    # Create new API token and capture secret
-    local token_output
-    token_output=$(pveum user token add "$pve_user" "$token_name" --privsep 0 --output-format=json)
-
-    # Extract secret value from JSON output
-    local token_secret
-    token_secret=$(echo "$token_output" | grep -o '"value":"[^"]*"' | cut -d'"' -f4)
-
-    if [[ -z "$token_secret" ]]; then
-        print_error "Failed to extract token secret"
-        return 1
-    fi
-
-    # Replace placeholder with real secret in .env file
-    sed -i "s/placeholder_will_be_set_on_deploy/$token_secret/g" "$ENV_DECRYPTED_PATH"
-
-    print_success "API token configured"
-}
 
 # Create or verify LXC container
 create_lxc() {
@@ -172,18 +116,7 @@ configure_promtail_config() {
     hostname=$(yq -r ".stacks.$STACK_NAME.hostname" "$WORK_DIR/stacks.yaml")
     [[ -n "$hostname" ]] || { print_error "Could not find hostname for $STACK_NAME"; exit 1; }
 
-    # Ensure the target directories exist inside the container
-    pct exec "$ct_id" -- mkdir -p /etc/promtail /var/lib/promtail/positions || { print_error "Failed to create Promtail directories"; exit 1; }
-
-    # Create a temporary, customized promtail config from the template
-    local temp_promtail="/tmp/promtail_${hostname}.yml"
-    sed "s/REPLACE_HOST_LABEL/$hostname/g" "$WORK_DIR/config/promtail/promtail.yml" > "$temp_promtail"
-
-    # Copy to container
-    pct push "$ct_id" "$temp_promtail" "/etc/promtail/promtail.yml" || { print_error "Failed to push Promtail config"; rm -f "$temp_promtail"; exit 1; }
-    rm -f "$temp_promtail"
-
-    print_success "Promtail configured"
+    setup_promtail_config "$ct_id" "$hostname"
 }
 
 

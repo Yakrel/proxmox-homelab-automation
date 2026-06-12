@@ -1,7 +1,5 @@
 # Development guidelines now part of the repository
 
-# Environment files with secrets
-.env
 
 # Temporary files
 *.tmp
@@ -35,8 +33,6 @@ notes.txt
 config.local
 personal/
 
-# Workflow and analysis files
-WORKFLOW-DIAGRAM.md
 
 # Claude Code local settings
 .claude/
@@ -53,6 +49,3 @@ setting.local.json
 .env.local
 .env.tmp
 .vault_pass
-
-# Migration Plan
-plan.md

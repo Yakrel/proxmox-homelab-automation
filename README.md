@@ -149,12 +149,12 @@ Code-Server, Node.js, Python, Git, Claude Code, Antigravity CLI
 │   ├── monitor/             # Prometheus + Grafana + Loki + Diun
 │   └── utility/             # Download managers, Backrest backup, Samba shares
 └── config/                   # Shared configurations
-    ├── prometheus/          # Metrics + alerting rules
+    ├── prometheus/          # prometheus.yml, metrics + alerting rules
     ├── promtail/            # Log collection config
     ├── homepage/            # Dashboard widgets
     ├── samba/               # Samba share template config
     ├── sshwifty/            # sshwifty profile template config
-    ├── couchdb-local.ini    # CouchDB local configuration template
+    ├── couchdb/             # CouchDB local.ini configuration
     ├── loki/                # Loki configuration files
     ├── grafana/             # Grafana dashboard templates
     └── guacamole/           # Apache Guacamole user-mapping configs

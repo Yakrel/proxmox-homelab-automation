@@ -259,11 +259,11 @@ if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
     ' || { print_error "Failed to install NVIDIA drivers inside LXC. Aborting."; exit 1; }
 fi
 
-    # Create docker config directory
-    pct exec "$CT_ID" -- mkdir -p /root/.docker
-    
-    # Fix permissions on host mapped directories
-    fix_all_permissions
+# Create docker config directory
+pct exec "$CT_ID" -- mkdir -p /root/.docker
+
+# Fix permissions on host mapped directories
+fix_all_permissions
 
 print_info "Provisioning container (stack: $STACK_NAME)"
 
@@ -453,7 +453,7 @@ else
 
     # Alpine autologin
     sed -i 's|^tty1::|#&|' /etc/inittab || true
-    echo 'tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux' >> /etc/inittab
+    grep -qF 'autologin root' /etc/inittab || echo 'tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux' >> /etc/inittab
     kill -HUP 1 || true
     
     # Alpine timezone setup
