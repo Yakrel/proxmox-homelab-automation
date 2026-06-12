@@ -46,6 +46,8 @@ services:
     volumes:
       - /datapool/config/samba:/data
       - /datapool:/datapool
+      - samba-cache:/data/cache
+      - samba-lib:/data/lib
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -161,3 +163,7 @@ services:
         max-file: "3"
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
+
+volumes:
+  samba-cache:
+  samba-lib:

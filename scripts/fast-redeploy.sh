@@ -269,6 +269,7 @@ fast_redeploy_stack() {
     pct push "$CT_ID" "$compose_file" /root/docker-compose.yml
     pct push "$CT_ID" "$WORK_DIR/docker/_infra/docker-compose.yml" /root/infra-compose.yml
     copy_promtail_config "$CT_ID" "$CT_HOSTNAME"
+    setup_stack_aliases "$CT_ID"
 
     pct exec "$CT_ID" -- sh -c "cd /root && docker compose -p app -f docker-compose.yml up -d --remove-orphans"
     pct exec "$CT_ID" -- sh -c "cd /root && docker compose -p infra -f infra-compose.yml up -d --remove-orphans"
