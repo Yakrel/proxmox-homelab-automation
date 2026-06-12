@@ -9,6 +9,10 @@ networks:
   gaming-net:
     driver: bridge
 
+volumes:
+  diun-data:
+    driver: local
+
 services:
   # ---------------------------------------------------------------------------
   # Palworld Server (Profile: palworld)
@@ -21,7 +25,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Europe/Istanbul
+      - TZ=${TZ:-Europe/Istanbul}
       # --- Server Identity & Security ---
       - SERVER_NAME=${PALWORLD_SERVER_NAME}
       - SERVER_DESCRIPTION=${PALWORLD_SERVER_DESCRIPTION}
@@ -100,7 +104,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Europe/Istanbul
+      - TZ=${TZ:-Europe/Istanbul}
       - SERVERNAME=${SATISFACTORY_SERVERNAME}
       - PASSWORD=${SATISFACTORY_PASSWORD}
       - PLAYERS=${SATISFACTORY_MAXPLAYERS:-10}
@@ -147,7 +151,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Europe/Istanbul
+      - TZ=${TZ:-Europe/Istanbul}
       - SERVER_NAME=${CONAN_SERVER_NAME:-Proxmox Homelab Conan}
       - SERVER_PASSWORD=${CONAN_SERVER_PASSWORD}
       - ADMIN_PASSWORD=${CONAN_ADMIN_PASSWORD}
@@ -173,3 +177,83 @@ services:
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
 
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+    command:
+      - '--housekeeping_interval=10s'
+      - '--docker_only=true'
+      - '--store_container_labels=false'
+    networks:
+      - gaming-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - /datapool/config/qbittorrent/qBittorrent/logs:/qbittorrent-logs:ro
+      - /etc/promtail:/etc/promtail:ro
+      - /var/lib/promtail/positions:/var/lib/promtail/positions
+    command: -config.file=/etc/promtail/promtail.yml
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  diun:
+    image: crazymax/diun:latest
+    container_name: diun
+    restart: unless-stopped
+    command: serve
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - diun-data:/data
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - LOG_LEVEL=info
+      - LOG_JSON=false
+      - DIUN_WATCH_SCHEDULE=0 */6 * * *
+      - DIUN_WATCH_FIRSTCHECKNOTIF=false
+      - DIUN_PROVIDERS_DOCKER=true
+      - DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT=true
+      - DIUN_NOTIF_TELEGRAM_TOKEN=${DIUN_TELEGRAM_TOKEN:-}
+      - DIUN_NOTIF_TELEGRAM_CHATIDS=${DIUN_TELEGRAM_CHAT_IDS:-}
+      - DIUN_NOTIF_TELEGRAM_TEMPLATEBODY=${DIUN_TELEGRAM_TEMPLATE_BODY:-Docker image updated}
+    networks:
+      - gaming-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"

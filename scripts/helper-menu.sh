@@ -398,7 +398,7 @@ while true; do
         6) bash "$WORK_DIR/scripts/fail2ban-manager.sh"; press_enter_to_continue ;;
         7) run_setup_gpu_passthrough; press_enter_to_continue ;;
         8) run_datapool_cleanup; press_enter_to_continue ;;
-        b|B) exec bash "$WORK_DIR/scripts/main-menu.sh" ;;
+        b|B) return 0 ;;
         q|Q) echo "Exiting."; exit 0 ;;
         *) print_error "Invalid choice. Please try again." ;;
     esac

@@ -118,7 +118,7 @@ setup_sshwifty_config() {
 
     [[ -f "$source_template" ]] || { print_error "sshwifty template not found: $source_template"; exit 1; }
 
-    python3 - <<PYEOF
+    if ! python3 - <<PYEOF
 import json
 
 with open("$source_template") as f:
@@ -136,7 +136,10 @@ with open("$dest_file", "w") as f:
 import os
 os.chmod("$dest_file", 0o644)
 PYEOF
-    [[ $? -eq 0 ]] || { print_error "Failed to generate sshwifty.conf.json"; exit 1; }
+    then
+        print_error "Failed to generate sshwifty.conf.json"
+        exit 1
+    fi
 
     # Enforce correct file permissions on key files and configuration
     chmod 644 "$dest_file"
@@ -214,12 +217,12 @@ setup_couchdb_config() {
     mkdir -p /datapool/config/couchdb/local.d
 
     # Copy CouchDB configuration file
-    local source_file="$WORK_DIR/config/couchdb-local.ini"
+    local source_file="$WORK_DIR/config/couchdb/local.ini"
     local dest_file="/datapool/config/couchdb/local.d/local.ini"
 
     if [[ -f "$source_file" ]]; then
         cp "$source_file" "$dest_file" || {
-            print_error "Failed to copy couchdb-local.ini"
+            print_error "Failed to copy local.ini"
             exit 1
         }
     else
@@ -361,30 +364,6 @@ setup_tdarr_directories() {
     print_success "Tdarr configured"
 }
 
-# Setup Promtail configuration for log aggregation
-setup_promtail_config() {
-    local ct_id="$1"
-    local hostname="$2"
-
-    print_info "Setting up Promtail for $hostname"
-
-    # Create promtail directories in LXC
-    pct exec "$ct_id" -- mkdir -p /etc/promtail /var/lib/promtail/positions
-
-    # Create promtail config with correct hostname and Loki endpoint
-    local temp_promtail="/tmp/promtail_${ct_id}.yml"
-    sed "s/REPLACE_HOST_LABEL/$hostname/g" "$WORK_DIR/config/promtail/promtail.yml" > "$temp_promtail"
-
-    # Copy to container
-    pct push "$ct_id" "$temp_promtail" "/etc/promtail/promtail.yml" || {
-        print_error "Failed to copy promtail config"
-        rm -f "$temp_promtail"
-        exit 1
-    }
-    rm -f "$temp_promtail"
-
-    print_success "Promtail configured"
-}
 
 # Download and configure Docker Compose files
 setup_docker_compose() {
@@ -404,17 +383,6 @@ setup_docker_compose() {
         }
     else
         print_error "docker-compose.yml not found at $source_file"
-        exit 1
-    fi
-
-    local infra_file="$WORK_DIR/docker/_infra/docker-compose.yml"
-    if [[ -f "$infra_file" ]]; then
-        pct push "$ct_id" "$infra_file" "/root/infra-compose.yml" || {
-            print_error "Failed to push infra compose file"
-            exit 1
-        }
-    else
-        print_error "infra compose file not found at $infra_file"
         exit 1
     fi
     
@@ -439,128 +407,13 @@ deploy_docker_services() {
 
     print_info "Deploying services for $stack_name"
 
-    pct exec "$ct_id" -- sh -c "cd /root && docker compose -p app -f docker-compose.yml up -d --pull always --remove-orphans" || {
-        print_error "Failed to deploy app services"
-        exit 1
-    }
-
-    pct exec "$ct_id" -- sh -c "cd /root && docker compose -p infra -f infra-compose.yml up -d --pull always --remove-orphans" || {
-        print_error "Failed to deploy infra services"
+    # Pull images and deploy in one command
+    pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --pull always --remove-orphans" || {
+        print_error "Failed to deploy services"
         exit 1
     }
 
     print_success "Services deployed"
-}
-
-# Setup helper functions/aliases for Docker stack management
-setup_stack_aliases() {
-    local ct_id="$1"
-    
-    print_info "Configuring Docker stack aliases"
-
-    local start_marker="# --- Docker Stack Manager Aliases ---"
-    local end_marker="# --- End Docker Stack Manager ---"
-
-    local alias_file="/tmp/stack_aliases.sh"
-    cat <<'EOF' > "$alias_file"
-
-# --- Docker Stack Manager Aliases ---
-# Handy functions for managing Docker Compose stacks: app and infra
-app() {
-    case "${1:-}" in
-        up)
-            shift
-            cd /root && docker compose -p app -f docker-compose.yml up -d "$@"
-            ;;
-        down)
-            shift
-            cd /root && docker compose -p app -f docker-compose.yml down "$@"
-            ;;
-        restart)
-            shift
-            cd /root && docker compose -p app -f docker-compose.yml restart "$@"
-            ;;
-        logs)
-            shift
-            cd /root && docker compose -p app -f docker-compose.yml logs -f "$@"
-            ;;
-        ps)
-            shift
-            cd /root && docker compose -p app -f docker-compose.yml ps "$@"
-            ;;
-        *)
-            cd /root && docker compose -p app -f docker-compose.yml "$@"
-            ;;
-    esac
-}
-
-infra() {
-    case "${1:-}" in
-        up)
-            shift
-            cd /root && docker compose -p infra -f infra-compose.yml up -d "$@"
-            ;;
-        down)
-            shift
-            cd /root && docker compose -p infra -f infra-compose.yml down "$@"
-            ;;
-        restart)
-            shift
-            cd /root && docker compose -p infra -f infra-compose.yml restart "$@"
-            ;;
-        logs)
-            shift
-            cd /root && docker compose -p infra -f infra-compose.yml logs -f "$@"
-            ;;
-        ps)
-            shift
-            cd /root && docker compose -p infra -f infra-compose.yml ps "$@"
-            ;;
-        *)
-            cd /root && docker compose -p infra -f infra-compose.yml "$@"
-            ;;
-    esac
-}
-
-# --- Docker Stack MOTD (Login Message) ---
-# Display only on interactive shell login and avoid double-printing when .profile sources .bashrc
-if [ -t 0 ] && [ -z "${STACK_MOTD_PRINTED:-}" ]; then
-    STACK_MOTD_PRINTED=1
-    printf "\033[1;36m=====================================================\033[0m\n"
-    printf "\033[1;32m         Proxmox Homelab Stack Manager               \033[0m\n"
-    printf "\033[1;36m=====================================================\033[0m\n"
-    printf " Available Helper Commands:\n"
-    printf "  \033[1;33mapp up\033[0m          : Start application stack (NPM, etc.)\n"
-    printf "  \033[1;33mapp down\033[0m        : Stop and remove application stack\n"
-    printf "  \033[1;33mapp logs\033[0m        : View application logs (realtime)\n"
-    printf "  \033[1;33mapp ps\033[0m          : List running applications\n"
-    printf "  \033[1;33mapp restart\033[0m     : Restart application stack\n"
-    printf " -----------------------------------------------------\n"
-    printf "  \033[1;33minfra up\033[0m        : Start infrastructure stack (Monitoring, etc.)\n"
-    printf "  \033[1;33minfra down\033[0m      : Stop and remove infrastructure stack\n"
-    printf "  \033[1;33minfra logs\033[0m      : View infrastructure logs\n"
-    printf "  \033[1;33minfra ps\033[0m        : List running infra containers\n"
-    printf "  \033[1;33minfra restart\033[0m   : Restart infrastructure stack\n"
-    printf "\033[1;36m=====================================================\033[0m\n"
-    printf "\n"
-fi
-# --- End Docker Stack Manager ---
-EOF
-
-    local target_files=("/root/.bashrc" "/root/.profile")
-    
-    pct push "$ct_id" "$alias_file" "/tmp/stack_aliases.sh"
-
-    for target in "${target_files[@]}"; do
-        pct exec "$ct_id" -- touch "$target"
-        pct exec "$ct_id" -- sh -c "if grep -qF '$start_marker' '$target'; then sed -i '/$start_marker/,/$end_marker/d' '$target'; fi"
-        pct exec "$ct_id" -- sh -c "cat /tmp/stack_aliases.sh >> '$target'"
-    done
-
-    pct exec "$ct_id" -- rm -f "/tmp/stack_aliases.sh"
-    rm -f "$alias_file"
-
-    print_success "Docker stack aliases configured"
 }
 
 # Setup aliases and MOTD for game servers
@@ -578,14 +431,15 @@ setup_gameserver_aliases() {
 
 $start_marker
 # Aliases for Game Server Management
-# Infra services are managed separately by /root/infra-compose.yml
+# Core services (cadvisor, promtail, diun) always run via base compose
 # Game servers are managed separately via profiles
 
-alias start-palworld='cd /root && echo "Starting Palworld..." && docker stop satisfactory-server conan-exiles-server 2>/dev/null || true && docker compose -p app -f docker-compose.yml --profile palworld up -d --pull always'
-alias start-satisfactory='cd /root && echo "Starting Satisfactory..." && docker stop palworld-server conan-exiles-server 2>/dev/null || true && docker compose -p app -f docker-compose.yml --profile satisfactory up -d --pull always'
-alias start-conan='cd /root && echo "Starting Conan Exiles..." && docker stop palworld-server satisfactory-server 2>/dev/null || true && docker compose -p app -f docker-compose.yml --profile conan up -d --pull always'
+# Ensure core services are always running, then start/stop game containers
+alias start-palworld='cd /root && echo "Starting Palworld..." && docker stop satisfactory-server conan-exiles-server 2>/dev/null || true && docker compose up -d && docker compose --profile palworld up -d --pull always'
+alias start-satisfactory='cd /root && echo "Starting Satisfactory..." && docker stop palworld-server conan-exiles-server 2>/dev/null || true && docker compose up -d && docker compose --profile satisfactory up -d --pull always'
+alias start-conan='cd /root && echo "Starting Conan Exiles..." && docker stop palworld-server satisfactory-server 2>/dev/null || true && docker compose up -d && docker compose --profile conan up -d --pull always'
 alias stop-games='cd /root && echo "Stopping all game servers..." && docker stop palworld-server satisfactory-server conan-exiles-server 2>/dev/null || true'
-alias game-status='cd /root && docker compose -p app -f docker-compose.yml ps -a'
+alias game-status='cd /root && docker compose ps -a'
 
 # --- Game Server MOTD (Login Message) ---
 # Display only on interactive shell login
@@ -679,9 +533,6 @@ deploy_docker_stack() {
 
     setup_docker_compose "$stack_name" "$ct_id"
     deploy_docker_services "$stack_name" "$ct_id"
-
-    # Setup general stack helper functions/aliases
-    setup_stack_aliases "$ct_id"
 
     # Setup aliases for gaming stack
     if [[ "$stack_name" == "gaming" ]]; then
