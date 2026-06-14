@@ -155,7 +155,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(container_oom_events_total{name!=\"\",instance=~\"$lxc_host\"}[5m]))",
+          "expr": "sum(increase(container_oom_events_total{name!=\"\",instance=~\"$lxc_host\"}[5m])) OR on() vector(0)",
           "refId": "A"
         }
       ],
@@ -287,7 +287,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(container_network_receive_errors_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*\",instance=~\"$lxc_host\"}[5m]) + rate(container_network_transmit_errors_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*\",instance=~\"$lxc_host\"}[5m]))",
+          "expr": "sum(rate(container_network_receive_errors_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*\",instance=~\"$lxc_host\"}[5m]) + rate(container_network_transmit_errors_total{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*\",instance=~\"$lxc_host\"}[5m])) OR on() vector(0)",
           "refId": "A"
         }
       ],
@@ -469,6 +469,30 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk Read"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "Bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk Write"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "Bps"
+              }
+            ]
           }
         ]
       },
@@ -524,10 +548,30 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "container:network_receive:rate5m{instance=~\"$lxc_host\"} + container:network_transmit:rate5m{instance=~\"$lxc_host\"}",
+          "expr": "(container:network_receive:rate5m{instance=~\"$lxc_host\"} + container:network_transmit:rate5m{instance=~\"$lxc_host\"}) OR on(instance, name) (container_last_seen{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*\",instance=~\"$lxc_host\"} * 0)",
           "format": "table",
           "instant": true,
           "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "container:fs_read:rate5m{instance=~\"$lxc_host\"} OR on(instance, name) (container_last_seen{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*\",instance=~\"$lxc_host\"} * 0)",
+          "format": "table",
+          "instant": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "container:fs_write:rate5m{instance=~\"$lxc_host\"} OR on(instance, name) (container_last_seen{name!=\"\",name!~\"POD|cadvisor|prometheus.*|grafana|loki|promtail.*|wud.*\",instance=~\"$lxc_host\"} * 0)",
+          "format": "table",
+          "instant": true,
+          "refId": "E"
         }
       ],
       "title": "Container Overview",
@@ -564,24 +608,28 @@
               "image": true,
               "job": true,
               "cpu": true,
-              "total": true
+              "total": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true
             },
             "indexByName": {
               "Time": 0,
+              "instance": 1,
+              "name": 2,
               "Value #A": 3,
               "Value #B": 4,
               "Value #C": 5,
-              "__name__": 6,
-              "id": 7,
-              "image": 8,
-              "instance": 1,
-              "job": 9,
-              "name": 2
+              "Value #D": 6,
+              "Value #E": 7
             },
             "renameByName": {
               "Value #A": "CPU %",
               "Value #B": "Memory",
               "Value #C": "Net I/O",
+              "Value #D": "Disk Read",
+              "Value #E": "Disk Write",
               "instance": "Host",
               "name": "Container"
             }
