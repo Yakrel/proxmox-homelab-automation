@@ -337,7 +337,7 @@ setup_immich_directories() {
 
     # These services run as user 1000 inside unprivileged LXC containers, so the
     # host paths must map to 101000:101000 to remain writable after bind mounts.
-    chown -R 101000:101000 /datapool/config/immich/cache
+    fix_path_owner_recursive /datapool/config/immich/cache
 
     # Set appropriate permissions (chmod only, ownership handled globally)
     chmod -R 755 /datapool/media/immich
@@ -355,8 +355,8 @@ setup_tdarr_directories() {
     mkdir -p /datapool/temp/tdarr
 
     # Ensure correct ownership for LXC user (101000 mapping for user 1000)
-    chown -R 101000:101000 /datapool/config/tdarr
-    chown -R 101000:101000 /datapool/temp/tdarr
+    fix_path_owner_recursive /datapool/config/tdarr
+    fix_path_owner_recursive /datapool/temp/tdarr
 
     # Ensure correct permissions for the temp directory (transcoding needs write access)
     chmod -R 777 /datapool/temp/tdarr

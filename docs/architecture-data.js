@@ -140,7 +140,7 @@ const ARCHITECTURE_DATA = {
             specs: { cpu: 4, ram: "6GB" },
             services: [
                 { name: "Code-Server", icon: "fa-solid fa-code", port: "8680", desc: { en: "Web-based VS Code IDE", tr: "Web tabanlı VS Code Geliştirme Ortamı" }, status: "active" },
-                { name: "Claude Code & Antigravity CLI", icon: "fa-solid fa-terminal", port: "Local", desc: { en: "AI Coding Assistant Tools", tr: "Yapay Zeka Kodlama Yardımcıları" }, status: "active" }
+                { name: "Antigravity CLI", icon: "fa-solid fa-terminal", port: "Local", desc: { en: "AI Coding Assistant Tool", tr: "Yapay Zeka Kodlama Yardımcısı" }, status: "active" }
             ]
         }
     ]

@@ -270,6 +270,7 @@ print_info "Provisioning container (stack: $STACK_NAME)"
 pct exec "$CT_ID" -- sh -c "
 set -e
 STACK_NAME='${STACK_NAME}'
+SKIP_CREATION='${SKIP_CREATION}'
 
 # Debian stacks: media (Jellyfin GPU), desktop (Brave GPU), dev (code-server)
 if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'desktop' ] || [ \"\$STACK_NAME\" = 'dev' ]; then
@@ -278,9 +279,11 @@ if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'desktop' ] || [ \"\$S
     export LC_ALL=C
     export LANG=C
 
-    # Initial system update
-    apt-get update -qq
-    apt-get upgrade -y -qq
+    # Initial system update - skip on redeployment to speed up execution
+    if [ \"\$SKIP_CREATION\" = 'false' ]; then
+        apt-get update -qq
+        apt-get upgrade -y -qq
+    fi
     apt-get install -y -qq debian-archive-keyring ca-certificates curl gnupg wget util-linux
 
     # Configure Debian repositories with non-free for GPU drivers
@@ -300,7 +303,9 @@ EOS
 
     # Dev stack: code-server + AI CLI tools (no Docker, no GPU)
     if [ \"\$STACK_NAME\" = 'dev' ]; then
-        apt-get update -qq
+        if [ \"\$SKIP_CREATION\" = 'false' ]; then
+            apt-get update -qq
+        fi
         apt-get install -y -qq nodejs npm git python3 python3-pip bash nano vim htop
 
         # Configure npm
@@ -315,12 +320,14 @@ EOS
         update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
         # Install AI CLI tools
-        npm install -g @anthropic-ai/claude-code 2>/dev/null || echo 'Note: claude-code installation skipped'
         curl -fsSL https://antigravity.google/cli/install.sh | bash
 
 
         # Install code-server (latest version)
-        CODE_SERVER_VERSION=\$(curl -fsSL https://api.github.com/repos/coder/code-server/releases/latest | grep tag_name | awk '{print substr(\$2, 3, length(\$2)-4)}')
+        # Using HTTP redirect to avoid GitHub API rate limits
+        CODE_SERVER_URL=\$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)
+        CODE_SERVER_TAG=\${CODE_SERVER_URL##*/}
+        CODE_SERVER_VERSION=\${CODE_SERVER_TAG#v}
         curl -fOL \"https://github.com/coder/code-server/releases/download/v\${CODE_SERVER_VERSION}/code-server_\${CODE_SERVER_VERSION}_amd64.deb\"
         dpkg -i code-server_\${CODE_SERVER_VERSION}_amd64.deb
         rm -f code-server_\${CODE_SERVER_VERSION}_amd64.deb
@@ -381,7 +388,9 @@ DOCKERSOURCES
         tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
         
         # Install Docker + NVIDIA user-space libraries and toolkit (avoid compiling kernel modules inside LXC)
-        apt-get update -qq
+        if [ \"\$SKIP_CREATION\" = 'false' ]; then
+            apt-get update -qq
+        fi
         apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nvidia-container-toolkit
         
         # Configure NVIDIA runtime for Docker (unprivileged LXC compatible)
@@ -436,8 +445,11 @@ EOFLOGIN
 
 else
     # Alpine stacks: all other stacks (lighter, faster)
-    apk update
-    apk upgrade
+    # Only run system package update/upgrade on initial creation to speed up redeployment
+    if [ \"\$SKIP_CREATION\" = 'false' ]; then
+        apk update
+        apk upgrade
+    fi
     
     # Alpine stacks: Docker runtime + Bash (for script compatibility)
     apk add --no-cache docker docker-cli-compose util-linux bash
