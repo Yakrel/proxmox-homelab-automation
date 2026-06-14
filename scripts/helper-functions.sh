@@ -61,9 +61,19 @@ require_root() {
 }
 
 ensure_packages() {
-    apt-get update -qq
-    apt-get install -y -qq "$@"
-    print_success "Packages installed"
+    local missing_pkgs=()
+    for pkg in "$@"; do
+        if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+            missing_pkgs+=("$pkg")
+        fi
+    done
+
+    if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
+        print_info "Installing missing host packages: ${missing_pkgs[*]}"
+        apt-get update -qq
+        apt-get install -y -qq "${missing_pkgs[@]}"
+        print_success "Packages installed"
+    fi
 }
 
 # === HOMELAB INFRASTRUCTURE CONSTANTS ===
@@ -266,14 +276,26 @@ fix_path_owner() {
     local path="$1"
 
     [[ -e "$path" ]] || return 0
-    chown 101000:101000 "$path"
+    
+    # Optimize ZFS I/O: Only change if it does not match
+    local current_uid current_gid
+    current_uid=$(stat -c "%u" "$path" 2>/dev/null || echo "")
+    current_gid=$(stat -c "%g" "$path" 2>/dev/null || echo "")
+    if [[ "$current_uid" != "101000" ]] || [[ "$current_gid" != "101000" ]]; then
+        chown 101000:101000 "$path"
+    fi
 }
 
 fix_path_owner_recursive() {
     local path="$1"
 
     [[ -e "$path" ]] || return 0
-    chown -R 101000:101000 "$path"
+    
+    # Optimize ZFS I/O: Only chown files/dirs that don't match the target UID/GID
+    # This prevents rewriting metadata for unchanged files (read-only scan via ZFS ARC)
+    find "$path" \
+        \( ! -user 101000 -o ! -group 101000 \) \
+        -exec chown 101000:101000 {} +
 }
 
 # === SHARED PROVISIONING UTILITIES ===

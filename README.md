@@ -104,7 +104,7 @@ Prometheus, Grafana, Loki, Promtail, PVE Exporter, cAdvisor, Diun (update notifi
 Palworld, Satisfactory, Conan Exiles
 
 ### **Development (Dev)** (LXC 106 - `192.168.1.106`)
-Code-Server, Node.js, Python, Git, Claude Code, Antigravity CLI
+Code-Server, Node.js, Python, Git, Antigravity CLI
 
 ---
 
