@@ -107,7 +107,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "avg(pve_cpu_usage_ratio{id=\"node/pve01\"})",
+          "expr": "pve_cpu_usage_ratio{id=\"node/$node\"}",
           "refId": "A"
         }
       ],
@@ -175,7 +175,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "pve_memory_usage_bytes{id=\"node/pve01\"} / pve_memory_size_bytes{id=\"node/pve01\"}",
+          "expr": "pve_memory_usage_bytes{id=\"node/$node\"} / pve_memory_size_bytes{id=\"node/$node\"}",
           "refId": "A"
         }
       ],
@@ -235,7 +235,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "count(pve_up{id=~\"lxc/.*\"} == 1)",
+          "expr": "count(pve_up{id=~\"lxc/.*\"} == 1) OR on() vector(0)",
           "refId": "A"
         }
       ],
@@ -715,6 +715,54 @@
                 "value": "dtdurations"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Net RX"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "Bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Net TX"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "Bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk Read"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "Bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Disk Write"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "Bps"
+              }
+            ]
           }
         ]
       },
@@ -760,7 +808,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "lxc:cpu_usage:ratio * 100",
+          "expr": "lxc:cpu_usage:ratio * 100 OR on(id, name) (lxc:up:state * 0)",
           "format": "table",
           "instant": true,
           "refId": "B"
@@ -770,7 +818,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "lxc:memory_usage:ratio * 100",
+          "expr": "lxc:memory_usage:ratio * 100 OR on(id, name) (lxc:up:state * 0)",
           "format": "table",
           "instant": true,
           "refId": "C"
@@ -780,7 +828,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "lxc:disk_usage:ratio * 100",
+          "expr": "lxc:disk_usage:ratio * 100 OR on(id, name) (lxc:up:state * 0)",
           "format": "table",
           "instant": true,
           "refId": "D"
@@ -794,6 +842,46 @@
           "format": "table",
           "instant": true,
           "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "lxc:network_receive:rate5m OR on(id, name) (lxc:up:state * 0)",
+          "format": "table",
+          "instant": true,
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "lxc:network_transmit:rate5m OR on(id, name) (lxc:up:state * 0)",
+          "format": "table",
+          "instant": true,
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "lxc:disk_read:rate5m OR on(id, name) (lxc:up:state * 0)",
+          "format": "table",
+          "instant": true,
+          "refId": "H"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "lxc:disk_write:rate5m OR on(id, name) (lxc:up:state * 0)",
+          "format": "table",
+          "instant": true,
+          "refId": "I"
         }
       ],
       "title": "LXC Overview",
@@ -819,7 +907,11 @@
               "Time 2": true,
               "Time 3": true,
               "Time 4": true,
-              "Time 5": true
+              "Time 5": true,
+              "Time 6": true,
+              "Time 7": true,
+              "Time 8": true,
+              "Time 9": true
             },
             "indexByName": {
               "name": 0,
@@ -827,13 +919,21 @@
               "Value #B": 2,
               "Value #C": 3,
               "Value #D": 4,
-              "Value #E": 5
+              "Value #F": 5,
+              "Value #G": 6,
+              "Value #H": 7,
+              "Value #I": 8,
+              "Value #E": 9
             },
             "renameByName": {
               "Value #A": "Status",
               "Value #B": "CPU %",
               "Value #C": "Memory %",
               "Value #D": "Disk %",
+              "Value #F": "Net RX",
+              "Value #G": "Net TX",
+              "Value #H": "Disk Read",
+              "Value #I": "Disk Write",
               "Value #E": "Uptime",
               "name": "LXC Name"
             }
@@ -871,6 +971,30 @@
                 ],
                 "operation": "aggregate"
               },
+              "Net RX": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "Net TX": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "Disk Read": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "Disk Write": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
               "Uptime": {
                 "aggregations": [
                   "last"
@@ -890,13 +1014,21 @@
               "CPU % (last)": 2,
               "Memory % (last)": 3,
               "Disk % (last)": 4,
-              "Uptime (last)": 5
+              "Net RX (last)": 5,
+              "Net TX (last)": 6,
+              "Disk Read (last)": 7,
+              "Disk Write (last)": 8,
+              "Uptime (last)": 9
             },
             "renameByName": {
               "Status (last)": "Status",
               "CPU % (last)": "CPU %",
               "Memory % (last)": "Memory %",
               "Disk % (last)": "Disk %",
+              "Net RX (last)": "Net RX",
+              "Net TX (last)": "Net TX",
+              "Disk Read (last)": "Disk Read",
+              "Disk Write (last)": "Disk Write",
               "Uptime (last)": "Uptime"
             }
           }
@@ -1696,7 +1828,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "count(up == 1)",
+          "expr": "count(up == 1) OR on() vector(0)",
           "refId": "A"
         }
       ],
@@ -1755,7 +1887,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "count(up{job=\"promtail\"} == 1)",
+          "expr": "count(up{job=\"promtail\"} == 1) OR on() vector(0)",
           "refId": "A"
         }
       ],
@@ -1814,7 +1946,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(loki_distributor_bytes_received_total[5m]))",
+          "expr": "sum(rate(loki_distributor_bytes_received_total[5m])) OR on() vector(0)",
           "refId": "A"
         }
       ],
@@ -1873,7 +2005,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "pve_uptime_seconds{id=\"node/pve01\"}",
+          "expr": "pve_uptime_seconds{id=\"node/$node\"}",
           "refId": "A"
         }
       ],
@@ -1937,7 +2069,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "pve_not_backed_up_total",
+          "expr": "pve_not_backed_up_total OR on() vector(0)",
           "refId": "A"
         }
       ],
@@ -2016,7 +2148,31 @@
     "overview"
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(pve_node_info, node)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Node",
+        "multi": false,
+        "name": "node",
+        "options": [],
+        "query": {
+          "query": "label_values(pve_node_info, node)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-1h",
