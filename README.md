@@ -1,8 +1,8 @@
 # Proxmox Homelab Automation
 
-Production-style homelab architected with enterprise-inspired reliability practices, demonstrating infrastructure automation and DevOps patterns. Orchestrates **30+ services** across **7 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**, and **full-stack observability**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
+Production-style homelab architected with enterprise-inspired reliability practices, demonstrating infrastructure automation and DevOps patterns. Orchestrates **30+ services** across **6 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
 
-> **About**: Production homelab running family media services (Jellyfin, Immich) with production-grade infrastructure patterns. Features **declarative infrastructure-as-code**, **ZFS-backed storage**, **encrypted secret management**, **full-stack monitoring**, and **disaster recovery** architecture.
+> **About**: Production homelab running family media services (Jellyfin, Immich) with production-grade infrastructure patterns. Features **declarative infrastructure-as-code**, **ZFS-backed storage**, **encrypted secret management**, and **disaster recovery** architecture.
 
 ---
 
@@ -72,7 +72,6 @@ This project utilizes custom Docker images that are maintained in separate repos
 - **Declarative Infrastructure (IaC)**: Entire infrastructure state defined in `stacks.yaml` (Single Source of Truth).
 - **Idempotent Orchestration**: Bash scripts perform state reconciliation, ensuring reproducible deployments without side effects.
 - **Secret Management**: Production-grade secret handling using AES-256-CBC encryption for all configuration files.
-- **Full-Stack Observability**: Centralized logging (Loki) and metrics (Prometheus) stack monitoring host, containers, and services.
 
 ### **Business Continuity & Disaster Recovery**
 - **3-2-1 Strategy**: Local ZFS snapshots (Hot) + Encrypted Cloud Archives (Cold).
@@ -97,11 +96,8 @@ JDownloader 2, Samba, Repackarr, Backrest-Rclone (Backup with Google Drive sync)
 ### **Desktop Workspace (Web Tools)** (LXC 103 - `192.168.1.103`)
 Homepage, Desktop Workspace, Guacamole, Sshwifty, CouchDB, Vaultwarden
 
-### **Monitoring & Observability** (LXC 104 - `192.168.1.104`)
-Prometheus, Grafana, Loki, Promtail, PVE Exporter, cAdvisor, Diun (update notifications)
-
 ### **Game Servers (Gaming)** (LXC 105 - `192.168.1.105`)
-Palworld, Satisfactory, Conan Exiles
+Palworld, Satisfactory
 
 ### **Development (Dev)** (LXC 106 - `192.168.1.106`)
 Code-Server, Node.js, Python, Git, Antigravity CLI
@@ -138,25 +134,18 @@ Code-Server, Node.js, Python, Git, Antigravity CLI
 │   ├── setup-tailscale-host.sh # Tailscale host subnet configuration
 │   └── modules/             # Specialized deployment modules
 │       ├── docker-deployment.sh
-│       ├── monitoring-deployment.sh
 │       └── backrest-deployment.sh
 ├── docker/                   # Docker Compose stacks
-│   ├── _infra/              # Shared infrastructure (cAdvisor, promtail, etc.)
 │   ├── desktop/             # Dashboard, desktop workspace, guacamole, sshwifty
-│   ├── gaming/              # Satisfactory, Palworld, Conan Exiles servers
+│   ├── gaming/              # Satisfactory, Palworld servers
 │   ├── gateway/             # Nginx Proxy Manager, AdGuard, Cloudflared
 │   ├── media/               # Media automation + GPU acceleration (Jellyfin, Immich)
-│   ├── monitor/             # Prometheus + Grafana + Loki + Diun
 │   └── utility/             # Download managers, Backrest backup, Samba shares
 └── config/                   # Shared configurations
-    ├── prometheus/          # prometheus.yml, metrics + alerting rules
-    ├── promtail/            # Log collection config
     ├── homepage/            # Dashboard widgets
     ├── samba/               # Samba share template config
     ├── sshwifty/            # sshwifty profile template config
     ├── couchdb/             # CouchDB local.ini configuration
-    ├── loki/                # Loki configuration files
-    ├── grafana/             # Grafana dashboard templates
     └── guacamole/           # Apache Guacamole user-mapping configs
 ```
 
@@ -172,7 +161,7 @@ Code-Server, Node.js, Python, Git, Antigravity CLI
 - **Encrypted secrets**: AES-256-CBC with pbkdf2
 - **Single master key** decrypts all `.env.enc` files
 - **Network isolation** per stack
-- **Centralized container update management** via Diun (Docker Image Update Notifier) on monitoring LXC
+- **Container update notifications** via Diun (Docker Image Update Notifier) configured per stack
 
 ## 📄 License
 

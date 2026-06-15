@@ -332,7 +332,6 @@
             <li><a href="#iac" class="nav-item"><i class="fa-solid fa-code"></i> <span data-i18n="nav_iac">Infrastructure as Code</span></a></li>
             <li><a href="#security" class="nav-item"><i class="fa-solid fa-shield-halved"></i> <span data-i18n="nav_security">Security & Secrets</span></a></li>
             <li><a href="#backup" class="nav-item"><i class="fa-solid fa-floppy-disk"></i> <span data-i18n="nav_backup">Backup & Recovery</span></a></li>
-            <li><a href="#observability" class="nav-item"><i class="fa-solid fa-chart-line"></i> <span data-i18n="nav_observability">Observability</span></a></li>
             <li><a href="#topology" class="nav-item"><i class="fa-solid fa-network-wired"></i> <span data-i18n="nav_topology">Network Topology</span></a></li>
             <li><a href="#inventory" class="nav-item"><i class="fa-solid fa-server"></i> <span data-i18n="nav_inventory">Live Inventory</span></a></li>
             <li><a href="#faq" class="nav-item"><i class="fa-solid fa-circle-question"></i> <span data-i18n="nav_faq">FAQ</span></a></li>
@@ -356,7 +355,7 @@
             <div style="background: linear-gradient(135deg, rgba(88, 166, 255, 0.1), rgba(163, 113, 247, 0.1)); padding: 40px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 40px;">
                 <h1 style="border:none; margin:0;" data-i18n="hero_title">Proxmox Homelab Automation</h1>
                 <p style="font-size: 1.1rem; color: var(--text-main); margin-top: 10px;" data-i18n="hero_desc">
-                    Production homelab running family services. 30+ services across 7 LXC containers with GPU passthrough, automated deployment, and full-stack monitoring.
+                    Production homelab running family services. 30+ services across 6 LXC containers with GPU passthrough and automated deployment.
                 </p>
                 <div style="display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
                     <span class="badge" style="background:var(--accent-blue); color:black;"><i class="fa-brands fa-docker"></i> <span data-i18n="badge_services">30+ Services</span></span>
@@ -417,17 +416,7 @@
             </div>
         </section>
 
-        <!-- 5. OBSERVABILITY -->
-        <section id="observability">
-            <h2><i class="fa-solid fa-chart-line"></i> <span data-i18n="nav_observability">Observability & Logs</span></h2>
-            <p data-i18n="obs_intro">A monitoring stack to see everything in one place: Prometheus, Loki, and Grafana.</p>
-            <div class="screenshot-container">
-                <img src="assets/grafana-metrics.png" alt="Grafana">
-                <div class="screenshot-caption"><strong data-i18n="img_graf_title">Operational Visibility</strong></div>
-            </div>
-        </section>
-
-        <!-- 6. TOPOLOGY -->
+        <!-- 5. TOPOLOGY -->
         <section id="topology">
             <h2><i class="fa-solid fa-network-wired"></i> <span data-i18n="nav_topology">Network Topology</span></h2>
             <p data-i18n="topo_intro">Multi-path access architecture with split DNS for seamless connectivity anywhere.</p>
@@ -443,7 +432,7 @@
             </div>
         </section>
 
-        <!-- 7. INVENTORY -->
+        <!-- 6. INVENTORY -->
         <section id="inventory">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                 <h2><i class="fa-solid fa-server"></i> <span data-i18n="nav_inventory">Live Inventory</span></h2>
@@ -452,7 +441,7 @@
             <div id="stack-grid">Loading infrastructure data...</div>
         </section>
 
-        <!-- 8. FAQ -->
+        <!-- 7. FAQ -->
         <section id="faq">
             <h2><i class="fa-solid fa-circle-question"></i> <span data-i18n="nav_faq">Architectural Decisions</span></h2>
             <div class="feature-grid">
@@ -474,8 +463,8 @@
     <script>
         const translations = {
             en: {
-                nav_overview: "Overview", nav_iac: "Infrastructure as Code", nav_security: "Security", nav_backup: "Backup", nav_observability: "Observability", nav_topology: "Network Topology", nav_inventory: "Live Inventory", nav_faq: "FAQ",
-                hero_title: "Proxmox Homelab Automation", hero_desc: "Production homelab running family services. 30+ services across 7 LXC containers with GPU passthrough, automated deployment, and full-stack monitoring.",
+                nav_overview: "Overview", nav_iac: "Infrastructure as Code", nav_security: "Security", nav_backup: "Backup", nav_topology: "Network Topology", nav_inventory: "Live Inventory", nav_faq: "FAQ",
+                hero_title: "Proxmox Homelab Automation", hero_desc: "Production homelab running family services. 30+ services across 6 LXC containers with GPU passthrough and automated deployment.",
                 sidebar_role: "IT Specialist", sidebar_brand: "Yakrel's Homelab", sidebar_update: "Last Update:", sidebar_cv: "Resume (CV)",
                 badge_services: "30+ Services", badge_bash: "~3K Lines Bash", img_dash_title: "Centralized Command Center",
                 iac_intro: "I built a setup where I define everything in one YAML file (stacks.yaml), and scripts handle the installation automatically.",
@@ -487,8 +476,6 @@
                 backup_intro: "Mix of local snapshots for quick fixes and encrypted cloud backups for disasters.",
                 backup_l1_title: "Layer 1: ZFS Snapshots", backup_l1_desc: "Managed by Sanoid. Seconds-level recovery from accidental deletion.",
                 backup_l2_title: "Layer 2: Cloud Archival", backup_l2_desc: "Backrest creates encrypted snapshots, synced to Google Drive via rclone.",
-                obs_intro: "A monitoring stack to see everything in one place: Prometheus, Loki, and Grafana.",
-                img_graf_title: "Operational Visibility",
                 topo_intro: "Multi-path access architecture with split DNS for seamless connectivity anywhere.",
                 topo_layer_clients: "Client Devices", topo_layer_paths: "Access Paths", topo_layer_infra: "Homelab Infrastructure", topo_layer_services: "Application Layer",
                 topo_phone: "Mobile Phone", topo_laptop: "Admin Laptop", topo_browser: "Public Browser",
@@ -500,8 +487,8 @@
                 faq_bash_q: "Why Bash for IaC?", faq_bash_a: "Modular Bash scripts stay close to the OS, ensuring full reproducibility on Proxmox without external dependencies."
             },
             tr: {
-                nav_overview: "Genel Bakış", nav_iac: "Kod Olarak Altyapı", nav_security: "Güvenlik", nav_backup: "Yedekleme", nav_observability: "Gözlenebilirlik", nav_topology: "Ağ Topolojisi", nav_inventory: "Canlı Envanter", nav_faq: "SSS",
-                hero_title: "Proxmox Homelab Otomasyonu", hero_desc: "Aile için production homelab. 7 LXC container'da 30+ servis: GPU passthrough, otomatik deployment, full-stack monitoring.",
+                nav_overview: "Genel Bakış", nav_iac: "Kod Olarak Altyapı", nav_security: "Güvenlik", nav_backup: "Yedekleme", nav_topology: "Ağ Topolojisi", nav_inventory: "Canlı Envanter", nav_faq: "SSS",
+                hero_title: "Proxmox Homelab Otomasyonu", hero_desc: "Aile için production homelab. 6 LXC container'da 30+ servis: GPU passthrough ve otomatik deployment.",
                 sidebar_role: "BT Uzmanı", sidebar_brand: "Yakrel'in Homelab'ı", sidebar_update: "Son Güncelleme:", sidebar_cv: "Özgeçmiş (CV)",
                 badge_services: "30+ Servis", badge_bash: "~3B Satır Bash", img_dash_title: "Merkezi Komuta Paneli",
                 iac_intro: "Tüm altyapıyı tek bir YAML dosyasında (stacks.yaml) tanımladığım ve scriptlerin kurulumu otomatik yaptığı bir sistem kurdum.",
@@ -513,8 +500,6 @@
                 backup_intro: "Hızlı çözümler için yerel snapshot'lar ve felaketler için şifreli bulut yedekleri.",
                 backup_l1_title: "Katman 1: ZFS Snapshot'ları", backup_l1_desc: "Sanoid ile yönetilir. Kazara silmelere karşı saniyeler içinde geri dönüş sağlar.",
                 backup_l2_title: "Katman 2: Bulut Arşivleme", backup_l2_desc: "Backrest şifreli snapshot'lar oluşturur ve rclone ile Google Drive'a senkronize eder.",
-                obs_intro: "Her şeyi tek bir yerde görmek için izleme yığını: Prometheus, Loki ve Grafana.",
-                img_graf_title: "Operasyonel Görünürlük",
                 topo_intro: "Split DNS ile her yerden kesintisiz bağlantı sağlayan çok yollu erişim mimarisi.",
                 topo_layer_clients: "İstemci Cihazlar", topo_layer_paths: "Erişim Yolları", topo_layer_infra: "Homelab Altyapısı", topo_layer_services: "Uygulama Katmanı",
                 topo_phone: "Mobil Telefon", topo_laptop: "Yönetici Laptop", topo_browser: "Genel Tarayıcı",
