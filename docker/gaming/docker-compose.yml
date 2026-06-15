@@ -138,94 +138,13 @@ services:
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
 
-  # ---------------------------------------------------------------------------
-  # Conan Exiles Server (Profile: conan)
-  # Start with: docker compose -p app -f docker-compose.yml --profile conan up -d
-  # ---------------------------------------------------------------------------
-  conan-exiles-server:
-    image: indifferentbroccoli/conan-exiles-enhanced-server-docker:latest
-    container_name: conan-exiles-server
-    profiles: ["conan"]
-    restart: unless-stopped
-    stop_grace_period: 30s
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=${TZ:-Europe/Istanbul}
-      - SERVER_NAME=${CONAN_SERVER_NAME:-Proxmox Homelab Conan}
-      - SERVER_PASSWORD=${CONAN_SERVER_PASSWORD}
-      - ADMIN_PASSWORD=${CONAN_ADMIN_PASSWORD}
-      - MAX_PLAYERS=${CONAN_MAX_PLAYERS:-10}
-      - PORT=${CONAN_PORT:-7777}
-      - QUERY_PORT=${CONAN_QUERY_PORT:-27015}
-      - RCON_PORT=${CONAN_RCON_PORT:-25575}
-      - UPDATE_ON_START=true
-    volumes:
-      - /datapool/config/gameservers/conan:/home/steam/server-files
-    ports:
-      - "${CONAN_PORT:-7777}:${CONAN_PORT:-7777}/udp"
-      - "${CONAN_PINGER_PORT:-7778}:${CONAN_PINGER_PORT:-7778}/udp"
-      - "${CONAN_QUERY_PORT:-27015}:${CONAN_QUERY_PORT:-27015}/udp"
-      - "${CONAN_RCON_PORT:-25575}:${CONAN_RCON_PORT:-25575}/tcp"
-    networks:
+
       - gaming-net
     logging:
       driver: "json-file"
       options:
         max-size: "50m"
         max-file: "5"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
-
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor
-    restart: unless-stopped
-    ports:
-      - "8082:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    privileged: true
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
-    command:
-      - '--housekeeping_interval=10s'
-      - '--docker_only=true'
-      - '--store_container_labels=false'
-    networks:
-      - gaming-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
-
-  promtail:
-    image: grafana/promtail:latest
-    container_name: promtail
-    restart: unless-stopped
-    network_mode: "host"
-    volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/log:/var/log:ro
-      - /datapool/config/qbittorrent/qBittorrent/logs:/qbittorrent-logs:ro
-      - /etc/promtail:/etc/promtail:ro
-      - /var/lib/promtail/positions:/var/lib/promtail/positions
-    command: -config.file=/etc/promtail/promtail.yml
-    environment:
-      - TZ=${TZ:-Europe/Istanbul}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
 

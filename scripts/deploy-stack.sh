@@ -24,11 +24,9 @@ STACK_NAME=$1
 
 # --- Load Deployment Modules ---
 source "$WORK_DIR/scripts/modules/docker-deployment.sh"
-source "$WORK_DIR/scripts/modules/monitoring-deployment.sh"
 source "$WORK_DIR/scripts/modules/backrest-deployment.sh"
 
 # --- Global Variables ---
-PVE_MONITORING_PASSWORD=""
 ENV_DECRYPTED_PATH=""
 
 # --- Early Validation ---
@@ -107,17 +105,6 @@ configure_env() {
     print_success "Environment configured"
 }
 
-# Setup Promtail configuration for Docker stacks
-configure_promtail_config() {
-    local ct_id="$1"
-
-    # Get hostname from stacks.yaml
-    local hostname
-    hostname=$(yq -r ".stacks.$STACK_NAME.hostname" "$WORK_DIR/stacks.yaml")
-    [[ -n "$hostname" ]] || { print_error "Could not find hostname for $STACK_NAME"; exit 1; }
-
-    setup_promtail_config "$ct_id" "$hostname"
-}
 
 
 
@@ -132,11 +119,6 @@ get_stack_config "$STACK_NAME"
 # Step 1: Environment setup
 if [[ "$STACK_NAME" == "dev" ]]; then
     : # No .env needed
-elif [[ "$STACK_NAME" == "monitor" ]]; then
-    decrypt_env_for_deploy "$STACK_NAME"
-    PVE_MONITORING_PASSWORD=$(grep "^PVE_MONITORING_PASSWORD=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
-    [[ -z "$PVE_MONITORING_PASSWORD" ]] && { print_error "PVE_MONITORING_PASSWORD not found"; exit 1; }
-    setup_proxmox_monitoring_user
 else
     decrypt_env_for_deploy "$STACK_NAME"
 fi
@@ -161,21 +143,15 @@ case "$STACK_NAME" in
         fi
         
         configure_env
-        configure_promtail_config "$CT_ID"
         deploy_docker_stack "$STACK_NAME" "$CT_ID" || { print_error "Deployment failed"; exit 1; }
-        ;;
-    "monitor")
-        deploy_monitoring_stack "$STACK_NAME" "$CT_ID" || { print_error "Deployment failed"; exit 1; }
         ;;
     "desktop")
         setup_homepage_proxmox_token
         configure_env
-        configure_promtail_config "$CT_ID"
         deploy_docker_stack "$STACK_NAME" "$CT_ID" || { print_error "Deployment failed"; exit 1; }
         ;;
     "gateway")
         configure_env
-        configure_promtail_config "$CT_ID"
         deploy_docker_stack "$STACK_NAME" "$CT_ID" || { print_error "Deployment failed"; exit 1; }
         
         # Install and configure Tailscale on host (idempotent subnet router)
@@ -191,7 +167,6 @@ case "$STACK_NAME" in
         ;;
     *)
         configure_env
-        configure_promtail_config "$CT_ID"
         deploy_docker_stack "$STACK_NAME" "$CT_ID" || { print_error "Deployment failed"; exit 1; }
         ;;
 esac

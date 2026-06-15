@@ -14,24 +14,6 @@
           username: "{{HOMEPAGE_VAR_PROXMOX_TOKEN_ID}}"
           password: "{{HOMEPAGE_VAR_PROXMOX_TOKEN_SECRET}}"
 
-    - Grafana:
-        description: Monitoring & Metrics
-        href: https://grafana.byetgin.com
-        icon: grafana.png
-        widget:
-          type: grafana
-          url: http://192.168.1.104:3000
-          username: "{{HOMEPAGE_VAR_GRAFANA_USERNAME}}"
-          password: "{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}"
-
-    - Prometheus:
-        description: Metrics Collection
-        href: https://prometheus.byetgin.com
-        icon: prometheus.png
-        widget:
-          type: prometheus
-          url: http://192.168.1.104:9090
-
     - Backrest:
         description: Backup Management
         href: https://backrest.byetgin.com

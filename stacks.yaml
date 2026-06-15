@@ -32,12 +32,6 @@ stacks:
     cpu_cores: 4
     memory_mb: 6144
     disk_gb: 30
-  monitor:
-    ct_id: 104
-    hostname: lxc-monitor
-    cpu_cores: 4
-    memory_mb: 6144
-    disk_gb: 15
   gaming:
     ct_id: 105
     hostname: lxc-gaming

@@ -791,9 +791,8 @@
                     <path d="M 640,145 L 760,78" class="svg-link virtual-link" id="link-proxmox-lxc-101" onclick="selectLink('proxmox-lxc-101')"></path>
                     <path d="M 640,145 L 760,118" class="svg-link virtual-link" id="link-proxmox-lxc-102" onclick="selectLink('proxmox-lxc-102')"></path>
                     <path d="M 640,145 L 760,158" class="svg-link virtual-link" id="link-proxmox-lxc-103" onclick="selectLink('proxmox-lxc-103')"></path>
-                    <path d="M 640,145 L 760,198" class="svg-link virtual-link" id="link-proxmox-lxc-104" onclick="selectLink('proxmox-lxc-104')"></path>
-                    <path d="M 640,145 L 760,238" class="svg-link virtual-link" id="link-proxmox-lxc-105" onclick="selectLink('proxmox-lxc-105')"></path>
-                    <path d="M 640,145 L 760,278" class="svg-link virtual-link" id="link-proxmox-lxc-106" onclick="selectLink('proxmox-lxc-106')"></path>
+                    <path d="M 640,145 L 760,198" class="svg-link virtual-link" id="link-proxmox-lxc-105" onclick="selectLink('proxmox-lxc-105')"></path>
+                    <path d="M 640,145 L 760,238" class="svg-link virtual-link" id="link-proxmox-lxc-106" onclick="selectLink('proxmox-lxc-106')"></path>
 
                     <!-- Wi-Fi 5G Hub to clients -->
                     <path d="M 430,345 L 520,305" class="svg-link wifi-5g-link" id="link-wifi5-poco" onclick="selectLink('wifi5-poco')"></path>
@@ -950,19 +949,8 @@
                             <span class="pulse-dot-html online"></span>
                         </div>
                     </foreignObject>
-                    <!-- LXC 104 -->
-                    <foreignObject x="760" y="180" width="150" height="36" id="node-lxc-104" class="svg-node-html" onclick="selectNode('lxc-104')">
-                        <div class="node-card-html virtual-node lxc-card-html">
-                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
-                            <div class="node-details-text">
-                                <span class="node-name">lxc-monitor</span>
-                                <span class="node-sub">.1.104 (10G)</span>
-                            </div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
                     <!-- LXC 105 -->
-                    <foreignObject x="760" y="220" width="150" height="36" id="node-lxc-105" class="svg-node-html" onclick="selectNode('lxc-105')">
+                    <foreignObject x="760" y="180" width="150" height="36" id="node-lxc-105" class="svg-node-html" onclick="selectNode('lxc-105')">
                         <div class="node-card-html virtual-node lxc-card-html">
                             <div class="node-icon"><i class="fa-solid fa-box"></i></div>
                             <div class="node-details-text">
@@ -973,7 +961,7 @@
                         </div>
                     </foreignObject>
                     <!-- LXC 106 -->
-                    <foreignObject x="760" y="260" width="150" height="36" id="node-lxc-106" class="svg-node-html" onclick="selectNode('lxc-106')">
+                    <foreignObject x="760" y="220" width="150" height="36" id="node-lxc-106" class="svg-node-html" onclick="selectNode('lxc-106')">
                         <div class="node-card-html virtual-node lxc-card-html">
                             <div class="node-icon"><i class="fa-solid fa-box"></i></div>
                             <div class="node-details-text">
@@ -1164,8 +1152,7 @@
                 'lxc-101': { name: 'lxc-media-01 (Media Automation)', ip: '192.168.1.101', mac: 'BC:24:11:6B:39:5D', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'Jellyfin, Immich ve torrent otomasyon servisleri. NVIDIA GPU passthrough aktiftir.' },
                 'lxc-102': { name: 'lxc-utility-01 (Utility & Backup)', ip: '192.168.1.102', mac: 'BC:24:11:02:61:04', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'JDownloader 2, Samba Share, Repackarr ve Backrest yedekleme servisi.' },
                 'lxc-103': { name: 'lxc-desktop-01 (Desktop Workspace)', ip: '192.168.1.103', mac: 'BC:24:11:99:B4:BE', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'Homepage, Desktop Workspace (Kasm), Apache Guacamole ve Sshwifty servisleri.' },
-                'lxc-104': { name: 'lxc-monitor-01 (Monitoring Stack)', ip: '192.168.1.104', mac: 'BC:24:11:7E:88:F1', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'Prometheus, Grafana, Loki ve Diun servisleri.' },
-                'lxc-105': { name: 'lxc-gaming-01 (Gaming Servers)', ip: '192.168.1.105', mac: 'BC:24:11:A9:A1:6F', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'Satisfactory, Palworld ve Conan Exiles sunucuları.' },
+                'lxc-105': { name: 'lxc-gaming-01 (Gaming Servers)', ip: '192.168.1.105', mac: 'BC:24:11:A9:A1:6F', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'Satisfactory ve Palworld sunucuları.' },
                 'lxc-106': { name: 'lxc-dev-01 (Development Environment)', ip: '192.168.1.106', mac: 'BC:24:11:C5:44:38', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'Code-Server (VS Code), Node.js, Python, Git ve Antigravity CLI.' }
             },
             links: {
@@ -1196,7 +1183,6 @@
                 'proxmox-lxc-101': { name: 'vmbr0 sanal köprü -> lxc-media', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
                 'proxmox-lxc-102': { name: 'vmbr0 sanal köprü -> lxc-utility', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
                 'proxmox-lxc-103': { name: 'vmbr0 sanal köprü -> lxc-desktop', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
-                'proxmox-lxc-104': { name: 'vmbr0 sanal köprü -> lxc-monitor', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
                 'proxmox-lxc-105': { name: 'vmbr0 sanal köprü -> lxc-gaming', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
                 'proxmox-lxc-106': { name: 'vmbr0 sanal köprü -> lxc-dev', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' }
             }
@@ -1347,7 +1333,7 @@
         }
 
         function highlightPathNodes(nodeId) {
-            if (['switch', 'desktop-wired', 'proxmox-host', 'pbs', 'lxc-100', 'lxc-101', 'lxc-102', 'lxc-103', 'lxc-104', 'lxc-105', 'lxc-106'].includes(nodeId)) {
+            if (['switch', 'desktop-wired', 'proxmox-host', 'pbs', 'lxc-100', 'lxc-101', 'lxc-102', 'lxc-103', 'lxc-105', 'lxc-106'].includes(nodeId)) {
                 const uplink = document.getElementById('link-router-switch');
                 if (uplink) uplink.classList.add('bottleneck-link');
             }

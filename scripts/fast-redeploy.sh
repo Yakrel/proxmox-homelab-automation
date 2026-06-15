@@ -34,13 +34,6 @@ decrypt_stack_env() {
 }
 
 
-copy_monitoring_configs() {
-    local env_file="$1"
-    setup_monitoring_configs "$env_file"
-    setup_grafana_provisioning
-}
-
-
 
 fast_redeploy_stack() {
     local stack="$1"
@@ -80,9 +73,6 @@ fast_redeploy_stack() {
     elif [[ "$stack" == "utility" ]]; then
         setup_utility_permissions
         deploy_backrest "$CT_ID"
-    elif [[ "$stack" == "monitor" ]]; then
-        setup_proxmox_monitoring_user "$ENV_DECRYPTED_PATH"
-        copy_monitoring_configs "$ENV_DECRYPTED_PATH"
     elif [[ "$stack" == "gateway" ]]; then
         setup_gateway_permissions
     elif [[ "$stack" == "gaming" ]]; then
@@ -91,7 +81,6 @@ fast_redeploy_stack() {
 
     pct push "$CT_ID" "$ENV_DECRYPTED_PATH" /root/.env
     pct push "$CT_ID" "$compose_file" /root/docker-compose.yml
-    setup_promtail_config "$CT_ID" "$CT_HOSTNAME"
 
     pct exec "$CT_ID" -- sh -c "cd /root && docker compose up -d --remove-orphans"
 
@@ -121,7 +110,7 @@ main() {
         fast_redeploy_stack "$stack"
     done
 
-    rm -f /tmp/*.fast-redeploy.env /tmp/promtail_*.fast-redeploy.yml
+    rm -f /tmp/*.fast-redeploy.env
 
     print_success "Fast redeploy completed"
 }

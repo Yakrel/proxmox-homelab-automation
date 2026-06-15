@@ -105,21 +105,7 @@ const ARCHITECTURE_DATA = {
                 { name: "CouchDB", icon: "fa-solid fa-database", port: "5984", desc: { en: "Obsidian Sync Database", tr: "Obsidian Senkronizasyon Veritabanı" }, status: "active" }
             ]
         },
-        {
-            id: 104,
-            name: { en: "Monitoring & Observability (Monitor)", tr: "Gözleme ve İzleme (Monitor)" },
-            ip: "192.168.1.104",
-            category: "Observability",
-            specs: { cpu: 4, ram: "6GB" },
-            services: [
-                { name: "Grafana", icon: "fa-solid fa-chart-line", port: "3000", url: "https://grafana.byetgin.com", desc: { en: "Metrics Visualization", tr: "Metrik Görselleştirme" }, status: "active" },
-                { name: "Prometheus", icon: "fa-solid fa-eye", port: "9090", desc: { en: "Time-series Database", tr: "Zaman Serisi Veritabanı" }, status: "active" },
-                { name: "Loki", icon: "fa-solid fa-list", port: "3100", desc: { en: "Log Aggregation", tr: "Log Toplama" }, status: "active" },
-                { name: "Promtail", icon: "fa-solid fa-file-invoice", port: "9080", desc: { en: "Log Shipping Agent", tr: "Log Gönderim Ajanı" }, status: "active" },
-                { name: "cAdvisor", icon: "fa-solid fa-gauge-high", port: "8082", desc: { en: "Container Metrics Agent", tr: "Konteyner Metrik Ajanı" }, status: "active" },
-                { name: "Diun", icon: "fa-solid fa-arrows-rotate", port: "Auto", desc: { en: "Docker Image Update Notifier", tr: "Docker İmaj Güncelleme Bildiricisi" }, status: "active" }
-            ]
-        },
+
         {
             id: 105,
             name: { en: "Gaming & Game Servers (Gaming)", tr: "Oyun Sunucuları (Gaming)" },
@@ -128,8 +114,7 @@ const ARCHITECTURE_DATA = {
             specs: { cpu: 8, ram: "16GB" },
             services: [
                 { name: "Palworld", icon: "fa-solid fa-gamepad", port: "8211 UDP", desc: { en: "Dedicated Server", tr: "Dedicated Sunucu" }, status: "standby" },
-                { name: "Satisfactory", icon: "fa-solid fa-industry", port: "7777 UDP", desc: { en: "Dedicated Server", tr: "Dedicated Sunucu" }, status: "active" },
-                { name: "Conan Exiles", icon: "fa-solid fa-khanda", port: "7777/27015 UDP", desc: { en: "Dedicated Server", tr: "Dedicated Sunucu" }, status: "standby" }
+                { name: "Satisfactory", icon: "fa-solid fa-industry", port: "7777 UDP", desc: { en: "Dedicated Server", tr: "Dedicated Sunucu" }, status: "active" }
             ]
         },
         {
