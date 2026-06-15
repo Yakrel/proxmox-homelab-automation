@@ -8,9 +8,13 @@
     text_size: xl
     text: "Welcome!"
 
-# Datapool Storage
+# System Resources
 - resources:
-    label: Datapool Storage
+    label: System Resources
+    cpu: true
+    memory: true
+    cputemp: true
+    expanded: true
     disk:
       - /datapool
     diskUnits: bytes

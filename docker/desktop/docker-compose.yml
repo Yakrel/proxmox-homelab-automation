@@ -13,12 +13,16 @@ services:
     image: ghcr.io/gethomepage/homepage:latest
     container_name: homepage
     restart: unless-stopped
+    dns:
+      - 192.168.1.100
+      - 1.1.1.1
     ports:
       - "3000:3000"
     volumes:
        - /datapool/config/homepage:/app/config
        - /var/run/docker.sock:/var/run/docker.sock:ro
        - /datapool:/datapool:ro
+       - /sys:/sys:ro
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PUID=1000
