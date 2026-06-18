@@ -98,48 +98,32 @@ services:
   # Start with: docker compose -p app -f docker-compose.yml --profile satisfactory up -d
   # ---------------------------------------------------------------------------
   satisfactory-server:
-    image: wolveix/satisfactory-server:latest
+    image: indifferentbroccoli/satisfactory-server-docker:latest
     container_name: satisfactory-server
     profiles: ["satisfactory"]
+    # Temporary workaround for FactoryServer.sh execution permissions (PR #13)
+    # Can be removed once PR is merged: https://github.com/indifferentbroccoli/satisfactory-server-docker/pull/13
+    entrypoint: ["/bin/bash", "-c", "(while [ ! -f /satisfactory/FactoryServer.sh ]; do sleep 1; done; chmod -R +x /satisfactory/FactoryServer.sh /satisfactory/Engine/Binaries/Linux/ /satisfactory/FactoryGame/Binaries/Linux/ 2>/dev/null) & exec /home/steam/server/init.sh"]
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=${TZ:-Europe/Istanbul}
-      - SERVERNAME=${SATISFACTORY_SERVERNAME}
-      - PASSWORD=${SATISFACTORY_PASSWORD}
-      - PLAYERS=${SATISFACTORY_MAXPLAYERS:-10}
-      - PUBLIC=false
-      - AUTOSAVEINTERVAL=300
-      - AUTOSAVENUM=20
-      - CRASHREPORT=false
+      - GENERATE_SETTINGS=true
+      - MAX_PLAYERS=${SATISFACTORY_MAX_PLAYERS:-10}
+      - UPDATE_ON_START=${SATISFACTORY_UPDATE_ON_START:-true}
+      - BRANCH=${SATISFACTORY_BRANCH:-public}
+      - RELIABLE_PORT=7778
     volumes:
-      - /datapool/config/gameservers/satisfactory:/config
-      - /root/satisfactory:/config/gamefiles
+      - /datapool/config/gameservers/satisfactory:/home/steam/.config/Epic/FactoryGame/Saved/SaveGames
+      - /opt/satisfactory:/satisfactory
     ports:
-      - "7777:7777/udp"  # Game port
+      - "7777:7777/udp"  # Game port UDP
       - "7777:7777/tcp"  # Game port TCP
-      - "15000:15000/udp"  # Query port
-      - "15777:15777/udp"  # Beacon port
+      - "7778:7778/tcp"  # Reliable messaging port (Required for indifferentbroccoli)
     networks:
       - gaming-net
     restart: unless-stopped
-    stop_grace_period: 120s
-    healthcheck:
-      test: ["CMD-SHELL", "netstat -an | grep -q ':7777'"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "50m"
-        max-file: "5"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
-
-
-      - gaming-net
+    stop_grace_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -166,7 +150,7 @@ services:
       - DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT=true
       - DIUN_NOTIF_TELEGRAM_TOKEN=${DIUN_TELEGRAM_TOKEN:-}
       - DIUN_NOTIF_TELEGRAM_CHATIDS=${DIUN_TELEGRAM_CHAT_IDS:-}
-      - "DIUN_NOTIF_TELEGRAM_TEMPLATEBODY=Update found for {{ if .Entry.Image.HubLink }}[{{ escapeMarkdown .Entry.Image }}]({{ .Entry.Image.HubLink }}){{ else }}{{ escapeMarkdown .Entry.Image }}{{ end }} (status: *{{ .Entry.Status }}*) on *lxc-gaming*"
+      - "DIUN_NOTIF_TELEGRAM_TEMPLATEBODY=Update found for {{ if .Entry.Image.HubLink }}[{{ .Entry.Image }}]({{ .Entry.Image.HubLink }}){{ else }}{{ .Entry.Image }}{{ end }} (status: *{{ .Entry.Status }}*) on *lxc-gaming*"
     networks:
       - gaming-net
     logging:
