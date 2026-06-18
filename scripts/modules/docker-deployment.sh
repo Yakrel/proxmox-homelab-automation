@@ -407,6 +407,11 @@ deploy_docker_services() {
 
     print_info "Deploying services for $stack_name"
 
+    # Pre-create Satisfactory local gamefiles directory on the SSD and set proper ownership
+    if [ "$stack_name" = "gaming" ]; then
+        pct exec "$ct_id" -- sh -c "mkdir -p /opt/satisfactory && chown -R 1000:1000 /opt/satisfactory"
+    fi
+
     # Pull images and deploy in one command
     pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --pull always --remove-orphans" || {
         print_error "Failed to deploy services"

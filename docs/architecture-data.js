@@ -114,7 +114,7 @@ const ARCHITECTURE_DATA = {
             specs: { cpu: 8, ram: "16GB" },
             services: [
                 { name: "Palworld", icon: "fa-solid fa-gamepad", port: "8211 UDP", desc: { en: "Dedicated Server", tr: "Dedicated Sunucu" }, status: "standby" },
-                { name: "Satisfactory", icon: "fa-solid fa-industry", port: "7777 UDP", desc: { en: "Dedicated Server", tr: "Dedicated Sunucu" }, status: "active" }
+                { name: "Satisfactory", icon: "fa-solid fa-industry", port: "7777 UDP/TCP, 7778 TCP", desc: { en: "Dedicated Server", tr: "Dedicated Sunucu" }, status: "active" }
             ]
         },
         {

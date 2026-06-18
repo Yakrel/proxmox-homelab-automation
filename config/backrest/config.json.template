@@ -70,7 +70,7 @@
         "/backup-sources/config/qbittorrent/qBittorrent/BT_backup",
         "/backup-sources/config/bazarr/cache",
         "/backup-sources/config/bazarr/backup",
-        "/backup-sources/config/code-server/data/coder-logs",
+        "/backup-sources/config/code-server",
         "/backup-sources/config/jellyseerr/cache",
         "/backup-sources/config/vaultwarden/icon_cache",
         "/backup-sources/config/vaultwarden/tmp",
