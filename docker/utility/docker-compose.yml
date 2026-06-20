@@ -12,15 +12,16 @@ volumes:
 
 services:
   jdownloader2:
-    image: ghcr.io/jaymoulin/jdownloader:latest
+    image: antlafarge/jdownloader:latest
     container_name: jdownloader2
+    user: "1000:1000"
     environment:
-      - MYJD_USER=${MYJD_USER:?MyJDownloader email must be defined}
-      - MYJD_PASSWORD=${MYJD_PASSWORD:?MyJDownloader password must be defined}
-      - MYJD_DEVICE_NAME=${MYJD_DEVICE_NAME:-homelab-jdownloader}
+      - JD_EMAIL=${MYJD_USER:?MyJDownloader email must be defined}
+      - JD_PASSWORD=${MYJD_PASSWORD:?MyJDownloader password must be defined}
+      - JD_DEVICENAME=${MYJD_DEVICE_NAME:-homelab-jdownloader}
     volumes:
-      - /datapool/config/jdownloader2:/opt/JDownloader/app/cfg
-      - /datapool/torrents/other:/opt/JDownloader/Downloads
+      - /datapool/config/jdownloader2:/jdownloader/cfg
+      - /datapool/torrents/other:/jdownloader/downloads
     ports:
       - "3129:3129"
     healthcheck:
