@@ -436,7 +436,7 @@ setup_gameserver_aliases() {
 
 $start_marker
 # Aliases for Game Server Management
-# Core services (diun) always run via base compose
+# Core services (watchtower) always run via base compose
 # Game servers are managed separately via profiles
 
 # Ensure core services are always running, then start/stop game containers

@@ -1,90 +1,35 @@
 # Agent Instructions
 
-<!--
-    CRITICAL: This file must be kept identical to its counterpart agent instruction file.
-    Both files need the same context and guidelines for all AI assistants.
-    Any changes made to one file must be mirrored in the other exactly.
--->
+1. Ask, don't assume. If something is unclear, ask before writing a single line. Never make silent assumptions about intent, architecture, or requirements. When running unattended, pick the most reasonable interpretation, proceed, and record the assumption rather than blocking.
+
+2. Implement the simplest solution for simple problems, better solutions for harder problems. Do not over-engineer or add flexibility that isn't needed yet. 
+
+3. Don't touch unrelated code but please do surface bad code or design smells you discover with me so we can address them as a separate issue.
+
+4. Flag uncertainty explicitly. If you're unsure about something, see point 1 above. If it makes sense to do so, conduct a small, localised and low-risk experiment and bring the hypothesis and results to me to discuss. Confidence without certainty causes more damage than admitting a gap.
+
+5. I'm always open to ideas on better ways to do things. Please don't hesitate to suggest a better way, or one that has long lasting impact over a tactical change. (as a few examples)
 
 ## Overview
-
-Shell-based automation for deploying containerized services in LXC containers on Proxmox VE.
-
-**Always follow best practices and keep code clean.**
+Shell-based automation for deploying containerized services in LXC containers on Proxmox VE. Keep code clean and production-ready.
 
 ## Core Development Principles
+- **Fail Fast & Simple**: Let commands fail naturally. No retry loops. Do not suppress stderr/stdout unless it mixes with command output parsing (e.g. `apt-get update` output mixing with `yq` variables).
+- **Idempotency**: Do not manually check if something exists before running idempotent commands (e.g. run `mkdir -p` or `apt install` directly without `if` checks).
+- **Homelab focus**: Prefer hardcoded static configurations over dynamic runtime detection. Always use the `latest` version tags.
 
-### Fail Fast & Simple
-- Ensure idempotency in all operations
-- Let commands fail naturally with their original error messages
-- Avoid suppressing output from critical deployment commands - errors must stay visible for debugging
-- **EXCEPTION:** Suppress output when it interferes with command parsing (e.g., `apt-get update` output mixing with `yq`/`jq` parsing)
-- **EXCEPTION:** Basic health checks are allowed when immediately needed (e.g., waiting for service to be ready before API call)
-- **EXCEPTION:** Variable capture and parsing - when suppression prevents script failures from command output mixing with variable assignments (e.g., `ct_id=$(yq ... 2>/dev/null)`)
-- **EXCEPTION:** Idempotent existence checks and cleanup commands may suppress expected "not found" output when the next command handles the desired state
-- No retry logic or waiting loops in deployment scripts
-- Focus on main scenario - edge cases should fail fast
+## Technical & Git Guidelines
+- **Encryption & Secrets**: Use `openssl` with `-pbkdf2` and `-salt` for encrypting `.env` files. Decrypt/encrypt using `ENV_ENC_KEY` from CI/CD env variables. Commit only `.env.enc` files, never plain `.env`.
+- **Documentation**: Keep documentation minimal. Only write in `README.md` or inline comments. Do not create separate validation/health check scripts.
+- **Git Commit Info**: Always use these configurations before committing:
+  `git config user.email "85676216+Yakrel@users.noreply.github.com"`
+  `git config user.name "Berkay Yetgin"`
+  *Never* write "Generated with AI" or similar in commit messages.
 
-### Idempotency Without Manual Checks
-- **NEVER** manually check if something exists before running idempotent commands
-- Commands like `apt install`, `systemctl enable`, `mkdir -p` are already idempotent
-- Always run the actual command - let it handle "already exists" cases
-- Example: Use `apt install docker` directly, NOT `if ! command -v docker; then apt install docker; fi`
-- This keeps scripts simple and ensures packages stay up-to-date
-
-### Homelab-First Approach
-- Static/hardcoded values must be used always if possible
-- Accept that manual intervention is normal for edge cases
-- Prefer simple solutions over complex error recovery
-
-### Latest Everything
-- Always use `latest` for everything in homelab context
-- Version pinning only if absolutely required for compatibility
-
-## Documentation Standards
-
-### Minimal Documentation Philosophy
-- **NO test scripts**: Do not create validation or health check scripts
-- **NO extra .md files**: Keep documentation minimal - only in README.md or inline comments
-- **EXCEPTION**: Critical technical notes (like GPU configuration) can have a dedicated README.md in the specific stack directory (e.g., `docker/media/README.md`)
-- **Inline comments**: For important notes, use comments in the actual scripts where relevant
-- **README.md**: General project documentation goes in the main README.md only
-
-## Technical Guidelines
-
-### Security and Encryption
-Always use `-pbkdf2` and `-salt` with openssl for env file encryption/decryption. Do not use `-iter` unless explicitly required by the environment.
-
-### Environment Secrets
-The repository uses encrypted `.env.enc` files for sensitive configuration. Use `ENV_ENC_KEY` from GitHub secrets (available as environment variable in CI/CD) for decryption/encryption with openssl. The same `ENV_ENC_KEY` can be used to decrypt any `.env.enc` file in the repository for inspection or modification. Always commit only `.env.enc` files, never decrypted `.env` files.
-
-### Version Control
-- **NEVER** use "Generated with [AI Tool]" in commits
-- Commit as the actual developer (Yakrel), not as AI
-- Always check code to ensure no secrets or passwords are committed
-- **Git Configuration**: Use `git config user.email "85676216+Yakrel@users.noreply.github.com"` and `git config user.name "Berkay Yetgin"` before committing
-
-## Project Context
-
-This is a personal homelab automation with:
-- Fixed network topology: `192.168.1.x` range
-- ZFS storage pool: `datapool`
-- Network bridge: `vmbr0`
-- Timezone: `Europe/Istanbul`
-- Unprivileged LXC containers with UID/GID mapping (101000:101000 on host → 1000:1000 in container)
-
-### Development Environment & Workflow
-- **Working in dev LXC** - no access to Proxmox host commands (`pct`, `pvesh`, etc.)
-- **No SSH** to other LXC containers
-- **View live state** via `/datapool` mount
-- **Workflow**: Make changes in repository first, test in `/datapool` if live config exists
-- **Proxmox/LXC commands**: Provide grouped commands with inline comments for user execution
-
-### LXC File Permissions
-**CRITICAL: Never do chown inside LXC containers**
-- Always set permissions on Proxmox host with `chown 101000:101000`
-- Prefer targeted ownership fixes for the specific stack directories that need writes
-- Avoid broad recursive chown on large/high-churn trees like Immich media, Jellyfin metadata/cache, Loki chunks, torrents, and full `/datapool/config`
-- **Never** chown to `/datapool` itself (parent directory) - only to `/datapool/config`, `/datapool/media`, `/datapool/backup`, `/datapool/torrents`, or stack-specific subdirectories like `/datapool/temp/tdarr`
-- Files in `/datapool/config` with host UID 101000 automatically map to UID 1000 inside unprivileged LXC containers
-- Docker containers using `user: "1000:1000"` can access these files correctly without additional chown operations
+## Proxmox & LXC Context
+- **Network & Storage**: Timezone is `Europe/Istanbul`, topology uses `192.168.1.x`, ZFS pool is `datapool`, bridge is `vmbr0`.
+- **Environment**: Working inside dev LXC with no access to host commands (`pct`/`pvesh`) and no SSH to other LXCs. View live state via `/datapool` mount.
+- **LXC Permissions (CRITICAL)**:
+  - **Never run `chown` inside LXC containers.**
+  - Always set host permissions with `chown 101000:101000` (which maps to `1000:1000` in container).
+  - Target permissions directly to stack-specific subdirectories; do not run recursive `chown` on large, high-churn directories (like Immich media, torrents, or full `/datapool/config`).
