@@ -5,8 +5,6 @@ networks:
     driver: bridge
 
 volumes:
-  diun-data:
-    driver: local
   samba-cache:
   samba-lib:
 
@@ -171,25 +169,22 @@ services:
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
 
-  diun:
-    image: crazymax/diun:latest
-    container_name: diun
+  watchtower:
+    image: nickfedor/watchtower:latest
+    container_name: watchtower
     restart: unless-stopped
-    command: serve
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - diun-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - TZ=${TZ:-Europe/Istanbul}
-      - LOG_LEVEL=info
-      - LOG_JSON=false
-      - DIUN_WATCH_SCHEDULE=0 */6 * * *
-      - DIUN_WATCH_FIRSTCHECKNOTIF=false
-      - DIUN_PROVIDERS_DOCKER=true
-      - DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT=true
-      - DIUN_NOTIF_TELEGRAM_TOKEN=${DIUN_TELEGRAM_TOKEN:-}
-      - DIUN_NOTIF_TELEGRAM_CHATIDS=${DIUN_TELEGRAM_CHAT_IDS:-}
-      - "DIUN_NOTIF_TELEGRAM_TEMPLATEBODY=Update found for {{ if .Entry.Image.HubLink }}[{{ .Entry.Image }}]({{ .Entry.Image.HubLink }}){{ else }}{{ .Entry.Image }}{{ end }} (status: *{{ .Entry.Status }}*) on *lxc-utility*"
+      - WATCHTOWER_CLEANUP=true
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - WATCHTOWER_SCHEDULE=0 0 */6 * * *
+      - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
+      - WATCHTOWER_NOTIFICATIONS_LEVEL=info
+      - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-utility
     networks:
       - utility-net
     logging:

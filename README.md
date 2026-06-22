@@ -161,7 +161,7 @@ Code-Server, Node.js, Python, Git, Antigravity CLI
 - **Encrypted secrets**: AES-256-CBC with pbkdf2
 - **Single master key** decrypts all `.env.enc` files
 - **Network isolation** per stack
-- **Container update notifications** via Diun (Docker Image Update Notifier) configured per stack
+- **Automated container updates and notifications** via Watchtower configured per stack
 
 ## 📄 License
 
