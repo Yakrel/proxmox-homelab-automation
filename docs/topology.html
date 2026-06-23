@@ -784,7 +784,6 @@
                     <!-- Switch to Wired Devices -->
                     <path d="M 430,155 Q 475,65 520,65" class="svg-link" id="link-switch-pc" onclick="selectLink('switch-pc')"></path>
                     <path d="M 430,155 L 520,145" class="svg-link" id="link-switch-proxmox" onclick="selectLink('switch-proxmox')"></path>
-                    <path d="M 430,155 Q 475,225 520,225" class="svg-link" id="link-switch-pbs" onclick="selectLink('switch-pbs')"></path>
 
                     <!-- Proxmox Host to LXCs (Virtual vmbr0) -->
                     <path d="M 640,145 L 760,38" class="svg-link virtual-link" id="link-proxmox-lxc-100" onclick="selectLink('proxmox-lxc-100')"></path>
@@ -889,16 +888,6 @@
                             <div class="node-icon"><i class="fa-solid fa-server"></i></div>
                             <div class="node-name">Proxmox Host</div>
                             <div class="node-sub">.1.10 (1G)</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-
-                    <!-- PBS -->
-                    <foreignObject x="520" y="200" width="120" height="50" id="node-pbs" class="svg-node-html" onclick="selectNode('pbs')">
-                        <div class="node-card-html switch-node">
-                            <div class="node-icon"><i class="fa-solid fa-server"></i></div>
-                            <div class="node-name">PBS Backup</div>
-                            <div class="node-sub">.1.12 (1G)</div>
                             <span class="pulse-dot-html online"></span>
                         </div>
                     </foreignObject>
@@ -1126,10 +1115,8 @@
                 'wifi-2g': { name: 'Wi-Fi 2.4 GHz Network', ip: 'Home SSID (2.4G)', mac: '—', type: 'Wireless Access Point', speed: '270 Mbps Max', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-wifi' },
                 'guest-wifi': { name: 'Guest Wi-Fi (MISAFIR)', ip: '10.1.30.1', mac: '—', type: 'Isolated Segment', speed: '58 Mbps Max', status: 'online', color: 'var(--color-guest)', icon: 'fa-user-lock' },
                 
-                // Wired
                 'desktop-wired': { name: 'DESKTOP-P3G9GFN (Berkay PC)', ip: '192.168.1.20', mac: 'A0:36:BC:BB:0E:E6', type: 'Wired Client', speed: '1 Gbps (Switch)', status: 'online', color: 'var(--color-switch)', icon: 'fa-desktop' },
                 'proxmox-host': { name: 'Proxmox VE Host', ip: '192.168.1.10', mac: 'B4:96:91:0B:9E:F8', type: 'Hypervisor Host', speed: '1 Gbps (Switch)', status: 'online', color: 'var(--color-switch)', icon: 'fa-server', note: 'ZFS pool (local-zfs) tabanlı sanallaştırma sunucusu.' },
-                'pbs': { name: 'Proxmox Backup Server', ip: '192.168.1.12', mac: 'BC:24:11:C2:D9:00', type: 'Backup Server', speed: '1 Gbps (Switch)', status: 'online', color: 'var(--color-switch)', icon: 'fa-server' },
                 
                 // 5G Wi-Fi
                 'poco-x6': { name: 'Berkay - Poco X6', ip: '192.168.1.233', mac: '20:3B:34:05:16:2E', type: 'Wi-Fi Client (5 GHz)', speed: '867 Mbps', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-mobile-button' },
@@ -1164,7 +1151,6 @@
                 
                 'switch-pc': { name: 'Switch - Berkay PC', speed: '1 Gbps (1000M)', type: 'Wired Cat6', delay: '< 1 ms', color: 'var(--color-switch)' },
                 'switch-proxmox': { name: 'Switch - Proxmox Sunucu', speed: '1 Gbps (1000M)', type: 'Wired Cat6', delay: '< 1 ms', color: 'var(--color-switch)', note: 'Fiziksel Hypervisor sunucu ethernet bağlantısı.' },
-                'switch-pbs': { name: 'Switch - PBS Link', speed: '1 Gbps (1000M)', type: 'Wired Cat6', delay: '< 1 ms', color: 'var(--color-switch)' },
 
                 'wifi5-poco': { name: 'Poco X6 - Wi-Fi Link', speed: '867 Mbps', type: '5 GHz Wi-Fi (11ac)', delay: '2 ms', color: 'var(--color-wifi-5g)' },
                 'wifi5-nb': { name: 'NB04 Laptop - Wi-Fi Link', speed: '867 Mbps', type: '5 GHz Wi-Fi (11ac)', delay: '2 ms', color: 'var(--color-wifi-5g)' },
@@ -1333,7 +1319,7 @@
         }
 
         function highlightPathNodes(nodeId) {
-            if (['switch', 'desktop-wired', 'proxmox-host', 'pbs', 'lxc-100', 'lxc-101', 'lxc-102', 'lxc-103', 'lxc-105', 'lxc-106'].includes(nodeId)) {
+            if (['switch', 'desktop-wired', 'proxmox-host', 'lxc-100', 'lxc-101', 'lxc-102', 'lxc-103', 'lxc-105', 'lxc-106'].includes(nodeId)) {
                 const uplink = document.getElementById('link-router-switch');
                 if (uplink) uplink.classList.add('bottleneck-link');
             }
