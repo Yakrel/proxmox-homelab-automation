@@ -326,6 +326,7 @@ services:
       LOG_LEVEL: info
       AUTH_MODE: password
       FUTO_NOTES_PASSWORD_HASH: ${FUTO_PASSWORD_HASH}
+      TRUST_PROXY: "true"
     volumes:
       - /datapool/config/futo-notes/blobs:/data/blobs
     depends_on:
