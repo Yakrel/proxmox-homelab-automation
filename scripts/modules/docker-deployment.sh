@@ -60,6 +60,8 @@ setup_desktop_permissions() {
     mkdir -p /datapool/config/vaultwarden
     mkdir -p /datapool/config/guacamole
     mkdir -p /datapool/config/sshwifty
+    mkdir -p /datapool/config/futo-notes/postgres
+    mkdir -p /datapool/config/futo-notes/blobs
 
     # These are small writable app-config trees; keep large browser/password data shallow.
     fix_path_owner_recursive /datapool/config/homepage
@@ -71,6 +73,10 @@ setup_desktop_permissions() {
     fix_path_owner /datapool/config/vaultwarden
     fix_path_owner_recursive /datapool/config/guacamole
     fix_path_owner_recursive /datapool/config/sshwifty
+
+    # Fix permissions using our helper functions
+    fix_path_owner_recursive /datapool/config/futo-notes/blobs
+    chmod -R 700 /datapool/config/futo-notes/postgres
 
     print_success "Desktop directories ready"
 }
