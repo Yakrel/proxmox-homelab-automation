@@ -63,6 +63,7 @@ services:
     image: ghcr.io/yakrel/docker-desktop-workspace:latest
     container_name: desktop-workspace
     restart: unless-stopped
+    stop_grace_period: 1m
     runtime: nvidia
     ports:
       - "5800:3001"  # HTTPS web interface
@@ -273,7 +274,7 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
-      - WATCHTOWER_SCHEDULE=0 0 */6 * * *
+      - WATCHTOWER_SCHEDULE=0 36 */6 * * *
       - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
       - WATCHTOWER_NOTIFICATIONS_LEVEL=info
       - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-desktop
@@ -291,6 +292,7 @@ services:
     image: postgres:16
     container_name: futo-notes-db
     restart: unless-stopped
+    stop_grace_period: 30s
     environment:
       POSTGRES_USER: futo_notes
       POSTGRES_PASSWORD: ${FUTO_POSTGRES_PASSWORD}
