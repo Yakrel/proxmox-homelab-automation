@@ -75,7 +75,7 @@ setup_desktop_permissions() {
     fix_path_owner_recursive /datapool/config/sshwifty
 
     # Fix permissions using our helper functions
-    fix_path_owner_recursive /datapool/config/futo-notes/blobs
+    fix_path_owner_recursive /datapool/config/futo-notes
     chmod -R 700 /datapool/config/futo-notes/postgres
 
     print_success "Desktop directories ready"

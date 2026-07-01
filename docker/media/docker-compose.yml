@@ -337,6 +337,7 @@ services:
     networks:
       - media-net
     restart: always
+    stop_grace_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -373,6 +374,7 @@ services:
     networks:
       - media-net
     restart: always
+    stop_grace_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -429,6 +431,7 @@ services:
     mem_limit: 6g
     image: ghcr.io/haveagitgat/tdarr:latest
     restart: unless-stopped
+    stop_grace_period: 1m
     networks:
       - media-net
     ports:
@@ -517,7 +520,7 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
-      - WATCHTOWER_SCHEDULE=0 0 */6 * * *
+      - WATCHTOWER_SCHEDULE=0 12 */6 * * *
       - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
       - WATCHTOWER_NOTIFICATIONS_LEVEL=info
       - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-media
