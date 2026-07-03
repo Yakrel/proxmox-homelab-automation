@@ -418,17 +418,17 @@
 
         <!-- 5. TOPOLOGY -->
         <section id="topology">
-            <h2><i class="fa-solid fa-network-wired"></i> <span data-i18n="nav_topology">Network Topology</span></h2>
-            <p data-i18n="topo_intro">Multi-path access architecture with split DNS for seamless connectivity anywhere.</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2><i class="fa-solid fa-network-wired"></i> <span data-i18n="nav_topology">Network Topology</span></h2>
+                <a href="topology.html" target="_blank" class="nav-item" style="background: rgba(88, 166, 255, 0.1); border: 1px solid var(--border); padding: 8px 15px; border-radius: 20px; font-size: 0.8rem; text-decoration: none; color: var(--accent-blue); display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                    <i class="fa-solid fa-up-right-from-square"></i>
+                    <span data-i18n="topo_open_new">Open Fullscreen</span>
+                </a>
+            </div>
+            <p data-i18n="topo_intro" style="margin-top: -5px; margin-bottom: 20px;">Multi-path access architecture with split DNS for seamless connectivity anywhere.</p>
             
-            <div style="position: relative; width: 100%; border: 1px solid var(--border); border-radius: 16px; background: rgba(22, 27, 34, 0.4); backdrop-filter: blur(10px); overflow: hidden;">
+            <div style="width: 100%; border: 1px solid var(--border); border-radius: 16px; background: rgba(22, 27, 34, 0.4); backdrop-filter: blur(10px); overflow: hidden;">
                 <iframe src="topology.html" style="width: 100%; height: 950px; border: none; display: block;" id="topology-iframe"></iframe>
-                <div style="position: absolute; top: 15px; right: 15px; z-index: 10;">
-                    <a href="topology.html" target="_blank" class="nav-item" style="background: rgba(88, 166, 255, 0.1); border: 1px solid var(--border); padding: 8px 15px; border-radius: 20px; font-size: 0.8rem; text-decoration: none; color: var(--accent-blue); display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                        <i class="fa-solid fa-up-right-from-square"></i>
-                        <span data-i18n="topo_open_new">Open Fullscreen</span>
-                    </a>
-                </div>
             </div>
         </section>
 
@@ -464,51 +464,51 @@
         const translations = {
             en: {
                 nav_overview: "Overview", nav_iac: "Infrastructure as Code", nav_security: "Security", nav_backup: "Backup", nav_topology: "Network Topology", nav_inventory: "Live Inventory", nav_faq: "FAQ",
-                hero_title: "Proxmox Homelab Automation", hero_desc: "Production homelab running family services. 30+ services across 6 LXC containers with GPU passthrough and automated deployment.",
-                sidebar_role: "IT Specialist", sidebar_brand: "Yakrel's Homelab", sidebar_update: "Last Update:", sidebar_cv: "Resume (CV)",
+                hero_title: "Proxmox Homelab Automation", hero_desc: "Enterprise-grade automated homelab hosting essential services. 30+ containers across 6 LXC nodes featuring ZFS storage, GPU passthrough, and a fully automated infrastructure.",
+                sidebar_role: "IT Specialist & DevOps", sidebar_brand: "Yakrel's Homelab", sidebar_update: "Last Update:", sidebar_cv: "Resume (CV)",
                 badge_services: "30+ Services", badge_bash: "~3K Lines Bash", img_dash_title: "Centralized Command Center",
-                iac_intro: "I built a setup where I define everything in one YAML file (stacks.yaml), and scripts handle the installation automatically.",
-                iac_ssot_title: "Single Source of Truth", iac_ssot_desc: "Manage all containers and networks in stacks.yaml. If it's not there, it doesn't exist.",
-                iac_idem_title: "Idempotency", iac_idem_desc: "The installer script can run multiple times without breaking anything, only applying necessary changes.",
-                sec_intro: "I treat this homelab like a real production server. No open ports, and all API keys are encrypted in the repo.",
-                sec_enc_title: "AES-256 Encryption (OpenSSL)", sec_enc_desc: "Sensitive keys are stored as .env.enc in Git, encrypted with OpenSSL.",
-                sec_f2b_title: "Fail2Ban Integration", sec_f2b_desc: "Fail2Ban runs locally to block brute-force attempts on internal services.",
-                backup_intro: "Mix of local snapshots for quick fixes and encrypted cloud backups for disasters.",
-                backup_l1_title: "Layer 1: ZFS Snapshots", backup_l1_desc: "Managed by Sanoid. Seconds-level recovery from accidental deletion.",
-                backup_l2_title: "Layer 2: Cloud Archival", backup_l2_desc: "Backrest creates encrypted snapshots, synced to Google Drive via rclone.",
-                topo_intro: "Multi-path access architecture with split DNS for seamless connectivity anywhere.",
+                iac_intro: "A fully automated deployment flow where the entire containerized landscape is declared in a single stacks.yaml configuration file, provisioned automatically via custom modular scripts.",
+                iac_ssot_title: "Single Source of Truth", iac_ssot_desc: "Declare and manage all containers, network policies, and stack definitions in stacks.yaml.",
+                iac_idem_title: "Idempotent Orchestration", iac_idem_desc: "The deployment pipelines can be executed repeatedly on the host without side effects, dynamically reconciling actual state to target state.",
+                sec_intro: "Engineered with production-grade security practices. Zero exposed public ports, network segmentation, and fully encrypted secrets stored securely in Git.",
+                sec_enc_title: "AES-256 Encryption (OpenSSL)", sec_enc_desc: "Sensitive keys are stored as .env.enc in Git, encrypted using PBKDF2 salt-based OpenSSL schemes.",
+                sec_f2b_title: "Fail2Ban Protection", sec_f2b_desc: "Fail2Ban is integrated locally to automatically block anomalous requests and brute-force attempts on internal services.",
+                backup_intro: "Multi-layered backup and recovery architecture combining local ZFS snapshots with encrypted remote cloud backups.",
+                backup_l1_title: "Layer 1: ZFS Snapshots", backup_l1_desc: "Automated ZFS snapshots managed by Sanoid, ensuring seconds-level recovery from configuration errors or accidental deletions.",
+                backup_l2_title: "Layer 2: Cloud Archival", backup_l2_desc: "Backrest creates client-side encrypted snapshots, which are securely synced to cloud storage via post-backup rclone hooks.",
+                topo_intro: "Multi-path Zero Trust access architecture with split-DNS for seamless and secure connectivity from any location.",
                 topo_layer_clients: "Client Devices", topo_layer_paths: "Access Paths", topo_layer_infra: "Homelab Infrastructure", topo_layer_services: "Application Layer",
                 topo_phone: "Mobile Phone", topo_laptop: "Admin Laptop", topo_browser: "Public Browser",
                 topo_path_ts: "Tailscale VPN", topo_path_warp: "Cloudflare WARP", topo_path_tunnel: "CF Tunnel + Access", topo_path_local: "Local WiFi",
                 topo_services: "Services",
                 topo_open_new: "Open Fullscreen",
                 inv_status: "Systems Operational",
-                faq_k8s_q: "Why not Kubernetes?", faq_k8s_a: "For a single-node environment, Kubernetes introduces significant overhead. Docker Compose maintains native performance.",
-                faq_bash_q: "Why Bash for IaC?", faq_bash_a: "Modular Bash scripts stay close to the OS, ensuring full reproducibility on Proxmox without external dependencies."
+                faq_k8s_q: "Why not Kubernetes?", faq_k8s_a: "For a single-node host, Kubernetes introduces unnecessary container overhead and control-plane complexity. Docker Compose provides a lightweight, native-performance runtime matching the homelab scale.",
+                faq_bash_q: "Why Bash for IaC?", faq_bash_a: "Modular Bash scripts interact directly with Proxmox APIs and system tools, ensuring full reproducibility on bare-metal hypervisors without external dependencies."
             },
             tr: {
                 nav_overview: "Genel Bakış", nav_iac: "Kod Olarak Altyapı", nav_security: "Güvenlik", nav_backup: "Yedekleme", nav_topology: "Ağ Topolojisi", nav_inventory: "Canlı Envanter", nav_faq: "SSS",
-                hero_title: "Proxmox Homelab Otomasyonu", hero_desc: "Aile için production homelab. 6 LXC container'da 30+ servis: GPU passthrough ve otomatik deployment.",
-                sidebar_role: "BT Uzmanı", sidebar_brand: "Yakrel'in Homelab'ı", sidebar_update: "Son Güncelleme:", sidebar_cv: "Özgeçmiş (CV)",
+                hero_title: "Proxmox Homelab Otomasyonu", hero_desc: "ZFS depolama, GPU geçişi (passthrough) ve otomatik dağıtım süreçlerine sahip, 6 LXC konteyneri üzerinde çalışan 30'dan fazla servis içeren homelab altyapısı.",
+                sidebar_role: "BT Uzmanı & DevOps", sidebar_brand: "Yakrel'in Homelab'ı", sidebar_update: "Son Güncelleme:", sidebar_cv: "Özgeçmiş (CV)",
                 badge_services: "30+ Servis", badge_bash: "~3B Satır Bash", img_dash_title: "Merkezi Komuta Paneli",
-                iac_intro: "Tüm altyapıyı tek bir YAML dosyasında (stacks.yaml) tanımladığım ve scriptlerin kurulumu otomatik yaptığı bir sistem kurdum.",
-                iac_ssot_title: "Tek Gerçeklik Kaynağı", iac_ssot_desc: "Tüm konteynerleri ve ağları stacks.yaml üzerinden yönetin. Orada yoksa, sunucuda da yoktur.",
-                iac_idem_title: "İdempotens", iac_idem_desc: "Kurulum scripti hiçbir şeyi bozmadan defalarca çalışabilir, sadece gerekli değişiklikleri uygular.",
-                sec_intro: "Bu laboratuvara gerçek bir üretim sunucusu gibi davranıyorum. Dışarıya açık port yok ve tüm anahtarlar şifreli.",
-                sec_enc_title: "AES-256 Şifreleme (OpenSSL)", sec_enc_desc: "Hassas anahtarlar Git üzerinde OpenSSL ile şifrelenmiş .env.enc olarak saklanır.",
-                sec_f2b_title: "Fail2Ban Entegrasyonu", sec_f2b_desc: "Fail2Ban, iç servislere yapılan brute-force denemelerini engellemek için yerel olarak çalışır.",
-                backup_intro: "Hızlı çözümler için yerel snapshot'lar ve felaketler için şifreli bulut yedekleri.",
-                backup_l1_title: "Katman 1: ZFS Snapshot'ları", backup_l1_desc: "Sanoid ile yönetilir. Kazara silmelere karşı saniyeler içinde geri dönüş sağlar.",
-                backup_l2_title: "Katman 2: Bulut Arşivleme", backup_l2_desc: "Backrest şifreli snapshot'lar oluşturur ve rclone ile Google Drive'a senkronize eder.",
-                topo_intro: "Split DNS ile her yerden kesintisiz bağlantı sağlayan çok yollu erişim mimarisi.",
+                iac_intro: "Tüm konteyner altyapısının tek bir stacks.yaml dosyasında tanımlandığı ve modüler scriptler yardımıyla kurulum ile güncellemelerin tamamen otomatik yürütüldüğü IaC yapısı.",
+                iac_ssot_title: "Tek Gerçeklik Kaynağı (SSoT)", iac_ssot_desc: "Tüm konteynerleri, ağ politikalarını ve yığın tanımlarını stacks.yaml dosyası üzerinden deklaratif olarak yönetin.",
+                iac_idem_title: "İdempotent Orkestrasyon", iac_idem_desc: "Dağıtım scriptleri yan etki yaratmaksızın sunucu üzerinde tekrar tekrar çalıştırılabilir; sadece değişmesi gereken hedef durumu uygular.",
+                sec_intro: "Üretim (production) standartlarında güvenlik protokolleri. Dış dünyaya kapalı port yapısı, ağ izolasyonu ve Git üzerinde şifreli olarak saklanan hassas değişkenler (secrets).",
+                sec_enc_title: "AES-256 Şifreleme (OpenSSL)", sec_enc_desc: "Hassas anahtarlar Git üzerinde OpenSSL (PBKDF2 ve tuzlanmış) şifreleme algoritması ile .env.enc olarak saklanır.",
+                sec_f2b_title: "Fail2Ban Koruması", sec_f2b_desc: "Fail2Ban, iç servislere yapılabilecek kaba kuvvet (brute-force) saldırılarını engellemek amacıyla yerel olarak entegre edilmiştir.",
+                backup_intro: "Kazara veri kayıplarına karşı yerel ZFS snapshot'ları ile felaket kurtarma senaryolarına yönelik şifreli bulut yedeklemelerini birleştiren çok katmanlı koruma.",
+                backup_l1_title: "Katman 1: ZFS Snapshot'ları", backup_l1_desc: "Sanoid ile yönetilen otomatik ZFS snapshot'ları, kazara silinme veya hatalı yapılandırma durumlarında saniyeler düzeyinde kurtarma sağlar.",
+                backup_l2_title: "Katman 2: Bulut Arşivleme", backup_l2_desc: "Backrest ile istemci tarafında şifrelenen yedekler oluşturulur ve rclone kancalarıyla bulut depolama alanlarına güvenli şekilde senkronize edilir.",
+                topo_intro: "Split-DNS ve Zero Trust ilkelerine dayanan, her yerden kesintisiz ve güvenli bağlantı sunan çok yollu erişim mimarisi.",
                 topo_layer_clients: "İstemci Cihazlar", topo_layer_paths: "Erişim Yolları", topo_layer_infra: "Homelab Altyapısı", topo_layer_services: "Uygulama Katmanı",
                 topo_phone: "Mobil Telefon", topo_laptop: "Yönetici Laptop", topo_browser: "Genel Tarayıcı",
                 topo_path_ts: "Tailscale VPN", topo_path_warp: "Cloudflare WARP", topo_path_tunnel: "CF Tunnel + Access", topo_path_local: "Yerel WiFi",
                 topo_services: "Servisler",
                 topo_open_new: "Tam Ekran Aç",
                 inv_status: "Sistemler Aktif",
-                faq_k8s_q: "Neden Kubernetes Değil?", faq_k8s_a: "Tek sunuculu bir ortam için Kubernetes çok fazla kaynak tüketir. Docker Compose yerel performansı korur.",
-                faq_bash_q: "Neden IaC için Bash?", faq_bash_a: "Modüler Bash scriptleri işletim sistemine yakın kalır, harici bağımlılık olmadan tam tekrar edilebilirlik sağlar."
+                faq_k8s_q: "Neden Kubernetes Değil?", faq_k8s_a: "Tek sunuculu bir ortamda Kubernetes, kontrol düzlemi (control-plane) ve ek konteynerler nedeniyle gereksiz kaynak tüketimi yaratır. Docker Compose yerel performansı koruyarak hafif bir çalışma ortamı sağlar.",
+                faq_bash_q: "Neden IaC için Bash?", faq_bash_a: "Modüler Bash scriptleri, Proxmox API'leri ve işletim sistemi araçlarıyla doğrudan etkileşime girerek harici araç bağımlılığı olmaksızın tam tekrar edilebilirlik sunar."
             }
         };
 
@@ -522,6 +522,12 @@
             const btn = document.querySelector('.lang-switch span');
             btn.innerHTML = lang === 'en' ? '<span class="lang-active">EN</span> / TR' : 'EN / <span class="lang-active">TR</span>';
             renderInventory(lang);
+
+            // Sync with interactive topology iframe if loaded
+            const iframe = document.getElementById('topology-iframe');
+            if (iframe && iframe.contentWindow && typeof iframe.contentWindow.switchLang === 'function') {
+                iframe.contentWindow.switchLang(lang);
+            }
         }
 
         function renderInventory(lang) {

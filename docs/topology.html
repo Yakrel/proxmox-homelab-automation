@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yakrel's Homelab Network Topology</title>
+    <title>Yakrel's Homelab Ingress Topology</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -17,12 +17,12 @@
             --text-muted: #94a3b8;
             
             /* Theme Colors */
-            --color-router: #3b82f6;      /* Blue */
-            --color-switch: #06b6d4;      /* Cyan */
-            --color-wifi-5g: #f97316;     /* Orange */
-            --color-wifi-2g: #a855f7;     /* Purple */
-            --color-guest: #ef4444;       /* Red */
-            --color-virtual: #10b981;     /* Emerald */
+            --color-router: #3b82f6;      /* Blue - Gateway */
+            --color-switch: #06b6d4;      /* Cyan - LAN / DNS */
+            --color-wifi-5g: #f97316;     /* Orange - Cloudflare */
+            --color-wifi-2g: #a855f7;     /* Purple - Tailscale */
+            --color-guest: #ef4444;       /* Red - Isolated */
+            --color-virtual: #10b981;     /* Emerald - LXC Stack */
             --color-offline: #64748b;     /* Gray */
         }
 
@@ -175,7 +175,7 @@
             width: 100%;
             height: 100%;
             min-width: 800px;
-            min-height: 600px;
+            min-height: 550px;
             display: block;
         }
 
@@ -209,24 +209,7 @@
             stroke: var(--color-virtual);
             stroke-width: 1.5;
         }
-        .svg-link.bottleneck-link {
-            stroke: var(--color-guest) !important;
-            stroke-width: 4 !important;
-            stroke-dasharray: 6 3;
-            animation: flow-bottleneck 1s linear infinite;
-        }
 
-        @keyframes flow-bottleneck {
-            to { stroke-dashoffset: -18; }
-        }
-
-        .packet-dot {
-            fill: #fff;
-            filter: drop-shadow(0 0 4px var(--color-router));
-            animation: pulse-dot 1s infinite alternate;
-        }
-
-        /* SVG Nodes */
         .svg-node {
             cursor: pointer;
         }
@@ -245,50 +228,6 @@
             fill: #111a36;
             filter: drop-shadow(0 8px 16px rgba(59, 130, 246, 0.25));
             transform: translateY(-2px);
-        }
-
-        .svg-node.offline-node .node-rect {
-            opacity: 0.55;
-            stroke: var(--color-offline);
-        }
-        .svg-node.offline-node:hover .node-rect {
-            opacity: 0.85;
-            stroke: var(--text-muted);
-        }
-
-        .node-icon-bg {
-            fill: rgba(255,255,255,0.03);
-            rx: 6;
-            ry: 6;
-        }
-
-        .node-text-title {
-            fill: var(--text-main);
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .node-text-subtitle {
-            fill: var(--text-muted);
-            font-size: 9px;
-            font-family: monospace;
-        }
-
-        .node-badge-text {
-            fill: #fff;
-            font-size: 8px;
-            font-weight: 700;
-        }
-
-        .status-pulse {
-            fill: var(--color-virtual);
-            animation: node-pulse 2s infinite;
-        }
-
-        @keyframes node-pulse {
-            0% { r: 3px; opacity: 1; }
-            50% { r: 6px; opacity: 0.4; }
-            100% { r: 8px; opacity: 0; }
         }
 
         /* --- CONTROL SIDEBAR PANEL --- */
@@ -394,37 +333,6 @@
             font-family: monospace;
         }
 
-        /* Bottleneck Alert Box */
-        .bottleneck-box {
-            background: rgba(239, 68, 68, 0.08);
-            border: 1px solid rgba(239, 68, 68, 0.25);
-            border-radius: 12px;
-            padding: 15px;
-            margin-top: 15px;
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-        }
-
-        .bottleneck-box i {
-            color: var(--color-guest);
-            font-size: 1.2rem;
-            margin-top: 2px;
-        }
-
-        .bottleneck-text h4 {
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: #fca5a5;
-            margin-bottom: 5px;
-        }
-
-        .bottleneck-text p {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            line-height: 1.4;
-        }
-
         /* Gauge */
         .gauge-card {
             background: rgba(0,0,0,0.25);
@@ -466,94 +374,7 @@
             transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* iperf3 Simulator Controls */
-        .sim-form {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .form-group label {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            font-weight: 600;
-        }
-
-        .form-group select {
-            background: rgba(0,0,0,0.3);
-            border: 1px solid var(--border);
-            padding: 12px;
-            border-radius: 10px;
-            color: var(--text-main);
-            outline: none;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-family: inherit;
-        }
-
-        .form-group select:focus {
-            border-color: var(--color-router);
-        }
-
-        .sim-btn {
-            background: linear-gradient(135deg, var(--color-router) 0%, #2563eb 100%);
-            border: none;
-            color: #fff;
-            padding: 14px;
-            border-radius: 10px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            font-size: 0.9rem;
-            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
-        }
-
-        .sim-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
-        }
-
-        .sim-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        /* iperf3 Terminal Mock */
-        .terminal {
-            background: #020617;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 15px;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.75rem;
-            color: #38bdf8;
-            flex: 1;
-            margin-top: 20px;
-            overflow-y: auto;
-            max-height: 230px;
-            min-height: 180px;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
-        }
-
-        .terminal-line {
-            margin-bottom: 4px;
-            line-height: 1.4;
-            white-space: pre-wrap;
-        }
-
-        /* Bottleneck description text inside Analysis Tab */
+        /* Ingress description text inside Analysis Tab */
         .analysis-text {
             font-size: 0.85rem;
             line-height: 1.6;
@@ -576,10 +397,6 @@
 
         .analysis-list li {
             list-style-type: square;
-        }
-
-        .analysis-list li strong {
-            color: #fca5a5;
         }
 
         /* --- HTML Node Cards inside SVG --- */
@@ -658,7 +475,7 @@
             margin-top: 2px;
         }
 
-        /* Status Dot */
+        /* Status Pulse */
         .pulse-dot-html {
             width: 6px;
             height: 6px;
@@ -678,21 +495,6 @@
             0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
             70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
             100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-        }
-
-        /* Bottleneck warning badge */
-        .badge-bottleneck {
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            color: var(--color-guest);
-            font-size: 0.7rem;
-            animation: flash-warning 1.5s infinite alternate;
-        }
-
-        @keyframes flash-warning {
-            from { opacity: 0.4; }
-            to { opacity: 1; }
         }
 
         /* LXC Node Cards (compact) */
@@ -734,9 +536,9 @@
 <body>
 
     <header>
-        <h1><i class="fa-solid fa-circle-nodes"></i> Yakrel's Homelab Topology Dashboard</h1>
+        <h1 data-i18n="header_title"><i class="fa-solid fa-circle-nodes"></i> Yakrel's Homelab Topology Dashboard</h1>
         <div class="header-links">
-            <a href="index.html"><i class="fa-solid fa-house"></i> Ana Dashboard'a Dön</a>
+            <a href="index.html" data-i18n="header_back"><i class="fa-solid fa-house"></i> Ana Dashboard'a Dön</a>
         </div>
     </header>
 
@@ -744,318 +546,163 @@
         <!-- SVG MAP PANEL -->
         <div class="visualizer-card">
             <div class="card-header">
-                <div class="card-title"><i class="fa-solid fa-network-wired"></i> Ağ Haritası (Interactive Map)</div>
+                <div class="card-title" data-i18n="map_title"><i class="fa-solid fa-network-wired"></i> Ağ Haritası (Interactive Map)</div>
                 <div class="legend">
-                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-router)"></span> Router</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-switch)"></span> Switch</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-wifi-5g)"></span> 5G Wi-Fi</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-wifi-2g)"></span> 2.4G Wi-Fi</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-virtual)"></span> Virtual</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-offline)"></span> Offline</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--text-muted)"></span> <span data-i18n="legend_client">İstemci</span></div>
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-wifi-5g)"></span> <span data-i18n="legend_cf">Cloudflare Tunnel</span></div>
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-wifi-2g)"></span> <span data-i18n="legend_ts">Tailscale VPN</span></div>
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-switch)"></span> <span data-i18n="legend_dns">Dahili DNS</span></div>
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-router)"></span> <span data-i18n="legend_gateway">Gateway / Proxy</span></div>
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-virtual)"></span> <span data-i18n="legend_virtual">Sanal Konteyner</span></div>
                 </div>
             </div>
 
             <div class="map-container">
-                <svg id="network-svg" viewBox="0 0 1000 920" preserveAspectRatio="xMidYMid meet">
-                    <!-- SVG DEFS FOR GRADIENTS & ARROWS -->
+                <svg id="network-svg" viewBox="0 0 1000 720" preserveAspectRatio="xMidYMid meet">
+                    <!-- SVG DEFS FOR GRADIENTS -->
                     <defs>
                         <linearGradient id="gradient-line" x1="0%" y1="0%" x2="100%" y2="0%">
                             <stop offset="0%" stop-color="var(--color-router)" stop-opacity="0.3"/>
-                            <stop offset="100%" stop-color="var(--color-switch)" stop-opacity="0.8"/>
+                            <stop offset="100%" stop-color="var(--color-virtual)" stop-opacity="0.8"/>
                         </linearGradient>
-                        <filter id="glow-effect" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="4" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                        </filter>
                     </defs>
 
                     <!-- NETWORK LINKS (LINES) -->
-                    <!-- WAN to Router -->
-                    <path d="M 100,155 L 150,155" class="svg-link" id="link-wan-router" onclick="selectLink('wan-router')"></path>
+                    <!-- Ingress Entry paths -->
+                    <path d="M 190,155 L 320,155" class="svg-link" id="link-user-cf" onclick="selectLink('user-cf')"></path>
+                    <path d="M 430,155 Q 500,250 560,345" class="svg-link wifi-5g-link" id="link-cf-gateway" onclick="selectLink('cf-gateway')"></path>
                     
-                    <!-- Router to Switch (UPLINK 100M BOTTLENECK) -->
-                    <path d="M 260,155 L 320,155" class="svg-link" id="link-router-switch" onclick="selectLink('router-switch')"></path>
+                    <path d="M 190,360 L 320,360" class="svg-link" id="link-lan-dns" onclick="selectLink('lan-dns')"></path>
+                    <path d="M 430,360 L 560,360" class="svg-link" id="link-dns-gateway" onclick="selectLink('dns-gateway')"></path>
                     
-                    <!-- Router to Wi-Fi Hubs -->
-                    <path d="M 260,155 Q 280,250 320,345" class="svg-link wifi-5g-link" id="link-router-wifi5" onclick="selectLink('router-wifi5')"></path>
-                    <path d="M 260,155 Q 275,390 320,545" class="svg-link wifi-2g-link" id="link-router-wifi2" onclick="selectLink('router-wifi2')"></path>
-                    <path d="M 260,155 Q 270,530 320,745" class="svg-link guest-link" id="link-router-guest" onclick="selectLink('router-guest')"></path>
+                    <path d="M 190,565 L 320,565" class="svg-link" id="link-admin-ts" onclick="selectLink('admin-ts')"></path>
+                    <path d="M 430,565 Q 500,470 560,375" class="svg-link wifi-2g-link" id="link-ts-gateway" onclick="selectLink('ts-gateway')"></path>
 
-                    <!-- Switch to Wired Devices -->
-                    <path d="M 430,155 Q 475,65 520,65" class="svg-link" id="link-switch-pc" onclick="selectLink('switch-pc')"></path>
-                    <path d="M 430,155 L 520,145" class="svg-link" id="link-switch-proxmox" onclick="selectLink('switch-proxmox')"></path>
-
-                    <!-- Proxmox Host to LXCs (Virtual vmbr0) -->
-                    <path d="M 640,145 L 760,38" class="svg-link virtual-link" id="link-proxmox-lxc-100" onclick="selectLink('proxmox-lxc-100')"></path>
-                    <path d="M 640,145 L 760,78" class="svg-link virtual-link" id="link-proxmox-lxc-101" onclick="selectLink('proxmox-lxc-101')"></path>
-                    <path d="M 640,145 L 760,118" class="svg-link virtual-link" id="link-proxmox-lxc-102" onclick="selectLink('proxmox-lxc-102')"></path>
-                    <path d="M 640,145 L 760,158" class="svg-link virtual-link" id="link-proxmox-lxc-103" onclick="selectLink('proxmox-lxc-103')"></path>
-                    <path d="M 640,145 L 760,198" class="svg-link virtual-link" id="link-proxmox-lxc-105" onclick="selectLink('proxmox-lxc-105')"></path>
-                    <path d="M 640,145 L 760,238" class="svg-link virtual-link" id="link-proxmox-lxc-106" onclick="selectLink('proxmox-lxc-106')"></path>
-
-                    <!-- Wi-Fi 5G Hub to clients -->
-                    <path d="M 430,345 L 520,305" class="svg-link wifi-5g-link" id="link-wifi5-poco" onclick="selectLink('wifi5-poco')"></path>
-                    <path d="M 430,345 L 520,365" class="svg-link wifi-5g-link" id="link-wifi5-nb" onclick="selectLink('wifi5-nb')"></path>
-                    <path d="M 430,345 Q 475,425 520,425" class="svg-link wifi-5g-link" id="link-wifi5-ozge" onclick="selectLink('wifi5-ozge')"></path>
-                    <path d="M 430,345 Q 475,485 520,485" class="svg-link wifi-5g-link" id="link-wifi5-ap" onclick="selectLink('wifi5-ap')"></path>
-                    <path d="M 430,345 Q 475,545 520,545" class="svg-link wifi-5g-link" id="link-wifi5-pro" onclick="selectLink('wifi5-pro')"></path>
-
-                    <!-- Wi-Fi 2G Hub to clients -->
-                    <path d="M 430,545 L 520,615" class="svg-link wifi-2g-link" id="link-wifi2-ko" onclick="selectLink('wifi2-ko')"></path>
-                    <path d="M 430,545 Q 475,675 520,675" class="svg-link wifi-2g-link" id="link-wifi2-net1" onclick="selectLink('wifi2-net1')"></path>
-                    <path d="M 430,545 Q 475,735 520,735" class="svg-link wifi-2g-link" id="link-wifi2-net2" onclick="selectLink('wifi2-net2')"></path>
-                    <path d="M 430,545 Q 475,795 520,795" class="svg-link wifi-2g-link" id="link-wifi2-printer" onclick="selectLink('wifi2-printer')"></path>
-
-                    <!-- Guest Hub to clients -->
-                    <path d="M 430,745 L 520,855" class="svg-link guest-link" id="link-guest-redmi" onclick="selectLink('guest-redmi')"></path>
-
+                    <!-- Gateway to LXC Containers (Virtual vmbr0) -->
+                    <path d="M 690,360 L 800,85" class="svg-link virtual-link" id="link-gateway-media" onclick="selectLink('gateway-media')"></path>
+                    <path d="M 690,360 L 800,215" class="svg-link virtual-link" id="link-gateway-utility" onclick="selectLink('gateway-utility')"></path>
+                    <path d="M 690,360 L 800,345" class="svg-link virtual-link" id="link-gateway-desktop" onclick="selectLink('gateway-desktop')"></path>
+                    <path d="M 690,360 L 800,475" class="svg-link virtual-link" id="link-gateway-dev" onclick="selectLink('gateway-dev')"></path>
+                    <path d="M 690,360 L 800,605" class="svg-link virtual-link" id="link-gateway-gaming" onclick="selectLink('gateway-gaming')"></path>
 
                     <!-- NETWORK NODES (HTML Embedded in SVG) -->
-                    <!-- WAN Node -->
-                    <foreignObject x="20" y="120" width="80" height="70" id="node-wan" class="svg-node-html" onclick="selectNode('wan')">
+                    <!-- Col 1: Access Source -->
+                    <foreignObject x="80" y="120" width="110" height="70" id="node-public-user" class="svg-node-html" onclick="selectNode('public-user')">
                         <div class="node-card-html wan-node">
                             <div class="node-icon"><i class="fa-solid fa-globe"></i></div>
-                            <div class="node-name">Internet (WAN)</div>
-                            <div class="node-sub">Fiber / DSL</div>
+                            <div class="node-name" data-i18n="node_public_user">Genel Ziyaretçi</div>
+                            <div class="node-sub" data-i18n="node_public_sub">Public Client</div>
                         </div>
                     </foreignObject>
 
-                    <!-- Router Node -->
-                    <foreignObject x="150" y="120" width="110" height="70" id="node-router" class="svg-node-html" onclick="selectNode('router')">
-                        <div class="node-card-html router-node">
-                            <div class="node-icon"><i class="fa-solid fa-server"></i></div>
-                            <div class="node-name">Keenetic Extra DSL</div>
-                            <div class="node-sub">192.168.1.1</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-
-                    <!-- Switch Node -->
-                    <foreignObject x="320" y="120" width="110" height="70" id="node-switch" class="svg-node-html" onclick="selectNode('switch')">
-                        <div class="node-card-html switch-node">
-                            <div class="node-icon"><i class="fa-solid fa-network-wired"></i></div>
-                            <div class="node-name">TP-Link Switch</div>
-                            <div class="node-sub">192.168.1.254</div>
-                            <span class="badge-bottleneck"><i class="fa-solid fa-triangle-exclamation"></i></span>
-                        </div>
-                    </foreignObject>
-
-                    <!-- WiFi 5G Hub Node -->
-                    <foreignObject x="320" y="310" width="110" height="70" id="node-wifi-5g" class="svg-node-html" onclick="selectNode('wifi-5g')">
-                        <div class="node-card-html wifi-5g-node">
-                            <div class="node-icon"><i class="fa-solid fa-wifi"></i></div>
-                            <div class="node-name">Wi-Fi 5 GHz</div>
-                            <div class="node-sub">867 Mbps max</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-
-                    <!-- WiFi 2G Hub Node -->
-                    <foreignObject x="320" y="510" width="110" height="70" id="node-wifi-2g" class="svg-node-html" onclick="selectNode('wifi-2g')">
-                        <div class="node-card-html wifi-2g-node">
-                            <div class="node-icon"><i class="fa-solid fa-wifi"></i></div>
-                            <div class="node-name">Wi-Fi 2.4 GHz</div>
-                            <div class="node-sub">270 Mbps max</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-
-                    <!-- Guest Hub Node -->
-                    <foreignObject x="320" y="710" width="110" height="70" id="node-guest-wifi" class="svg-node-html" onclick="selectNode('guest-wifi')">
-                        <div class="node-card-html guest-node">
-                            <div class="node-icon"><i class="fa-solid fa-user-lock"></i></div>
-                            <div class="node-name">Misafir Ağı</div>
-                            <div class="node-sub">10.1.30.1</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-
-
-                    <!-- WIRED DEVICES -->
-                    <!-- Berkay PC -->
-                    <foreignObject x="520" y="40" width="120" height="50" id="node-desktop-wired" class="svg-node-html" onclick="selectNode('desktop-wired')">
+                    <foreignObject x="80" y="325" width="110" height="70" id="node-lan-user" class="svg-node-html" onclick="selectNode('lan-user')">
                         <div class="node-card-html switch-node">
                             <div class="node-icon"><i class="fa-solid fa-desktop"></i></div>
-                            <div class="node-name">Berkay PC</div>
-                            <div class="node-sub">.1.20 (1G)</div>
-                            <span class="pulse-dot-html online"></span>
+                            <div class="node-name" data-i18n="node_lan_user">Yerel Kullanıcı</div>
+                            <div class="node-sub" data-i18n="node_lan_sub">LAN Client</div>
                         </div>
                     </foreignObject>
 
-                    <!-- Proxmox Host -->
-                    <foreignObject x="520" y="120" width="120" height="50" id="node-proxmox-host" class="svg-node-html" onclick="selectNode('proxmox-host')">
+                    <foreignObject x="80" y="530" width="110" height="70" id="node-admin-vpn" class="svg-node-html" onclick="selectNode('admin-vpn')">
+                        <div class="node-card-html wifi-5g-node">
+                            <div class="node-icon"><i class="fa-solid fa-user-shield"></i></div>
+                            <div class="node-name" data-i18n="node_admin_vpn">Güvenli Yönetici</div>
+                            <div class="node-sub" data-i18n="node_admin_sub">Admin Device</div>
+                        </div>
+                    </foreignObject>
+
+                    <!-- Col 2: Access Path -->
+                    <foreignObject x="320" y="120" width="110" height="70" id="node-cf-tunnel" class="svg-node-html" onclick="selectNode('cf-tunnel')">
+                        <div class="node-card-html wifi-5g-node">
+                            <div class="node-icon"><i class="fa-brands fa-cloudflare"></i></div>
+                            <div class="node-name" data-i18n="node_cf_name">Cloudflare Tunnel</div>
+                            <div class="node-sub" data-i18n="node_cf_sub">CF Zero Trust</div>
+                        </div>
+                    </foreignObject>
+
+                    <foreignObject x="320" y="325" width="110" height="70" id="node-local-dns" class="svg-node-html" onclick="selectNode('local-dns')">
                         <div class="node-card-html switch-node">
-                            <div class="node-icon"><i class="fa-solid fa-server"></i></div>
-                            <div class="node-name">Proxmox Host</div>
-                            <div class="node-sub">.1.10 (1G)</div>
+                            <div class="node-icon"><i class="fa-solid fa-shield-dog"></i></div>
+                            <div class="node-name" data-i18n="node_local_dns">AdGuard Home</div>
+                            <div class="node-sub">192.168.1.100</div>
+                        </div>
+                    </foreignObject>
+
+                    <foreignObject x="320" y="530" width="110" height="70" id="node-ts-vpn" class="svg-node-html" onclick="selectNode('ts-vpn')">
+                        <div class="node-card-html wifi-2g-node">
+                            <div class="node-icon"><i class="fa-solid fa-network-wired"></i></div>
+                            <div class="node-name" data-i18n="node_ts_name">Tailscale Mesh</div>
+                            <div class="node-sub" data-i18n="node_ts_sub">VPN Access</div>
+                        </div>
+                    </foreignObject>
+
+                    <!-- Col 3: Gateway / Ingress Router -->
+                    <foreignObject x="560" y="325" width="130" height="70" id="node-gateway-lxc" class="svg-node-html" onclick="selectNode('gateway-lxc')">
+                        <div class="node-card-html router-node">
+                            <div class="node-icon"><i class="fa-solid fa-arrow-right-to-bracket"></i></div>
+                            <div class="node-name">lxc-gateway-01</div>
+                            <div class="node-sub">Nginx Proxy Manager</div>
                             <span class="pulse-dot-html online"></span>
                         </div>
                     </foreignObject>
 
-
-                    <!-- VIRTUAL LXCS -->
-                    <!-- LXC 100 -->
-                    <foreignObject x="760" y="20" width="150" height="36" id="node-lxc-100" class="svg-node-html" onclick="selectNode('lxc-100')">
+                    <!-- Col 4: Virtual LXC Stack (Right Column) -->
+                    <!-- LXC Media -->
+                    <foreignObject x="800" y="60" width="160" height="42" id="node-lxc-media" class="svg-node-html" onclick="selectNode('lxc-media')">
                         <div class="node-card-html virtual-node lxc-card-html">
                             <div class="node-icon"><i class="fa-solid fa-box"></i></div>
                             <div class="node-details-text">
-                                <span class="node-name">lxc-gateway</span>
-                                <span class="node-sub">.1.100 (10G)</span>
-                            </div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-                    <!-- LXC 101 -->
-                    <foreignObject x="760" y="60" width="150" height="36" id="node-lxc-101" class="svg-node-html" onclick="selectNode('lxc-101')">
-                        <div class="node-card-html virtual-node lxc-card-html">
-                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
-                            <div class="node-details-text">
-                                <span class="node-name">lxc-media</span>
+                                <span class="node-name">lxc-media-01</span>
                                 <span class="node-sub">.1.101 (10G)</span>
                             </div>
                             <span class="pulse-dot-html online"></span>
                         </div>
                     </foreignObject>
-                    <!-- LXC 102 -->
-                    <foreignObject x="760" y="100" width="150" height="36" id="node-lxc-102" class="svg-node-html" onclick="selectNode('lxc-102')">
+
+                    <!-- LXC Utility -->
+                    <foreignObject x="800" y="190" width="160" height="42" id="node-lxc-utility" class="svg-node-html" onclick="selectNode('lxc-utility')">
                         <div class="node-card-html virtual-node lxc-card-html">
                             <div class="node-icon"><i class="fa-solid fa-box"></i></div>
                             <div class="node-details-text">
-                                <span class="node-name">lxc-utility</span>
+                                <span class="node-name">lxc-utility-01</span>
                                 <span class="node-sub">.1.102 (10G)</span>
                             </div>
                             <span class="pulse-dot-html online"></span>
                         </div>
                     </foreignObject>
-                    <!-- LXC 103 -->
-                    <foreignObject x="760" y="140" width="150" height="36" id="node-lxc-103" class="svg-node-html" onclick="selectNode('lxc-103')">
+
+                    <!-- LXC Desktop -->
+                    <foreignObject x="800" y="320" width="160" height="42" id="node-lxc-desktop" class="svg-node-html" onclick="selectNode('lxc-desktop')">
                         <div class="node-card-html virtual-node lxc-card-html">
                             <div class="node-icon"><i class="fa-solid fa-box"></i></div>
                             <div class="node-details-text">
-                                <span class="node-name">lxc-desktop</span>
+                                <span class="node-name">lxc-desktop-01</span>
                                 <span class="node-sub">.1.103 (10G)</span>
                             </div>
                             <span class="pulse-dot-html online"></span>
                         </div>
                     </foreignObject>
-                    <!-- LXC 105 -->
-                    <foreignObject x="760" y="180" width="150" height="36" id="node-lxc-105" class="svg-node-html" onclick="selectNode('lxc-105')">
+
+                    <!-- LXC Dev -->
+                    <foreignObject x="800" y="450" width="160" height="42" id="node-lxc-dev" class="svg-node-html" onclick="selectNode('lxc-dev')">
                         <div class="node-card-html virtual-node lxc-card-html">
                             <div class="node-icon"><i class="fa-solid fa-box"></i></div>
                             <div class="node-details-text">
-                                <span class="node-name">lxc-gaming</span>
-                                <span class="node-sub">.1.105 (10G)</span>
-                            </div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-                    <!-- LXC 106 -->
-                    <foreignObject x="760" y="220" width="150" height="36" id="node-lxc-106" class="svg-node-html" onclick="selectNode('lxc-106')">
-                        <div class="node-card-html virtual-node lxc-card-html">
-                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
-                            <div class="node-details-text">
-                                <span class="node-name">lxc-dev</span>
+                                <span class="node-name">lxc-dev-01</span>
                                 <span class="node-sub">.1.106 (10G)</span>
                             </div>
                             <span class="pulse-dot-html online"></span>
                         </div>
                     </foreignObject>
 
-
-                    <!-- WI-FI 5G DEVICES -->
-                    <!-- Poco X6 -->
-                    <foreignObject x="520" y="280" width="120" height="50" id="node-poco-x6" class="svg-node-html" onclick="selectNode('poco-x6')">
-                        <div class="node-card-html wifi-5g-node">
-                            <div class="node-icon"><i class="fa-solid fa-mobile-button"></i></div>
-                            <div class="node-name">Poco X6</div>
-                            <div class="node-sub">.1.233 (867M)</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-                    <!-- Laptop NB04 -->
-                    <foreignObject x="520" y="340" width="120" height="50" id="node-nb04btm011" class="svg-node-html" onclick="selectNode('nb04btm011')">
-                        <div class="node-card-html wifi-5g-node">
-                            <div class="node-icon"><i class="fa-solid fa-laptop"></i></div>
-                            <div class="node-name">NB04 Laptop</div>
-                            <div class="node-sub">.1.198 (867M)</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-                    <!-- Ozge A17 -->
-                    <foreignObject x="520" y="400" width="120" height="50" id="node-ozge-a17" class="svg-node-html" onclick="selectNode('ozge-a17')">
-                        <div class="node-card-html wifi-5g-node">
-                            <div class="node-icon"><i class="fa-solid fa-mobile-button"></i></div>
-                            <div class="node-name">Ozge A17</div>
-                            <div class="node-sub">.1.242 (527M)</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-                    <!-- RE315 AP -->
-                    <foreignObject x="520" y="460" width="120" height="50" id="node-tplink-ap" class="svg-node-html" onclick="selectNode('tplink-ap')">
-                        <div class="node-card-html wifi-5g-node">
-                            <div class="node-icon"><i class="fa-solid fa-wifi"></i></div>
-                            <div class="node-name">RE315 AP</div>
-                            <div class="node-sub">.1.253 (527M)</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-                    <!-- POCO X6 Pro -->
-                    <foreignObject x="520" y="520" width="120" height="50" id="node-poco-x6-pro" class="svg-node-html" onclick="selectNode('poco-x6-pro')">
-                        <div class="node-card-html wifi-5g-node">
-                            <div class="node-icon"><i class="fa-solid fa-mobile-button"></i></div>
-                            <div class="node-name">X6 Pro</div>
-                            <div class="node-sub">.1.234 (867M)</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-
-
-                    <!-- WI-FI 2.4G DEVICES -->
-                    <!-- DESKTOP-KO -->
-                    <foreignObject x="520" y="590" width="120" height="50" id="node-desktop-wifi" class="svg-node-html" onclick="selectNode('desktop-wifi')">
-                        <div class="node-card-html wifi-2g-node">
-                            <div class="node-icon"><i class="fa-solid fa-desktop"></i></div>
-                            <div class="node-name">DESKTOP-KO</div>
-                            <div class="node-sub">.1.208 (270M)</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-                    <!-- net-ac Node A -->
-                    <foreignObject x="520" y="650" width="120" height="50" id="node-net-ac-1" class="svg-node-html" onclick="selectNode('net-ac-1')">
-                        <div class="node-card-html wifi-2g-node">
-                            <div class="node-icon"><i class="fa-solid fa-circle-nodes"></i></div>
-                            <div class="node-name">net-ac NodeA</div>
-                            <div class="node-sub">.1.236 (65M)</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-                    <!-- net-ac Node B -->
-                    <foreignObject x="520" y="710" width="120" height="50" id="node-net-ac-2" class="svg-node-html" onclick="selectNode('net-ac-2')">
-                        <div class="node-card-html wifi-2g-node">
-                            <div class="node-icon"><i class="fa-solid fa-circle-nodes"></i></div>
-                            <div class="node-name">net-ac NodeB</div>
-                            <div class="node-sub">.1.80 (65M)</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-                    <!-- Epson Yazici -->
-                    <foreignObject x="520" y="770" width="120" height="50" id="node-epson-printer" class="svg-node-html" onclick="selectNode('epson-printer')">
-                        <div class="node-card-html wifi-2g-node">
-                            <div class="node-icon"><i class="fa-solid fa-print"></i></div>
-                            <div class="node-name">Epson Printer</div>
-                            <div class="node-sub">.1.150 (72M)</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-
-
-                    <!-- GUEST WI-FI DEVICES -->
-                    <!-- Guest Redmi Note 8 -->
-                    <foreignObject x="520" y="830" width="120" height="50" id="node-guest-redmi" class="svg-node-html" onclick="selectNode('guest-redmi')">
-                        <div class="node-card-html guest-node">
-                            <div class="node-icon"><i class="fa-solid fa-mobile-button"></i></div>
-                            <div class="node-name">Guest Redmi</div>
-                            <div class="node-sub">10.1.30.152</div>
+                    <!-- LXC Gaming -->
+                    <foreignObject x="800" y="580" width="160" height="42" id="node-lxc-gaming" class="svg-node-html" onclick="selectNode('lxc-gaming')">
+                        <div class="node-card-html virtual-node lxc-card-html">
+                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
+                            <div class="node-details-text">
+                                <span class="node-name">lxc-gaming-01</span>
+                                <span class="node-sub">.1.105 (10G)</span>
+                            </div>
                             <span class="pulse-dot-html online"></span>
                         </div>
                     </foreignObject>
@@ -1067,115 +714,155 @@
         <!-- CONTROL SIDEBAR -->
         <div class="control-panel">
             <div class="tab-menu">
-                <button class="tab-btn active" onclick="switchTab('details')"><i class="fa-solid fa-circle-info"></i> Detaylar</button>
-                <button class="tab-btn" onclick="switchTab('analysis')"><i class="fa-solid fa-chart-pie"></i> Ağ Analizi</button>
+                <button class="tab-btn active" onclick="switchTab('details')"><i class="fa-solid fa-circle-info"></i> <span data-i18n="tab_details">Detaylar</span></button>
+                <button class="tab-btn" onclick="switchTab('analysis')"><i class="fa-solid fa-lightbulb"></i> <span data-i18n="tab_design">Tasarım Kararları</span></button>
             </div>
 
             <!-- TAB 1: DETAILS PANEL -->
             <div class="panel-card" id="tab-details">
-                <div class="panel-title-sub"><i class="fa-solid fa-circle-info"></i> Cihaz ve Bağlantı Detayları</div>
+                <div class="panel-title-sub"><i class="fa-solid fa-circle-info"></i> <span data-i18n="details_title">Cihaz ve Bağlantı Detayları</span></div>
                 <div id="details-content" class="panel-body" style="flex:1;">
-                    <div class="empty-state">
+                    <div class="empty-state" data-i18n="empty_state">
                         <i class="fa-solid fa-network-wired"></i>
                         <p>Analiz etmek için ağ haritası üzerindeki herhangi bir <strong>cihaza (kutu)</strong> veya <strong>bağlantı çizgisine</strong> tıklayın.</p>
                     </div>
                 </div>
             </div>
 
-            <!-- TAB 3: NETWORK ANALYSIS -->
+            <!-- TAB 3: DESIGN DECISIONS -->
             <div class="panel-card" id="tab-analysis" style="display:none;">
-                <div class="panel-title-sub"><i class="fa-solid fa-chart-line"></i> Ev Ağı Bottleneck Analizi</div>
-                <div class="analysis-text">
-                    <p>Yapılan testler ve Keenetic Router'ın istemci verileri incelendiğinde homelab ağınızda çok net bir <strong>fiziksel darboğaz (bottleneck)</strong> tespit edilmiştir.</p>
-                    
-                    <p><strong>Tespit Edilen Yapı:</strong></p>
-                    <ul class="analysis-list">
-                        <li><strong>Gigabit Yerel Bölge:</strong> <code>Berkay PC (192.168.1.20)</code> ve <code>Proxmox Host (192.168.1.10)</code> doğrudan gigabit destekleyen <strong>TP-Link Switch</strong>'e bağlıdir. İki cihaz arası veri akışı RAM üzerinden veya 1 Gbps port hızında (iperf testinizde çıkan <strong>937 Mbps</strong>) gerçekleşir.</li>
-                        <li><strong>100 Mbps İnternet/Uplink Limiti:</strong> Router ile Switch arasındaki bağlantı (Port 1) **100 Mbit/s** hızda kurulmuştur. Bu nedenle, switch arkasındaki PC veya Proxmox sunucusu internete çıkarken ya da Wi-Fi üzerinden bir cihaza veri gönderirken maksimum **100 Mbps** hıza takılır.</li>
-                    </ul>
-
-                    <p><strong>Nedenleri Nedir?</strong></p>
-                    <p>Switch ve PC'ler gigabit desteklediği halde router bağlantısının 100M olmasının 2 temel nedeni olabilir:</p>
-                    <ul class="analysis-list">
-                        <li><strong>Fiziksel Router Sınırı (Donanımsal Darboğaz):</strong> Kullandığınız Keenetic Extra DSL (KN-2111) modelinin LAN portları donanımsal olarak maksimum 100 Mbps (Fast Ethernet) hız desteklemektedir. Bu nedenle aradaki kablo ne kadar hızlı olursa olsun bağlantı 100 Mbps üzerine çıkamaz.</li>
-                        <li><strong>Çözüm (Gigabit Geçişi):</strong> Wi-Fi üzerinden Proxmox sunucunuza gigabit hızlarında (örneğin 500-800 Mbps) erişebilmek için router'ı gigabit portlara sahip bir modelle (örn. KN-2112 veya üstü) değiştirmeniz gerekir.</li>
-                    </ul>
-                </div>
+                <!-- populated dynamically -->
             </div>
         </div>
+    </div>
 
     <script>
+        // STATIC TRANSLATIONS
+        const translations = {
+            en: {
+                header_title: '<i class="fa-solid fa-circle-nodes"></i> Yakrel\'s Homelab Topology Dashboard',
+                header_back: '<i class="fa-solid fa-house"></i> Back to Main Dashboard',
+                map_title: '<i class="fa-solid fa-network-wired"></i> Interactive Network Map',
+                legend_client: 'Client',
+                legend_cf: 'Cloudflare Tunnel',
+                legend_ts: 'Tailscale VPN',
+                legend_dns: 'Internal DNS',
+                legend_gateway: 'Gateway / Proxy',
+                legend_virtual: 'Virtual Container',
+                tab_details: 'Details',
+                tab_design: 'Design Decisions',
+                details_title: 'Device & Link Details',
+                empty_state: '<i class="fa-solid fa-network-wired"></i><p>Click on any device (box) or connection line on the network map to view its details.</p>',
+                node_public_user: 'Public Visitor',
+                node_public_sub: 'Public Client',
+                node_lan_user: 'Local User',
+                node_lan_sub: 'LAN Client',
+                node_admin_vpn: 'Secure Admin',
+                node_admin_sub: 'Admin Device',
+                node_cf_name: 'Cloudflare Tunnel',
+                node_cf_sub: 'CF Zero Trust',
+                node_local_dns: 'AdGuard Home',
+                node_ts_name: 'Tailscale Mesh',
+                node_ts_sub: 'VPN Access',
+                design_content: `
+                    <div class="panel-title-sub"><i class="fa-solid fa-lightbulb"></i> Architectural Ingress Design</div>
+                    <div class="analysis-text">
+                        <p>The homelab's ingress path is designed following zero-trust principles to allow seamless remote access while enforcing strict security boundaries.</p>
+                        
+                        <p><strong>Ingress Paths &amp; Technologies:</strong></p>
+                        <ul class="analysis-list">
+                            <li><strong>Cloudflare Zero Trust Tunnel:</strong> Exposes public-facing web applications (e.g. <code>photos.byetgin.com</code>, <code>media.byetgin.com</code>) securely. Public browser traffic hits Cloudflare Edge first, filtering threats before proxying to the NPM gateway.</li>
+                            <li><strong>Tailscale Mesh VPN:</strong> Provides secure administrative backchannel access. Used by the admin device to gain remote access directly into the private LAN subnet router without exposing SSH or Proxmox control panels to the internet.</li>
+                            <li><strong>AdGuard Home (Local DNS):</strong> Local LAN clients query AdGuard Home, which implements split-horizon DNS. This routes local traffic directly to NPM without exiting the home network, optimizing bandwidth.</li>
+                            <li><strong>Nginx Proxy Manager Gateway:</strong> LXC container <code>lxc-gateway-01</code> terminates SSL certificates and routes all internal traffic to specific backend virtual stack containers at high speeds.</li>
+                        </ul>
+                    </div>
+                `
+            },
+            tr: {
+                header_title: '<i class="fa-solid fa-circle-nodes"></i> Yakrel\'in Homelab Topoloji Paneli',
+                header_back: '<i class="fa-solid fa-house"></i> Ana Dashboard\'a Dön',
+                map_title: '<i class="fa-solid fa-network-wired"></i> Ağ Haritası',
+                legend_client: 'İstemci',
+                legend_cf: 'Cloudflare Tunnel',
+                legend_ts: 'Tailscale VPN',
+                legend_dns: 'Dahili DNS',
+                legend_gateway: 'Geçit / Proxy',
+                legend_virtual: 'Sanal Konteyner',
+                tab_details: 'Detaylar',
+                tab_design: 'Tasarım Kararları',
+                details_title: 'Cihaz ve Bağlantı Detayları',
+                empty_state: '<i class="fa-solid fa-network-wired"></i><p>Analiz etmek için ağ haritası üzerindeki herhangi bir cihaza (kutu) veya bağlantı çizgisine tıklayın.</p>',
+                node_public_user: 'Genel Ziyaretçi',
+                node_public_sub: 'Harici İstemci',
+                node_lan_user: 'Yerel Kullanıcı',
+                node_lan_sub: 'Dahili İstemci',
+                node_admin_vpn: 'Güvenli Yönetici',
+                node_admin_sub: 'Yönetici Cihazı',
+                node_cf_name: 'Cloudflare Tunnel',
+                node_cf_sub: 'CF Zero Trust',
+                node_local_dns: 'AdGuard Home',
+                node_ts_name: 'Tailscale Mesh',
+                node_ts_sub: 'VPN Erişimi',
+                design_content: `
+                    <div class="panel-title-sub"><i class="fa-solid fa-lightbulb"></i> Mimari Erişim Giriş Tasarımı</div>
+                    <div class="analysis-text">
+                        <p>Homelab erişim yolları, harici bağlantıları güvenli sınırlarda tutarken kesintisiz uzak bağlantı sağlamak amacıyla Sıfır Güven (Zero-Trust) ilkelerine göre tasarlanmıştır.</p>
+                        
+                        <p><strong>Erişim Yolları ve Teknolojiler:</strong></p>
+                        <ul class="analysis-list">
+                            <li><strong>Cloudflare Zero Trust Tüneli:</strong> Dış dünyaya açık web servislerini (örn. <code>photos.byetgin.com</code>, <code>media.byetgin.com</code>) tüneller aracılığıyla güvenli şekilde yayınlar. İstekler önce Cloudflare korumasından geçerek NPM ağ geçidine yönlendirilir.</li>
+                            <li><strong>Tailscale Mesh VPN:</strong> Uzak yönetici erişimi için güvenli bir arka kanal sağlar. Yönetici cihazı, SSH veya Proxmox yönetim panellerini internete açmadan doğrudan dahili ağ yönlendiricisi üzerinden tünel bağlantısı kurar.</li>
+                            <li><strong>AdGuard Home (Yerel DNS):</strong> Yerel ağ istemcileri split-DNS yardımıyla AdGuard Home'u sorgular. Bu sayede yerel trafik internete çıkmadan doğrudan NPM'e aktarılarak bant genişliği korunur.</li>
+                            <li><strong>Nginx Proxy Manager Ağ Geçidi:</strong> <code>lxc-gateway-01</code> konteyneri, SSL sertifikalarını sonlandırarak tüm gelen istekleri ilgili dahili sanal stacks konteynerlerine yüksek hızla yönlendirir.</li>
+                        </ul>
+                    </div>
+                `
+            }
+        };
+
         // DATA MODEL FOR THE TOPOLOGY
         const NETWORK_TOPOLOGY = {
             nodes: {
-                'wan': { name: 'Internet (WAN)', ip: 'Dış Ağ', mac: '—', type: 'Internet Gateway', speed: 'Modem Hızı', status: 'online', color: 'var(--text-main)', icon: 'fa-globe' },
-                'router': { name: 'Keenetic Extra DSL (KN-2111)', ip: '192.168.1.1', mac: 'B4:96:91:0A:11:01', type: 'VDSL2 Modem Router', speed: '100 Mbps (Fast Ethernet)', status: 'online', color: 'var(--color-router)', icon: 'fa-server', note: 'Donanımsal olarak Fast Ethernet (100 Mbps) sınırına sahiptir.' },
-                'switch': { name: 'TP-Link Switch Hub', ip: '192.168.1.254', mac: '24:2F:D0:0F:DD:63', type: 'Gigabit Switch (10/100/1000)', speed: '100 Mbps (Router Uplink Limiti)', status: 'online', color: 'var(--color-switch)', icon: 'fa-network-wired', note: 'Yerel cihazlar arası gigabit transfer yapabilir, ancak router uplink bağlantısı 100 Mbps ile sınırlanmıştır.' },
-                'wifi-5g': { name: 'Wi-Fi 5 GHz Network', ip: 'Home SSID (5G)', mac: '—', type: 'Wireless Access Point', speed: '867 Mbps Max', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-wifi' },
-                'wifi-2g': { name: 'Wi-Fi 2.4 GHz Network', ip: 'Home SSID (2.4G)', mac: '—', type: 'Wireless Access Point', speed: '270 Mbps Max', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-wifi' },
-                'guest-wifi': { name: 'Guest Wi-Fi (MISAFIR)', ip: '10.1.30.1', mac: '—', type: 'Isolated Segment', speed: '58 Mbps Max', status: 'online', color: 'var(--color-guest)', icon: 'fa-user-lock' },
+                'public-user': { name: { tr: 'Genel Ziyaretçi', en: 'Public Visitor' }, ip: 'External IP', mac: '—', type: { tr: 'Harici İstemci', en: 'External Client' }, speed: 'Modem Uplink', status: 'online', color: 'var(--text-muted)', icon: 'fa-globe' },
+                'lan-user': { name: { tr: 'Yerel Kullanıcı', en: 'Local User' }, ip: '192.168.1.x', mac: '—', type: { tr: 'Kablolu / Wi-Fi İstemci', en: 'Wired / Wi-Fi Client' }, speed: '1 Gbps Max', status: 'online', color: 'var(--color-switch)', icon: 'fa-desktop' },
+                'admin-vpn': { name: { tr: 'Güvenli Yönetici', en: 'Secure Admin' }, ip: 'Tailscale IP', mac: '—', type: { tr: 'Uzak VPN İstemcisi', en: 'Remote VPN Client' }, speed: 'Direct VPN Tunnel', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-user-shield' },
                 
-                'desktop-wired': { name: 'DESKTOP-P3G9GFN (Berkay PC)', ip: '192.168.1.20', mac: 'A0:36:BC:BB:0E:E6', type: 'Wired Client', speed: '1 Gbps (Switch)', status: 'online', color: 'var(--color-switch)', icon: 'fa-desktop' },
-                'proxmox-host': { name: 'Proxmox VE Host', ip: '192.168.1.10', mac: 'B4:96:91:0B:9E:F8', type: 'Hypervisor Host', speed: '1 Gbps (Switch)', status: 'online', color: 'var(--color-switch)', icon: 'fa-server', note: 'ZFS pool (local-zfs) tabanlı sanallaştırma sunucusu.' },
+                'cf-tunnel': { name: 'Cloudflare Tunnel', ip: 'Edge Routing', mac: '—', type: { tr: 'Zero Trust İnternet Girişi', en: 'Zero Trust Web Ingress' }, speed: 'Secure Web Proxy', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-brands fa-cloudflare', note: { tr: 'Dış dünyaya açık port bırakmadan web servislerini Cloudflare Edge üzerinden güvenle yayınlar.', en: 'Exposes web services securely through Cloudflare Edge without opening firewall ports.' } },
+                'local-dns': { name: 'AdGuard Home', ip: '192.168.1.100', mac: 'BC:24:11:99:AA:68', type: { tr: 'Dahili DNS Sunucusu', en: 'Internal DNS Server' }, speed: 'Split-DNS Active', status: 'online', color: 'var(--color-switch)', icon: 'fa-shield-dog', note: { tr: 'Ağ genelinde reklam engelleme ve yerel alan adları için split-DNS çözümlemesi yapar.', en: 'Provides network-wide ad blocking and split-DNS resolution for local domains.' } },
+                'ts-vpn': { name: 'Tailscale Subnet Router', ip: '100.x.x.x', mac: 'BC:24:11:99:AA:68', type: { tr: 'Mesh VPN Ağ Geçidi', en: 'Mesh VPN Subnet Router' }, speed: 'Subnet routing', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-network-wired', note: { tr: 'Sunucuya ve alt ağlara (192.168.1.0/24) dışarıdan güvenli, şifreli tünel erişimi sağlar.', en: 'Establishes secure, encrypted mesh tunnel access to the host and subnets (192.168.1.0/24).' } },
                 
-                // 5G Wi-Fi
-                'poco-x6': { name: 'Berkay - Poco X6', ip: '192.168.1.233', mac: '20:3B:34:05:16:2E', type: 'Wi-Fi Client (5 GHz)', speed: '867 Mbps', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-mobile-button' },
-                'nb04btm011': { name: 'NB04BTM011 (Laptop)', ip: '192.168.1.198', mac: 'C4:D0:E3:09:2B:BC', type: 'Wi-Fi Client (5 GHz)', speed: '867 Mbps', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-laptop' },
-                'ozge-a17': { name: 'Ozge-adli-kisiye-ait-A17', ip: '192.168.1.242', mac: 'CA:BC:11:77:7B:28 (private)', type: 'Wi-Fi Client (5 GHz)', speed: '527 Mbps', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-mobile-button' },
-                'tplink-ap': { name: 'TP-Link RE315 Access Point', ip: '192.168.1.253', mac: '60:83:E7:5B:67:32', type: 'Range Extender', speed: '527 Mbps', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-wifi' },
-                'poco-x6-pro': { name: 'POCO-X6-Pro-5G', ip: '192.168.1.234', mac: '42:B4:0D:19:C8:93 (private)', type: 'Wi-Fi Client (5 GHz)', speed: '867 Mbps', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-mobile-button' },
+                'gateway-lxc': { name: 'lxc-gateway-01', ip: '192.168.1.100', mac: 'BC:24:11:99:AA:68', type: { tr: 'Reverse Proxy (Nginx)', en: 'Reverse Proxy (Nginx)' }, speed: '10+ Gbps Virtual', status: 'online', color: 'var(--color-router)', icon: 'fa-box', note: { tr: 'Nginx Proxy Manager ile tüm web isteklerini SSL sertifikalarıyla iç servislere yönlendirir.', en: 'Routes incoming web requests to internal services using SSL certificates via NPM.' } },
                 
-                // 2.4G Wi-Fi
-                'desktop-wifi': { name: 'DESKTOP-KO5GHLB', ip: '192.168.1.208', mac: '00:E1:8C:91:0F:5A', type: 'Wi-Fi Client (2.4 GHz)', speed: '270 Mbps', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-desktop' },
-                'net-ac-1': { name: 'net-ac-6B3E (Node A)', ip: '192.168.1.236', mac: 'C4:39:60:7A:6B:3E', type: 'Smart Device', speed: '65 Mbps', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-circle-nodes' },
-                'net-ac-2': { name: 'net-ac-6B3E (Node B)', ip: '192.168.1.80', mac: 'C4:39:60:7A:6B:3E', type: 'Smart Device', speed: '65 Mbps', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-circle-nodes' },
-                'epson-printer': { name: 'Epson Yazıcı', ip: '192.168.1.150', mac: '64:C6:D2:49:E7:29', type: 'Network Printer', speed: '72 Mbps', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-print' },
- 
-                // Guest
-                'guest-redmi': { name: 'Guest-Redmi-Note-8', ip: '10.1.30.152', mac: '1C:CC:D6:B8:12:57', type: 'Guest Client (Isolated)', speed: '58 Mbps', status: 'online', color: 'var(--color-guest)', icon: 'fa-mobile-button' },
- 
-                // Virtual LXCs
-                'lxc-100': { name: 'lxc-gateway-01 (Proxy & Ingress)', ip: '192.168.1.100', mac: 'BC:24:11:99:AA:68', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'Nginx Proxy Manager, AdGuard Home, Tailscale ve Cloudflared servislerini barındırır.' },
-                'lxc-101': { name: 'lxc-media-01 (Media Automation)', ip: '192.168.1.101', mac: 'BC:24:11:6B:39:5D', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'Jellyfin, Immich ve torrent otomasyon servisleri. NVIDIA GPU passthrough aktiftir.' },
-                'lxc-102': { name: 'lxc-utility-01 (Utility & Backup)', ip: '192.168.1.102', mac: 'BC:24:11:02:61:04', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'JDownloader 2, Samba Share, Repackarr ve Backrest yedekleme servisi.' },
-                'lxc-103': { name: 'lxc-desktop-01 (Desktop Workspace)', ip: '192.168.1.103', mac: 'BC:24:11:99:B4:BE', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'Homepage, Desktop Workspace (Kasm), Apache Guacamole ve Sshwifty servisleri.' },
-                'lxc-105': { name: 'lxc-gaming-01 (Gaming Servers)', ip: '192.168.1.105', mac: 'BC:24:11:A9:A1:6F', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'Satisfactory ve Palworld sunucuları.' },
-                'lxc-106': { name: 'lxc-dev-01 (Development Environment)', ip: '192.168.1.106', mac: 'BC:24:11:C5:44:38', type: 'LXC Container (Virtual)', speed: '10+ Gbps', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: 'Code-Server (VS Code), Node.js, Python, Git ve Antigravity CLI.' }
+                'lxc-media': { name: 'lxc-media-01', ip: '192.168.1.101', mac: 'BC:24:11:6B:39:5D', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Jellyfin, Immich ve torrent otomasyonu. NVIDIA GPU passthrough aktiftir.', en: 'Hosts Jellyfin, Immich, and torrent automation. NVIDIA GPU passthrough enabled.' } },
+                'lxc-utility': { name: 'lxc-utility-01', ip: '192.168.1.102', mac: 'BC:24:11:02:61:04', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'JDownloader 2, Samba, Repackarr ve Backrest yedekleme orkestratörü.', en: 'Hosts JDownloader 2, Samba Share, Repackarr, and Backrest backup orchestrator.' } },
+                'lxc-desktop': { name: 'lxc-desktop-01', ip: '192.168.1.103', mac: 'BC:24:11:99:B4:BE', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Homepage, Desktop Workspace (Kasm) ve Vaultwarden şifre yöneticisi.', en: 'Hosts Homepage, Desktop Workspace (Kasm), and Vaultwarden password manager.' } },
+                'lxc-dev': { name: 'lxc-dev-01', ip: '192.168.1.106', mac: 'BC:24:11:C5:44:38', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Code-Server (VS Code), Node.js, Python, Git ve Antigravity CLI.', en: 'Hosts Code-Server (VS Code), Node.js, Python, Git, and Antigravity CLI.' } },
+                'lxc-gaming': { name: 'lxc-gaming-01', ip: '192.168.1.105', mac: 'BC:24:11:A9:A1:6F', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Palworld ve Satisfactory dedicated oyun sunucuları.', en: 'Hosts Palworld and Satisfactory dedicated game servers.' } }
             },
             links: {
-                'wan-router': { name: 'WAN Gateway Link', speed: 'Modem Uplink Hızı', type: 'Fiber / DSL', delay: '2 ms', color: 'var(--color-router)', note: 'Evinizin dış dünyaya açılan ana kapısı.' },
-                'router-switch': { name: 'Router - Switch Uplink', speed: '100 Mbps (Darboğaz)', type: 'Wired Fast Ethernet', delay: '1 ms', color: 'var(--color-guest)', isBottleneck: true, note: 'Bu bağlantı 100 Mbps limitinde kaldığı için, kablolu ağdaki sunucu ve bilgisayarlar internete çıkarken 100 Mbps üzerine çıkamaz.' },
-                'router-wifi5': { name: 'Router 5 GHz Radyo Arayüzü', speed: '867 Mbps', type: 'Wireless 802.11ac', delay: '1-3 ms', color: 'var(--color-wifi-5g)' },
-                'router-wifi2': { name: 'Router 2.4 GHz Radyo Arayüzü', speed: '270 Mbps', type: 'Wireless 802.11n', delay: '4-8 ms', color: 'var(--color-wifi-2g)' },
-                'router-guest': { name: 'Misafir Ağı İzolasyonu', speed: '58 Mbps', type: 'Wireless (VLAN)', delay: '5-12 ms', color: 'var(--color-guest)' },
+                'user-cf': { name: { tr: 'İnternet Tarayıcısı -> DNS Sorgusu', en: 'Web Ingress -> Cloudflare Edge' }, speed: 'SSL Secured HTTPS', type: { tr: 'Dış Web İstekleri', en: 'External HTTPS requests' }, delay: '15-40 ms', color: 'var(--color-wifi-5g)' },
+                'cf-gateway': { name: { tr: 'Cloudflare Tüneli -> NPM', en: 'CF Tunnel -> NPM Gateway' }, speed: 'Encrypted Tunnels', type: 'Cloudflared Tunnel', delay: '2 ms', color: 'var(--color-wifi-5g)' },
                 
-                'switch-pc': { name: 'Switch - Berkay PC', speed: '1 Gbps (1000M)', type: 'Wired Cat6', delay: '< 1 ms', color: 'var(--color-switch)' },
-                'switch-proxmox': { name: 'Switch - Proxmox Sunucu', speed: '1 Gbps (1000M)', type: 'Wired Cat6', delay: '< 1 ms', color: 'var(--color-switch)', note: 'Fiziksel Hypervisor sunucu ethernet bağlantısı.' },
-
-                'wifi5-poco': { name: 'Poco X6 - Wi-Fi Link', speed: '867 Mbps', type: '5 GHz Wi-Fi (11ac)', delay: '2 ms', color: 'var(--color-wifi-5g)' },
-                'wifi5-nb': { name: 'NB04 Laptop - Wi-Fi Link', speed: '867 Mbps', type: '5 GHz Wi-Fi (11ac)', delay: '2 ms', color: 'var(--color-wifi-5g)' },
-                'wifi5-ozge': { name: 'Ozge A17 - Wi-Fi Link', speed: '527 Mbps', type: '5 GHz Wi-Fi (11ac)', delay: '4 ms', color: 'var(--color-wifi-5g)' },
-                'wifi5-ap': { name: 'TP-Link AP Extender Link', speed: '527 Mbps', type: '5 GHz Wi-Fi Repeater', delay: '3 ms', color: 'var(--color-wifi-5g)' },
-                'wifi5-pro': { name: 'POCO X6 Pro - Wi-Fi Link', speed: '867 Mbps', type: '5 GHz Wi-Fi (11ac)', delay: '2 ms', color: 'var(--color-wifi-5g)' },
-
-                'wifi2-ko': { name: 'DESKTOP-KO - Wi-Fi Link', speed: '270 Mbps', type: '2.4 GHz Wi-Fi (11n)', delay: '6 ms', color: 'var(--color-wifi-2g)' },
-                'wifi2-net1': { name: 'net-ac Node A Link', speed: '65 Mbps', type: '2.4 GHz Wi-Fi', delay: '12 ms', color: 'var(--color-wifi-2g)' },
-                'wifi2-net2': { name: 'net-ac Node B Link', speed: '65 Mbps', type: '2.4 GHz Wi-Fi', delay: '10 ms', color: 'var(--color-wifi-2g)' },
-                'wifi2-printer': { name: 'Epson Printer Wi-Fi Link', speed: '72 Mbps', type: 'Wi-Fi 2.4G (11n)', delay: '4 ms', color: 'var(--color-wifi-2g)' },
-
-                'guest-redmi': { name: 'Guest Redmi Note 8 Link', speed: '58 Mbps', type: 'Isolated 2.4 GHz Wi-Fi', delay: '8 ms', color: 'var(--color-guest)' },
-
-                'proxmox-lxc-100': { name: 'vmbr0 sanal köprü -> lxc-gateway', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
-                'proxmox-lxc-101': { name: 'vmbr0 sanal köprü -> lxc-media', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
-                'proxmox-lxc-102': { name: 'vmbr0 sanal köprü -> lxc-utility', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
-                'proxmox-lxc-103': { name: 'vmbr0 sanal köprü -> lxc-desktop', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
-                'proxmox-lxc-105': { name: 'vmbr0 sanal köprü -> lxc-gaming', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' },
-                'proxmox-lxc-106': { name: 'vmbr0 sanal köprü -> lxc-dev', speed: '10+ Gbps', type: 'Virtual Bridge', delay: '<0.1 ms', color: 'var(--color-virtual)' }
+                'lan-dns': { name: { tr: 'Yerel İstek -> AdGuard Çözümlemesi', en: 'LAN Request -> AdGuard Resolution' }, speed: 'Split-DNS Direct', type: 'Local DNS Query', delay: '<1 ms', color: 'var(--color-switch)' },
+                'dns-gateway': { name: { tr: 'Yerel İstek -> NPM', en: 'Direct LAN -> NPM Gateway' }, speed: '1 Gbps CAT6', type: 'Direct Ingress Routing', delay: '<1 ms', color: 'var(--color-switch)' },
+                
+                'admin-ts': { name: { tr: 'Yönetici -> Tailscale Bağlantısı', en: 'Admin -> Tailscale Endpoint' }, speed: 'Mesh Encrypted Tunnel', type: 'WireGuard Mesh', delay: '10-35 ms', color: 'var(--color-wifi-2g)' },
+                'ts-gateway': { name: { tr: 'Tailscale Tüneli -> Yönlendirici', en: 'Tailscale Tunnel -> Subnet Router' }, speed: 'Direct P2P Link', type: 'Subnet router routing', delay: '<1 ms', color: 'var(--color-wifi-2g)' },
+                
+                'gateway-media': { name: { tr: 'Ters Proxy -> Medya Sunucuları', en: 'Reverse Proxy -> Media Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' },
+                'gateway-utility': { name: { tr: 'Ters Proxy -> Yedekleme/Dosya', en: 'Reverse Proxy -> Utility Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' },
+                'gateway-desktop': { name: { tr: 'Ters Proxy -> Masaüstü/Panel', en: 'Reverse Proxy -> Desktop Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' },
+                'gateway-dev': { name: { tr: 'Ters Proxy -> Geliştirme/IDE', en: 'Reverse Proxy -> Dev Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' },
+                'gateway-gaming': { name: { tr: 'Ters Proxy -> Oyun Sunucuları', en: 'Reverse Proxy -> Gaming Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' }
             }
         };
 
         // UI STATE
         let activeTab = 'details';
+        let currentLang = 'tr';
+        let selectedNodeId = null;
+        let selectedLinkId = null;
 
         function switchTab(tabId) {
             activeTab = tabId;
@@ -1186,9 +873,38 @@
             document.getElementById('tab-analysis').style.display = tabId === 'analysis' ? 'flex' : 'none';
         }
 
+        function switchLang(lang) {
+            currentLang = lang;
+            document.documentElement.lang = lang;
+
+            // Translate static elements with data-i18n
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[lang][key]) el.innerHTML = translations[lang][key];
+            });
+
+            // Translate architectural choices tab
+            const analysisTab = document.getElementById('tab-analysis');
+            if (analysisTab && translations[lang].design_content) {
+                analysisTab.innerHTML = translations[lang].design_content;
+            }
+
+            // Refresh dynamic details if active
+            if (selectedNodeId) {
+                renderNodeDetails(selectedNodeId);
+            } else if (selectedLinkId) {
+                renderLinkDetails(selectedLinkId);
+            } else {
+                // Render empty state in correct language
+                document.getElementById('details-content').innerHTML = translations[lang].empty_state;
+            }
+        }
+
         // SELECTION LOGIC
         function selectNode(nodeId) {
             clearSelection();
+            selectedNodeId = nodeId;
+            selectedLinkId = null;
             
             // Highlight node visually
             const nodeEl = document.getElementById(`node-${nodeId}`);
@@ -1197,41 +913,48 @@
             // Switch to details tab automatically
             switchTab('details');
 
+            highlightPathNodes(nodeId);
+            renderNodeDetails(nodeId);
+        }
+
+        function renderNodeDetails(nodeId) {
             const node = NETWORK_TOPOLOGY.nodes[nodeId];
             if (!node) return;
 
-            // Highlight path connection
-            highlightPathNodes(nodeId);
+            const nodeName = typeof node.name === 'object' ? node.name[currentLang] : node.name;
+            const nodeType = typeof node.type === 'object' ? node.type[currentLang] : node.type;
 
-            // Render gauge metrics
             let speedPercent = 0;
             if (node.speed.includes('10+ Gbps')) speedPercent = 100;
             else if (node.speed.includes('1 Gbps')) speedPercent = 85;
-            else if (node.speed.includes('867 Mbps')) speedPercent = 70;
-            else if (node.speed.includes('527 Mbps')) speedPercent = 50;
-            else if (node.speed.includes('270 Mbps')) speedPercent = 30;
-            else if (node.speed.includes('100 Mbps')) speedPercent = 12;
-            else if (node.speed.includes('65 Mbps')) speedPercent = 7;
-            else if (node.speed.includes('58 Mbps')) speedPercent = 6;
+            else if (node.speed.includes('VPN')) speedPercent = 60;
+            else if (node.speed.includes('Secure')) speedPercent = 60;
+            else if (node.speed.includes('Modem')) speedPercent = 25;
+
+            const ipLabel = currentLang === 'en' ? 'IP Address' : 'IP Adresi';
+            const macLabel = currentLang === 'en' ? 'MAC Address' : 'MAC Adresi';
+            const typeLabel = currentLang === 'en' ? 'Device Type' : 'Cihaz Türü';
+            const statusLabel = node.status === 'online' ? (currentLang === 'en' ? 'Online' : 'Aktif') : (currentLang === 'en' ? 'Offline' : 'Pasif');
+            const bandwidthLabel = currentLang === 'en' ? 'Link Speed' : 'Max Bağlantı Hızı';
 
             let detailsHtml = `
                 <div style="text-align: center; margin-bottom: 20px;">
                     <i class="fa-solid ${node.icon}" style="font-size: 3rem; color: ${node.color}; text-shadow: 0 0 15px ${node.color}50;"></i>
-                    <h3 style="margin: 10px 0 5px 0; font-size: 1.25rem; font-family:'Outfit', sans-serif;">${node.name}</h3>
+                    <h3 style="margin: 10px 0 5px 0; font-size: 1.25rem; font-family:'Outfit', sans-serif;">${nodeName}</h3>
                     <span class="badge" style="background: ${node.status === 'online' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}; color: ${node.status === 'online' ? 'var(--color-virtual)' : 'var(--color-guest)'}; border: 1px solid ${node.status === 'online' ? 'var(--color-virtual)' : 'var(--color-guest)'}; padding: 2px 8px; border-radius: 4px; font-size:0.75rem; font-weight:700;">
-                        ${node.status === 'online' ? 'Online' : 'Offline'}
+                        ${statusLabel}
                     </span>
                 </div>
 
-                <div class="detail-row"><span class="detail-label">IP Adresi</span><span class="detail-val">${node.ip}</span></div>
-                <div class="detail-row"><span class="detail-label">MAC Adresi</span><span class="detail-val">${node.mac}</span></div>
-                <div class="detail-row"><span class="detail-label">Cihaz Türü</span><span class="detail-val">${node.type}</span></div>
+                <div class="detail-row"><span class="detail-label">${ipLabel}</span><span class="detail-val">${node.ip}</span></div>
+                <div class="detail-row"><span class="detail-label">${macLabel}</span><span class="detail-val">${node.mac}</span></div>
+                <div class="detail-row"><span class="detail-label">${typeLabel}</span><span class="detail-val">${nodeType}</span></div>
             `;
 
             if (node.status === 'online' && speedPercent > 0) {
                 detailsHtml += `
                     <div class="gauge-card">
-                        <div class="gauge-title">Bağlantı Genişliği (Max Link Speed)</div>
+                        <div class="gauge-title">${bandwidthLabel}</div>
                         <div class="gauge-value" style="color: ${node.color}">${node.speed}</div>
                         <div class="gauge-bar-outer">
                             <div class="gauge-bar-inner" style="width: ${speedPercent}%; background: ${node.color};"></div>
@@ -1240,21 +963,11 @@
                 `;
             }
 
-            // Custom specific alerts or information
-            if (nodeId === 'switch') {
-                detailsHtml += `
-                    <div class="bottleneck-box">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <div class="bottleneck-text">
-                            <h4>Fast Ethernet Uplink Darboğazı!</h4>
-                            <p>Switch cihazınız gigabit desteklese de router ile arasındaki Port 1 bağlantısı <strong>100 Mbps</strong> hıza kilitlenmiştir. İnternet indirmeleriniz bu hızla sınırlıdır.</p>
-                        </div>
-                    </div>
-                `;
-            } else if (node.note) {
+            if (node.note) {
+                const noteText = typeof node.note === 'object' ? node.note[currentLang] : node.note;
                 detailsHtml += `
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius:12px; padding:15px; margin-top:15px; font-size:0.8rem; line-height:1.4; color:var(--text-muted);">
-                        <i class="fa-solid fa-info-circle" style="color:var(--color-router); margin-right:5px;"></i> ${node.note}
+                        <i class="fa-solid fa-info-circle" style="color:var(--color-router); margin-right:5px;"></i> ${noteText}
                     </div>
                 `;
             }
@@ -1264,6 +977,8 @@
 
         function selectLink(linkId) {
             clearSelection();
+            selectedLinkId = linkId;
+            selectedNodeId = null;
             
             // Highlight link visually
             const linkEl = document.getElementById(`link-${linkId}`);
@@ -1272,36 +987,37 @@
             // Switch to details tab automatically
             switchTab('details');
 
+            renderLinkDetails(linkId);
+        }
+
+        function renderLinkDetails(linkId) {
             const link = NETWORK_TOPOLOGY.links[linkId];
             if (!link) return;
+
+            const linkName = typeof link.name === 'object' ? link.name[currentLang] : link.name;
+            const linkType = typeof link.type === 'object' ? link.type[currentLang] : link.type;
+
+            const speedLabel = currentLang === 'en' ? 'Connection Speed' : 'Bağlantı Hızı';
+            const latencyLabel = currentLang === 'en' ? 'Latency (Ping)' : 'Gecikme (Ping)';
 
             let detailsHtml = `
                 <div style="text-align: center; margin-bottom: 20px;">
                     <i class="fa-solid fa-arrows-left-right-to-line" style="font-size: 3rem; color: ${link.color}; text-shadow: 0 0 15px ${link.color}50;"></i>
-                    <h3 style="margin: 10px 0 5px 0; font-size: 1.25rem; font-family:'Outfit', sans-serif;">${link.name}</h3>
+                    <h3 style="margin: 10px 0 5px 0; font-size: 1.25rem; font-family:'Outfit', sans-serif;">${linkName}</h3>
                     <span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border); padding: 2px 8px; border-radius: 4px; font-size:0.75rem; font-weight:700;">
-                        ${link.type}
+                        ${linkType}
                     </span>
                 </div>
 
-                <div class="detail-row"><span class="detail-label">Bağlantı Hızı</span><span class="detail-val" style="font-weight:700; color:${link.color}">${link.speed}</span></div>
-                <div class="detail-row"><span class="detail-label">Gecikme (Ping)</span><span class="detail-val">${link.delay}</span></div>
+                <div class="detail-row"><span class="detail-label">${speedLabel}</span><span class="detail-val" style="font-weight:700; color:${link.color}">${link.speed}</span></div>
+                <div class="detail-row"><span class="detail-label">${latencyLabel}</span><span class="detail-val">${link.delay}</span></div>
             `;
 
-            if (link.isBottleneck) {
-                detailsHtml += `
-                    <div class="bottleneck-box">
-                        <i class="fa-solid fa-triangle-exclamation" style="color:var(--color-guest)"></i>
-                        <div class="bottleneck-text">
-                            <h4>Uplink Hızı Kısıtlı!</h4>
-                            <p>${link.note || 'Uplink bağlantısı 100M olarak kurulmuştur. Gigabit ağınızdan gelen paketler burada yavaşlar.'}</p>
-                        </div>
-                    </div>
-                `;
-            } else if (link.note) {
+            if (link.note) {
+                const noteText = typeof link.note === 'object' ? link.note[currentLang] : link.note;
                 detailsHtml += `
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius:12px; padding:15px; margin-top:15px; font-size:0.8rem; line-height:1.4; color:var(--text-muted);">
-                        <i class="fa-solid fa-info-circle" style="color:var(--color-router); margin-right:5px;"></i> ${link.note}
+                        <i class="fa-solid fa-info-circle" style="color:var(--color-router); margin-right:5px;"></i> ${noteText}
                     </div>
                 `;
             }
@@ -1313,15 +1029,22 @@
             document.querySelectorAll('.svg-node-html').forEach(el => el.classList.remove('selected'));
             document.querySelectorAll('.svg-link').forEach(el => {
                 el.classList.remove('highlighted');
-                el.classList.remove('bottleneck-link');
                 el.style.strokeWidth = '';
             });
         }
 
         function highlightPathNodes(nodeId) {
-            if (['switch', 'desktop-wired', 'proxmox-host', 'lxc-100', 'lxc-101', 'lxc-102', 'lxc-103', 'lxc-105', 'lxc-106'].includes(nodeId)) {
-                const uplink = document.getElementById('link-router-switch');
-                if (uplink) uplink.classList.add('bottleneck-link');
+            // Highlights paths depending on selected target node
+            if (nodeId.startsWith('lxc-')) {
+                const linkId = `gateway-${nodeId.replace('node-', '').replace('lxc-', '')}`;
+                const linkEl = document.getElementById(`link-${linkId}`);
+                if (linkEl) linkEl.classList.add('highlighted');
+            } else if (nodeId === 'gateway-lxc') {
+                const links = ['link-cf-gateway', 'link-dns-gateway', 'link-ts-gateway'];
+                links.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.classList.add('highlighted');
+                });
             }
         }
 
@@ -1329,6 +1052,11 @@
         if (window.self !== window.top) {
             document.body.classList.add('is-embedded');
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedLang = localStorage.getItem('lang') || (navigator.language.startsWith('tr') ? 'tr' : 'en');
+            switchLang(savedLang);
+        });
     </script>
 </body>
 </html>
