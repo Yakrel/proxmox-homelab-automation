@@ -76,7 +76,7 @@ setup_desktop_permissions() {
 
     # Fix permissions using our helper functions
     fix_path_owner_recursive /datapool/config/futo-notes
-    chmod -R 700 /datapool/config/futo-notes/postgres
+    fix_path_chmod /datapool/config/futo-notes/postgres 700
 
     print_success "Desktop directories ready"
 }
@@ -346,8 +346,8 @@ setup_immich_directories() {
     fix_path_owner_recursive /datapool/config/immich/cache
 
     # Set appropriate permissions (chmod only, ownership handled globally)
-    chmod -R 755 /datapool/media/immich
-    chmod -R 700 /datapool/config/immich/postgres
+    fix_path_chmod_recursive /datapool/media/immich 755
+    fix_path_chmod /datapool/config/immich/postgres 700
 
     print_success "Immich configured"
 }
@@ -365,7 +365,7 @@ setup_tdarr_directories() {
     fix_path_owner_recursive /datapool/temp/tdarr
 
     # Ensure correct permissions for the temp directory (transcoding needs write access)
-    chmod -R 777 /datapool/temp/tdarr
+    fix_path_chmod_recursive /datapool/temp/tdarr 777
 
     print_success "Tdarr configured"
 }

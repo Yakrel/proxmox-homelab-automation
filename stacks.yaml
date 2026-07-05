@@ -7,6 +7,9 @@ storage:
   pool: local-zfs
   template_pool: datapool
 
+nvidia:
+  driver_version: "580.173.02"
+
 stacks:
   gateway:
     ct_id: 100

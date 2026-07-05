@@ -219,44 +219,35 @@ if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
     
     print_info "Detected host NVIDIA driver version: ${target_version}"
 
-    # 2. Download/Cache driver on host to prevent permission denied errors in unprivileged container
-    host_driver_dir="/datapool/config/temp"
-    host_driver_file="$host_driver_dir/NVIDIA-Linux-x86_64-${target_version}.run"
-    
-    mkdir -p "$host_driver_dir"
-    if [[ ! -f "$host_driver_file" ]]; then
-        print_info "Downloading NVIDIA driver version ${target_version} on host to $host_driver_file..."
-        wget -q --show-progress "https://us.download.nvidia.com/XFree86/Linux-x86_64/${target_version}/NVIDIA-Linux-x86_64-${target_version}.run" -O "$host_driver_file"
-        chmod +x "$host_driver_file"
-    fi
+    # 2. Push sync script and setup systemd service inside the container
+    # Note: The .run installer file is downloaded by helper-menu.sh (Option 7) onto the host.
+    # The sync script handles "file not found" gracefully with a warning.
+    print_info "Pushing NVIDIA user-space sync script inside container..."
+    pct push "$CT_ID" "$WORK_DIR/scripts/nvidia-userspace-sync.sh" "/usr/local/bin/nvidia-userspace-sync.sh"
+    pct exec "$CT_ID" -- chmod +x /usr/local/bin/nvidia-userspace-sync.sh
 
-    # 3. Run the driver installer inside the container
-    pct exec "$CT_ID" -- bash -c '
-        target_version="'"$target_version"'"
-        driver_file="/datapool/config/temp/NVIDIA-Linux-x86_64-${target_version}.run"
-        
-        installed_version=""
-        if command -v nvidia-smi &>/dev/null; then
-            installed_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader,nounits 2>/dev/null || true)
-        fi
-        
-        lib_check=0
-        if ldconfig -p | grep -q libEGL_nvidia; then
-            lib_check=1
-        fi
-        
-        if [[ "$installed_version" != "$target_version" ]] || [[ "$lib_check" -eq 0 ]]; then
-            if [[ -f "$driver_file" ]]; then
-                echo "Installing NVIDIA user-space drivers version ${target_version} (currently: ${installed_version:-none}, gl_libs: ${lib_check})..."
-                "$driver_file" --silent --accept-license --no-kernel-module --no-x-check
-            else
-                echo "[WARNING] NVIDIA driver installer not found at $driver_file"
-                exit 1
-            fi
-        else
-            echo "NVIDIA user-space drivers are already up-to-date (version ${target_version})."
-        fi
-    ' || { print_error "Failed to install NVIDIA drivers inside LXC. Aborting."; exit 1; }
+    print_info "Configuring nvidia-userspace-sync systemd service inside container..."
+    pct exec "$CT_ID" -- bash -c 'cat > /etc/systemd/system/nvidia-userspace-sync.service << "EOF"
+[Unit]
+Description=Sync NVIDIA User-Space Libraries with Host
+Before=docker.service
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nvidia-userspace-sync.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF'
+
+    pct exec "$CT_ID" -- systemctl daemon-reload
+    pct exec "$CT_ID" -- systemctl enable nvidia-userspace-sync.service
+
+    # Run the sync script immediately during deployment to ensure drivers are set up
+    print_info "Running initial NVIDIA driver sync inside container..."
+    pct exec "$CT_ID" -- /usr/local/bin/nvidia-userspace-sync.sh
 fi
 
 # Create docker config directory
