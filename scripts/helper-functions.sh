@@ -93,6 +93,12 @@ get_lxc_ip() {
 # === CONFIGURATION MANAGEMENT ===
 # Unified configuration parsing and validation
 
+get_nvidia_driver_version() {
+    local stacks_file="${1:-$WORK_DIR/stacks.yaml}"
+    [[ -f "$stacks_file" ]] || { print_error "Stacks file not found: $stacks_file"; exit 1; }
+    yq -r '.nvidia.driver_version // empty' "$stacks_file"
+}
+
 # Get list of available stacks from stacks.yaml, sorted by CT ID
 get_available_stacks() {
     local stacks_file="${1:-$WORK_DIR/stacks.yaml}"
@@ -296,6 +302,30 @@ fix_path_owner_recursive() {
     find "$path" \
         \( ! -user 101000 -o ! -group 101000 \) \
         -exec chown 101000:101000 {} +
+}
+
+fix_path_chmod() {
+    local path="$1"
+    local mode="$2"
+
+    [[ -e "$path" ]] || return 0
+
+    # Only chmod if the current permission doesn't match — avoids rewriting metadata
+    local current_mode
+    current_mode=$(stat -c "%a" "$path" 2>/dev/null || echo "")
+    if [[ "$current_mode" != "$mode" ]]; then
+        chmod "$mode" "$path"
+    fi
+}
+
+fix_path_chmod_recursive() {
+    local path="$1"
+    local mode="$2"
+
+    [[ -e "$path" ]] || return 0
+
+    # Only chmod files/dirs that don't already have the target permission
+    find "$path" ! -perm "$mode" -exec chmod "$mode" {} +
 }
 
 # === SHARED PROVISIONING UTILITIES ===

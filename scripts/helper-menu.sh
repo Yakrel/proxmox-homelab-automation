@@ -262,15 +262,30 @@ EOF
 run_setup_gpu_passthrough() {
     require_root
 
-    print_info "Setting up NVIDIA GTX 970 for LXC container passthrough (Wayland/Zero-Copy Support)..."
+    local target_version
+    target_version=$(get_nvidia_driver_version)
+    if [[ -z "$target_version" ]]; then
+        print_error "NVIDIA driver version is not configured in stacks.yaml. Aborting."
+        return 1
+    fi
 
-    # Check if NVIDIA drivers are already loaded and working.
-    if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
-        print_success "NVIDIA drivers already installed and working."
+    print_info "Setting up NVIDIA GTX 970 (Target Version: ${target_version}) for LXC container passthrough (Wayland/Zero-Copy Support)..."
+
+    # Check if target driver version is already loaded and working.
+    local installed_version=""
+    if command -v nvidia-smi &>/dev/null; then
+        installed_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || true)
+    fi
+
+    if [[ "$installed_version" == "$target_version" ]]; then
+        print_success "NVIDIA drivers are already up-to-date (Version: ${target_version})."
         print_info "Loaded nvidia modules: $(lsmod | grep nvidia | wc -l)"
-        print_info "GPU detected: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)"
-        print_info "Driver Version: $(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)"
+        print_info "GPU detected: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || true)"
         return 0
+    fi
+
+    if [[ -n "$installed_version" ]]; then
+        print_info "Upgrading host NVIDIA driver from ${installed_version} to ${target_version}..."
     fi
 
     print_info "Configuring host prerequisites for NVIDIA passthrough..."
@@ -323,13 +338,55 @@ EOF
 
     update-initramfs -u -k all
 
+    # Stop GPU-using LXC containers and unload NVIDIA modules for a clean driver installation.
+    # The installer cannot replace a kernel module that is currently in use.
+    local gpu_ct_ids=()
+    for conf in /etc/pve/lxc/*.conf; do
+        [[ -f "$conf" ]] || continue
+        if grep -q "nvidia" "$conf"; then
+            local ct_id
+            ct_id=$(basename "$conf" .conf)
+            if pct status "$ct_id" 2>/dev/null | grep -q "running"; then
+                gpu_ct_ids+=("$ct_id")
+            fi
+        fi
+    done
+
+    if [[ ${#gpu_ct_ids[@]} -gt 0 ]]; then
+        print_warning "The following GPU-using LXC containers must be stopped to install the driver:"
+        for ct_id in "${gpu_ct_ids[@]}"; do
+            local ct_name
+            ct_name=$(pct config "$ct_id" 2>/dev/null | grep "^hostname:" | awk '{print $2}' || echo "unknown")
+            print_warning "  LXC $ct_id ($ct_name)"
+        done
+        print_warning "They will remain stopped until you reboot the host."
+        echo
+        read -r -p "   Proceed and stop these containers? [y/N]: " confirm
+        if [[ ! "$confirm" =~ ^[yY]$ ]]; then
+            print_info "Aborted. Please stop the containers manually before running this again."
+            return 1
+        fi
+
+        for ct_id in "${gpu_ct_ids[@]}"; do
+            print_info "Stopping LXC $ct_id..."
+            pct stop "$ct_id"
+        done
+    fi
+
+    systemctl stop nvidia-persistenced.service 2>/dev/null || true
+    sleep 2
+    rmmod nvidia_uvm 2>/dev/null || true
+    rmmod nvidia_drm 2>/dev/null || true
+    rmmod nvidia_modeset 2>/dev/null || true
+    rmmod nvidia 2>/dev/null || true
+
     # Install NVIDIA driver via official .run file
-    print_info "Downloading NVIDIA 580.159.04 driver..."
-    local driver_url="https://us.download.nvidia.com/XFree86/Linux-x86_64/580.159.04/NVIDIA-Linux-x86_64-580.159.04.run"
+    print_info "Downloading NVIDIA ${target_version} driver..."
+    local driver_url="https://us.download.nvidia.com/XFree86/Linux-x86_64/${target_version}/NVIDIA-Linux-x86_64-${target_version}.run"
     local driver_dir="/datapool/config/temp"
     mkdir -p "$driver_dir"
-    local driver_file="$driver_dir/NVIDIA-Linux-x86_64-580.159.04.run"
-    
+    local driver_file="$driver_dir/NVIDIA-Linux-x86_64-${target_version}.run"
+
     if [[ ! -f "$driver_file" ]]; then
         wget -q --show-progress "$driver_url" -O "$driver_file"
         chmod +x "$driver_file"
@@ -342,10 +399,8 @@ EOF
         return 1
     }
 
-    # Load nvidia modules
-    modprobe nvidia || print_warning "Failed to load nvidia module - may need reboot"
-    modprobe nvidia_uvm || print_warning "Failed to load nvidia_uvm module - may need reboot"
-    modprobe nvidia_drm || print_warning "Failed to load nvidia_drm module - may need reboot"
+    # Do not modprobe here — modules will load cleanly on next reboot.
+    # LXC containers are intentionally left stopped; they will auto-start on reboot.
 
     # Persist nvidia modules
     echo "nvidia-uvm" > /etc/modules-load.d/nvidia-uvm.conf
