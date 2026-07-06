@@ -154,6 +154,11 @@
         href: https://couchdb.byetgin.com/_utils
         icon: couchdb.png
 
+    - Tasks.org:
+        description: Tasks CalDAV Sync
+        href: https://tasks.byetgin.com
+        icon: radicale.png
+
     - Vaultwarden:
         description: Password Manager
         href: https://vaultwarden.byetgin.com

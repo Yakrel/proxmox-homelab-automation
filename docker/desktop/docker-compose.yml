@@ -289,53 +289,18 @@ services:
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
 
-  futo-notes-db:
-    image: postgres:16
-    container_name: futo-notes-db
-    user: "1000:1000"
-    restart: unless-stopped
-    stop_grace_period: 30s
-    environment:
-      POSTGRES_USER: futo_notes
-      POSTGRES_PASSWORD: ${FUTO_POSTGRES_PASSWORD}
-      POSTGRES_DB: futo_notes
-      TZ: ${TZ:-Europe/Istanbul}
-    volumes:
-      - /datapool/config/futo-notes/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U futo_notes -d futo_notes"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - desktop-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
-
-  futo-notes-server:
-    image: gitlab.futo.org:5050/futo-notes/futo-notes-server/server:stable
-    container_name: futo-notes-server
+  radicale:
+    image: ghcr.io/kozea/radicale:latest
+    container_name: radicale
     restart: unless-stopped
     ports:
-      - "3005:3000"
-    environment:
-      DATABASE_URL: postgres://futo_notes:${FUTO_POSTGRES_PASSWORD}@futo-notes-db:5432/futo_notes
-      PORT: "3000"
-      BLOB_DIR: /data/blobs
-      LOG_LEVEL: info
-      AUTH_MODE: password
-      FUTO_NOTES_PASSWORD_HASH: ${FUTO_PASSWORD_HASH}
-      TRUST_PROXY: "true"
+      - "5232:5232"
     volumes:
-      - /datapool/config/futo-notes/blobs:/data/blobs
-    depends_on:
-      futo-notes-db:
-        condition: service_healthy
+      - /datapool/config/radicale/config:/etc/radicale:ro
+      - /datapool/config/radicale/data:/var/lib/radicale
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+    user: "1000:1000"
     networks:
       - desktop-net
     logging:
