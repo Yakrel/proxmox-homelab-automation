@@ -125,6 +125,15 @@
         icon: cleanuperr.png
 
 - Utilities:
+    - ChangeDetection:
+        description: Web Page Monitor
+        href: https://changedetection.byetgin.com
+        icon: changedetection.png
+        widget:
+          type: changedetectionio
+          url: http://192.168.1.102:5000
+          key: "{{HOMEPAGE_VAR_CHANGEDETECTION_API_KEY}}"
+
     - Repackarr:
         description: Game Repack Automation
         href: https://repackarr.byetgin.com
