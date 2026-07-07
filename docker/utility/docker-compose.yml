@@ -225,6 +225,9 @@ services:
     container_name: playwright-chrome
     restart: unless-stopped
     shm_size: '2gb'
+    dns:
+      - 94.140.14.14
+      - 94.140.15.15
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - SCREEN_WIDTH=1920
