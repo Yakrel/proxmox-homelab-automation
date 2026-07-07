@@ -63,6 +63,7 @@ services:
   desktop-workspace:
     image: ghcr.io/yakrel/docker-desktop-workspace:latest
     container_name: desktop-workspace
+    hostname: desktop-workspace
     restart: unless-stopped
     stop_grace_period: 1m
     runtime: nvidia
