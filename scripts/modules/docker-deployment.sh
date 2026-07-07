@@ -164,6 +164,7 @@ setup_utility_permissions() {
     mkdir -p /datapool/config/metube
     mkdir -p /datapool/config/repackarr/data /datapool/config/repackarr/logs
     mkdir -p /datapool/config/samba
+    mkdir -p /datapool/config/changedetection
     mkdir -p /datapool/torrents/other
     mkdir -p /datapool/media/kids/youtube
 
@@ -190,6 +191,7 @@ setup_utility_permissions() {
     fix_path_owner_recursive /datapool/config/jdownloader2
     fix_path_owner_recursive /datapool/config/metube
     fix_path_owner_recursive /datapool/config/repackarr
+    fix_path_owner_recursive /datapool/config/changedetection
     # Samba directory is owned by 101000, but cache and lib must be world-writable (777) so Samba's root process can manage lock files
     mkdir -p /datapool/config/samba/cache /datapool/config/samba/lib/private
     fix_path_owner_recursive /datapool/config/samba
