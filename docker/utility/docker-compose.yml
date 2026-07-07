@@ -199,14 +199,13 @@ services:
     image: ghcr.io/dgtlmoon/changedetection.io:latest
     container_name: changedetection
     restart: unless-stopped
+    user: "1000:1000"
     ports:
       - "5000:5000"
     volumes:
       - /datapool/config/changedetection:/datastore
     environment:
       - TZ=${TZ:-Europe/Istanbul}
-      - PUID=1000
-      - PGID=1000
       - PLAYWRIGHT_DRIVER_URL=ws://playwright-chrome:3000/?stealth=1&--disable-web-security=true
     depends_on:
       - playwright-chrome
