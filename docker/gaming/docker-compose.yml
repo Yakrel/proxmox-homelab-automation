@@ -33,11 +33,12 @@ services:
       - PUBLIC_PORT=8211
       - MAX_PLAYERS=${PALWORLD_MAX_PLAYERS:-4}
       - USEAUTH=false
+      - BAN_LIST_URL=https://b.palworldgame.com/api/banlist.txt
       
       # --- Performance & System ---
       - MULTITHREAD_ENABLED=true
       - UPDATE_ON_BOOT=true
-      - RCON_ENABLED=true
+      - RCON_ENABLED=false
       
       # --- REST API (Enabled for management) ---
       - REST_API_ENABLED=true
@@ -53,15 +54,15 @@ services:
       - AUTO_REBOOT_ENABLED=true
       - AUTO_REBOOT_CRON_EXPRESSION=0 4 * * *
 
-      # --- Solo / AFK Friendly Game Settings ---
+      # --- Palworld 1.0 Game Settings ---
       - DEATH_PENALTY=Item                    # Drops items only (Keeps equipment/Pals)
-      - COLLECTION_DROP_RATE=2.0              # 2x Resources (Balanced for solo)
-      - WORK_SPEED_RATE=1.5                   # 50% Faster crafting
-      - PAL_EGG_DEFAULT_HATCHING_TIME=0       # Instant hatching
-      - AUTO_PAUSE_ENABLED=false              # Keep running for AFK farming
-      - ENABLE_NON_LOGIN_PENALTY=false        # No penalty for offline days
-      - AUTO_SAVE_SPAN=300                    # Auto-save every 5 minutes
-      - BASE_CAMP_WORKER_MAX_NUM=50           # Increase base workers to 50
+      - COLLECTION_DROP_RATE=1.0              # 1x Resources (Vanilla 1.0 default)
+      - WORK_SPEED_RATE=1.0                   # Standard crafting speed (Vanilla 1.0 default)
+      - PAL_EGG_DEFAULT_HATCHING_TIME=1.0     # 1 hour hatching time (Vanilla 1.0 default)
+      - AUTO_PAUSE_ENABLED=false              # Custom: Keep running for AFK farming
+      - ENABLE_NON_LOGIN_PENALTY=false        # Custom: No penalty for offline days
+      - AUTO_SAVE_SPAN=300                    # Custom: Auto-save every 5 minutes (Performance)
+      - BASE_CAMP_WORKER_MAX_NUM=20           # Custom: 20 base workers (Vanilla is 15, we set 20)
       
     volumes:
       - /root/palworld:/palworld
