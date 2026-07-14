@@ -58,7 +58,7 @@ else
     
     # Choose template based on stack type - always use latest
     # Debian: media (Jellyfin GPU), desktop (Brave GPU), dev (code-server)
-    # Alpine: all other stacks (lighter, faster)
+    # Alpine: all other stacks (lighter, faster) — including ai (OpenRouter, no GPU needed)
     if [ "$STACK_NAME" = "media" ] || [ "$STACK_NAME" = "desktop" ] || [ "$STACK_NAME" = "dev" ]; then
         LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
     else
@@ -218,6 +218,21 @@ if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
     fi
     
     print_info "Detected host NVIDIA driver version: ${target_version}"
+
+    # 1.5. Automatically check and download matching NVIDIA .run driver file if missing on the host
+    driver_dir="/datapool/config/temp"
+    driver_file="$driver_dir/NVIDIA-Linux-x86_64-${target_version}.run"
+    if [[ ! -f "$driver_file" ]]; then
+        print_info "NVIDIA driver runfile not found at $driver_file. Downloading automatically on host..."
+        mkdir -p "$driver_dir"
+        driver_url="https://us.download.nvidia.com/XFree86/Linux-x86_64/${target_version}/NVIDIA-Linux-x86_64-${target_version}.run"
+        wget -q --show-progress "$driver_url" -O "$driver_file" || {
+            print_error "Failed to download NVIDIA driver from $driver_url"
+            exit 1
+        }
+        chmod +x "$driver_file"
+        print_success "NVIDIA driver runfile downloaded successfully."
+    fi
 
     # 2. Push sync script and setup systemd service inside the container
     # Note: The .run installer file is downloaded by helper-menu.sh (Option 7) onto the host.

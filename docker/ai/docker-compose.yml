@@ -1,0 +1,26 @@
+name: ai
+
+networks:
+  ai-net:
+    driver: bridge
+
+services:
+  hermes:
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes
+    restart: unless-stopped
+    volumes:
+      - /datapool/config/hermes:/opt/data
+    environment:
+      - HERMES_UID=1000
+      - HERMES_GID=1000
+    command: ["gateway", "run"]
+    networks:
+      - ai-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
