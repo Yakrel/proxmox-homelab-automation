@@ -60,8 +60,6 @@ setup_desktop_permissions() {
     mkdir -p /datapool/config/vaultwarden
     mkdir -p /datapool/config/guacamole
     mkdir -p /datapool/config/sshwifty
-    mkdir -p /datapool/config/futo-notes/postgres
-    mkdir -p /datapool/config/futo-notes/blobs
 
     # These are small writable app-config trees; keep large browser/password data shallow.
     fix_path_owner_recursive /datapool/config/homepage
@@ -74,11 +72,8 @@ setup_desktop_permissions() {
     fix_path_owner_recursive /datapool/config/guacamole
     fix_path_owner_recursive /datapool/config/sshwifty
 
-    # Fix permissions using our helper functions
-    fix_path_owner_recursive /datapool/config/futo-notes
-    fix_path_chmod /datapool/config/futo-notes/postgres 700
-
     print_success "Desktop directories ready"
+
 }
 
 setup_sshwifty_config() {
@@ -157,6 +152,52 @@ PYEOF
     print_success "sshwifty configured with key-based auth"
 }
 
+setup_hermes_config() {
+    print_info "Setting up Hermes Agent configuration"
+
+    mkdir -p /datapool/config/hermes
+
+    if [[ -n "${ENV_DECRYPTED_PATH:-}" && -f "$ENV_DECRYPTED_PATH" ]]; then
+        # Helper function to read values safely from .env without sourcing
+        get_env_val() {
+            local key="$1"
+            local val
+            val=$(grep "^${key}=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- || echo "")
+            # Strip leading/trailing single/double quotes
+            val=$(echo "$val" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+            echo "$val"
+        }
+
+        local tg_token tg_chat_id openrouter_key
+        tg_token=$(get_env_val "HERMES_TELEGRAM_TOKEN")
+        tg_chat_id=$(get_env_val "HERMES_TELEGRAM_CHAT_ID")
+        openrouter_key=$(get_env_val "HERMES_OPENROUTER_API_KEY")
+
+        if [[ -n "$tg_token" && -n "$tg_chat_id" && -n "$openrouter_key" ]]; then
+            # Create config.yaml — model.default intentionally omitted; set once with:
+            #   docker exec -it hermes hermes model openrouter/<model-id>
+            cat <<EOF > /datapool/config/hermes/config.yaml
+model:
+  provider: openrouter
+EOF
+
+            # Create .env file inside hermes config directory
+            cat <<EOF > /datapool/config/hermes/.env
+TELEGRAM_BOT_TOKEN=${tg_token}
+TELEGRAM_ALLOWED_USERS=${tg_chat_id}
+OPENROUTER_API_KEY=${openrouter_key}
+EOF
+            print_success "Hermes config.yaml and .env generated successfully"
+        else
+            print_warning "Missing Hermes environment variables in decrypted env, configuration skipped"
+        fi
+    else
+        print_warning "Decrypted environment file not found, configuration skipped"
+    fi
+
+    fix_path_owner_recursive /datapool/config/hermes
+}
+
 setup_utility_permissions() {
     print_info "Preparing Utility directories"
 
@@ -165,6 +206,7 @@ setup_utility_permissions() {
     mkdir -p /datapool/config/repackarr/data /datapool/config/repackarr/logs
     mkdir -p /datapool/config/samba
     mkdir -p /datapool/config/changedetection
+    mkdir -p /datapool/config/karakeep/data /datapool/config/karakeep/meilisearch
     mkdir -p /datapool/torrents/other
     mkdir -p /datapool/media/kids/youtube
 
@@ -192,6 +234,7 @@ setup_utility_permissions() {
     fix_path_owner_recursive /datapool/config/metube
     fix_path_owner_recursive /datapool/config/repackarr
     fix_path_owner_recursive /datapool/config/changedetection
+    fix_path_owner_recursive /datapool/config/karakeep
     # Samba directory is owned by 101000, but cache and lib must be world-writable (777) so Samba's root process can manage lock files
     mkdir -p /datapool/config/samba/cache /datapool/config/samba/lib/private
     fix_path_owner_recursive /datapool/config/samba
@@ -203,16 +246,20 @@ setup_utility_permissions() {
     print_success "Utility directories ready"
 }
 
-setup_gaming_permissions() {
-    print_info "Preparing Gaming directories"
 
-    mkdir -p /datapool/config/gameservers/palworld
-    mkdir -p /datapool/config/gameservers/satisfactory
-    mkdir -p /datapool/config/gameservers/conan
+setup_ai_permissions() {
+    print_info "Preparing AI directories"
 
-    fix_path_owner_recursive /datapool/config/gameservers
-    print_success "Gaming directories ready"
+    mkdir -p /datapool/config/hermes
+
+    fix_path_owner_recursive /datapool/config/hermes
+
+    # Setup Hermes specific configurations (config.yaml and .env)
+    setup_hermes_config
+
+    print_success "AI directories ready"
 }
+
 
 # Setup CouchDB directories and configuration
 setup_couchdb_config() {
@@ -373,6 +420,8 @@ setup_tdarr_directories() {
 }
 
 
+
+
 # Download and configure Docker Compose files
 setup_docker_compose() {
     local stack_name="$1"
@@ -415,10 +464,8 @@ deploy_docker_services() {
 
     print_info "Deploying services for $stack_name"
 
-    # Pre-create Satisfactory local gamefiles directory on the SSD and set proper ownership
-    if [ "$stack_name" = "gaming" ]; then
-        pct exec "$ct_id" -- sh -c "mkdir -p /opt/satisfactory && chown -R 1000:1000 /opt/satisfactory"
-    fi
+
+
 
     # Pull images and deploy in one command
     pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --pull always --remove-orphans" || {
@@ -429,71 +476,8 @@ deploy_docker_services() {
     print_success "Services deployed"
 }
 
-# Setup aliases and MOTD for game servers
-setup_gameserver_aliases() {
-    local ct_id="$1"
-    print_info "Configuring Game Server aliases"
 
-    # Define the marker used to identify our block
-    local start_marker="# --- Game Server Manager Aliases ---"
-    local end_marker="# --- End Game Server Manager ---"
 
-    # Create the alias content locally
-    local alias_file="/tmp/gameserver_aliases.sh"
-    cat <<EOF > "$alias_file"
-
-$start_marker
-# Aliases for Game Server Management
-# Core services (watchtower) always run via base compose
-# Game servers are managed separately via profiles
-
-# Ensure core services are always running, then start/stop game containers
-alias start-palworld='cd /root && echo "Starting Palworld..." && docker stop satisfactory-server 2>/dev/null || true && docker compose up -d && docker compose --profile palworld up -d --pull always'
-alias start-satisfactory='cd /root && echo "Starting Satisfactory..." && docker stop palworld-server 2>/dev/null || true && docker compose up -d && docker compose --profile satisfactory up -d --pull always'
-alias stop-games='cd /root && echo "Stopping all game servers..." && docker stop palworld-server satisfactory-server 2>/dev/null || true'
-alias game-status='cd /root && docker compose ps -a'
-
-# --- Game Server MOTD (Login Message) ---
-# Display only on interactive shell login
-if [ -t 0 ]; then
-    echo -e "\033[1;36m=====================================================\033[0m"
-    echo -e "\033[1;32m       Proxmox Homelab Game Server Manager           \033[0m"
-    echo -e "\033[1;36m=====================================================\033[0m"
-    echo -e " Available Commands:"
-    echo -e "  \033[1;33mstart-palworld\033[0m      : Start Palworld (stops others)"
-    echo -e "  \033[1;33mstart-satisfactory\033[0m  : Start Satisfactory (stops others)"
-    echo -e "  \033[1;33mstop-games\033[0m          : Stop all running games"
-    echo -e "  \033[1;33mgame-status\033[0m         : Show running containers"
-    echo -e "\033[1;36m=====================================================\033[0m"
-    echo
-fi
-$end_marker
-EOF
-
-    # Target files for aliases (Alpine uses .profile by default, Bash uses .bashrc)
-    local target_files=("/root/.bashrc" "/root/.profile")
-    
-    # Push the alias file to the container
-    pct push "$ct_id" "$alias_file" "/tmp/aliases.sh"
-
-    # Loop through targets and apply changes
-    for target in "${target_files[@]}"; do
-        # Create file if it doesn't exist
-        pct exec "$ct_id" -- touch "$target"
-        
-        # Clean existing block if present (Idempotency) using sed
-        pct exec "$ct_id" -- sh -c "if grep -qF '$start_marker' '$target'; then sed -i '/$start_marker/,/$end_marker/d' '$target'; fi"
-        
-        # Append new block
-        pct exec "$ct_id" -- sh -c "cat /tmp/aliases.sh >> '$target'"
-    done
-
-    # Cleanup
-    pct exec "$ct_id" -- rm -f "/tmp/aliases.sh"
-    rm -f "$alias_file"
-
-    print_success "Game Server aliases configured"
-}
 
 # Full Docker deployment workflow
 deploy_docker_stack() {
@@ -523,8 +507,8 @@ deploy_docker_stack() {
         setup_utility_permissions
     fi
 
-    if [[ "$stack_name" == "gaming" ]]; then
-        setup_gaming_permissions
+    if [[ "$stack_name" == "ai" ]]; then
+        setup_ai_permissions
     fi
 
     # Setup Immich directories for media stack
@@ -544,13 +528,6 @@ deploy_docker_stack() {
 
     setup_docker_compose "$stack_name" "$ct_id"
     deploy_docker_services "$stack_name" "$ct_id"
-
-    # Setup aliases for gaming stack
-    if [[ "$stack_name" == "gaming" ]]; then
-        setup_gameserver_aliases "$ct_id"
-    fi
     
     print_success "Stack deployed: $stack_name"
 }
-
-

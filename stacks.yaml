@@ -35,12 +35,12 @@ stacks:
     cpu_cores: 4
     memory_mb: 6144
     disk_gb: 30
-  gaming:
+  ai:
     ct_id: 105
-    hostname: lxc-gaming
-    cpu_cores: 8
-    memory_mb: 16384
-    disk_gb: 50
+    hostname: lxc-ai
+    cpu_cores: 4
+    memory_mb: 4096
+    disk_gb: 8
   dev:
     ct_id: 106
     hostname: lxc-dev

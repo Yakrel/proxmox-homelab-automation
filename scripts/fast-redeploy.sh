@@ -75,8 +75,8 @@ fast_redeploy_stack() {
         deploy_backrest "$CT_ID"
     elif [[ "$stack" == "gateway" ]]; then
         setup_gateway_permissions
-    elif [[ "$stack" == "gaming" ]]; then
-        setup_gaming_permissions
+    elif [[ "$stack" == "ai" ]]; then
+        setup_ai_permissions
     fi
 
     pct push "$CT_ID" "$ENV_DECRYPTED_PATH" /root/.env

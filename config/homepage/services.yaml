@@ -134,6 +134,16 @@
           url: http://192.168.1.102:5000
           key: "{{HOMEPAGE_VAR_CHANGEDETECTION_API_KEY}}"
 
+    - Karakeep:
+        description: Bookmark & Digital Archivist
+        href: https://karakeep.byetgin.com
+        icon: mdi-bookmark
+        widget:
+          type: karakeep
+          url: http://192.168.1.102:3080
+          key: "{{HOMEPAGE_VAR_KARAKEEP_API_KEY}}"
+          fields: ["bookmarks", "favorites", "tags"]
+
     - Repackarr:
         description: Game Repack Automation
         href: https://repackarr.byetgin.com
