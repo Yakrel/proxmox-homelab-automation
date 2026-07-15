@@ -26,6 +26,11 @@
                 "User": "root",
                 "PrivateKey": "SSHWIFTY_PRIVATE_KEY_PLACEHOLDER"
             }
+        },
+        {
+            "Title": "LXC AI (192.168.1.105)",
+            "Type": "SSH",
+            "Host": "192.168.1.105:22"
         }
     ],
     "OnlyAllowPresetRemotes": true

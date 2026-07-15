@@ -13,7 +13,7 @@ setup_homepage_config() {
     print_info "Setting up Homepage configuration"
 
     # Ensure directory exists
-    mkdir -p /datapool/config/homepage
+    mkdir -p /fastpool/config/homepage
 
     # List of homepage config files to copy
     local config_files=("services.yaml" "bookmarks.yaml" "widgets.yaml" "settings.yaml" "docker.yaml")
@@ -21,7 +21,7 @@ setup_homepage_config() {
     # Copy all files from local workspace
     for config_file in "${config_files[@]}"; do
         local source_file="$WORK_DIR/config/homepage/$config_file"
-        local dest_file="/datapool/config/homepage/$config_file"
+        local dest_file="/fastpool/config/homepage/$config_file"
         
         if [[ -f "$source_file" ]]; then
             cp "$source_file" "$dest_file" || {
@@ -40,13 +40,13 @@ setup_homepage_config() {
 setup_gateway_permissions() {
     print_info "Preparing Gateway directories"
 
-    mkdir -p /datapool/config/npm/data
-    mkdir -p /datapool/config/npm/letsencrypt
-    mkdir -p /datapool/config/adguard/work
-    mkdir -p /datapool/config/adguard/conf
+    mkdir -p /fastpool/config/npm/data
+    mkdir -p /fastpool/config/npm/letsencrypt
+    mkdir -p /fastpool/config/adguard/work
+    mkdir -p /fastpool/config/adguard/conf
 
-    fix_path_owner_recursive /datapool/config/npm
-    fix_path_owner_recursive /datapool/config/adguard
+    fix_path_owner_recursive /fastpool/config/npm
+    fix_path_owner_recursive /fastpool/config/adguard
 
     print_success "Gateway directories ready"
 }
@@ -54,23 +54,23 @@ setup_gateway_permissions() {
 setup_desktop_permissions() {
     print_info "Preparing Desktop directories"
 
-    mkdir -p /datapool/config/homepage
-    mkdir -p /datapool/config/couchdb/data /datapool/config/couchdb/local.d
-    mkdir -p /datapool/config/desktop-workspace
-    mkdir -p /datapool/config/vaultwarden
-    mkdir -p /datapool/config/guacamole
-    mkdir -p /datapool/config/sshwifty
+    mkdir -p /fastpool/config/homepage
+    mkdir -p /fastpool/config/couchdb/data /fastpool/config/couchdb/local.d
+    mkdir -p /fastpool/config/desktop-workspace
+    mkdir -p /fastpool/config/vaultwarden
+    mkdir -p /fastpool/config/guacamole
+    mkdir -p /fastpool/config/sshwifty
 
     # These are small writable app-config trees; keep large browser/password data shallow.
-    fix_path_owner_recursive /datapool/config/homepage
-    fix_path_owner_recursive /datapool/config/couchdb
-    fix_path_owner /datapool/config/desktop-workspace
+    fix_path_owner_recursive /fastpool/config/homepage
+    fix_path_owner_recursive /fastpool/config/couchdb
+    fix_path_owner /fastpool/config/desktop-workspace
     # Fix all configuration directories (PulseAudio, window manager, themes, etc.) at once
-    mkdir -p /datapool/config/desktop-workspace/.config
-    fix_path_owner_recursive /datapool/config/desktop-workspace/.config
-    fix_path_owner /datapool/config/vaultwarden
-    fix_path_owner_recursive /datapool/config/guacamole
-    fix_path_owner_recursive /datapool/config/sshwifty
+    mkdir -p /fastpool/config/desktop-workspace/.config
+    fix_path_owner_recursive /fastpool/config/desktop-workspace/.config
+    fix_path_owner /fastpool/config/vaultwarden
+    fix_path_owner_recursive /fastpool/config/guacamole
+    fix_path_owner_recursive /fastpool/config/sshwifty
 
     print_success "Desktop directories ready"
 
@@ -81,12 +81,12 @@ setup_sshwifty_config() {
 
     print_info "Setting up sshwifty configuration"
 
-    mkdir -p /datapool/config/sshwifty
+    mkdir -p /fastpool/config/sshwifty
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
 
     # Generate SSH key pair for sshwifty → Proxmox auth (idempotent)
-    local key_file="/datapool/config/sshwifty/sshwifty_key"
+    local key_file="/fastpool/config/sshwifty/sshwifty_key"
     if [[ ! -f "$key_file" ]]; then
         print_info "Generating ed25519 SSH key for sshwifty"
         ssh-keygen -t ed25519 -N "" -f "$key_file" -C "sshwifty@homelab" || {
@@ -115,7 +115,7 @@ setup_sshwifty_config() {
 
     # Build sshwifty.conf.json with private key embedded (Python handles JSON escaping)
     local source_template="$WORK_DIR/config/sshwifty/sshwifty.conf.json.template"
-    local dest_file="/datapool/config/sshwifty/sshwifty.conf.json"
+    local dest_file="/fastpool/config/sshwifty/sshwifty.conf.json"
 
     [[ -f "$source_template" ]] || { print_error "sshwifty template not found: $source_template"; exit 1; }
 
@@ -147,7 +147,7 @@ PYEOF
     chmod 600 "$key_file"
     chmod 644 "${key_file}.pub"
 
-    fix_path_owner_recursive /datapool/config/sshwifty
+    fix_path_owner_recursive /fastpool/config/sshwifty
 
     print_success "sshwifty configured with key-based auth"
 }
@@ -155,7 +155,7 @@ PYEOF
 setup_hermes_config() {
     print_info "Setting up Hermes Agent configuration"
 
-    mkdir -p /datapool/config/hermes
+    mkdir -p /fastpool/config/hermes
 
     if [[ -n "${ENV_DECRYPTED_PATH:-}" && -f "$ENV_DECRYPTED_PATH" ]]; then
         # Helper function to read values safely from .env without sourcing
@@ -176,13 +176,19 @@ setup_hermes_config() {
         if [[ -n "$tg_token" && -n "$tg_chat_id" && -n "$openrouter_key" ]]; then
             # Create config.yaml — model.default intentionally omitted; set once with:
             #   docker exec -it hermes hermes model openrouter/<model-id>
-            cat <<EOF > /datapool/config/hermes/config.yaml
+            # Route requests through internal OmniRoute container in the same docker network
+            cat <<EOF > /fastpool/config/hermes/config.yaml
 model:
-  provider: openrouter
+  provider: omniroute
+  default: auto/best-coding
+providers:
+  omniroute:
+    base_url: http://omniroute:20128/v1
+    api_key: ${openrouter_key}
 EOF
 
             # Create .env file inside hermes config directory
-            cat <<EOF > /datapool/config/hermes/.env
+            cat <<EOF > /fastpool/config/hermes/.env
 TELEGRAM_BOT_TOKEN=${tg_token}
 TELEGRAM_ALLOWED_USERS=${tg_chat_id}
 OPENROUTER_API_KEY=${openrouter_key}
@@ -195,51 +201,51 @@ EOF
         print_warning "Decrypted environment file not found, configuration skipped"
     fi
 
-    fix_path_owner_recursive /datapool/config/hermes
+    fix_path_owner_recursive /fastpool/config/hermes
 }
 
 setup_utility_permissions() {
     print_info "Preparing Utility directories"
 
-    mkdir -p /datapool/config/jdownloader2
-    mkdir -p /datapool/config/metube
-    mkdir -p /datapool/config/repackarr/data /datapool/config/repackarr/logs
-    mkdir -p /datapool/config/samba
-    mkdir -p /datapool/config/changedetection
-    mkdir -p /datapool/config/karakeep/data /datapool/config/karakeep/meilisearch
-    mkdir -p /datapool/torrents/other
+    mkdir -p /fastpool/config/jdownloader2
+    mkdir -p /fastpool/config/metube
+    mkdir -p /fastpool/config/repackarr/data /fastpool/config/repackarr/logs
+    mkdir -p /fastpool/config/samba
+    mkdir -p /fastpool/config/changedetection
+    mkdir -p /fastpool/config/karakeep/data /fastpool/config/karakeep/meilisearch
+    mkdir -p /datapool/downloads
     mkdir -p /datapool/media/kids/youtube
 
     # Copy Samba configuration if template exists in repository and replace environment variables
     if [[ -f "$WORK_DIR/config/samba/config.yml" ]]; then
         if [[ -n "${ENV_DECRYPTED_PATH:-}" && -f "$ENV_DECRYPTED_PATH" ]]; then
             local samba_user samba_password
-            samba_user=$(grep "^SAMBA_USER=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
-            samba_password=$(grep "^SAMBA_PASSWORD=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+            samba_user=$(grep "^SAMBA_USER=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//" || true)
+            samba_password=$(grep "^SAMBA_PASSWORD=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//" || true)
             
             if [[ -n "$samba_user" && -n "$samba_password" ]]; then
                 sed -e "s/\${SAMBA_USER}/$samba_user/g" \
                     -e "s/\${SAMBA_PASSWORD}/$samba_password/g" \
-                    "$WORK_DIR/config/samba/config.yml" > /datapool/config/samba/config.yml
+                    "$WORK_DIR/config/samba/config.yml" > /fastpool/config/samba/config.yml
             else
-                cp "$WORK_DIR/config/samba/config.yml" /datapool/config/samba/config.yml
+                cp "$WORK_DIR/config/samba/config.yml" /fastpool/config/samba/config.yml
             fi
         else
-            cp "$WORK_DIR/config/samba/config.yml" /datapool/config/samba/config.yml
+            cp "$WORK_DIR/config/samba/config.yml" /fastpool/config/samba/config.yml
         fi
     fi
 
     # Current trees are small and commonly written by user-mapped containers.
-    fix_path_owner_recursive /datapool/config/jdownloader2
-    fix_path_owner_recursive /datapool/config/metube
-    fix_path_owner_recursive /datapool/config/repackarr
-    fix_path_owner_recursive /datapool/config/changedetection
-    fix_path_owner_recursive /datapool/config/karakeep
+    fix_path_owner_recursive /fastpool/config/jdownloader2
+    fix_path_owner_recursive /fastpool/config/metube
+    fix_path_owner_recursive /fastpool/config/repackarr
+    fix_path_owner_recursive /fastpool/config/changedetection
+    fix_path_owner_recursive /fastpool/config/karakeep
     # Samba directory is owned by 101000, but cache and lib must be world-writable (777) so Samba's root process can manage lock files
-    mkdir -p /datapool/config/samba/cache /datapool/config/samba/lib/private
-    fix_path_owner_recursive /datapool/config/samba
-    chmod 777 /datapool/config/samba/cache /datapool/config/samba/lib
-    fix_path_owner /datapool/torrents/other
+    mkdir -p /fastpool/config/samba/cache /fastpool/config/samba/lib/private
+    fix_path_owner_recursive /fastpool/config/samba
+    chmod 777 /fastpool/config/samba/cache /fastpool/config/samba/lib
+    fix_path_owner /datapool/downloads
     fix_path_owner /datapool/media/kids
     fix_path_owner /datapool/media/kids/youtube
 
@@ -250,15 +256,18 @@ setup_utility_permissions() {
 setup_ai_permissions() {
     print_info "Preparing AI directories"
 
-    mkdir -p /datapool/config/hermes
+    mkdir -p /fastpool/config/hermes
+    mkdir -p /fastpool/config/omniroute
 
-    fix_path_owner_recursive /datapool/config/hermes
+    fix_path_owner_recursive /fastpool/config/hermes
+    fix_path_owner_recursive /fastpool/config/omniroute
 
     # Setup Hermes specific configurations (config.yaml and .env)
     setup_hermes_config
 
     print_success "AI directories ready"
 }
+
 
 
 # Setup CouchDB directories and configuration
@@ -268,12 +277,12 @@ setup_couchdb_config() {
     print_info "Setting up CouchDB"
 
     # Create CouchDB directories
-    mkdir -p /datapool/config/couchdb/data
-    mkdir -p /datapool/config/couchdb/local.d
+    mkdir -p /fastpool/config/couchdb/data
+    mkdir -p /fastpool/config/couchdb/local.d
 
     # Copy CouchDB configuration file
     local source_file="$WORK_DIR/config/couchdb/local.ini"
-    local dest_file="/datapool/config/couchdb/local.d/local.ini"
+    local dest_file="/fastpool/config/couchdb/local.d/local.ini"
 
     if [[ -f "$source_file" ]]; then
         cp "$source_file" "$dest_file" || {
@@ -303,7 +312,7 @@ setup_guacamole_config() {
     get_env_val() {
         local key="$1"
         local val
-        val=$(grep "^${key}=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2-)
+        val=$(grep "^${key}=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- || true)
         # Strip leading/trailing single/double quotes
         val=$(echo "$val" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
         echo "$val"
@@ -351,10 +360,10 @@ setup_guacamole_config() {
     fi
 
     # Create guacamole config directory on host
-    mkdir -p /datapool/config/guacamole
+    mkdir -p /fastpool/config/guacamole
 
     local source_template="$WORK_DIR/config/guacamole/user-mapping.xml.template"
-    local dest_file="/datapool/config/guacamole/user-mapping.xml"
+    local dest_file="/fastpool/config/guacamole/user-mapping.xml"
 
     if [[ -f "$source_template" ]]; then
         # Replace placeholders with environment values
@@ -376,7 +385,7 @@ setup_guacamole_config() {
     fi
 
     # Fix ownership
-    fix_path_owner_recursive /datapool/config/guacamole
+    fix_path_owner_recursive /fastpool/config/guacamole
 
     print_success "Guacamole configured"
 }
@@ -388,15 +397,15 @@ setup_immich_directories() {
 
     # Create all required Immich directories
     mkdir -p /datapool/media/immich/{upload,library,thumbs,profile,backups,encoded-video}
-    mkdir -p /datapool/config/immich/{postgres,cache}
+    mkdir -p /fastpool/config/immich/{postgres,cache}
 
     # These services run as user 1000 inside unprivileged LXC containers, so the
     # host paths must map to 101000:101000 to remain writable after bind mounts.
-    fix_path_owner_recursive /datapool/config/immich/cache
+    fix_path_owner_recursive /fastpool/config/immich/cache
 
     # Set appropriate permissions (chmod only, ownership handled globally)
     fix_path_chmod_recursive /datapool/media/immich 755
-    fix_path_chmod /datapool/config/immich/postgres 700
+    fix_path_chmod /fastpool/config/immich/postgres 700
 
     print_success "Immich configured"
 }
@@ -406,11 +415,11 @@ setup_tdarr_directories() {
     print_info "Preparing Tdarr directories"
 
     # Create config and temp directories
-    mkdir -p /datapool/config/tdarr/{server,configs,logs}
+    mkdir -p /fastpool/config/tdarr/{server,configs,logs}
     mkdir -p /datapool/temp/tdarr
 
     # Ensure correct ownership for LXC user (101000 mapping for user 1000)
-    fix_path_owner_recursive /datapool/config/tdarr
+    fix_path_owner_recursive /fastpool/config/tdarr
     fix_path_owner_recursive /datapool/temp/tdarr
 
     # Ensure correct permissions for the temp directory (transcoding needs write access)

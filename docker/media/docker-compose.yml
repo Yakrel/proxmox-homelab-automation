@@ -15,7 +15,7 @@ services:
       - UMASK=002
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
-      - /datapool/config/sonarr:/config
+      - /fastpool/config/sonarr:/config
       - /datapool:/datapool
     ports:
       - "8989:8989"
@@ -40,7 +40,7 @@ services:
       - UMASK=002
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
-      - /datapool/config/radarr:/config
+      - /fastpool/config/radarr:/config
       - /datapool:/datapool
     ports:
       - "7878:7878"
@@ -71,7 +71,7 @@ services:
       - UMASK=002
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
-      - /datapool/config/bazarr:/config
+      - /fastpool/config/bazarr:/config
       - /datapool:/datapool
     ports:
       - "6767:6767"
@@ -105,7 +105,7 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
-      - /datapool/config/jellyfin:/config
+      - /fastpool/config/jellyfin:/config
       - /datapool:/datapool
     runtime: nvidia
     deploy:
@@ -147,7 +147,7 @@ services:
       - UMASK=002
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
-      - /datapool/config/jellyseerr:/app/config
+      - /fastpool/config/jellyseerr:/app/config
     dns:
       - 8.8.8.8
     ports:
@@ -179,7 +179,7 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
       - WEBUI_PORT=8080
     volumes:
-      - /datapool/config/qbittorrent:/config
+      - /fastpool/config/qbittorrent:/config
       - /datapool:/datapool
     ports:
       - "8080:8080"
@@ -212,7 +212,7 @@ services:
       - UMASK=002
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
-      - /datapool/config/prowlarr:/config
+      - /fastpool/config/prowlarr:/config
     ports:
       - "9696:9696"
     healthcheck:
@@ -289,7 +289,7 @@ services:
       - UMASK=002
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
-      - /datapool/config/recyclarr:/config
+      - /fastpool/config/recyclarr:/config
     networks:
       - media-net
     restart: unless-stopped
@@ -352,7 +352,7 @@ services:
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}-cuda
     user: "1000:1000"
     volumes:
-      - /datapool/config/immich/cache:/cache
+      - /fastpool/config/immich/cache:/cache
     env_file:
       - .env
     environment:
@@ -451,9 +451,9 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
-      - /datapool/config/tdarr/server:/app/server
-      - /datapool/config/tdarr/configs:/app/configs
-      - /datapool/config/tdarr/logs:/app/logs
+      - /fastpool/config/tdarr/server:/app/server
+      - /fastpool/config/tdarr/configs:/app/configs
+      - /fastpool/config/tdarr/logs:/app/logs
       - /datapool/media:/media
       - /datapool/temp/tdarr:/temp
     runtime: nvidia
@@ -483,7 +483,7 @@ services:
       - PORT=11011
       - BASE_PATH=
     volumes:
-      - /datapool/config/cleanuperr:/config
+      - /fastpool/config/cleanuperr:/config
       - /datapool:/datapool
     ports:
       - "11011:11011"

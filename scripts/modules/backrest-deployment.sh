@@ -113,20 +113,20 @@ initialize_restic_repo() {
 # Configure Backrest directories and permissions on host
 configure_backrest_directories() {
     # Create Backrest directories on host (idempotent with -p)
-    mkdir -p /datapool/config/backrest/config
-    mkdir -p /datapool/config/backrest/data
-    mkdir -p /datapool/config/backrest/cache
+    mkdir -p /fastpool/config/backrest/config
+    mkdir -p /fastpool/config/backrest/data
+    mkdir -p /fastpool/config/backrest/cache
     mkdir -p /datapool/backup
 
     # Set ownership for unprivileged container access (UID 1000 in container = UID 101000 on host)
-    fix_path_owner_recursive /datapool/config/backrest
+    fix_path_owner_recursive /fastpool/config/backrest
     fix_path_owner /datapool/backup
 }
 
 # Configure rclone for Google Drive sync - creates config files for Docker container
 # rclone is now installed inside the Docker image, not in the LXC container
 configure_rclone_config() {
-    local rclone_conf="/datapool/config/backrest/config/rclone.conf"
+    local rclone_conf="/fastpool/config/backrest/config/rclone.conf"
     local rclone_conf_enc="$WORK_DIR/docker/utility/config/rclone.conf.enc"
 
     print_info "Configuring rclone from encrypted configuration"
@@ -145,7 +145,7 @@ configure_rclone_config() {
     chmod 600 "$rclone_conf"
 
     # Create sync script on host in Backrest config dir (mounted to container as /config)
-    cat > /datapool/config/backrest/config/sync-to-gdrive.sh << 'SYNCEOF'
+    cat > /fastpool/config/backrest/config/sync-to-gdrive.sh << 'SYNCEOF'
 #!/bin/sh
 # Backrest hook script: Sync backups to Google Drive after successful backup
 # Optimized for 20 MB/s connection
@@ -197,8 +197,8 @@ fi
 SYNCEOF
 
     # Set ownership and permissions for container access
-    chown 101000:101000 /datapool/config/backrest/config/sync-to-gdrive.sh
-    chmod +x /datapool/config/backrest/config/sync-to-gdrive.sh
+    chown 101000:101000 /fastpool/config/backrest/config/sync-to-gdrive.sh
+    chmod +x /fastpool/config/backrest/config/sync-to-gdrive.sh
 }
 
 # Deploy Backrest stack
@@ -220,15 +220,15 @@ deploy_backrest() {
 
     env_content=$(cat "$ENV_DECRYPTED_PATH")
     
-    backrest_instance_id=$(echo "$env_content" | grep "^BACKREST_INSTANCE_ID=" | cut -d'=' -f2-)
-    backrest_repo_id=$(echo "$env_content" | grep "^BACKREST_REPO_ID=" | cut -d'=' -f2-)
-    backrest_repo_guid=$(echo "$env_content" | grep "^BACKREST_REPO_GUID=" | cut -d'=' -f2-)
-    backrest_auth_username=$(echo "$env_content" | grep "^BACKREST_AUTH_USERNAME=" | cut -d'=' -f2-)
-    backrest_auth_password_bcrypt=$(echo "$env_content" | grep "^BACKREST_AUTH_PASSWORD_BCRYPT=" | cut -d'=' -f2-)
-    backrest_repo_password=$(echo "$env_content" | grep "^BACKREST_REPO_PASSWORD=" | cut -d'=' -f2-)
-    backrest_sync_key_id=$(echo "$env_content" | grep "^BACKREST_SYNC_KEY_ID=" | cut -d'=' -f2-)
-    backrest_sync_private_key=$(echo "$env_content" | grep "^BACKREST_SYNC_PRIVATE_KEY=" | cut -d'=' -f2-)
-    backrest_sync_public_key=$(echo "$env_content" | grep "^BACKREST_SYNC_PUBLIC_KEY=" | cut -d'=' -f2-)
+    backrest_instance_id=$(echo "$env_content" | grep "^BACKREST_INSTANCE_ID=" | cut -d'=' -f2- || true)
+    backrest_repo_id=$(echo "$env_content" | grep "^BACKREST_REPO_ID=" | cut -d'=' -f2- || true)
+    backrest_repo_guid=$(echo "$env_content" | grep "^BACKREST_REPO_GUID=" | cut -d'=' -f2- || true)
+    backrest_auth_username=$(echo "$env_content" | grep "^BACKREST_AUTH_USERNAME=" | cut -d'=' -f2- || true)
+    backrest_auth_password_bcrypt=$(echo "$env_content" | grep "^BACKREST_AUTH_PASSWORD_BCRYPT=" | cut -d'=' -f2- || true)
+    backrest_repo_password=$(echo "$env_content" | grep "^BACKREST_REPO_PASSWORD=" | cut -d'=' -f2- || true)
+    backrest_sync_key_id=$(echo "$env_content" | grep "^BACKREST_SYNC_KEY_ID=" | cut -d'=' -f2- || true)
+    backrest_sync_private_key=$(echo "$env_content" | grep "^BACKREST_SYNC_PRIVATE_KEY=" | cut -d'=' -f2- || true)
+    backrest_sync_public_key=$(echo "$env_content" | grep "^BACKREST_SYNC_PUBLIC_KEY=" | cut -d'=' -f2- || true)
 
     # Validate required variables
     if [[ -z "$backrest_instance_id" || -z "$backrest_repo_id" || \
@@ -257,7 +257,7 @@ deploy_backrest() {
 
     # Generate the complete, pre-configured config.json from the template
     if ! generate_backrest_config \
-        "/datapool/config/backrest/config/config.json" \
+        "/fastpool/config/backrest/config/config.json" \
         "$WORK_DIR/config/backrest/config.json.template" \
         "$backrest_instance_id" \
         "$backrest_repo_id" \
@@ -273,8 +273,8 @@ deploy_backrest() {
     fi
 
     # Set secure permissions and ownership on the config file
-    chown 101000:101000 /datapool/config/backrest/config/config.json
-    chmod 600 /datapool/config/backrest/config/config.json
+    chown 101000:101000 /fastpool/config/backrest/config/config.json
+    chmod 600 /fastpool/config/backrest/config/config.json
 
     # Configure rclone config file for Docker container (uses same env_content)
     if ! configure_rclone_config; then

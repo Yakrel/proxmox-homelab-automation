@@ -32,4 +32,4 @@ Shell-based automation for deploying containerized services in LXC containers on
 - **LXC Permissions (CRITICAL)**:
   - **Never run `chown` inside LXC containers.**
   - Always set host permissions with `chown 101000:101000` (which maps to `1000:1000` in container).
-  - Target permissions directly to stack-specific subdirectories; do not run recursive `chown` on large, high-churn directories (like Immich media, torrents, or full `/datapool/config`).
+  - Target permissions directly to stack-specific subdirectories; do not run recursive `chown` on large, high-churn directories (like Immich media, torrents, or full `/fastpool/config`).

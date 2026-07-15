@@ -18,8 +18,8 @@ services:
       - JD_PASSWORD=${MYJD_PASSWORD:?MyJDownloader password must be defined}
       - JD_DEVICENAME=${MYJD_DEVICE_NAME:-homelab-jdownloader}
     volumes:
-      - /datapool/config/jdownloader2:/jdownloader/cfg
-      - /datapool/torrents/other:/jdownloader/downloads
+      - /fastpool/config/jdownloader2:/jdownloader/cfg
+      - /datapool/downloads:/jdownloader/downloads
     ports:
       - "3129:3129"
     healthcheck:
@@ -49,7 +49,7 @@ services:
       - SAMBA_USER=${SAMBA_USER:?Samba username must be defined}
       - SAMBA_PASSWORD=${SAMBA_PASSWORD:?Samba password must be defined}
     volumes:
-      - /datapool/config/samba:/data
+      - /fastpool/config/samba:/data
       - /datapool:/datapool
       - samba-cache:/data/cache
       - samba-lib:/data/lib
@@ -83,8 +83,8 @@ services:
       - IGDB_CLIENT_ID=${REPACKARR_IGDB_CLIENT_ID}
       - IGDB_CLIENT_SECRET=${REPACKARR_IGDB_CLIENT_SECRET}
     volumes:
-      - /datapool/config/repackarr/data:/app/data
-      - /datapool/config/repackarr/logs:/app/logs
+      - /fastpool/config/repackarr/data:/app/data
+      - /fastpool/config/repackarr/logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -108,11 +108,11 @@ services:
     ports:
       - "9898:9898"
     volumes:
-      - /datapool/config/backrest/config:/config
-      - /datapool/config/backrest/data:/data
-      - /datapool/config/backrest/cache:/cache
+      - /fastpool/config/backrest/config:/config
+      - /fastpool/config/backrest/data:/data
+      - /fastpool/config/backrest/cache:/cache
       - /datapool/backup:/repos
-      - /datapool/config:/backup-sources/config:rw
+      - /fastpool/config:/backup-sources/config:rw
       - /datapool/media/immich:/backup-sources/immich:rw
     environment:
       - TZ=${TZ:-Europe/Istanbul}
@@ -148,7 +148,7 @@ services:
       - UMASK=002
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
-      - /datapool/config/metube:/config
+      - /fastpool/config/metube:/config
       - /datapool/media/kids/youtube:/downloads
     ports:
       - "8081:8081"
@@ -203,7 +203,7 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - /datapool/config/changedetection:/datastore
+      - /fastpool/config/changedetection:/datastore
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PLAYWRIGHT_DRIVER_URL=ws://playwright-chrome:3000/?stealth=1&--disable-web-security=true
@@ -264,7 +264,7 @@ services:
       - INFERENCE_TEXT_MODEL=${KARAKEEP_INFERENCE_TEXT_MODEL:-gemini-3.5-flash}
       - INFERENCE_IMAGE_MODEL=${KARAKEEP_INFERENCE_IMAGE_MODEL:-gemini-3.5-flash}
     volumes:
-      - /datapool/config/karakeep/data:/data
+      - /fastpool/config/karakeep/data:/data
     depends_on:
       - karakeep-meili
       - karakeep-chrome
@@ -308,7 +308,7 @@ services:
       - MEILI_NO_ANALYTICS=true
       - MEILI_MASTER_KEY=${KARAKEEP_MEILI_MASTER_KEY:?Karakeep Meili master key is required}
     volumes:
-      - /datapool/config/karakeep/meilisearch:/meili_data
+      - /fastpool/config/karakeep/meilisearch:/meili_data
     networks:
       - utility-net
     logging:

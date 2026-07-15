@@ -4,7 +4,7 @@
 # Storage: Pre-configured datapool
 
 storage:
-  pool: local-zfs
+  pool: fastpool
   template_pool: datapool
 
 nvidia:

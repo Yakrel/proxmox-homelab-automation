@@ -5,7 +5,7 @@ This guide explains how to generate a self-signed CA-enabled SSL certificate for
 ## Prerequisites
 
 ```bash
-cd /datapool/config/vaultwarden/ssl
+cd /fastpool/config/vaultwarden/ssl
 ```
 
 ## Certificate Generation

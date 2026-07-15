@@ -16,7 +16,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-       - /datapool/config/homepage:/app/config
+       - /fastpool/config/homepage:/app/config
        - /var/run/docker.sock:/var/run/docker.sock:ro
        - /datapool:/datapool:ro
        - /sys:/sys:ro
@@ -71,7 +71,7 @@ services:
     ports:
       - "5800:3001"  # HTTPS web interface
     volumes:
-      - /datapool/config/desktop-workspace:/config
+      - /fastpool/config/desktop-workspace:/config
       - /datapool:/datapool
     deploy:
       resources:
@@ -147,7 +147,7 @@ services:
       - GUACD_HOSTNAME=guacd
       - WEBAPP_CONTEXT=ROOT
     volumes:
-      - /datapool/config/guacamole:/etc/guacamole:ro
+      - /fastpool/config/guacamole:/etc/guacamole:ro
     depends_on:
       - guacd
     networks:
@@ -203,8 +203,8 @@ services:
       - COUCHDB_PASSWORD=${COUCHDB_PASSWORD:?CouchDB password must be defined}
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
-      - /datapool/config/couchdb/data:/opt/couchdb/data
-      - /datapool/config/couchdb/local.d:/opt/couchdb/etc/local.d
+      - /fastpool/config/couchdb/data:/opt/couchdb/data
+      - /fastpool/config/couchdb/local.d:/opt/couchdb/etc/local.d
     healthcheck:
       test: ["CMD-SHELL", "curl -f -u \"$${COUCHDB_USER}:$${COUCHDB_PASSWORD}\" http://localhost:5984/_up"]
       interval: 30s
@@ -233,7 +233,7 @@ services:
       - SIGNUPS_ALLOWED=false
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
-      - /datapool/config/vaultwarden:/data
+      - /fastpool/config/vaultwarden:/data
     networks:
       - desktop-net
     logging:
@@ -251,7 +251,7 @@ services:
     ports:
       - "7681:8182"
     volumes:
-      - /datapool/config/sshwifty/sshwifty.conf.json:/etc/sshwifty/sshwifty.conf.json:ro
+      - /fastpool/config/sshwifty/sshwifty.conf.json:/etc/sshwifty/sshwifty.conf.json:ro
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - SSHWIFTY_CONFIG=/etc/sshwifty/sshwifty.conf.json
@@ -298,8 +298,8 @@ services:
     ports:
       - "5232:5232"
     volumes:
-      - /datapool/config/radicale/config:/etc/radicale:ro
-      - /datapool/config/radicale/data:/var/lib/radicale
+      - /fastpool/config/radicale/config:/etc/radicale:ro
+      - /fastpool/config/radicale/data:/var/lib/radicale
     environment:
       - TZ=${TZ:-Europe/Istanbul}
     user: "1000:1000"
