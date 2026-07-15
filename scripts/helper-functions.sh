@@ -81,6 +81,7 @@ ensure_packages() {
 
 readonly LXC_IP_BASE="192.168.1"
 readonly DATAPOOL="/datapool"
+readonly FASTPOOL="/fastpool"
 readonly NETWORK_BRIDGE="vmbr0"
 readonly NETWORK_GATEWAY="192.168.1.1"
 
@@ -261,12 +262,12 @@ fix_all_permissions() {
     print_info "Ensuring shared permissions on /datapool (config, backup, media, torrents)"
     
     # Create base directories if they don't exist
-    mkdir -p /datapool/config /datapool/backup /datapool/media /datapool/torrents
+    mkdir -p /fastpool/config /datapool/backup /datapool/media /datapool/torrents
 
     # Performance Optimization: Shallow fix only (Top-level folder permissions)
     # Recursive scanning 60k+ files (especially in config/media) caused massive delays.
     # Containers usually inherit correct permissions or manage their own files.
-    local dirs=("/datapool/config" "/datapool/backup" "/datapool/media" "/datapool/torrents")
+    local dirs=("/fastpool/config" "/datapool/backup" "/datapool/media" "/datapool/torrents")
     
     for dir in "${dirs[@]}"; do
         if [[ -d "$dir" ]]; then

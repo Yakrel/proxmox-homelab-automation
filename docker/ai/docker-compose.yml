@@ -10,7 +10,8 @@ services:
     container_name: hermes
     restart: unless-stopped
     volumes:
-      - /datapool/config/hermes:/opt/data
+      - /fastpool/config/hermes:/opt/data
+      - /datapool:/datapool
     environment:
       - HERMES_UID=1000
       - HERMES_GID=1000
@@ -24,3 +25,61 @@ services:
         max-file: "3"
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
+
+  watchtower:
+    image: nickfedor/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - WATCHTOWER_CLEANUP=true
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - WATCHTOWER_SCHEDULE=0 36 */6 * * *
+      - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
+      - WATCHTOWER_NOTIFICATIONS_LEVEL=info
+      - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-ai
+    networks:
+      - ai-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  omniroute:
+    image: diegosouzapw/omniroute:latest
+    container_name: omniroute
+    restart: unless-stopped
+    ports:
+      - "20128:20128" # Dashboard & API (single port mode)
+      - "20129:20129" # Split-port API
+      - "20132:20132" # WebSocket monitoring
+    volumes:
+      - /fastpool/config/omniroute:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=20128
+      - DASHBOARD_PORT=20128
+      - API_PORT=20129
+      - LIVE_WS_PORT=20132
+      - LIVE_WS_HOST=0.0.0.0
+      - LIVE_WS_ALLOWED_ORIGINS=http://localhost:20128,http://127.0.0.1:20128,http://192.168.1.105:20128
+      - JWT_SECRET=${OMNI_JWT_SECRET}
+      - API_KEY_SECRET=${OMNI_API_KEY_SECRET}
+      - INITIAL_PASSWORD=${OMNI_INITIAL_PASSWORD}
+    networks:
+      - ai-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+

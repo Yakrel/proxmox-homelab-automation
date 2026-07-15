@@ -45,6 +45,11 @@
           username: "{{HOMEPAGE_VAR_ADGUARD_USERNAME}}"
           password: "{{HOMEPAGE_VAR_ADGUARD_PASSWORD}}"
 
+    - OmniRoute:
+        description: AI Gateway & Router
+        href: https://omniroute.byetgin.com
+        icon: mdi-brain
+
 
 - Media:
     - Jellyfin:

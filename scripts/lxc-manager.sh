@@ -84,6 +84,9 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
     # Mount datapool for all stacks
     pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; exit 1; }
     
+    # Mount fastpool for all stacks
+    pct set "$CT_ID" -mp1 "$FASTPOOL",mp="$FASTPOOL",acl=1 || { print_error "Failed to mount fastpool"; exit 1; }
+    
     # GPU passthrough for media and desktop stacks - cgroup v2 method
     # media: Jellyfin hardware transcoding (decode/scale/encode) + Immich ML
     # desktop: Brave automatically enables hardware acceleration with Nvidia passthrough
@@ -220,7 +223,7 @@ if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
     print_info "Detected host NVIDIA driver version: ${target_version}"
 
     # 1.5. Automatically check and download matching NVIDIA .run driver file if missing on the host
-    driver_dir="/datapool/config/temp"
+    driver_dir="/fastpool/config/temp"
     driver_file="$driver_dir/NVIDIA-Linux-x86_64-${target_version}.run"
     if [[ ! -f "$driver_file" ]]; then
         print_info "NVIDIA driver runfile not found at $driver_file. Downloading automatically on host..."
@@ -271,9 +274,17 @@ pct exec "$CT_ID" -- mkdir -p /root/.docker
 # Fix permissions on host mapped directories
 fix_all_permissions
 
+# Read SSH configuration from decrypted .env if present
+SSH_ENABLED=""
+ROOT_PASSWORD=""
+if [ -f "$WORK_DIR/.env" ]; then
+    SSH_ENABLED=$(grep "^SSH_ENABLED=" "$WORK_DIR/.env" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//" || true)
+    ROOT_PASSWORD=$(grep "^ROOT_PASSWORD=" "$WORK_DIR/.env" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//" || true)
+fi
+
 print_info "Provisioning container (stack: $STACK_NAME)"
 
-pct exec "$CT_ID" -- sh -c "
+pct exec "$CT_ID" -- env SSH_ENABLED="${SSH_ENABLED}" ROOT_PASSWORD="${ROOT_PASSWORD}" sh -c "
 set -e
 STACK_NAME='${STACK_NAME}'
 SKIP_CREATION='${SKIP_CREATION}'
@@ -340,8 +351,8 @@ EOS
 
         # Configure code-server (no auth - homelab internal network only)
         # Persist config and data (extensions/user-data) to datapool
-        mkdir -p /datapool/config/code-server/config
-        mkdir -p /datapool/config/code-server/data
+        mkdir -p /fastpool/config/code-server/config
+        mkdir -p /fastpool/config/code-server/data
         
         mkdir -p /root/.config
         mkdir -p /root/.local/share
@@ -349,12 +360,12 @@ EOS
         # Replace local directories with symlinks to datapool
         if [ ! -L /root/.config/code-server ]; then
             rm -rf /root/.config/code-server
-            ln -s /datapool/config/code-server/config /root/.config/code-server
+            ln -s /fastpool/config/code-server/config /root/.config/code-server
         fi
         
         if [ ! -L /root/.local/share/code-server ]; then
             rm -rf /root/.local/share/code-server
-            ln -s /datapool/config/code-server/data /root/.local/share/code-server
+            ln -s /fastpool/config/code-server/data /root/.local/share/code-server
         fi
 
         # Write config file (now writes to datapool via symlink)
@@ -478,16 +489,27 @@ else
     apk add --no-cache tzdata || true
     ln -sf /usr/share/zoneinfo/Europe/Istanbul /etc/localtime || true
 
-    # Remove openssh (reduce attack surface)
-    apk del openssh || true
+    # Configure SSH dynamically if requested
+    if [ \"\$SSH_ENABLED\" = 'true' ] && [ -n \"\$ROOT_PASSWORD\" ]; then
+        apk add --no-cache openssh
+        rc-update add sshd default
+        echo \"root:\$ROOT_PASSWORD\" | chpasswd
+        sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+        rc-service sshd start || true
+    else
+        # Remove openssh (reduce attack surface)
+        apk del openssh || true
+    fi
 fi
 
 # Common setup for all containers
 echo 'export TERM=xterm-256color' >> /etc/profile
 echo 'export TERM=xterm-256color' >> /root/.bashrc
 
-# Remove root password (allow passwordless login)
-passwd -d root || true
+# Remove root password (allow passwordless login) if SSH password was not set
+if [ \"\${SSH_ENABLED:-}\" != 'true' ] || [ -z \"\${ROOT_PASSWORD:-}\" ]; then
+    passwd -d root || true
+fi
 
 # Create hushlogin to suppress login messages  
 touch /root/.hushlogin

@@ -126,6 +126,18 @@ run_optimize_zfs() {
     zfs set xattr=sa rpool                # System attributes performance
     zpool set autotrim=on rpool           # Enable TRIM for SSD performance and longevity
 
+    # fastpool (SSD) - Config/Database storage pool
+    if zpool list | grep -q "fastpool"; then
+        print_info "Optimizing fastpool (SSD)..."
+        zfs set compression=lz4 fastpool
+        zfs set atime=off fastpool
+        zfs set sync=standard fastpool       # Data integrity for configs/databases
+        zfs set recordsize=128K fastpool     # Optimal for mixed config workloads
+        zfs set primarycache=all fastpool     # Use ARC caching
+        zfs set xattr=sa fastpool             # System attributes performance
+        zpool set autotrim=on fastpool        # Enable TRIM for SSD performance and longevity
+    fi
+
     # datapool (HDD) - Data storage pool
     print_info "Optimizing datapool (HDD)..."
     zfs set compression=lz4 datapool      # Faster decompression for media (research-backed)
@@ -162,6 +174,30 @@ run_optimize_zfs() {
         print_info "Added swappiness = 0 to sysctl.conf"
     fi
     sysctl -w vm.swappiness=0 >/dev/null
+
+    # --- Custom Service for datapool Auto-Import on boot (HDD Delay Fix) ---
+    if zpool list | grep -q "datapool"; then
+        print_info "Configuring custom systemd service for datapool auto-import..."
+        cat > /etc/systemd/system/zfs-import-datapool.service << 'EOF'
+[Unit]
+Description=Import ZFS pool datapool on boot (HDD Delay Fix)
+After=local-fs.target
+After=systemd-udev-settle.service
+Before=pve-storage.target
+Before=sanoid.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/zpool import -d /dev/disk/by-id -f datapool
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        systemctl daemon-reload
+        systemctl enable zfs-import-datapool.service
+        print_success "Custom datapool import service configured."
+    fi
 
     print_info "Updating initramfs..."
     update-initramfs -u -k all
@@ -383,7 +419,7 @@ EOF
     # Install NVIDIA driver via official .run file
     print_info "Downloading NVIDIA ${target_version} driver..."
     local driver_url="https://us.download.nvidia.com/XFree86/Linux-x86_64/${target_version}/NVIDIA-Linux-x86_64-${target_version}.run"
-    local driver_dir="/datapool/config/temp"
+    local driver_dir="/fastpool/config/temp"
     mkdir -p "$driver_dir"
     local driver_file="$driver_dir/NVIDIA-Linux-x86_64-${target_version}.run"
 

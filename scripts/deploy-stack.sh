@@ -156,7 +156,7 @@ case "$STACK_NAME" in
         
         # Install and configure Tailscale on host (idempotent subnet router)
         if [[ -f "${ENV_DECRYPTED_PATH:-}" ]]; then
-            ts_key=$(grep "^TAILSCALE_AUTH_KEY=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+            ts_key=$(grep "^TAILSCALE_AUTH_KEY=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//" || true)
             if [[ -n "$ts_key" ]]; then
                 print_info "Configuring Tailscale on Proxmox host..."
                 TAILSCALE_AUTH_KEY="$ts_key" bash "$WORK_DIR/scripts/setup-tailscale-host.sh"

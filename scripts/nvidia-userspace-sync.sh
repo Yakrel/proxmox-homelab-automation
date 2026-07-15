@@ -38,7 +38,7 @@ fi
 
 # 3. Perform Sync if versions mismatch or libraries are missing
 if [[ "$installed_version" != "$target_version" ]] || [[ "$lib_check" -eq 0 ]]; then
-    driver_file="/datapool/config/temp/NVIDIA-Linux-x86_64-${target_version}.run"
+    driver_file="/fastpool/config/temp/NVIDIA-Linux-x86_64-${target_version}.run"
     if [[ -f "$driver_file" ]]; then
         echo "[NVIDIA-SYNC] Host driver version is ${target_version} (container is ${installed_version:-none}). Syncing..."
         "$driver_file" --silent --accept-license --no-kernel-module --no-x-check

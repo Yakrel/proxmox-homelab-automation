@@ -15,8 +15,8 @@ services:
       - '81:81'
       - '443:443'
     volumes:
-      - /datapool/config/npm/data:/data
-      - /datapool/config/npm/letsencrypt:/etc/letsencrypt
+      - /fastpool/config/npm/data:/data
+      - /fastpool/config/npm/letsencrypt:/etc/letsencrypt
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PUID=1000
@@ -47,8 +47,8 @@ services:
       - "53:53/udp"
       - "3000:3000" # Web Interface
     volumes:
-      - /datapool/config/adguard/work:/opt/adguardhome/work
-      - /datapool/config/adguard/conf:/opt/adguardhome/conf
+      - /fastpool/config/adguard/work:/opt/adguardhome/work
+      - /fastpool/config/adguard/conf:/opt/adguardhome/conf
     environment:
       - TZ=${TZ:-Europe/Istanbul}
     networks:
