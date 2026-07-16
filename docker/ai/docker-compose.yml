@@ -11,6 +11,7 @@ services:
     restart: unless-stopped
     volumes:
       - /fastpool/config/hermes:/opt/data
+      - /fastpool/config:/fastpool/config
       - /datapool:/datapool
     environment:
       - HERMES_UID=1000

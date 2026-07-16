@@ -1,7 +1,7 @@
 # Central source of truth for LXC stacks (IDs, hostnames, resources)
 # All scripts read from this file to maintain consistency and follow DRY principle.
 # Network: Fixed homelab topology - Proxmox 192.168.1.10, LXCs 192.168.1.{ct_id}
-# Storage: Pre-configured datapool
+# Storage: fastpool (SSD, configs/databases) and datapool (HDD, media/backups/templates)
 
 storage:
   pool: fastpool
