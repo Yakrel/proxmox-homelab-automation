@@ -1,8 +1,8 @@
 # Proxmox Homelab Automation
 
-Production-style homelab architected with enterprise-inspired reliability practices, demonstrating infrastructure automation and DevOps patterns. Orchestrates **30+ services** across **6 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
+Production-style homelab architected with enterprise-inspired reliability practices, demonstrating infrastructure automation and DevOps patterns. Orchestrates **40+ services** across **6 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
 
-> **About**: Production homelab running family media services (Jellyfin, Immich) with production-grade infrastructure patterns. Features **declarative infrastructure-as-code**, **ZFS-backed storage**, **encrypted secret management**, and **disaster recovery** architecture.
+> **About**: Production homelab running family media services (Jellyfin, Immich), AI automation (Hermes Agent), and productivity tools with production-grade infrastructure patterns. Features **declarative infrastructure-as-code**, **ZFS-backed storage**, **encrypted secret management**, and **disaster recovery** architecture.
 
 ---
 
@@ -85,19 +85,19 @@ This project utilizes custom Docker images that are maintained in separate repos
 ## 📦 Service Stacks
 
 ### **Proxy & DNS (Gateway)** (LXC 100 - `192.168.1.100`)
-Nginx Proxy Manager, AdGuard Home, Cloudflared, Tailscale Subnet Router, Promtail
+Nginx Proxy Manager, AdGuard Home, Cloudflared, Tailscale Subnet Router
 
 ### **Media Automation** (LXC 101 - `192.168.1.101`)
-Jellyfin, Immich, Sonarr, Radarr, Bazarr, Jellyseerr, Prowlarr, qBittorrent, FlareSolverr, Recyclarr, Cleanuperr, Tdarr
+Jellyfin, Immich, Sonarr, Radarr, Bazarr, Jellyseerr, Prowlarr, qBittorrent, FlareSolverr, Tor Proxy, Recyclarr, Tdarr, Cleanuperr
 
 ### **Utility & Backup** (LXC 102 - `192.168.1.102`)
-JDownloader 2, Samba, Repackarr, Backrest-Rclone (Backup with Google Drive sync), MeTube
+JDownloader 2, Samba, Repackarr, Backrest-Rclone (Backup with Google Drive sync), MeTube, Changedetection.io, Karakeep
 
 ### **Desktop Workspace (Web Tools)** (LXC 103 - `192.168.1.103`)
-Homepage, Desktop Workspace, Guacamole, Sshwifty, CouchDB, Vaultwarden
+Homepage, Desktop Workspace, Guacamole, Sshwifty, CouchDB, Vaultwarden, Desktop OTP Gate, Radicale CalDAV
 
-### **Game Servers (Gaming)** (LXC 105 - `192.168.1.105`)
-Palworld, Satisfactory
+### **AI & Automation** (LXC 105 - `192.168.1.105`)
+Hermes Agent, OmniRoute
 
 ### **Development (Dev)** (LXC 106 - `192.168.1.106`)
 Code-Server, Node.js, Python, Git, Antigravity CLI
@@ -109,7 +109,7 @@ Code-Server, Node.js, Python, Git, Antigravity CLI
 **This is my production homelab optimized for my specific environment.** Values are hardcoded for reliability:
 
 - **Network**: `192.168.1.x` range, `vmbr0` bridge
-- **Storage**: ZFS pool `datapool`
+- **Storage**: ZFS pools `fastpool` (SSD, configs/databases) and `datapool` (HDD, media/backups)
 - **Timezone**: `Europe/Istanbul`
 - **Secrets**: Pre-encrypted in `.env.enc` files
 
@@ -136,16 +136,19 @@ Code-Server, Node.js, Python, Git, Antigravity CLI
 │       ├── docker-deployment.sh
 │       └── backrest-deployment.sh
 ├── docker/                   # Docker Compose stacks
-│   ├── desktop/             # Dashboard, desktop workspace, guacamole, sshwifty
-│   ├── gaming/              # Satisfactory, Palworld servers
+│   ├── ai/                  # Hermes Agent, OmniRoute
+│   ├── desktop/             # Dashboard, desktop workspace, guacamole, sshwifty, radicale
+│   ├── dev/                 # Development stack (no compose, managed by LXC manager)
 │   ├── gateway/             # Nginx Proxy Manager, AdGuard, Cloudflared
-│   ├── media/               # Media automation + GPU acceleration (Jellyfin, Immich)
-│   └── utility/             # Download managers, Backrest backup, Samba shares
+│   ├── media/               # Media automation + GPU acceleration (Jellyfin, Immich, Tdarr)
+│   └── utility/             # Download managers, Backrest backup, Samba, Changedetection, Karakeep
 └── config/                   # Shared configurations
+    ├── backrest/            # Backrest config.json template
     ├── homepage/            # Dashboard widgets
     ├── samba/               # Samba share template config
     ├── sshwifty/            # sshwifty profile template config
     ├── couchdb/             # CouchDB local.ini configuration
+    ├── vaultwarden/         # Vaultwarden SSL setup notes
     └── guacamole/           # Apache Guacamole user-mapping configs
 ```
 
@@ -153,6 +156,7 @@ Code-Server, Node.js, Python, Git, Antigravity CLI
 
 - **Proxmox VE**: 9.x with ZFS storage
 - **Network**: `vmbr0` bridge, `192.168.1.x` range
+- **Storage**: ZFS pools — `fastpool` (SSD) for configs/databases, `datapool` (HDD) for media/backups
 - **GPU** (optional): NVIDIA for hardware transcoding/ML acceleration
 
 ## 🔐 Security
