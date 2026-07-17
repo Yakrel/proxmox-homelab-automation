@@ -9,6 +9,10 @@ services:
     image: nousresearch/hermes-agent:latest
     container_name: hermes
     restart: unless-stopped
+    ports:
+      # Hermes requires its own authentication for non-loopback dashboard binds,
+      # including access through the SNO-protected Nginx Proxy Manager host.
+      - "192.168.1.105:9119:9119"
     volumes:
       - /fastpool/config/hermes:/opt/data
       - /fastpool/config:/fastpool/config
@@ -16,6 +20,11 @@ services:
     environment:
       - HERMES_UID=1000
       - HERMES_GID=1000
+      - HERMES_DASHBOARD=1
+      - HERMES_DASHBOARD_HOST=0.0.0.0
+      - HERMES_DASHBOARD_BASIC_AUTH_USERNAME=${HERMES_DASHBOARD_BASIC_AUTH_USERNAME}
+      - HERMES_DASHBOARD_BASIC_AUTH_PASSWORD=${HERMES_DASHBOARD_BASIC_AUTH_PASSWORD}
+      - HERMES_DASHBOARD_TUI=1
     command: ["gateway", "run"]
     networks:
       - ai-net
@@ -36,12 +45,11 @@ services:
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - WATCHTOWER_CLEANUP=true
-      - PUID=1000
-      - PGID=1000
-      - UMASK=002
       - WATCHTOWER_SCHEDULE=0 36 */6 * * *
       - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
       - WATCHTOWER_NOTIFICATIONS_LEVEL=info
+      - WATCHTOWER_NOTIFICATION_REPORT=true
+      - WATCHTOWER_NO_STARTUP_MESSAGE=true
       - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-ai
     networks:
       - ai-net
@@ -57,20 +65,16 @@ services:
     image: diegosouzapw/omniroute:latest
     container_name: omniroute
     restart: unless-stopped
+    stop_grace_period: 40s
     ports:
-      - "20128:20128" # Dashboard & API (single port mode)
-      - "20129:20129" # Split-port API
-      - "20132:20132" # WebSocket monitoring
+      - "20128:20128"
     volumes:
       - /fastpool/config/omniroute:/app/data
     environment:
       - NODE_ENV=production
       - PORT=20128
-      - DASHBOARD_PORT=20128
-      - API_PORT=20129
-      - LIVE_WS_PORT=20132
-      - LIVE_WS_HOST=0.0.0.0
-      - LIVE_WS_ALLOWED_ORIGINS=http://localhost:20128,http://127.0.0.1:20128,http://192.168.1.105:20128
+      - DATA_DIR=/app/data
+      - REQUIRE_API_KEY=true
       - JWT_SECRET=${OMNI_JWT_SECRET}
       - API_KEY_SECRET=${OMNI_API_KEY_SECRET}
       - INITIAL_PASSWORD=${OMNI_INITIAL_PASSWORD}
@@ -83,4 +87,3 @@ services:
         max-file: "3"
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
-

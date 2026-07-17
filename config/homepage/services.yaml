@@ -5,17 +5,17 @@
 
 - Infrastructure:
     - Proxmox VE:
-        description: Virtualization Platform
+        description: Virtualization platform
         href: https://proxmox.local.byetgin.com
         icon: proxmox.png
         widget:
           type: proxmox
-          url: https://192.168.1.10:8006
+          url: "{{HOMEPAGE_VAR_PROXMOX_URL}}"
           username: "{{HOMEPAGE_VAR_PROXMOX_TOKEN_ID}}"
           password: "{{HOMEPAGE_VAR_PROXMOX_TOKEN_SECRET}}"
 
     - Backrest:
-        description: Backup Management
+        description: Backup management
         href: https://backrest.byetgin.com
         icon: mdi-backup-restore
         widget:
@@ -26,7 +26,7 @@
           fields: ["num_success_30", "num_failure_30", "bytes_added_30"]
 
     - Nginx Proxy Manager:
-        description: Reverse Proxy
+        description: Reverse proxy management
         href: https://npm.byetgin.com
         icon: nginx-proxy-manager.png
         widget:
@@ -36,7 +36,7 @@
           password: "{{HOMEPAGE_VAR_NPM_PASSWORD}}"
 
     - AdGuard Home:
-        description: DNS & AdBlock
+        description: DNS and ad blocking
         href: https://adguard.byetgin.com
         icon: adguard-home.png
         widget:
@@ -46,14 +46,20 @@
           password: "{{HOMEPAGE_VAR_ADGUARD_PASSWORD}}"
 
     - OmniRoute:
-        description: AI Gateway & Router
+        description: AI gateway and router
         href: https://omniroute.byetgin.com
         icon: mdi-brain
+        siteMonitor: http://192.168.1.105:20128
+
+    - Oracle VPS (Cockpit):
+        description: Cloud backup node console
+        href: https://100.73.67.33:9090
+        icon: cockpit.png
 
 
 - Media:
     - Jellyfin:
-        description: Media Server
+        description: Media server
         href: https://jellyfin.local.byetgin.com
         icon: jellyfin.png
         widget:
@@ -61,17 +67,17 @@
           url: http://192.168.1.101:8096
           key: "{{HOMEPAGE_VAR_JELLYFIN_API_KEY}}"
     
-    - Jellyseerr:
-        description: Media Requests
+    - Seerr:
+        description: Media requests
         href: https://jellyseerr.byetgin.com
-        icon: jellyseerr.png
+        icon: seerr.png
         widget:
-          type: jellyseerr
+          type: seerr
           url: http://192.168.1.101:5055
           key: "{{HOMEPAGE_VAR_JELLYSEERR_API_KEY}}"
     
     - Sonarr:
-        description: TV Shows
+        description: TV show management
         href: https://sonarr.byetgin.com
         icon: sonarr.png
         widget:
@@ -80,7 +86,7 @@
           key: "{{HOMEPAGE_VAR_SONARR_API_KEY}}"
     
     - Radarr:
-        description: Movies
+        description: Movie management
         href: https://radarr.byetgin.com
         icon: radarr.png
         widget:
@@ -89,7 +95,7 @@
           key: "{{HOMEPAGE_VAR_RADARR_API_KEY}}"
     
     - Prowlarr:
-        description: Indexer Manager
+        description: Indexer management
         href: https://prowlarr.byetgin.com
         icon: prowlarr.png
         widget:
@@ -98,7 +104,7 @@
           key: "{{HOMEPAGE_VAR_PROWLARR_API_KEY}}"
     
     - Bazarr:
-        description: Subtitles
+        description: Subtitle management
         href: https://bazarr.byetgin.com
         icon: bazarr.png
         widget:
@@ -107,7 +113,7 @@
           key: "{{HOMEPAGE_VAR_BAZARR_API_KEY}}"
     
     - Immich:
-        description: Photo & Video Management
+        description: Photo and video library
         href: https://immich.byetgin.com
         icon: immich.png
         widget:
@@ -117,21 +123,22 @@
           version: 2
 
     - Tdarr:
-        description: Transcoding Automation
+        description: Transcoding automation
         href: https://tdarr.byetgin.com
         icon: tdarr.png
         widget:
           type: tdarr
           url: http://192.168.1.101:8265
 
-    - Cleanuperr:
-        description: Media Cleanup
+    - Cleanuparr:
+        description: Media cleanup automation
         href: https://cleanuparr.byetgin.com/
-        icon: cleanuperr.png
+        icon: cleanuparr.png
+        siteMonitor: http://192.168.1.101:11011
 
 - Utilities:
     - ChangeDetection:
-        description: Web Page Monitor
+        description: Web page change monitoring
         href: https://changedetection.byetgin.com
         icon: changedetection.png
         widget:
@@ -140,7 +147,7 @@
           key: "{{HOMEPAGE_VAR_CHANGEDETECTION_API_KEY}}"
 
     - Karakeep:
-        description: Bookmark & Digital Archivist
+        description: Bookmark and digital archive
         href: https://karakeep.byetgin.com
         icon: mdi-bookmark
         widget:
@@ -150,48 +157,56 @@
           fields: ["bookmarks", "favorites", "tags"]
 
     - Repackarr:
-        description: Game Repack Automation
+        description: Game repack automation
         href: https://repackarr.byetgin.com
         icon: mdi-package-variant
+        siteMonitor: http://192.168.1.102:8090/health
 
     - Terminal:
-        description: Web SSH Client
+        description: Web SSH client
         href: https://terminal.byetgin.com
         icon: sshwifty.png
+        siteMonitor: http://192.168.1.103:7681
 
     - Guacamole:
-        description: Remote Access Gateway
+        description: Remote access gateway
         href: https://remote.byetgin.com
         icon: guacamole.png
+        siteMonitor: http://192.168.1.103:8080
 
     - CouchDB:
-        description: Obsidian Sync
+        description: Obsidian sync
         href: https://couchdb.byetgin.com/_utils
         icon: couchdb.png
+        siteMonitor: http://192.168.1.103:5984/_up
 
-    - Tasks.org:
-        description: Tasks CalDAV Sync
-        href: https://tasks.byetgin.com
+    - Radicale:
+        description: CalDAV calendar and task sync
+        href: https://radicale.byetgin.com
         icon: radicale.png
+        siteMonitor: http://192.168.1.103:5232
 
     - Vaultwarden:
-        description: Password Manager
+        description: Password manager
         href: https://vaultwarden.byetgin.com
         icon: vaultwarden.png
+        siteMonitor: http://192.168.1.103:8201/alive
 
     - VS Code:
-        description: Web-based IDE
+        description: Web-based development environment
         href: https://code.byetgin.com/
         icon: vscode.png
+        siteMonitor: http://192.168.1.106:8680/healthz
 
     - Desktop Workspace:
-        description: Remote Desktop (Selkies)
+        description: Brave browser workspace
         href: https://cdn.local.byetgin.com
         icon: brave.png
+        siteMonitor: https://cdn.local.byetgin.com
 
 - Downloads:
     - qBittorrent:
-        description: Torrent Client
+        description: Torrent client
         href: https://qbittorrent.byetgin.com
         icon: qbittorrent.png
         widget:
@@ -200,23 +215,35 @@
           username: "{{HOMEPAGE_VAR_QB_USERNAME}}"
           password: "{{HOMEPAGE_VAR_QB_PASSWORD}}"
     
-    - Metube:
-        description: YouTube Downloader
-        href: https://metube.byetgin.com
-        icon: metube.png
-    
     - MyJDownloader:
-        description: Download Manager
+        description: Download manager
         href: https://my.jdownloader.org
         icon: jdownloader.png
+        widget:
+          type: jdownloader
+          username: "{{HOMEPAGE_VAR_JDOWNLOADER_USERNAME}}"
+          password: "{{HOMEPAGE_VAR_JDOWNLOADER_PASSWORD}}"
+          client: "{{HOMEPAGE_VAR_JDOWNLOADER_CLIENT}}"
+
+    - MeTube:
+        description: Video downloader
+        href: https://metube.byetgin.com
+        icon: metube.png
+        siteMonitor: http://192.168.1.102:8081
 
 - External:
-    - Tailscale:
-        description: VPN & Network
-        href: https://login.tailscale.com/admin/machines
-        icon: tailscale.png
-
     - Cloudflare Zero Trust:
-        description: Network Security
+        description: Tunnel and network security
         href: https://one.dash.cloudflare.com/9a9852b8b3a0e43cadac66ada7aadeb1/overview?tab=overview&duration=24h
         icon: cloudflare.png
+        widget:
+          type: cloudflared
+          accountid: "{{HOMEPAGE_VAR_CLOUDFLARE_ACCOUNT_ID}}"
+          tunnelid: "{{HOMEPAGE_VAR_CLOUDFLARE_TUNNEL_ID}}"
+          key: "{{HOMEPAGE_VAR_CLOUDFLARE_API_TOKEN}}"
+          fields: ["status", "origin_ip"]
+
+    - Tailscale:
+        description: VPN and private network
+        href: https://login.tailscale.com/admin/machines
+        icon: tailscale.png

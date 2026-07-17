@@ -1,34 +1,43 @@
 # Agent Instructions
 
-1. Ask, don't assume. If something is unclear, ask before writing a single line. Never make silent assumptions about intent, architecture, or requirements. When running unattended, pick the most reasonable interpretation, proceed, and record the assumption rather than blocking.
+## Collaboration
 
-2. Implement the simplest solution for simple problems, better solutions for harder problems. Do not over-engineer or add flexibility that isn't needed yet. 
-
-3. Don't touch unrelated code but please do surface bad code or design smells you discover with me so we can address them as a separate issue.
-
-4. Flag uncertainty explicitly. If you're unsure about something, see point 1 above. If it makes sense to do so, conduct a small, localised and low-risk experiment and bring the hypothesis and results to me to discuss. Confidence without certainty causes more damage than admitting a gap.
-
-5. I'm always open to ideas on better ways to do things. Please don't hesitate to suggest a better way, or one that has long lasting impact over a tactical change. (as a few examples)
+- Ask when missing information would materially change the architecture, result, or risk. For low-risk ambiguity, use the simplest reasonable interpretation and state the assumption.
+- Keep changes focused on the requested work. Surface unrelated bugs and design smells separately instead of silently expanding the scope.
+- Prefer simple, durable solutions over speculative flexibility or tactical workarounds.
+- State uncertainty explicitly. Use small, local, low-risk experiments when they can resolve it.
+- Suggest improvements with long-term value when they are relevant.
 
 ## Overview
 Shell-based automation for deploying containerized services in LXC containers on Proxmox VE. Keep code clean and production-ready.
 
 ## Core Development Principles
+
 - **Fail Fast & Simple**: Let commands fail naturally. No retry loops. Do not suppress stderr/stdout unless it mixes with command output parsing (e.g. `apt-get update` output mixing with `yq` variables).
 - **Idempotency**: Do not manually check if something exists before running idempotent commands (e.g. run `mkdir -p` or `apt install` directly without `if` checks).
-- **Homelab focus**: Prefer hardcoded static configurations over dynamic runtime detection. Always use the `latest` version tags.
+- **Homelab focus**: Prefer hardcoded static configurations over dynamic runtime detection. Using `latest` image tags is an intentional project policy unless the user requests pinning.
+
+## Deployment Lifecycle
+
+- Treat LXC provisioning as a clean installation. If initial provisioning fails, delete the incomplete LXC and create it again; do not add repair or migration logic for partial installations.
+- Treat an existing LXC as already provisioned. Apply Docker Compose and application configuration changes through **Fast Redeploy All** or by redeploying the selected stack. Keep both paths on the same stack-preparation code path.
+- Do not repeat OS package, repository, or base-container provisioning during an application redeploy unless the task explicitly changes that lifecycle.
+- Never add recurring script logic whose only purpose is deleting files, users, keys, or configuration left by an older deployment. With explicit approval, clean live residue directly once instead of permanently encoding the cleanup in the repository.
+- Current-run cleanup is still required: remove temporary decrypted secrets and temporary work directories with `trap`, and let declarative tools reconcile resources they own.
 
 ## Technical & Git Guidelines
+
 - **Encryption & Secrets**: Use `openssl` with `-pbkdf2` and `-salt` for encrypting `.env` files. Decrypt/encrypt using `ENV_ENC_KEY` from CI/CD env variables. Commit only `.env.enc` files, never plain `.env`.
-- **Documentation**: Keep documentation minimal. Only write in `README.md` or inline comments. Do not create separate validation/health check scripts.
+- **Documentation**: Keep project documentation in `README.md` or inline comments. Reserve `AGENTS.md` and `CLAUDE.md` for agent instructions. Do not create separate validation or health-check scripts.
 - **Git Commit Info**: Always use these configurations before committing:
   `git config user.email "85676216+Yakrel@users.noreply.github.com"`
   `git config user.name "Berkay Yetgin"`
   *Never* write "Generated with AI" or similar in commit messages.
 
 ## Proxmox & LXC Context
+
 - **Network & Storage**: Timezone is `Europe/Istanbul`, topology uses `192.168.1.x`, ZFS pool is `datapool`, bridge is `vmbr0`.
-- **Environment**: Working inside dev LXC with no access to host commands (`pct`/`pvesh`) and no SSH to other LXCs. View live state via `/datapool` mount.
+- **Environment**: Work normally happens inside the dev LXC, where host commands such as `pct` and `pvesh` are unavailable; mounted storage can still expose part of the live state. Use explicitly authorized SSH access when live host inspection or intervention is part of the task; never store credentials in the repository.
 - **LXC Permissions (CRITICAL)**:
   - **Never run `chown` inside LXC containers.**
   - Always set host permissions with `chown 101000:101000` (which maps to `1000:1000` in container).

@@ -9,6 +9,7 @@ WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 
 # --- Load Shared Functions ---
 source "$WORK_DIR/scripts/helper-functions.sh"
+trap cleanup_runtime_temp_files EXIT
 
 # --- Core Logic Functions ---
 
@@ -86,13 +87,19 @@ run_install_storage() {
 [template_system]
 daily = 7
 monthly = 1
-hourly = 0
+hourly = 24
 autosnap = yes
 autoprune = yes
 [template_data]
-daily = 15
-monthly = 2
+daily = 7
+monthly = 1
 hourly = 0
+autosnap = yes
+autoprune = yes
+[template_config]
+hourly = 24
+daily = 7
+monthly = 1
 autosnap = yes
 autoprune = yes
 [rpool/ROOT]
@@ -101,6 +108,9 @@ recursive = yes
 [datapool]
 use_template = data
 recursive = yes
+[fastpool]
+use_template = config
+recursive = no
 EOT
     systemctl enable --now sanoid.timer
     
@@ -142,67 +152,18 @@ run_optimize_zfs() {
     print_info "Optimizing datapool (HDD)..."
     zfs set compression=lz4 datapool      # Faster decompression for media (research-backed)
     zfs set atime=off datapool
-    zfs set sync=disabled datapool        # Homelab standard (max performance, acceptable risk)
+    zfs set sync=standard datapool        # Honor durable writes for backups and application data
     zfs set recordsize=1M datapool        # Optimal for large media files
     zfs set logbias=throughput datapool   # HDD sequential write optimization
 
-    print_info "Writing ZFS ARC memory limit configuration..."
-    # For Proxmox with ZFS, use 37.5% of RAM for ARC (more aggressive than default 50% of free RAM)
-    # This accounts for Proxmox host + LXC containers while still providing good cache performance
-    total_ram_gb=$(free -g | awk 'NR==2{print $2}')
-    arc_max_bytes=$(( total_ram_gb * 1024 * 1024 * 1024 * 3 / 8 ))
-    mod_config="/etc/modprobe.d/zfs.conf"
+    # Import data pools explicitly before the cache and mount stages.
+    # This avoids relying on the shared zpool cache, which can be rewritten
+    # when another pool is imported during boot.
+    print_info "Configuring standard ZFS import services for data pools..."
+    systemctl enable zfs-import@datapool.service zfs-import@fastpool.service
+    print_success "Standard ZFS import services configured."
 
-    if grep -q "zfs_arc_max" "$mod_config"; then
-        print_info "Updating existing zfs_arc_max entry in $mod_config..."
-        sed -i -e "s/^\s*options zfs zfs_arc_max=[0-9]*/options zfs zfs_arc_max=${arc_max_bytes}/g" "$mod_config"
-    else
-        print_info "Adding new zfs_arc_max entry to $mod_config..."
-        echo "options zfs zfs_arc_max=${arc_max_bytes}" >> "$mod_config"
-    fi
-
-    print_info "ARC max set to $(( arc_max_bytes / 1024 / 1024 / 1024 )) GB (~37.5% of ${total_ram_gb} GB total RAM)"
-
-    print_info "Optimizing system swappiness for Proxmox..."
-    sysctl_conf="/etc/sysctl.conf"
-    touch "$sysctl_conf"
-    if grep -q "^vm.swappiness" "$sysctl_conf" 2>/dev/null; then
-        sed -i 's/^vm.swappiness.*/vm.swappiness = 0/' "$sysctl_conf"
-        print_info "Updated existing swappiness setting to 0"
-    else
-        echo "vm.swappiness = 0" >> "$sysctl_conf"
-        print_info "Added swappiness = 0 to sysctl.conf"
-    fi
-    sysctl -w vm.swappiness=0 >/dev/null
-
-    # --- Custom Service for datapool Auto-Import on boot (HDD Delay Fix) ---
-    if zpool list | grep -q "datapool"; then
-        print_info "Configuring custom systemd service for datapool auto-import..."
-        cat > /etc/systemd/system/zfs-import-datapool.service << 'EOF'
-[Unit]
-Description=Import ZFS pool datapool on boot (HDD Delay Fix)
-After=local-fs.target
-After=systemd-udev-settle.service
-Before=pve-storage.target
-Before=sanoid.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/sbin/zpool import -d /dev/disk/by-id -f datapool
-
-[Install]
-WantedBy=multi-user.target
-EOF
-        systemctl daemon-reload
-        systemctl enable zfs-import-datapool.service
-        print_success "Custom datapool import service configured."
-    fi
-
-    print_info "Updating initramfs..."
-    update-initramfs -u -k all
-    print_warning "A reboot is required for ZFS ARC changes to take effect."
-    print_success "ZFS optimization applied with best practice settings."
+    print_success "ZFS dataset and pool properties applied. ARC and swap tuning were left unchanged."
 }
 
 run_setup_bonding() {
@@ -221,16 +182,22 @@ run_setup_bonding() {
     local GATEWAY=""
     local NETWORK_MASK="24"
     local INTERFACES=()
+    local BONDING_APPLIED=false
 
     detect_interfaces() {
-        print_info "Detecting ethernet interfaces..."
-        # Updated to include 'nic' (new Proxmox naming) and 'eno' (onboard)
-        mapfile -t INTERFACES < <(ip link show | grep -E '^[0-9]+: enp|^[0-9]+: eth|^[0-9]+: eno|^[0-9]+: nic' | cut -d: -f2 | tr -d ' ')
-        if [ ${#INTERFACES[@]} -eq 0 ]; then
-            print_error "No ethernet interfaces found!"
+        print_info "Detecting physical network interfaces..."
+        local iface_path
+
+        for iface_path in /sys/class/net/*; do
+            [[ -e "$iface_path/device" ]] || continue
+            INTERFACES+=("${iface_path##*/}")
+        done
+
+        if [[ ${#INTERFACES[@]} -lt 2 ]]; then
+            print_error "At least two physical interfaces are required for bonding"
             return 1
         fi
-        print_info "Found interfaces: ${INTERFACES[*]}"
+        print_info "Physical interfaces selected for active-backup: ${INTERFACES[*]}"
     }
 
     get_network_config() {
@@ -259,12 +226,10 @@ run_setup_bonding() {
     }
 
     apply_config() {
-        print_info "Backing up /etc/network/interfaces..."
-        # Idempotent backup - overwrites on subsequent runs
-        cp /etc/network/interfaces "/etc/network/interfaces.bak" || true
-        
-        print_info "Writing new /etc/network/interfaces..."
-        cat > /etc/network/interfaces << EOF
+        local candidate_file backup_file confirm
+        candidate_file=$(mktemp /tmp/interfaces.bond0.XXXXXX)
+
+        cat > "$candidate_file" << EOF
 auto lo
 iface lo inet loopback
 
@@ -284,14 +249,32 @@ iface $BRIDGE_NAME inet static
     bridge-fd 0
 EOF
 
-        print_warning "Network connectivity will be briefly interrupted!"
-        print_info "Applying configuration automatically..."
+        print_warning "Proposed /etc/network/interfaces replacement:"
+        cat "$candidate_file"
+        print_warning "This replaces the complete interfaces file and restarts networking."
+        read -r -p "   Apply this exact configuration? [y/N]: " confirm
+        if [[ ! "$confirm" =~ ^[yY]$ ]]; then
+            rm -f "$candidate_file"
+            print_info "Bonding configuration cancelled"
+            return 0
+        fi
+
+        backup_file="/etc/network/interfaces.bak.$(date +%Y%m%d-%H%M%S)"
+        print_info "Backing up /etc/network/interfaces to $backup_file"
+        cp /etc/network/interfaces "$backup_file"
+
+        install -m 0644 "$candidate_file" /etc/network/interfaces
+        rm -f "$candidate_file"
+
+        print_warning "Network connectivity will be briefly interrupted"
         systemctl restart networking
+        BONDING_APPLIED=true
     }
 
     if ! detect_interfaces; then return 1; fi
     if ! get_network_config; then return 1; fi
     apply_config
+    [[ "$BONDING_APPLIED" == "true" ]] || return 0
     print_success "Network bonding setup applied. Please verify connectivity."
 }
 
@@ -299,35 +282,13 @@ run_setup_gpu_passthrough() {
     require_root
 
     local target_version
-    target_version=$(get_nvidia_driver_version)
+    target_version=$(get_nvidia_driver_version "$WORK_DIR/stacks.yaml")
     if [[ -z "$target_version" ]]; then
         print_error "NVIDIA driver version is not configured in stacks.yaml. Aborting."
         return 1
     fi
 
-    print_info "Setting up NVIDIA GTX 970 (Target Version: ${target_version}) for LXC container passthrough (Wayland/Zero-Copy Support)..."
-
-    # Check if target driver version is already loaded and working.
-    local installed_version=""
-    if command -v nvidia-smi &>/dev/null; then
-        installed_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || true)
-    fi
-
-    if [[ "$installed_version" == "$target_version" ]]; then
-        print_success "NVIDIA drivers are already up-to-date (Version: ${target_version})."
-        print_info "Loaded nvidia modules: $(lsmod | grep nvidia | wc -l)"
-        print_info "GPU detected: $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || true)"
-        return 0
-    fi
-
-    if [[ -n "$installed_version" ]]; then
-        print_info "Upgrading host NVIDIA driver from ${installed_version} to ${target_version}..."
-    fi
-
-    print_info "Configuring host prerequisites for NVIDIA passthrough..."
-
-    # Ensure build tools and latest kernel headers are available for DKMS
-    ensure_packages build-essential dkms "proxmox-headers-$(uname -r)" proxmox-default-headers
+    print_info "Configuring NVIDIA ${target_version} for unprivileged LXC passthrough"
 
     # Blacklist nouveau before installing the proprietary NVIDIA driver.
     cat > /etc/modprobe.d/blacklist-nouveau.conf << 'EOF'
@@ -338,23 +299,28 @@ alias nouveau off
 alias lbm-nouveau off
 EOF
 
-    # Configure GRUB for IOMMU and NVIDIA DRM (Required for Wayland Zero-Copy / /dev/dri)
+    # Reconcile boot parameters even when the requested driver is already
+    # loaded; a matching driver alone does not prove passthrough is complete.
     local grub_file="/etc/default/grub"
-    cp "$grub_file" "${grub_file}.backup" || true
-
     local grub_params="intel_iommu=on iommu=pt nvidia-drm.modeset=1 nvidia_drm.fbdev=1 nouveau.modeset=0"
-    for param in $grub_params; do
-        if ! grep -q "$param" "$grub_file"; then
-            sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=\"\(.*\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\1 $param\"/" "$grub_file"
+    local boot_config_changed=false
+    local param
+    if [[ -f "$grub_file" ]]; then
+        for param in $grub_params; do
+            if ! grep -q "$param" "$grub_file"; then
+                sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=\"\(.*\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\1 $param\"/" "$grub_file"
+                boot_config_changed=true
+            fi
+        done
+        sed -i 's/  */ /g' "$grub_file"
+        if [[ "$boot_config_changed" == "true" ]]; then
+            update-grub
         fi
-    done
-    sed -i 's/  */ /g' "$grub_file"
-    update-grub
+    fi
 
     # Configure systemd-boot cmdline if using proxmox-boot-tool
     local cmdline_file="/etc/kernel/cmdline"
     if [[ -f "$cmdline_file" ]]; then
-        cp "$cmdline_file" "${cmdline_file}.backup" || true
         local cmdline_content
         cmdline_content=$(cat "$cmdline_file")
         local cmdline_modified=false
@@ -367,12 +333,30 @@ EOF
         if [[ "$cmdline_modified" == "true" ]]; then
             cmdline_content=$(echo "$cmdline_content" | sed 's/  */ /g' | sed 's/^ *//;s/ *$//')
             echo "$cmdline_content" > "$cmdline_file"
-            print_info "Updating systemd-boot cmdline and refreshing boot tool..."
+            boot_config_changed=true
             proxmox-boot-tool refresh
         fi
     fi
 
-    update-initramfs -u -k all
+    local installed_version=""
+    installed_version=$(get_loaded_nvidia_driver_version) || installed_version=""
+    if [[ "$installed_version" == "$target_version" ]]; then
+        configure_nvidia_host_runtime "$target_version" true
+        if [[ "$boot_config_changed" == "true" ]]; then
+            update-initramfs -u -k all
+            print_warning "Reboot the Proxmox host to apply updated boot parameters"
+        fi
+        print_success "NVIDIA driver and LXC runtime are ready (version ${target_version})"
+        return 0
+    fi
+
+    if [[ -n "$installed_version" ]]; then
+        print_info "Upgrading host NVIDIA driver from ${installed_version} to ${target_version}"
+    else
+        print_info "Installing NVIDIA host driver ${target_version}"
+    fi
+
+    ensure_packages build-essential dkms "proxmox-headers-$(uname -r)" proxmox-default-headers
 
     # Stop GPU-using LXC containers and unload NVIDIA modules for a clean driver installation.
     # The installer cannot replace a kernel module that is currently in use.
@@ -382,7 +366,7 @@ EOF
         if grep -q "nvidia" "$conf"; then
             local ct_id
             ct_id=$(basename "$conf" .conf)
-            if pct status "$ct_id" 2>/dev/null | grep -q "running"; then
+            if pct status "$ct_id" | grep -q "running"; then
                 gpu_ct_ids+=("$ct_id")
             fi
         fi
@@ -392,7 +376,8 @@ EOF
         print_warning "The following GPU-using LXC containers must be stopped to install the driver:"
         for ct_id in "${gpu_ct_ids[@]}"; do
             local ct_name
-            ct_name=$(pct config "$ct_id" 2>/dev/null | grep "^hostname:" | awk '{print $2}' || echo "unknown")
+            ct_name=$(pct config "$ct_id" | awk '/^hostname:/ {print $2; exit}')
+            ct_name=${ct_name:-unknown}
             print_warning "  LXC $ct_id ($ct_name)"
         done
         print_warning "They will remain stopped until you reboot the host."
@@ -409,24 +394,22 @@ EOF
         done
     fi
 
-    systemctl stop nvidia-persistenced.service 2>/dev/null || true
-    sleep 2
-    rmmod nvidia_uvm 2>/dev/null || true
-    rmmod nvidia_drm 2>/dev/null || true
-    rmmod nvidia_modeset 2>/dev/null || true
-    rmmod nvidia 2>/dev/null || true
+    local service
+    for service in proxmox-lxc-nvidia-devices.service nvidia-persistenced.service; do
+        if systemctl is-active --quiet "$service"; then
+            systemctl stop "$service"
+        fi
+    done
 
-    # Install NVIDIA driver via official .run file
-    print_info "Downloading NVIDIA ${target_version} driver..."
-    local driver_url="https://us.download.nvidia.com/XFree86/Linux-x86_64/${target_version}/NVIDIA-Linux-x86_64-${target_version}.run"
-    local driver_dir="/fastpool/config/temp"
-    mkdir -p "$driver_dir"
-    local driver_file="$driver_dir/NVIDIA-Linux-x86_64-${target_version}.run"
+    local module
+    for module in nvidia_uvm nvidia_drm nvidia_modeset nvidia; do
+        if lsmod | awk '{print $1}' | grep -Fxq "$module"; then
+            modprobe -r "$module"
+        fi
+    done
 
-    if [[ ! -f "$driver_file" ]]; then
-        wget -q --show-progress "$driver_url" -O "$driver_file"
-        chmod +x "$driver_file"
-    fi
+    ensure_nvidia_driver_runfile "$target_version"
+    local driver_file="/fastpool/config/temp/NVIDIA-Linux-x86_64-${target_version}.run"
 
     print_info "Installing NVIDIA proprietary driver (this may take a few minutes)..."
     # Run the installer silently, accepting the license, building DKMS module, without 32-bit libs, without X11 config
@@ -435,28 +418,14 @@ EOF
         return 1
     }
 
-    # Do not modprobe here — modules will load cleanly on next reboot.
-    # LXC containers are intentionally left stopped; they will auto-start on reboot.
-
-    # Persist nvidia modules
-    echo "nvidia-uvm" > /etc/modules-load.d/nvidia-uvm.conf
-    echo "nvidia-drm" > /etc/modules-load.d/nvidia-drm.conf
-
-    cat > /etc/udev/rules.d/70-nvidia.rules << 'EOF'
-KERNEL=="nvidia", RUN+="/bin/bash -c '/usr/bin/nvidia-smi -L && /bin/chmod 666 /dev/nvidia*'"
-KERNEL=="nvidia_uvm", RUN+="/bin/bash -c '/usr/bin/nvidia-modprobe -c0 -u && /bin/chmod 666 /dev/nvidia-uvm* && /bin/chmod 755 /dev/dri /dev/dri/by-path && /bin/chmod 666 /dev/dri/card* /dev/dri/render*'"
-EOF
+    # Write the project-owned runtime unit now; it will start on the reboot
+    # that loads the new kernel module and boot parameters.
+    configure_nvidia_host_runtime "$target_version" false
+    update-initramfs -u -k all
 
     print_success "NVIDIA GPU passthrough host setup is complete!"
     print_warning "Please REBOOT the Proxmox Host to fully apply kernel parameters and load the driver."
 }
-
-run_datapool_cleanup() {
-    require_root
-    bash "$WORK_DIR/scripts/datapool-cleanup.sh"
-}
-
-
 
 # --- Main Menu ---
 
@@ -471,9 +440,7 @@ while true; do
     echo "   3) Configure Storage (Sanoid Snapshots)"
     echo "   4) Optimize ZFS Performance"
     echo "   5) Setup Network Bonding (Interactive)"
-    echo "   6) Manage Fail2ban"
-    echo "   7) Setup GPU Passthrough (NVIDIA GTX 970)"
-    echo "   8) Clean Datapool (Remove Cache/Logs)"
+    echo "   6) Setup GPU Passthrough (NVIDIA GTX 970)"
     echo "---------------------------------------"
     echo "   b) Back to Main Menu"
     echo "   q) Quit"
@@ -486,10 +453,8 @@ while true; do
         3) run_install_storage; press_enter_to_continue ;;
         4) run_optimize_zfs; press_enter_to_continue ;;
         5) run_setup_bonding; press_enter_to_continue ;;
-        6) bash "$WORK_DIR/scripts/fail2ban-manager.sh"; press_enter_to_continue ;;
-        7) run_setup_gpu_passthrough; press_enter_to_continue ;;
-        8) run_datapool_cleanup; press_enter_to_continue ;;
-        b|B) return 0 ;;
+        6) run_setup_gpu_passthrough; press_enter_to_continue ;;
+        b|B) exit 0 ;;
         q|Q) echo "Exiting."; exit 0 ;;
         *) print_error "Invalid choice. Please try again." ;;
     esac

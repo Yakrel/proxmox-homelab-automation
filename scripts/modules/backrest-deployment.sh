@@ -38,33 +38,50 @@ generate_backrest_config() {
     local password_bcrypt_b64
     password_bcrypt_b64=$(printf '%s' "$bcrypt_raw" | base64 -w 0)
 
-    # Escape special characters for sed
-    local escaped_password_bcrypt
-    local escaped_repo_password
-    local escaped_sync_private
-    local escaped_sync_public
+    BACKREST_RENDER_INSTANCE_ID="$instance_id" \
+    BACKREST_RENDER_REPO_ID="$repo_id" \
+    BACKREST_RENDER_REPO_GUID="$repo_guid" \
+    BACKREST_RENDER_USERNAME="$username" \
+    BACKREST_RENDER_PASSWORD_BCRYPT="$password_bcrypt_b64" \
+    BACKREST_RENDER_REPO_PASSWORD="$repo_password" \
+    BACKREST_RENDER_SYNC_KEY_ID="$sync_key_id" \
+    BACKREST_RENDER_SYNC_PRIVATE_KEY="$sync_private_key" \
+    BACKREST_RENDER_SYNC_PUBLIC_KEY="$sync_public_key" \
+    python3 - "$template_file" "$config_file" <<'PYEOF'
+import json
+import os
+import sys
 
-    escaped_password_bcrypt=$(printf '%s' "$password_bcrypt_b64" | sed 's/[&/\$]/\\&/g')
-    escaped_repo_password=$(printf '%s' "$repo_password" | sed 's/[&/\$]/\\&/g')
-    escaped_sync_private=$(printf '%s' "$sync_private_key" | sed 's/[&/\$]/\\&/g')
-    escaped_sync_public=$(printf '%s' "$sync_public_key" | sed 's/[&/\$]/\\&/g')
+with open(sys.argv[1], encoding="utf-8") as template_file:
+    config = json.load(template_file)
 
-    sed -e "s|{{INSTANCE_ID}}|$instance_id|g" \
-        -e "s|{{REPO_ID}}|$repo_id|g" \
-        -e "s|{{REPO_GUID}}|$repo_guid|g" \
-        -e "s|{{USERNAME}}|$username|g" \
-        -e "s|{{PASSWORD_BCRYPT}}|$escaped_password_bcrypt|g" \
-        -e "s|{{REPO_PASSWORD}}|$escaped_repo_password|g" \
-        -e "s|{{SYNC_KEY_ID}}|$sync_key_id|g" \
-        -e "s|{{SYNC_PRIVATE_KEY}}|$escaped_sync_private|g" \
-        -e "s|{{SYNC_PUBLIC_KEY}}|$escaped_sync_public|g" \
-        "$template_file" > "$config_file"
+replacements = {
+    "{{INSTANCE_ID}}": os.environ["BACKREST_RENDER_INSTANCE_ID"],
+    "{{REPO_ID}}": os.environ["BACKREST_RENDER_REPO_ID"],
+    "{{REPO_GUID}}": os.environ["BACKREST_RENDER_REPO_GUID"],
+    "{{USERNAME}}": os.environ["BACKREST_RENDER_USERNAME"],
+    "{{PASSWORD_BCRYPT}}": os.environ["BACKREST_RENDER_PASSWORD_BCRYPT"],
+    "{{REPO_PASSWORD}}": os.environ["BACKREST_RENDER_REPO_PASSWORD"],
+    "{{SYNC_KEY_ID}}": os.environ["BACKREST_RENDER_SYNC_KEY_ID"],
+    "{{SYNC_PRIVATE_KEY}}": os.environ["BACKREST_RENDER_SYNC_PRIVATE_KEY"],
+    "{{SYNC_PUBLIC_KEY}}": os.environ["BACKREST_RENDER_SYNC_PUBLIC_KEY"],
+}
 
-    # Verify that the config file was created and is not empty
-    if [[ ! -s "$config_file" ]]; then
-        print_error "Failed to generate config.json. Output file is empty."
-        return 1
-    fi
+def render(value):
+    if isinstance(value, str):
+        for placeholder, replacement in replacements.items():
+            value = value.replace(placeholder, replacement)
+        return value
+    if isinstance(value, list):
+        return [render(item) for item in value]
+    if isinstance(value, dict):
+        return {key: render(item) for key, item in value.items()}
+    return value
+
+with open(sys.argv[2], "w", encoding="utf-8") as output_file:
+    json.dump(render(config), output_file, indent=2)
+    output_file.write("\n")
+PYEOF
 }
 
 # Read the canonical restic repository ID. Backrest uses this as the repo guid.
@@ -112,15 +129,11 @@ initialize_restic_repo() {
 
 # Configure Backrest directories and permissions on host
 configure_backrest_directories() {
-    # Create Backrest directories on host (idempotent with -p)
-    mkdir -p /fastpool/config/backrest/config
-    mkdir -p /fastpool/config/backrest/data
-    mkdir -p /fastpool/config/backrest/cache
-    mkdir -p /datapool/backup
-
-    # Set ownership for unprivileged container access (UID 1000 in container = UID 101000 on host)
-    fix_path_owner_recursive /fastpool/config/backrest
-    fix_path_owner /datapool/backup
+    prepare_host_directory /fastpool/config/backrest 0700
+    prepare_host_directory /fastpool/config/backrest/config 0700
+    prepare_host_directory /fastpool/config/backrest/data 0700
+    prepare_host_directory /fastpool/config/backrest/cache 0700
+    prepare_host_directory /datapool/backup
 }
 
 # Configure rclone for Google Drive sync - creates config files for Docker container
@@ -128,27 +141,38 @@ configure_backrest_directories() {
 configure_rclone_config() {
     local rclone_conf="/fastpool/config/backrest/config/rclone.conf"
     local rclone_conf_enc="$WORK_DIR/docker/utility/config/rclone.conf.enc"
+    local rclone_tmp
 
     print_info "Configuring rclone from encrypted configuration"
 
-    # Decrypt rclone.conf
+    rclone_tmp=$(mktemp /fastpool/config/backrest/config/rclone.conf.XXXXXX)
+    register_runtime_temp_file "$rclone_tmp"
+
+    # Decrypt to a private temporary file so a failed decrypt cannot truncate
+    # the last known-good runtime configuration.
     if ! openssl enc -aes-256-cbc -d -pbkdf2 -salt \
         -in "$rclone_conf_enc" \
-        -out "$rclone_conf" \
-        -pass "pass:$ENV_ENC_KEY"; then
+        -out "$rclone_tmp" \
+        -pass env:ENV_ENC_KEY; then
+        rm -f "$rclone_tmp"
         print_error "Failed to decrypt rclone.conf.enc"
         return 1
     fi
 
-    print_success "Rclone configuration decrypted"
-    chown 101000:101000 "$rclone_conf"
-    chmod 600 "$rclone_conf"
+    chown 101000:101000 "$rclone_tmp"
+    chmod 0600 "$rclone_tmp"
+    mv -f "$rclone_tmp" "$rclone_conf"
 
     # Create sync script on host in Backrest config dir (mounted to container as /config)
-    cat > /fastpool/config/backrest/config/sync-to-gdrive.sh << 'SYNCEOF'
+    local sync_tmp
+    sync_tmp=$(mktemp /fastpool/config/backrest/config/sync-to-gdrive.sh.XXXXXX)
+    register_runtime_temp_file "$sync_tmp"
+    cat > "$sync_tmp" << 'SYNCEOF'
 #!/bin/sh
 # Backrest hook script: Sync backups to Google Drive after successful backup
-# Optimized for 20 MB/s connection
+# This is an exact mirror: successful forget/prune deletions are permanently
+# propagated to Drive so stale restic pack files do not consume cloud quota.
+# Optimized for 20 MB/s connection.
 
 LOG_FILE="/config/rclone-gdrive-sync.log"
 LOG_MAX_BYTES=5242880
@@ -196,9 +220,11 @@ else
 fi
 SYNCEOF
 
-    # Set ownership and permissions for container access
-    chown 101000:101000 /fastpool/config/backrest/config/sync-to-gdrive.sh
-    chmod +x /fastpool/config/backrest/config/sync-to-gdrive.sh
+    chown 101000:101000 "$sync_tmp"
+    chmod 0700 "$sync_tmp"
+    mv -f "$sync_tmp" /fastpool/config/backrest/config/sync-to-gdrive.sh
+
+    print_success "Rclone configuration decrypted"
 }
 
 # Deploy Backrest stack
@@ -212,23 +238,19 @@ deploy_backrest() {
     fi
 
     # Safely read variables from the decrypted .env file without sourcing it
-    # Optimization: Read file once and parse all variables to avoid multiple file reads
     local backrest_instance_id backrest_repo_id backrest_repo_guid
     local backrest_auth_username backrest_auth_password_bcrypt backrest_repo_password
     local backrest_sync_key_id backrest_sync_private_key backrest_sync_public_key
-    local env_content
 
-    env_content=$(cat "$ENV_DECRYPTED_PATH")
-    
-    backrest_instance_id=$(echo "$env_content" | grep "^BACKREST_INSTANCE_ID=" | cut -d'=' -f2- || true)
-    backrest_repo_id=$(echo "$env_content" | grep "^BACKREST_REPO_ID=" | cut -d'=' -f2- || true)
-    backrest_repo_guid=$(echo "$env_content" | grep "^BACKREST_REPO_GUID=" | cut -d'=' -f2- || true)
-    backrest_auth_username=$(echo "$env_content" | grep "^BACKREST_AUTH_USERNAME=" | cut -d'=' -f2- || true)
-    backrest_auth_password_bcrypt=$(echo "$env_content" | grep "^BACKREST_AUTH_PASSWORD_BCRYPT=" | cut -d'=' -f2- || true)
-    backrest_repo_password=$(echo "$env_content" | grep "^BACKREST_REPO_PASSWORD=" | cut -d'=' -f2- || true)
-    backrest_sync_key_id=$(echo "$env_content" | grep "^BACKREST_SYNC_KEY_ID=" | cut -d'=' -f2- || true)
-    backrest_sync_private_key=$(echo "$env_content" | grep "^BACKREST_SYNC_PRIVATE_KEY=" | cut -d'=' -f2- || true)
-    backrest_sync_public_key=$(echo "$env_content" | grep "^BACKREST_SYNC_PUBLIC_KEY=" | cut -d'=' -f2- || true)
+    backrest_instance_id=$(get_env_value "BACKREST_INSTANCE_ID")
+    backrest_repo_id=$(get_env_value "BACKREST_REPO_ID")
+    backrest_repo_guid=$(get_env_value "BACKREST_REPO_GUID")
+    backrest_auth_username=$(get_env_value "BACKREST_AUTH_USERNAME")
+    backrest_auth_password_bcrypt=$(get_env_value "BACKREST_AUTH_PASSWORD_BCRYPT")
+    backrest_repo_password=$(get_env_value "BACKREST_REPO_PASSWORD")
+    backrest_sync_key_id=$(get_env_value "BACKREST_SYNC_KEY_ID")
+    backrest_sync_private_key=$(get_env_value "BACKREST_SYNC_PRIVATE_KEY")
+    backrest_sync_public_key=$(get_env_value "BACKREST_SYNC_PUBLIC_KEY")
 
     # Validate required variables
     if [[ -z "$backrest_instance_id" || -z "$backrest_repo_id" || \
@@ -255,9 +277,14 @@ deploy_backrest() {
     fi
     backrest_repo_guid="$actual_repo_guid"
 
-    # Generate the complete, pre-configured config.json from the template
+    # Generate and validate a private temporary config before replacing the
+    # last known-good Backrest configuration.
+    local backrest_config_tmp
+    backrest_config_tmp=$(mktemp /fastpool/config/backrest/config/config.json.XXXXXX)
+    register_runtime_temp_file "$backrest_config_tmp"
+
     if ! generate_backrest_config \
-        "/fastpool/config/backrest/config/config.json" \
+        "$backrest_config_tmp" \
         "$WORK_DIR/config/backrest/config.json.template" \
         "$backrest_instance_id" \
         "$backrest_repo_id" \
@@ -268,17 +295,21 @@ deploy_backrest() {
         "$backrest_sync_key_id" \
         "$backrest_sync_private_key" \
         "$backrest_sync_public_key"; then
+        rm -f "$backrest_config_tmp"
         print_error "Could not generate Backrest configuration. Aborting."
         return 1
     fi
 
-    # Set secure permissions and ownership on the config file
-    chown 101000:101000 /fastpool/config/backrest/config/config.json
-    chmod 600 /fastpool/config/backrest/config/config.json
+    python3 -m json.tool "$backrest_config_tmp" >/dev/null
+    chown 101000:101000 "$backrest_config_tmp"
+    chmod 0600 "$backrest_config_tmp"
+    mv -f "$backrest_config_tmp" /fastpool/config/backrest/config/config.json
 
-    # Configure rclone config file for Docker container (uses same env_content)
+    # Cloud replication is part of this stack; fail rather than leaving a stale
+    # or missing rclone configuration behind.
     if ! configure_rclone_config; then
-        print_warning "Failed to configure rclone, continuing without cloud sync"
+        print_error "Failed to configure rclone"
+        return 1
     fi
 
     local backrest_ip

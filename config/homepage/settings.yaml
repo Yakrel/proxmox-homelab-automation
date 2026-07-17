@@ -10,12 +10,12 @@ theme: dark
 color: zinc
 headerStyle: clean
 
-# Background - Space theme without blur
+# Project-local background avoids an external image dependency.
 background:
-  image: https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=1920
-  saturate: 50
-  brightness: 30
-  opacity: 35
+  image: /images/homepage-background.png
+  saturate: 60
+  brightness: 35
+  opacity: 30
 
 # Quick Launch
 quicklaunch:
@@ -25,20 +25,33 @@ quicklaunch:
 # Layout Configuration
 layout:
   Infrastructure:
+    tab: Home
     style: row
     columns: 4
+    icon: proxmox.png
   Media:
+    tab: Media
     style: row
-    columns: 5
-  Downloads:
-    columns: 3
-  Utilities:
     columns: 4
+    icon: jellyfin.png
+  Downloads:
+    tab: Media
+    style: row
+    columns: 4
+    icon: mdi-download
+  Utilities:
+    tab: Management
+    style: row
+    columns: 4
+    icon: mdi-tools
   External:
-    columns: 2
+    tab: Management
+    style: row
+    columns: 4
+    icon: mdi-cloud
 
 # Display Options - Minimalist
 statusStyle: dot
+fullWidth: true
 useEqualHeights: false
-
-providers: {}
+disableCollapse: true

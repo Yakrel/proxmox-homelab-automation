@@ -2,7 +2,7 @@
 
 Production-style homelab architected with enterprise-inspired reliability practices, demonstrating infrastructure automation and DevOps patterns. Orchestrates **40+ services** across **6 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
 
-> **About**: Production homelab running family media services (Jellyfin, Immich), AI automation (Hermes Agent), and productivity tools with production-grade infrastructure patterns. Features **declarative infrastructure-as-code**, **ZFS-backed storage**, **encrypted secret management**, and **disaster recovery** architecture.
+> **About**: Production homelab running family media services (Jellyfin, Immich), AI automation (Hermes Agent), and productivity tools with production-style infrastructure patterns. Features **configuration-driven automation**, **ZFS-backed storage**, **encrypted secret management**, and **disaster recovery** architecture.
 
 ---
 
@@ -52,7 +52,7 @@ A robust dual-path architecture ensuring reliable access even in restrictive net
 | **Local** | **Direct LAN** | Device -> WiFi -> Nginx Proxy Manager | Maximum speed for media streaming at home |
 
 **Implementation:**
-- **Tailscale Subnet Router**: Runs as a lightweight sidecar in the Proxy stack, advertising the `192.168.1.0/24` route to authenticated devices.
+- **Tailscale Subnet Router**: Runs directly on the Proxmox host and advertises the `192.168.1.0/24` route to authenticated devices.
 - **Cloudflare Tunnel**: Dedicated purely to serving web applications via public domains, protected by Zero Trust policies.
 
 ### **Maintained Custom Docker Images**
@@ -69,23 +69,23 @@ This project utilizes custom Docker images that are maintained in separate repos
 - Published to GHCR: `ghcr.io/yakrel/...`
 
 ### **DevOps & Automation Practices**
-- **Declarative Infrastructure (IaC)**: Entire infrastructure state defined in `stacks.yaml` (Single Source of Truth).
-- **Idempotent Orchestration**: Bash scripts perform state reconciliation, ensuring reproducible deployments without side effects.
+- **Configuration-driven Infrastructure**: LXC identities and resources are defined in `stacks.yaml`; service state is defined by Docker Compose and application templates.
+- **Repeatable Deployment Paths**: LXC provisioning assumes a clean installation, while application redeploys reconcile Compose and generated configuration state.
 - **Secret Management**: Production-grade secret handling using AES-256-CBC encryption for all configuration files.
 
 ### **Business Continuity & Disaster Recovery**
-- **3-2-1 Strategy**: Local ZFS snapshots (Hot) + Encrypted Cloud Archives (Cold).
+- **Off-site Copy**: Local ZFS snapshots plus an encrypted Google Drive mirror of the restic repository.
 - **Automated Cloud Sync**: Backrest repositories synced to Google Drive via post-backup hooks (rclone).
 - **Secure Archives**: Client-side encryption ensuring data privacy in public cloud environments.
 - **CI/CD Maintained**: Custom `backrest-rclone` image automatically rebuilt twice a week for up-to-date security and cloud sync compatibility.
-- **Layer 3 Recovery**: In a disaster scenario, the entire server fleet can be rebuilt on the **Proxmox Host** in minutes using the `installer.sh` automation suite.
+- **Rebuild Path**: After storage and secrets are available, `installer.sh` provides a repeatable path for recreating the LXC and application stacks on the Proxmox host.
 
 ---
 
 ## 📦 Service Stacks
 
 ### **Proxy & DNS (Gateway)** (LXC 100 - `192.168.1.100`)
-Nginx Proxy Manager, AdGuard Home, Cloudflared, Tailscale Subnet Router
+Nginx Proxy Manager, AdGuard Home, Cloudflared
 
 ### **Media Automation** (LXC 101 - `192.168.1.101`)
 Jellyfin, Immich, Sonarr, Radarr, Bazarr, Jellyseerr, Prowlarr, qBittorrent, FlareSolverr, Tor Proxy, Recyclarr, Tdarr, Cleanuperr
@@ -100,7 +100,7 @@ Homepage, Desktop Workspace, Guacamole, Sshwifty, CouchDB, Vaultwarden, Desktop 
 Hermes Agent, OmniRoute
 
 ### **Development (Dev)** (LXC 106 - `192.168.1.106`)
-Code-Server, Node.js, Python, Git, Antigravity CLI
+Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, Antigravity CLI
 
 ---
 
@@ -128,9 +128,7 @@ Code-Server, Node.js, Python, Git, Antigravity CLI
 │   ├── deploy-stack.sh      # Main orchestrator
 │   ├── lxc-manager.sh       # LXC lifecycle management
 │   ├── fast-redeploy.sh     # Fast Docker stack redeploy
-│   ├── fail2ban-manager.sh  # Fail2ban client management
 │   ├── helper-functions.sh  # Common shell utilities
-│   ├── datapool-cleanup.sh  # Cache/log cleaner
 │   ├── setup-tailscale-host.sh # Tailscale host subnet configuration
 │   └── modules/             # Specialized deployment modules
 │       ├── docker-deployment.sh
@@ -148,7 +146,7 @@ Code-Server, Node.js, Python, Git, Antigravity CLI
     ├── samba/               # Samba share template config
     ├── sshwifty/            # sshwifty profile template config
     ├── couchdb/             # CouchDB local.ini configuration
-    ├── vaultwarden/         # Vaultwarden SSL setup notes
+    ├── vaultwarden/         # Vaultwarden configuration templates
     └── guacamole/           # Apache Guacamole user-mapping configs
 ```
 
@@ -164,7 +162,7 @@ Code-Server, Node.js, Python, Git, Antigravity CLI
 - **Unprivileged LXC containers** with UID/GID mapping (101000:101000 → 1000:1000)
 - **Encrypted secrets**: AES-256-CBC with pbkdf2
 - **Single master key** decrypts all `.env.enc` files
-- **Network isolation** per stack
+- **Per-stack Docker bridge networks**, with selected services published to the homelab LAN
 - **Automated container updates and notifications** via Watchtower configured per stack
 
 ## 📄 License

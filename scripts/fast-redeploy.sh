@@ -12,11 +12,27 @@ source "$WORK_DIR/scripts/modules/backrest-deployment.sh"
 
 ENV_ENC_KEY=""
 ENV_DECRYPTED_PATH=""
+TEMP_DIR=""
+
+cleanup_fast_redeploy_secrets() {
+    cleanup_runtime_temp_files
+    if [[ -n "$TEMP_DIR" && -d "$TEMP_DIR" ]]; then
+        rm -rf -- "${TEMP_DIR:?}"
+        TEMP_DIR=""
+    fi
+    ENV_DECRYPTED_PATH=""
+    unset ENV_ENC_KEY
+}
+
+trap cleanup_fast_redeploy_secrets EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 decrypt_stack_env() {
     local stack="$1"
     local enc_file="$WORK_DIR/docker/$stack/.env.enc"
-    local output_file="/tmp/${stack}.fast-redeploy.env"
+    local output_file="$TEMP_DIR/${stack}.env"
 
     [[ -f "$enc_file" ]] || {
         print_warning "No encrypted env found for $stack, skipping .env refresh"
@@ -38,6 +54,8 @@ decrypt_stack_env() {
 fast_redeploy_stack() {
     local stack="$1"
 
+    get_stack_config "$stack"
+
     [[ "$stack" != "dev" ]] || {
         print_info "Skipping dev stack (no Docker compose)"
         return 0
@@ -45,18 +63,14 @@ fast_redeploy_stack() {
 
     local compose_file="$WORK_DIR/docker/$stack/docker-compose.yml"
     [[ -f "$compose_file" ]] || {
-        print_info "Skipping $stack (no docker-compose.yml)"
-        return 0
+        print_error "docker-compose.yml not found for $stack"
+        return 1
     }
-
-    get_stack_config "$stack"
 
     if ! check_container_running "$CT_ID"; then
         print_warning "Skipping $stack: LXC $CT_ID is not running"
         return 0
     fi
-
-    verify_docker "$CT_ID"
 
     echo
     print_info "Fast redeploying [$stack] on LXC $CT_ID ($CT_HOSTNAME)"
@@ -64,22 +78,15 @@ fast_redeploy_stack() {
     decrypt_stack_env "$stack"
 
     if [[ "$stack" == "desktop" ]]; then
-        setup_desktop_permissions
-        setup_homepage_config "$CT_ID"
-        setup_couchdb_config "$CT_ID"
         setup_homepage_proxmox_token "$ENV_DECRYPTED_PATH"
-        setup_guacamole_config "$CT_ID"
-        setup_sshwifty_config "$CT_ID"
     elif [[ "$stack" == "utility" ]]; then
-        setup_utility_permissions
         deploy_backrest "$CT_ID"
-    elif [[ "$stack" == "gateway" ]]; then
-        setup_gateway_permissions
-    elif [[ "$stack" == "ai" ]]; then
-        setup_ai_permissions
     fi
 
+    prepare_docker_stack "$stack"
+
     pct push "$CT_ID" "$ENV_DECRYPTED_PATH" /root/.env
+    pct exec "$CT_ID" -- chmod 0600 /root/.env
     pct push "$CT_ID" "$compose_file" /root/docker-compose.yml
 
     pct exec "$CT_ID" -- sh -c "cd /root && docker compose up -d --remove-orphans"
@@ -92,6 +99,8 @@ fast_redeploy_stack() {
 
 main() {
     require_root
+    umask 077
+    TEMP_DIR=$(mktemp -d /tmp/fast-redeploy.XXXXXX)
 
     local -a stacks=()
 
@@ -110,7 +119,7 @@ main() {
         fast_redeploy_stack "$stack"
     done
 
-    rm -f /tmp/*.fast-redeploy.env
+    cleanup_fast_redeploy_secrets
 
     print_success "Fast redeploy completed"
 }

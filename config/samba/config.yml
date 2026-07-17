@@ -18,3 +18,12 @@ share:
     writelist: ${SAMBA_USER}
     veto: no
     recycle: no
+  - name: fastpool
+    path: /fastpool
+    browsable: yes
+    readonly: no
+    guestok: no
+    validusers: ${SAMBA_USER}
+    writelist: ${SAMBA_USER}
+    veto: no
+    recycle: no

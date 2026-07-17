@@ -10,10 +10,11 @@
 
 # System Resources
 - resources:
-    label: System Resources
+    # CPU and memory are scoped to the Desktop LXC running Homepage.
+    label: Desktop LXC
     cpu: true
     memory: true
-    cputemp: true
+    uptime: true
     expanded: true
     disk:
       - /datapool
@@ -24,6 +25,7 @@
     label: Kırıkkale
     latitude: 39.8468
     longitude: 33.5153
+    timezone: Europe/Istanbul
     units: metric
     cache: 5
 
@@ -34,10 +36,3 @@
       dateStyle: short
       timeStyle: short
       hour12: false
-
-# Quick Search
-- search:
-    provider: google
-    target: _blank
-    focus: false
-

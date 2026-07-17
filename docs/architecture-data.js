@@ -36,7 +36,7 @@ const ARCHITECTURE_DATA = {
         { id: "proxy-net", name: "homelab-proxy", type: "docker", subnet: "172.18.0.0/16" }
     ],
     timeline: [
-        { date: "2026-06-11", title: { en: "Helper Scripts & CI/CD Refactor", tr: "Yardımcı Scriptler ve CI/CD Yenilemesi" }, desc: { en: "Fixed fail2ban logging, optimized datapool cleanup scripts, and created automated GitHub Actions Pages deployment.", tr: "Fail2ban loglama düzeltildi, datapool temizlik scriptleri optimize edildi ve otomatik GitHub Actions Pages dağıtımı kuruldu." } },
+        { date: "2026-06-11", title: { en: "Helper Scripts & CI/CD Refactor", tr: "Yardımcı Scriptler ve CI/CD Yenilemesi" }, desc: { en: "Improved fail2ban logging and created automated GitHub Actions Pages deployment.", tr: "Fail2ban loglama iyileştirildi ve otomatik GitHub Actions Pages dağıtımı kuruldu." } },
         { date: "2026-06-11", title: { en: "Infrastructure Consolidation", tr: "Altyapı Konsolidasyonu" }, desc: { en: "Reorganized stacks, merged backup services into utility (LXC 102), and updated all docker configuration structures.", tr: "Yığınlar yeniden düzenlendi, yedekleme hizmetleri utility (LXC 102) ile birleştirildi ve tüm docker yapılandırma mimarisi güncellendi." } },
         { date: "2025-12-24", title: { en: "VPN Architecture Upgrade", tr: "VPN Mimari Güncellemesi" }, desc: { en: "Deployed Tailscale as primary VPN; repurposed Cloudflare for Web Tunnel only.", tr: "Tailscale ana VPN olarak yapılandırıldı; Cloudflare sadece Web Tunnel için ayrıldı." } },
         { date: "2025-12-15", title: { en: "Game Server Expansion", tr: "Oyun Sunucusu Genişletmesi" }, desc: { en: "Added Palworld & Satisfactory with automated switching.", tr: "Otomatik geçişli Palworld ve Satisfactory sunucuları eklendi." } }

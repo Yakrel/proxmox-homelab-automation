@@ -9,22 +9,94 @@ WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 
 # --- Load Shared Functions ---
 source "$WORK_DIR/scripts/helper-functions.sh"
+trap cleanup_runtime_temp_files EXIT
 
 # Load stack configuration using shared function
 get_stack_config "$STACK_NAME"
+
+LXC_RESTART_REQUIRED=false
+
+reconcile_lxc_mount() {
+    local mount_key="$1"
+    local source_path="$2"
+    local desired_value="${source_path},mp=${source_path},acl=1"
+    local current_value
+
+    current_value=$(pct config "$CT_ID" | awk -F': ' -v key="$mount_key" '$1 == key {print $2; exit}')
+    if [[ "$current_value" != "$desired_value" ]]; then
+        print_info "Reconciling ${mount_key} for LXC ${CT_ID}"
+        pct set "$CT_ID" "-${mount_key}" "$desired_value"
+        LXC_RESTART_REQUIRED=true
+    fi
+}
+
+reconcile_lxc_device_block() {
+    local config_path="/etc/pve/lxc/${CT_ID}.conf"
+    local uvm_major="$1"
+    local metadata_prefix="# PROXMOX-HOMELAB NVIDIA UVM MAJOR:"
+    local metadata_line="${metadata_prefix} ${uvm_major}"
+    local managed_major temp_config line
+    local -a desired_lines=(
+        'lxc.cgroup2.devices.allow: c 195:* rwm'
+        "lxc.cgroup2.devices.allow: c ${uvm_major}:* rwm"
+        'lxc.cgroup2.devices.allow: c 226:* rwm'
+        'lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file'
+        'lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file'
+        'lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file'
+        'lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file'
+        'lxc.mount.entry: /dev/nvidia-modeset dev/nvidia-modeset none bind,optional,create=file'
+        'lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir'
+    )
+
+    if [[ "$STACK_NAME" == "media" ]]; then
+        desired_lines+=(
+            'lxc.cgroup2.devices.allow: c 10:229 rwm'
+            'lxc.mount.entry: /dev/fuse dev/fuse none bind,create=file 0 0'
+        )
+    fi
+
+    managed_major=$(awk -v prefix="$metadata_prefix" 'index($0, prefix) == 1 {print $NF; exit}' "$config_path")
+    if [[ "$managed_major" == "$uvm_major" ]]; then
+        local desired_state_present=true
+        for line in "${desired_lines[@]}"; do
+            if [[ $(grep -Fxc "$line" "$config_path") -ne 1 ]]; then
+                desired_state_present=false
+                break
+            fi
+        done
+        [[ "$desired_state_present" == "true" ]] && return 0
+    fi
+
+    temp_config=$(mktemp /tmp/lxc-config.XXXXXX)
+    register_runtime_temp_file "$temp_config"
+    awk -v prefix="$metadata_prefix" -v old_major="$managed_major" '
+        index($0, prefix) == 1 {next}
+        $0 == "lxc.cgroup2.devices.allow: c 195:* rwm" {next}
+        $0 == "lxc.cgroup2.devices.allow: c 226:* rwm" {next}
+        $0 == "lxc.cgroup2.devices.allow: c 10:229 rwm" {next}
+        old_major != "" && $0 == "lxc.cgroup2.devices.allow: c " old_major ":* rwm" {next}
+        $0 ~ /^lxc\.mount\.entry: \/dev\/(nvidia0|nvidiactl|nvidia-uvm|nvidia-uvm-tools|nvidia-modeset|dri|fuse) / {next}
+        {print}
+    ' "$config_path" > "$temp_config"
+    printf '\n%s\n' "$metadata_line" >> "$temp_config"
+    for line in "${desired_lines[@]}"; do
+        printf '%s\n' "$line" >> "$temp_config"
+    done
+    cat "$temp_config" > "$config_path"
+    LXC_RESTART_REQUIRED=true
+}
 
 # Get latest template based on stack type - ensures we always use the newest available
 get_latest_template() {
     local template_type=$1
 
-    # Update template list silently (output would interfere with variable capture below)
-    # This is an exception to no-suppression rule as we're in a function that returns via echo
-    pveam update >/dev/null 2>&1 || true
+    # Keep stdout quiet because this function returns the template name.
+    pveam update >/dev/null
 
     # Fetch both available and local templates in one call each (optimization: reduce pveam calls)
     local available_output local_output
-    available_output=$(pveam available 2>/dev/null || echo "")
-    local_output=$(pveam list "$TEMPLATE_POOL" 2>/dev/null || echo "")
+    available_output=$(pveam available)
+    local_output=$(pveam list "$TEMPLATE_POOL")
 
     # Get the latest available template name from repository
     local latest_available
@@ -40,7 +112,7 @@ get_latest_template() {
         print_info "Downloading latest ${template_type} template: $latest_available" >&2
         pveam download "$TEMPLATE_POOL" "$latest_available" >&2
         # After download, query storage to get actual filename (may differ from available name due to version resolution)
-        local_template=$(pveam list "$TEMPLATE_POOL" 2>/dev/null | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1 | sed "s|^${TEMPLATE_POOL}:vztmpl/||")
+        local_template=$(pveam list "$TEMPLATE_POOL" | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1 | sed "s|^${TEMPLATE_POOL}:vztmpl/||")
         print_success "Downloaded template: $local_template" >&2
     else
         print_info "Using up-to-date template: $local_template" >&2
@@ -80,111 +152,33 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
         --onboot 1 \
         --unprivileged 1 \
         --rootfs "$STORAGE_POOL":"$CT_DISK_GB" || { print_error "Failed to create container"; exit 1; }
+fi
 
-    # Mount datapool for all stacks
-    pct set "$CT_ID" -mp0 "$DATAPOOL",mp="$DATAPOOL",acl=1 || { print_error "Failed to mount datapool"; exit 1; }
-    
-    # Mount fastpool for all stacks
-    pct set "$CT_ID" -mp1 "$FASTPOOL",mp="$FASTPOOL",acl=1 || { print_error "Failed to mount fastpool"; exit 1; }
-    
-    # GPU passthrough for media and desktop stacks - cgroup v2 method
-    # media: Jellyfin hardware transcoding (decode/scale/encode) + Immich ML
-    # desktop: Brave automatically enables hardware acceleration with Nvidia passthrough
-    if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
-        print_info "Configuring GPU passthrough for $STACK_NAME container (cgroup v2 method)"
+# Storage mounts are host infrastructure and must be reconciled for both new
+# and existing containers. OS/package provisioning remains creation-only.
+reconcile_lxc_mount mp0 "$DATAPOOL"
+reconcile_lxc_mount mp1 "$FASTPOOL"
 
-        # --- FUSE Configuration for Media Stack (gocryptfs support) ---
-        if [[ "$STACK_NAME" == "media" ]]; then
-            print_info "Configuring FUSE device for Media (Encryption support)"
-            LXC_CONFIG_PATH="/etc/pve/lxc/${CT_ID}.conf"
-            [[ -f "$LXC_CONFIG_PATH" ]] || touch "$LXC_CONFIG_PATH"
+if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
+    target_version=$(get_nvidia_driver_version "$WORK_DIR/stacks.yaml")
+    [[ -n "$target_version" ]] || { print_error "NVIDIA driver version is not configured"; exit 1; }
 
-            if ! grep -q "lxc.cgroup2.devices.allow: c 10:229 rwm" "$LXC_CONFIG_PATH"; then
-                cat >> "$LXC_CONFIG_PATH" << 'EOFFUSE'
+    configure_nvidia_host_runtime "$target_version" true
+    ensure_nvidia_driver_runfile "$target_version"
 
-# FUSE Support for Encrypted Vault (gocryptfs)
-lxc.cgroup2.devices.allow: c 10:229 rwm
-lxc.mount.entry: /dev/fuse dev/fuse none bind,create=file 0 0
-EOFFUSE
-            fi
-        fi
-
-
-        # Create systemd service for persistent NVIDIA device setup (survives reboots)
-        cat > /etc/systemd/system/nvidia-persistenced.service << 'EOF'
-[Unit]
-Description=NVIDIA Persistence Daemon and Device Setup for LXC
-After=local-fs.target
-
-[Service]
-Type=forking
-ExecStartPre=/sbin/modprobe nvidia-uvm
-ExecStartPre=/usr/bin/nvidia-modprobe -u -c0
-ExecStart=/usr/bin/nvidia-persistenced --user root --persistence-mode --verbose
-ExecStartPost=/bin/chmod 666 /dev/nvidia-uvm /dev/nvidia-uvm-tools
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-        # Enable and start the service
-        systemctl daemon-reload
-        systemctl enable nvidia-persistenced.service
-        systemctl restart nvidia-persistenced.service || print_warning "nvidia-persistenced service failed to start"
-
-        # Wait for devices to be created
-        sleep 2
-
-        # Verify devices exist
-        if [[ ! -c /dev/nvidia-uvm ]]; then
-            print_warning "nvidia-uvm device not found - GPU may not work"
-        fi
-        
-        LXC_CONFIG_PATH="/etc/pve/lxc/${CT_ID}.conf"
-        [[ -f "$LXC_CONFIG_PATH" ]] || touch "$LXC_CONFIG_PATH"
-
-        if ! grep -Fxq '# GPU Passthrough (cgroup v2)' "$LXC_CONFIG_PATH"; then
-            printf '\n# GPU Passthrough (cgroup v2)\n' >> "$LXC_CONFIG_PATH"
-        fi
-
-        # Dynamically detect host's nvidia-uvm major number
-        uvm_major=$(grep -w "nvidia-uvm" /proc/devices | awk '{print $1}')
-        if [[ -z "$uvm_major" ]]; then
-            print_error "Could not detect host nvidia-uvm major number from /proc/devices. Make sure the nvidia-uvm module is loaded on the host."
-            exit 1
-        fi
-
-        gpu_passthrough_lines=(
-            # cgroup device permissions for NVIDIA GPU
-            'lxc.cgroup2.devices.allow: c 195:* rwm'  # NVIDIA GPU devices (195:0 = nvidia0)
-            "lxc.cgroup2.devices.allow: c ${uvm_major}:* rwm"  # cgroup v2 for nvidia-uvm (dynamically detected)
-            'lxc.cgroup2.devices.allow: c 226:* rwm'  # DRI/DRM devices for Wayland/Zero-Copy
-            # Device bind mounts - pass GPU devices into container
-            'lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file'
-            'lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file'
-            # CRITICAL: nvidia-uvm devices required for CUDA to work
-            # Without these, ffmpeg will fail with "Cannot load libcuda.so.1"
-            'lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file'
-            'lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file'
-            'lxc.mount.entry: /dev/nvidia-modeset dev/nvidia-modeset none bind,optional,create=file'
-            'lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir'
-        )
-
-        for gpu_line in "${gpu_passthrough_lines[@]}"; do
-            if ! grep -Fxq "$gpu_line" "$LXC_CONFIG_PATH"; then
-                echo "$gpu_line" >> "$LXC_CONFIG_PATH"
-            fi
-        done
-
-        print_success "GPU passthrough configured for $CT_ID"
-    fi
+    uvm_major=$(awk '$2 == "nvidia-uvm" {print $1; exit}' /proc/devices)
+    [[ -n "$uvm_major" ]] || { print_error "Could not detect nvidia-uvm device major"; exit 1; }
+    reconcile_lxc_device_block "$uvm_major"
+    print_success "GPU passthrough configuration reconciled for LXC $CT_ID"
 fi
 
 # Ensure container is running (Start AFTER all config changes)
 CT_STATUS=$(pct status "$CT_ID" | awk '{print $2}')
 
-if [[ "$CT_STATUS" != "running" ]]; then
+if [[ "$CT_STATUS" == "running" && "$LXC_RESTART_REQUIRED" == "true" && "$SKIP_CREATION" == "true" ]]; then
+    print_info "Restarting LXC $CT_ID to apply host configuration changes"
+    pct reboot "$CT_ID" --timeout 60
+elif [[ "$CT_STATUS" != "running" ]]; then
     print_info "Starting container"
     pct start "$CT_ID"
 fi
@@ -196,60 +190,15 @@ print_success "Container $CT_ID ready"
 # Install NVIDIA user-space drivers inside the container (if applicable)
 if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
     print_info "Configuring NVIDIA user-space drivers inside container..."
-    
-    # 1. Auto-detect running host driver version to ensure exact match. If host driver is missing, fail fast.
-    if [[ ! -f /proc/driver/nvidia/version ]]; then
-        print_error "NVIDIA driver kernel module is not loaded on the Proxmox host. Please run Proxmox Helper Scripts (7. Setup GPU Passthrough) first and reboot the host."
-        exit 1
-    fi
-    
-    target_version=""
-    detected_version=$(cat /proc/driver/nvidia/version | grep -oP 'Kernel Module\s+\K[0-9.]+' || true)
-    if [[ -n "$detected_version" ]]; then
-        target_version="$detected_version"
-    else
-        # Try fallback parsing if grep -oP isn't available/fails
-        detected_version=$(awk '/Kernel Module/ {for(i=1;i<=NF;i++) if($i ~ /^[0-9.]+$/) print $i}' /proc/driver/nvidia/version || true)
-        if [[ -n "$detected_version" ]]; then
-            target_version="$detected_version"
-        fi
-    fi
 
-    if [[ -z "$target_version" ]]; then
-        print_error "Could not parse host NVIDIA driver version from /proc/driver/nvidia/version. Aborting."
-        exit 1
-    fi
-    
-    print_info "Detected host NVIDIA driver version: ${target_version}"
-
-    # 1.5. Automatically check and download matching NVIDIA .run driver file if missing on the host
-    driver_dir="/fastpool/config/temp"
-    driver_file="$driver_dir/NVIDIA-Linux-x86_64-${target_version}.run"
-    if [[ ! -f "$driver_file" ]]; then
-        print_info "NVIDIA driver runfile not found at $driver_file. Downloading automatically on host..."
-        mkdir -p "$driver_dir"
-        driver_url="https://us.download.nvidia.com/XFree86/Linux-x86_64/${target_version}/NVIDIA-Linux-x86_64-${target_version}.run"
-        wget -q --show-progress "$driver_url" -O "$driver_file" || {
-            print_error "Failed to download NVIDIA driver from $driver_url"
-            exit 1
-        }
-        chmod +x "$driver_file"
-        print_success "NVIDIA driver runfile downloaded successfully."
-    fi
-
-    # 2. Push sync script and setup systemd service inside the container
-    # Note: The .run installer file is downloaded by helper-menu.sh (Option 7) onto the host.
-    # The sync script handles "file not found" gracefully with a warning.
-    print_info "Pushing NVIDIA user-space sync script inside container..."
+    # Keep both the script and unit current on existing containers as well.
     pct push "$CT_ID" "$WORK_DIR/scripts/nvidia-userspace-sync.sh" "/usr/local/bin/nvidia-userspace-sync.sh"
-    pct exec "$CT_ID" -- chmod +x /usr/local/bin/nvidia-userspace-sync.sh
-
-    print_info "Configuring nvidia-userspace-sync systemd service inside container..."
-    pct exec "$CT_ID" -- bash -c 'cat > /etc/systemd/system/nvidia-userspace-sync.service << "EOF"
+    pct exec "$CT_ID" -- bash -c 'chmod 0755 /usr/local/bin/nvidia-userspace-sync.sh
+cat > /etc/systemd/system/nvidia-userspace-sync.service << "EOF"
 [Unit]
 Description=Sync NVIDIA User-Space Libraries with Host
 Before=docker.service
-After=network.target
+After=local-fs.target
 
 [Service]
 Type=oneshot
@@ -258,36 +207,37 @@ RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
-EOF'
-
-    pct exec "$CT_ID" -- systemctl daemon-reload
-    pct exec "$CT_ID" -- systemctl enable nvidia-userspace-sync.service
-
-    # Run the sync script immediately during deployment to ensure drivers are set up
-    print_info "Running initial NVIDIA driver sync inside container..."
-    pct exec "$CT_ID" -- /usr/local/bin/nvidia-userspace-sync.sh
+EOF
+systemctl daemon-reload
+systemctl enable nvidia-userspace-sync.service
+systemctl restart nvidia-userspace-sync.service'
 fi
 
-# Create docker config directory
-pct exec "$CT_ID" -- mkdir -p /root/.docker
-
-# Fix permissions on host mapped directories
-fix_all_permissions
-
-# Read SSH configuration from decrypted .env if present
-SSH_ENABLED=""
-ROOT_PASSWORD=""
-if [ -f "$WORK_DIR/.env" ]; then
-    SSH_ENABLED=$(grep "^SSH_ENABLED=" "$WORK_DIR/.env" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//" || true)
-    ROOT_PASSWORD=$(grep "^ROOT_PASSWORD=" "$WORK_DIR/.env" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//" || true)
+# Prepare the dev stack's persistent bind sources on the host. Docker stacks
+# prepare their own bind sources in docker-deployment.sh.
+if [[ "$STACK_NAME" == "dev" ]]; then
+    prepare_host_directory /fastpool/config/code-server
+    prepare_host_directory /fastpool/config/code-server/config
+    prepare_host_directory /fastpool/config/code-server/data
 fi
 
-print_info "Provisioning container (stack: $STACK_NAME)"
+# OS provisioning is an initial-build operation. Existing containers are
+# treated as already provisioned; stack configuration is handled separately.
+if [[ "$SKIP_CREATION" == "false" ]]; then
+    SSH_ENABLED=""
+    ROOT_PASSWORD=""
+    if [[ -f "$WORK_DIR/.env" ]]; then
+        SSH_ENABLED=$(get_env_value "SSH_ENABLED" "$WORK_DIR/.env")
+        ROOT_PASSWORD=$(get_env_value "ROOT_PASSWORD" "$WORK_DIR/.env")
+    fi
 
-pct exec "$CT_ID" -- env SSH_ENABLED="${SSH_ENABLED}" ROOT_PASSWORD="${ROOT_PASSWORD}" sh -c "
+    print_info "Provisioning container OS (stack: $STACK_NAME)"
+
+    # The command below is an embedded script interpreted inside the LXC.
+    # shellcheck disable=SC1078,SC1079,SC1083,SC2140
+    pct exec "$CT_ID" -- env SSH_ENABLED="${SSH_ENABLED}" ROOT_PASSWORD="${ROOT_PASSWORD}" sh -c "
 set -e
 STACK_NAME='${STACK_NAME}'
-SKIP_CREATION='${SKIP_CREATION}'
 
 # Debian stacks: media (Jellyfin GPU), desktop (Brave GPU), dev (code-server)
 if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'desktop' ] || [ \"\$STACK_NAME\" = 'dev' ]; then
@@ -296,38 +246,42 @@ if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'desktop' ] || [ \"\$S
     export LC_ALL=C
     export LANG=C
 
-    # Initial system update - skip on redeployment to speed up execution
-    if [ \"\$SKIP_CREATION\" = 'false' ]; then
-        apt-get update -qq
-        apt-get upgrade -y -qq
-    fi
+    apt-get update -qq
+    apt-get upgrade -y -qq
     apt-get install -y -qq debian-archive-keyring ca-certificates curl gnupg wget util-linux
+    if [ \"\$STACK_NAME\" = 'media' ]; then
+        apt-get install -y -qq gocryptfs
+    fi
 
-    # Configure Debian repositories with non-free for GPU drivers
-    cat > /etc/apt/sources.list.d/debian.sources <<'EOS'
+    # Keep repositories aligned with the Debian template selected by pveam.
+    . /etc/os-release
+    debian_codename=\${VERSION_CODENAME:-}
+    if [ -z \"\$debian_codename\" ]; then
+        echo \"Could not determine Debian VERSION_CODENAME\" >&2
+        exit 1
+    fi
+
+    cat > /etc/apt/sources.list.d/debian.sources <<EOS
 Types: deb
 URIs: http://deb.debian.org/debian
-Suites: trixie trixie-updates
+Suites: \${debian_codename} \${debian_codename}-updates
 Components: main contrib non-free non-free-firmware
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 
 Types: deb
 URIs: http://security.debian.org/debian-security
-Suites: trixie-security
+Suites: \${debian_codename}-security
 Components: main contrib non-free non-free-firmware
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOS
 
     # Dev stack: code-server + AI CLI tools (no Docker, no GPU)
     if [ \"\$STACK_NAME\" = 'dev' ]; then
-        if [ \"\$SKIP_CREATION\" = 'false' ]; then
-            apt-get update -qq
-        fi
         apt-get install -y -qq nodejs npm git python3 python3-pip bash nano vim htop
 
         # Configure npm
-        npm config set fund false || true
-        npm config set update-notifier false || true
+        npm config set fund false
+        npm config set update-notifier false
 
         # Configure locales for Turkish character and UTF-8 support
         apt-get install -y -qq locales
@@ -336,42 +290,58 @@ EOS
         locale-gen
         update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
-        # Install AI CLI tools
-        curl -fsSL https://antigravity.google/cli/install.sh | bash
+        # Ensure ~/.local/bin is in PATH for the installation session and future shells
+        export PATH=\"/root/.local/bin:\$PATH\"
+        if ! grep -q \"/root/.local/bin\" /root/.bashrc 2>/dev/null; then
+            echo 'export PATH=\"/root/.local/bin:\$PATH\"' >> /root/.bashrc
+        fi
 
+        # Download the complete installer before executing it. The temporary
+        # file is current-run state and is always removed on shell exit.
+        antigravity_installer=\$(mktemp /tmp/antigravity-install.XXXXXX)
+        trap 'rm -f \"\$antigravity_installer\"' EXIT
+        curl -fsSL https://antigravity.google/cli/install.sh -o \"\$antigravity_installer\"
+        sed -i 's/BINARY_PATH\" install/BINARY_PATH\" install --skip-aliases --skip-path/g' \"\$antigravity_installer\"
+        bash \"\$antigravity_installer\"
+        rm -f \"\$antigravity_installer\"
+        trap - EXIT
 
         # Install code-server (latest version)
         # Using HTTP redirect to avoid GitHub API rate limits
         CODE_SERVER_URL=\$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)
         CODE_SERVER_TAG=\${CODE_SERVER_URL##*/}
         CODE_SERVER_VERSION=\${CODE_SERVER_TAG#v}
-        curl -fOL \"https://github.com/coder/code-server/releases/download/v\${CODE_SERVER_VERSION}/code-server_\${CODE_SERVER_VERSION}_amd64.deb\"
-        dpkg -i code-server_\${CODE_SERVER_VERSION}_amd64.deb
-        rm -f code-server_\${CODE_SERVER_VERSION}_amd64.deb
+        CODE_SERVER_ARCH=\$(dpkg --print-architecture)
+        case \"\$CODE_SERVER_ARCH\" in
+            amd64|arm64) ;;
+            *)
+                echo \"Unsupported code-server architecture: \$CODE_SERVER_ARCH\" >&2
+                exit 1
+                ;;
+        esac
+
+        code_server_package=\$(mktemp --suffix=.deb /tmp/code-server.XXXXXX)
+        trap 'rm -f \"\$code_server_package\"' EXIT
+        curl -fsSL \
+            \"https://github.com/coder/code-server/releases/download/v\${CODE_SERVER_VERSION}/code-server_\${CODE_SERVER_VERSION}_\${CODE_SERVER_ARCH}.deb\" \
+            -o \"\$code_server_package\"
+        dpkg -i \"\$code_server_package\"
+        rm -f \"\$code_server_package\"
+        trap - EXIT
 
         # Configure code-server (no auth - homelab internal network only)
-        # Persist config and data (extensions/user-data) to datapool
+        # Persist config and data (extensions/user-data) to fastpool
         mkdir -p /fastpool/config/code-server/config
         mkdir -p /fastpool/config/code-server/data
         
         mkdir -p /root/.config
         mkdir -p /root/.local/share
 
-        # Replace local directories with symlinks to datapool
-        if [ ! -L /root/.config/code-server ]; then
-            rm -rf /root/.config/code-server
-            ln -s /fastpool/config/code-server/config /root/.config/code-server
-        fi
-        
-        if [ ! -L /root/.local/share/code-server ]; then
-            rm -rf /root/.local/share/code-server
-            ln -s /fastpool/config/code-server/data /root/.local/share/code-server
-        fi
+        # A regular directory here is unexpected; ln fails instead of deleting it.
+        ln -sfnT /fastpool/config/code-server/config /root/.config/code-server
+        ln -sfnT /fastpool/config/code-server/data /root/.local/share/code-server
 
-        # Write config file (now writes to datapool via symlink)
-        # Ensure directory exists (symlink target might be empty initially)
-        mkdir -p /root/.config/code-server
-        
+        # Write config file through the persistent symlink.
         cat > /root/.config/code-server/config.yaml << 'EOFCS'
 bind-addr: 0.0.0.0:8680
 auth: none
@@ -405,22 +375,11 @@ DOCKERSOURCES
         tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
         
         # Install Docker + NVIDIA user-space libraries and toolkit (avoid compiling kernel modules inside LXC)
-        if [ \"\$SKIP_CREATION\" = 'false' ]; then
-            apt-get update -qq
-        fi
+        apt-get update -qq
         apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nvidia-container-toolkit
         
-        # Configure NVIDIA runtime for Docker (unprivileged LXC compatible)
-        nvidia-ctk runtime configure --runtime=docker --config=/etc/docker/daemon.json --set-as-default=false || true
-        
-        # Configure no-cgroups for unprivileged LXC (using official tool and fallback regex)
-        nvidia-ctk config --set nvidia-container-cli.no-cgroups=true --in-place || true
-        for config_path in /etc/nvidia-container-runtime/config.toml /etc/nvidia-container-toolkit/config.toml; do
-            if [ -f \"\$config_path\" ]; then
-                sed -i 's|^#\s*no-cgroups\s*=\s*false|no-cgroups = true|' \"\$config_path\" || true
-                sed -i 's|^no-cgroups\s*=\s*false|no-cgroups = true|' \"\$config_path\" || true
-            fi
-        done
+        # Configure no-cgroups for an unprivileged LXC.
+        nvidia-ctk config --set nvidia-container-cli.no-cgroups=true --in-place
         
         # Ensure Docker daemon has NVIDIA runtime configured
         mkdir -p /etc/docker
@@ -449,24 +408,15 @@ ExecStart=-/sbin/agetty --autologin root --noclear %I \$TERM
 EOFLOGIN
 
     # Set timezone
-    timedatectl set-timezone Europe/Istanbul || true
+    timedatectl set-timezone Europe/Istanbul
 
-    # Remove SSH for security
-    systemctl disable ssh 2>/dev/null || true
-    systemctl stop ssh 2>/dev/null || true
-    apt-get remove -y -qq openssh-server 2>/dev/null || true
-
-    # Cleanup
-    apt-get -y autoremove -qq
-    apt-get -y autoclean -qq
+    # Debian stacks do not expose SSH.
+    apt-get remove -y -qq openssh-server
 
 else
     # Alpine stacks: all other stacks (lighter, faster)
-    # Only run system package update/upgrade on initial creation to speed up redeployment
-    if [ \"\$SKIP_CREATION\" = 'false' ]; then
-        apk update
-        apk upgrade
-    fi
+    apk update
+    apk upgrade
     
     # Alpine stacks: Docker runtime + Bash (for script compatibility)
     apk add --no-cache docker docker-cli-compose util-linux bash
@@ -478,16 +428,16 @@ else
         grep -q DOCKER_ULIMIT /etc/conf.d/docker && sed -i '/DOCKER_ULIMIT/d' /etc/conf.d/docker
         echo 'DOCKER_ULIMIT=\" \"' >> /etc/conf.d/docker
     fi
-    service docker start || rc-service docker start || true
+    rc-service docker start
 
     # Alpine autologin
-    sed -i 's|^tty1::|#&|' /etc/inittab || true
+    sed -i 's|^tty1::|#&|' /etc/inittab
     grep -qF 'autologin root' /etc/inittab || echo 'tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux' >> /etc/inittab
-    kill -HUP 1 || true
+    kill -HUP 1
     
     # Alpine timezone setup
-    apk add --no-cache tzdata || true
-    ln -sf /usr/share/zoneinfo/Europe/Istanbul /etc/localtime || true
+    apk add --no-cache tzdata
+    ln -sf /usr/share/zoneinfo/Europe/Istanbul /etc/localtime
 
     # Configure SSH dynamically if requested
     if [ \"\$SSH_ENABLED\" = 'true' ] && [ -n \"\$ROOT_PASSWORD\" ]; then
@@ -495,24 +445,74 @@ else
         rc-update add sshd default
         echo \"root:\$ROOT_PASSWORD\" | chpasswd
         sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-        rc-service sshd start || true
-    else
-        # Remove openssh (reduce attack surface)
-        apk del openssh || true
+        rc-service sshd start
     fi
 fi
 
 # Common setup for all containers
-echo 'export TERM=xterm-256color' >> /etc/profile
-echo 'export TERM=xterm-256color' >> /root/.bashrc
+printf '%s\n' 'export TERM=xterm-256color' > /etc/profile.d/term.sh
 
 # Remove root password (allow passwordless login) if SSH password was not set
 if [ \"\${SSH_ENABLED:-}\" != 'true' ] || [ -z \"\${ROOT_PASSWORD:-}\" ]; then
-    passwd -d root || true
+    passwd -d root
 fi
 
 # Create hushlogin to suppress login messages  
 touch /root/.hushlogin
 "
+
+    print_success "Container OS provisioned"
+else
+    print_info "Container $CT_ID already provisioned; skipping OS package setup"
+fi
+
+# Dev CLI applications are application state, so reconcile them on both initial
+# provisioning and selected-stack redeploys without repeating OS provisioning.
+if [[ "$STACK_NAME" == "dev" ]]; then
+    print_info "Reconciling dev CLI applications"
+    pct exec "$CT_ID" -- sh -c '
+set -e
+
+# Use the GitHub CLI maintainers'"'"' official Debian repository. The Debian
+# community package can lag behind versions supported by GitHub APIs.
+install -m 0755 -d /etc/apt/keyrings
+gh_keyring=$(mktemp /tmp/githubcli-keyring.XXXXXX)
+trap '\''rm -f "$gh_keyring"'\'' EXIT
+curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o "$gh_keyring"
+install -m 0644 "$gh_keyring" /etc/apt/keyrings/githubcli-archive-keyring.gpg
+rm -f "$gh_keyring"
+trap - EXIT
+
+cat > /etc/apt/sources.list.d/github-cli.list <<EOF
+deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main
+EOF
+apt-get update -qq
+apt-get install -y -qq gh
+
+# npm is already part of the provisioned dev environment. Installing the
+# package globally exposes Codex to root and code-server terminals.
+npm install --global @openai/codex
+
+# Antigravity installs to ~/.local/bin while its installer is deliberately
+# prevented from editing shell profiles. Expose it through the system PATH.
+ln -sfnT /root/.local/bin/agy /usr/local/bin/agy
+
+for command_name in node npm git gh python3 bash nano vim htop agy codex code-server; do
+    command -v "$command_name"
+done
+
+node --version
+npm --version
+git --version
+gh --version
+python3 --version
+agy --version
+codex --version
+code-server --version
+systemctl is-enabled code-server@root
+systemctl is-active code-server@root
+'
+    print_success "Dev CLI applications reconciled and verified"
+fi
 
 print_success "Container [$STACK_NAME] created and ready"

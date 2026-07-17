@@ -92,12 +92,11 @@ services:
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - WATCHTOWER_CLEANUP=true
-      - PUID=1000
-      - PGID=1000
-      - UMASK=002
       - WATCHTOWER_SCHEDULE=0 0 */6 * * *
       - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
       - WATCHTOWER_NOTIFICATIONS_LEVEL=info
+      - WATCHTOWER_NOTIFICATION_REPORT=true
+      - WATCHTOWER_NO_STARTUP_MESSAGE=true
       - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-gateway
     networks:
       - gateway-net

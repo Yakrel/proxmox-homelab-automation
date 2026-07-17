@@ -21,11 +21,7 @@
         {
             "Title": "Proxmox VE",
             "Type": "SSH",
-            "Host": "192.168.1.10:22",
-            "Meta": {
-                "User": "root",
-                "PrivateKey": "SSHWIFTY_PRIVATE_KEY_PLACEHOLDER"
-            }
+            "Host": "192.168.1.10:22"
         },
         {
             "Title": "LXC AI (192.168.1.105)",

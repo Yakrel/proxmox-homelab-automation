@@ -10,15 +10,6 @@
 # To run:
 # bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)"
 #
-# DEPENDENCIES:
-# - yq: YAML parser used to read stacks.yaml configuration
-#   (python3-argcomplete, python3-tomlkit, python3-xmltodict are auto-installed as yq dependencies)
-#
-# To remove these packages from your Proxmox host if needed:
-# apt-get remove --purge -y yq python3-argcomplete python3-tomlkit python3-xmltodict
-# apt-get autoremove -y
-#
-
 # Strict error handling
 set -euo pipefail
 
@@ -44,12 +35,16 @@ cleanup() {
 # --- Main Logic ---
 
 # 1. Setup Temporary Environment
+if [[ $EUID -ne 0 ]]; then
+    print_error "Run this installer as root on the Proxmox host"
+    exit 1
+fi
+
 WORK_DIR=$(mktemp -d /tmp/proxmox-automation.XXXXXX)
 trap cleanup EXIT
 
 print_info "Created temporary directory: $WORK_DIR"
 cd "$WORK_DIR"
-mkdir -p scripts
 
 # 2. Download Core Scripts
 print_info "Downloading the latest scripts from the repository..."
@@ -62,14 +57,7 @@ curl -sSL "https://github.com/Yakrel/proxmox-homelab-automation/archive/refs/hea
     exit 1
 }
 
-# Post-processing: Fix line endings and permissions for all scripts
-print_info "Setting up permissions..."
-find "$WORK_DIR" -name "*.sh" -type f -exec sed -i 's/\r$//' {} +
-find "$WORK_DIR" -name "*.sh" -type f -exec chmod +x {} +
-
 print_success "Environment setup complete"
-
-print_success "All scripts downloaded successfully."
 
 # Ensure yq is available before running menus
 if ! command -v yq &>/dev/null; then
@@ -81,8 +69,11 @@ fi
 print_info "Starting main application"
 echo "-------------------------------------------------"
 
-bash "$WORK_DIR/scripts/main-menu.sh"
-main_menu_exit_code=$?
+if bash "$WORK_DIR/scripts/main-menu.sh"; then
+    main_menu_exit_code=0
+else
+    main_menu_exit_code=$?
+fi
 
 # Only report error if it's a real failure
 if [[ $main_menu_exit_code -ne 0 && $main_menu_exit_code -ne 124 && $main_menu_exit_code -ne 130 ]]; then
