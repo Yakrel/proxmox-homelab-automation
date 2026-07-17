@@ -30,7 +30,9 @@
           },
           "conditions": [
             "CONDITION_SNAPSHOT_SUCCESS",
-            "CONDITION_SNAPSHOT_WARNING"
+            "CONDITION_SNAPSHOT_WARNING",
+            "CONDITION_FORGET_SUCCESS",
+            "CONDITION_PRUNE_SUCCESS"
           ],
           "onError": "ON_ERROR_IGNORE"
         }
@@ -45,12 +47,13 @@
         "/backup-sources/config"
       ],
       "excludes": [
-        "/backup-sources/config/desktop-workspace",
+        "/backup-sources/config/desktop-workspace/.config/BraveSoftware",
         "/backup-sources/config/adguard/work/data",
         "/backup-sources/config/*/.cache",
         "/backup-sources/config/*/cache",
         "/backup-sources/config/jellyfin/cache",
         "/backup-sources/config/immich/cache",
+        "/backup-sources/config/immich/postgres",
         "/backup-sources/config/recyclarr/repositories",
         "/backup-sources/config/recyclarr/resources",
         "/backup-sources/config/backrest/cache",
@@ -67,10 +70,12 @@
         "/backup-sources/config/sonarr/MediaCover",
         "/backup-sources/config/qbittorrent/qBittorrent/GeoDB",
         "/backup-sources/config/qbittorrent/qBittorrent/logs",
-        "/backup-sources/config/qbittorrent/qBittorrent/BT_backup",
         "/backup-sources/config/bazarr/cache",
         "/backup-sources/config/bazarr/backup",
-        "/backup-sources/config/code-server",
+        "/backup-sources/config/code-server/data/logs",
+        "/backup-sources/config/code-server/data/coder-logs",
+        "/backup-sources/config/code-server/data/CachedProfilesData",
+        "/backup-sources/config/code-server/data/User/caches",
         "/backup-sources/config/jellyseerr/cache",
         "/backup-sources/config/vaultwarden/icon_cache",
         "/backup-sources/config/vaultwarden/tmp",
@@ -117,11 +122,9 @@
       "paths": [
         "/backup-sources/immich"
       ],
-      "excludes": [
-        "/backup-sources/immich/backups"
-      ],
+      "excludes": [],
       "schedule": {
-        "cron": "0 2 */3 * *",
+        "cron": "0 3 */3 * *",
         "clock": "CLOCK_LAST_RUN_TIME"
       },
       "retention": {

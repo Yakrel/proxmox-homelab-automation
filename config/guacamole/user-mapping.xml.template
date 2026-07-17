@@ -5,10 +5,10 @@
         <!-- Desktop Workstation RDP Connection (Windows / Fedora GNOME Remote Desktop) -->
         <connection name="Desktop (RDP)">
             <protocol>rdp</protocol>
-            <param name="hostname">WINDOWS_IP_PLACEHOLDER</param>
+            <param name="hostname">DESKTOP_IP_PLACEHOLDER</param>
             <param name="port">3389</param>
-            <param name="username">WINDOWS_USER_PLACEHOLDER</param>
-            <param name="password">WINDOWS_PASSWORD_PLACEHOLDER</param>
+            <param name="username">DESKTOP_USER_PLACEHOLDER</param>
+            <param name="password">DESKTOP_PASSWORD_PLACEHOLDER</param>
             <param name="security">any</param>
             <param name="ignore-cert">true</param>
             <param name="color-depth">32</param>

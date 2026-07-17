@@ -8,12 +8,10 @@ set -euo pipefail
 
 # Setup homepage configuration files from repository
 setup_homepage_config() {
-    local ct_id="$1"
-
     print_info "Setting up Homepage configuration"
 
-    # Ensure directory exists
-    mkdir -p /fastpool/config/homepage
+    prepare_host_directory /fastpool/config/homepage
+    prepare_host_directory /fastpool/config/homepage/assets
 
     # List of homepage config files to copy
     local config_files=("services.yaml" "bookmarks.yaml" "widgets.yaml" "settings.yaml" "docker.yaml")
@@ -23,16 +21,12 @@ setup_homepage_config() {
         local source_file="$WORK_DIR/config/homepage/$config_file"
         local dest_file="/fastpool/config/homepage/$config_file"
         
-        if [[ -f "$source_file" ]]; then
-            cp "$source_file" "$dest_file" || {
-                print_error "Failed to copy $config_file"
-                exit 1
-            }
-        else
-            print_error "Source file not found: $source_file"
-            exit 1
-        fi
+        install -o 101000 -g 101000 -m 0644 "$source_file" "$dest_file"
     done
+
+    install -o 101000 -g 101000 -m 0644 \
+        "$WORK_DIR/config/homepage/assets/homepage-background.png" \
+        /fastpool/config/homepage/assets/homepage-background.png
 
     print_success "Homepage configured"
 }
@@ -40,13 +34,12 @@ setup_homepage_config() {
 setup_gateway_permissions() {
     print_info "Preparing Gateway directories"
 
-    mkdir -p /fastpool/config/npm/data
-    mkdir -p /fastpool/config/npm/letsencrypt
-    mkdir -p /fastpool/config/adguard/work
-    mkdir -p /fastpool/config/adguard/conf
-
-    fix_path_owner_recursive /fastpool/config/npm
-    fix_path_owner_recursive /fastpool/config/adguard
+    prepare_host_directory /fastpool/config/npm
+    prepare_host_directory /fastpool/config/npm/data
+    prepare_host_directory /fastpool/config/npm/letsencrypt
+    prepare_host_directory /fastpool/config/adguard
+    prepare_host_directory /fastpool/config/adguard/work
+    prepare_host_directory /fastpool/config/adguard/conf
 
     print_success "Gateway directories ready"
 }
@@ -54,200 +47,162 @@ setup_gateway_permissions() {
 setup_desktop_permissions() {
     print_info "Preparing Desktop directories"
 
-    mkdir -p /fastpool/config/homepage
-    mkdir -p /fastpool/config/couchdb/data /fastpool/config/couchdb/local.d
-    mkdir -p /fastpool/config/desktop-workspace
-    mkdir -p /fastpool/config/vaultwarden
-    mkdir -p /fastpool/config/guacamole
-    mkdir -p /fastpool/config/sshwifty
-
-    # These are small writable app-config trees; keep large browser/password data shallow.
-    fix_path_owner_recursive /fastpool/config/homepage
-    fix_path_owner_recursive /fastpool/config/couchdb
-    fix_path_owner /fastpool/config/desktop-workspace
-    # Fix all configuration directories (PulseAudio, window manager, themes, etc.) at once
-    mkdir -p /fastpool/config/desktop-workspace/.config
-    fix_path_owner_recursive /fastpool/config/desktop-workspace/.config
-    fix_path_owner /fastpool/config/vaultwarden
-    fix_path_owner_recursive /fastpool/config/guacamole
-    fix_path_owner_recursive /fastpool/config/sshwifty
+    prepare_host_directory /fastpool/config/desktop-workspace
+    prepare_host_directory /fastpool/config/desktop-workspace/.config
+    prepare_host_directory /fastpool/config/vaultwarden
+    prepare_host_directory /fastpool/config/radicale
+    prepare_host_directory /fastpool/config/radicale/config
+    prepare_host_directory /fastpool/config/radicale/data
 
     print_success "Desktop directories ready"
 
 }
 
 setup_sshwifty_config() {
-    local ct_id="$1"
-
     print_info "Setting up sshwifty configuration"
 
-    mkdir -p /fastpool/config/sshwifty
-    mkdir -p /root/.ssh
-    chmod 700 /root/.ssh
+    prepare_host_directory /fastpool/config/sshwifty
 
-    # Generate SSH key pair for sshwifty → Proxmox auth (idempotent)
-    local key_file="/fastpool/config/sshwifty/sshwifty_key"
-    if [[ ! -f "$key_file" ]]; then
-        print_info "Generating ed25519 SSH key for sshwifty"
-        ssh-keygen -t ed25519 -N "" -f "$key_file" -C "sshwifty@homelab" || {
-            print_error "Failed to generate SSH key"
-            exit 1
-        }
-        chmod 600 "$key_file"
-        chmod 644 "${key_file}.pub"
-        print_success "SSH key generated: $key_file"
-    else
-        print_info "SSH key already exists: $key_file"
-    fi
-
-    # Add public key to Proxmox authorized_keys (idempotent)
-    local pub_key
-    pub_key=$(cat "${key_file}.pub")
-    touch /root/.ssh/authorized_keys
-    chmod 600 /root/.ssh/authorized_keys
-
-    if ! grep -qF "$pub_key" /root/.ssh/authorized_keys; then
-        echo "$pub_key" >> /root/.ssh/authorized_keys
-        print_success "sshwifty public key added to Proxmox authorized_keys"
-    else
-        print_info "sshwifty public key already in authorized_keys"
-    fi
-
-    # Build sshwifty.conf.json with private key embedded (Python handles JSON escaping)
+    # Presets contain host addresses only. Sshwifty asks for SSH credentials at
+    # connection time, so no private key or password is stored on disk.
     local source_template="$WORK_DIR/config/sshwifty/sshwifty.conf.json.template"
     local dest_file="/fastpool/config/sshwifty/sshwifty.conf.json"
 
-    [[ -f "$source_template" ]] || { print_error "sshwifty template not found: $source_template"; exit 1; }
+    install -o 101000 -g 101000 -m 0644 "$source_template" "$dest_file"
 
-    if ! python3 - <<PYEOF
-import json
-
-with open("$source_template") as f:
-    config = json.load(f)
-
-with open("$key_file") as f:
-    private_key = f.read()
-
-# Inject private key into preset
-config["Presets"][0]["Meta"]["PrivateKey"] = private_key
-
-with open("$dest_file", "w") as f:
-    json.dump(config, f, indent=4)
-
-import os
-os.chmod("$dest_file", 0o644)
-PYEOF
-    then
-        print_error "Failed to generate sshwifty.conf.json"
-        exit 1
-    fi
-
-    # Enforce correct file permissions on key files and configuration
-    chmod 644 "$dest_file"
-    chmod 600 "$key_file"
-    chmod 644 "${key_file}.pub"
-
-    fix_path_owner_recursive /fastpool/config/sshwifty
-
-    print_success "sshwifty configured with key-based auth"
+    print_success "sshwifty presets configured for interactive SSH authentication"
 }
 
-setup_hermes_config() {
-    print_info "Setting up Hermes Agent configuration"
+setup_hermes_telegram() {
+    print_info "Setting up Hermes Agent Telegram credentials"
 
-    mkdir -p /fastpool/config/hermes
+    prepare_host_directory /fastpool/config/hermes 0700
 
-    if [[ -n "${ENV_DECRYPTED_PATH:-}" && -f "$ENV_DECRYPTED_PATH" ]]; then
-        # Helper function to read values safely from .env without sourcing
-        get_env_val() {
-            local key="$1"
-            local val
-            val=$(grep "^${key}=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- || echo "")
-            # Strip leading/trailing single/double quotes
-            val=$(echo "$val" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
-            echo "$val"
-        }
+    [[ -f "${ENV_DECRYPTED_PATH:-}" ]] || {
+        print_error "Decrypted environment file not found"
+        return 1
+    }
 
-        local tg_token tg_chat_id openrouter_key
-        tg_token=$(get_env_val "HERMES_TELEGRAM_TOKEN")
-        tg_chat_id=$(get_env_val "HERMES_TELEGRAM_CHAT_ID")
-        openrouter_key=$(get_env_val "HERMES_OPENROUTER_API_KEY")
+    local tg_token tg_chat_id
+    tg_token=$(get_env_value "HERMES_TELEGRAM_TOKEN")
+    tg_chat_id=$(get_env_value "HERMES_TELEGRAM_CHAT_ID")
 
-        if [[ -n "$tg_token" && -n "$tg_chat_id" && -n "$openrouter_key" ]]; then
-            # Create config.yaml — model.default intentionally omitted; set once with:
-            #   docker exec -it hermes hermes model openrouter/<model-id>
-            # Route requests through internal OmniRoute container in the same docker network
-            cat <<EOF > /fastpool/config/hermes/config.yaml
-model:
-  provider: omniroute
-  default: auto/best-coding
-providers:
-  omniroute:
-    base_url: http://omniroute:20128/v1
-    api_key: ${openrouter_key}
-EOF
-
-            # Create .env file inside hermes config directory
-            cat <<EOF > /fastpool/config/hermes/.env
-TELEGRAM_BOT_TOKEN=${tg_token}
-TELEGRAM_ALLOWED_USERS=${tg_chat_id}
-OPENROUTER_API_KEY=${openrouter_key}
-EOF
-            print_success "Hermes config.yaml and .env generated successfully"
-        else
-            print_warning "Missing Hermes environment variables in decrypted env, configuration skipped"
-        fi
-    else
-        print_warning "Decrypted environment file not found, configuration skipped"
+    if [[ -z "$tg_token" || -z "$tg_chat_id" ]]; then
+        print_error "Missing required Hermes Telegram environment variables"
+        return 1
     fi
 
-    fix_path_owner_recursive /fastpool/config/hermes
+    local env_tmp
+    env_tmp=$(mktemp /fastpool/config/hermes/.env.XXXXXX)
+    register_runtime_temp_file "$env_tmp"
+
+    if ! HERMES_TG_TOKEN="$tg_token" \
+        HERMES_TG_CHAT_ID="$tg_chat_id" \
+        python3 - /fastpool/config/hermes/.env "$env_tmp" <<'PYEOF'
+import os
+import sys
+
+token = os.environ["HERMES_TG_TOKEN"]
+chat_id = os.environ["HERMES_TG_CHAT_ID"]
+
+if any("\n" in value or "\r" in value for value in (token, chat_id)):
+    raise ValueError("Hermes environment values must be single-line")
+
+source_path, destination_path = sys.argv[1:3]
+managed_keys = {"TELEGRAM_BOT_TOKEN", "TELEGRAM_ALLOWED_USERS"}
+lines = []
+
+if os.path.exists(source_path):
+    with open(source_path, encoding="utf-8") as source_file:
+        for line in source_file:
+            key = line.split("=", 1)[0].strip()
+            if key not in managed_keys:
+                lines.append(line.rstrip("\n"))
+
+lines.extend((
+    f"TELEGRAM_BOT_TOKEN={token}",
+    f"TELEGRAM_ALLOWED_USERS={chat_id}",
+))
+
+with open(destination_path, "w", encoding="utf-8") as env_file:
+    env_file.write("\n".join(lines) + "\n")
+PYEOF
+    then
+        rm -f "$env_tmp"
+        print_error "Failed to configure Hermes Telegram credentials"
+        return 1
+    fi
+
+    chown 101000:101000 "$env_tmp"
+    chmod 0600 "$env_tmp"
+    mv -f "$env_tmp" /fastpool/config/hermes/.env
+
+    print_success "Hermes Telegram credentials configured"
 }
 
 setup_utility_permissions() {
     print_info "Preparing Utility directories"
 
-    mkdir -p /fastpool/config/jdownloader2
-    mkdir -p /fastpool/config/metube
-    mkdir -p /fastpool/config/repackarr/data /fastpool/config/repackarr/logs
-    mkdir -p /fastpool/config/samba
-    mkdir -p /fastpool/config/changedetection
-    mkdir -p /fastpool/config/karakeep/data /fastpool/config/karakeep/meilisearch
-    mkdir -p /datapool/downloads
-    mkdir -p /datapool/media/kids/youtube
+    prepare_host_directory /fastpool/config/jdownloader2
+    prepare_host_directory /fastpool/config/metube
+    install -o 101000 -g 101000 -m 0644 \
+        "$WORK_DIR/config/metube/youtube-location.cookies" \
+        /fastpool/config/metube/youtube-location.cookies
+    prepare_host_directory /fastpool/config/repackarr
+    prepare_host_directory /fastpool/config/repackarr/data
+    prepare_host_directory /fastpool/config/repackarr/logs
+    prepare_host_directory /fastpool/config/samba 0700
+    prepare_host_directory /fastpool/config/changedetection
+    prepare_host_directory /fastpool/config/karakeep
+    prepare_host_directory /fastpool/config/karakeep/data
+    prepare_host_directory /fastpool/config/karakeep/meilisearch
+    prepare_host_directory /datapool/downloads
+    prepare_host_directory /datapool/media
+    prepare_host_directory /datapool/media/kids
+    prepare_host_directory /datapool/media/kids/youtube
 
-    # Copy Samba configuration if template exists in repository and replace environment variables
-    if [[ -f "$WORK_DIR/config/samba/config.yml" ]]; then
-        if [[ -n "${ENV_DECRYPTED_PATH:-}" && -f "$ENV_DECRYPTED_PATH" ]]; then
-            local samba_user samba_password
-            samba_user=$(grep "^SAMBA_USER=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//" || true)
-            samba_password=$(grep "^SAMBA_PASSWORD=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//" || true)
-            
-            if [[ -n "$samba_user" && -n "$samba_password" ]]; then
-                sed -e "s/\${SAMBA_USER}/$samba_user/g" \
-                    -e "s/\${SAMBA_PASSWORD}/$samba_password/g" \
-                    "$WORK_DIR/config/samba/config.yml" > /fastpool/config/samba/config.yml
-            else
-                cp "$WORK_DIR/config/samba/config.yml" /fastpool/config/samba/config.yml
-            fi
-        else
-            cp "$WORK_DIR/config/samba/config.yml" /fastpool/config/samba/config.yml
-        fi
+    [[ -f "${ENV_DECRYPTED_PATH:-}" ]] || {
+        print_error "Decrypted environment file not found"
+        return 1
+    }
+
+    local samba_user samba_password samba_tmp
+    samba_user=$(get_env_value "SAMBA_USER")
+    samba_password=$(get_env_value "SAMBA_PASSWORD")
+
+    if [[ -z "$samba_user" || -z "$samba_password" ]]; then
+        print_error "Missing required Samba environment variables"
+        return 1
     fi
 
-    # Current trees are small and commonly written by user-mapped containers.
-    fix_path_owner_recursive /fastpool/config/jdownloader2
-    fix_path_owner_recursive /fastpool/config/metube
-    fix_path_owner_recursive /fastpool/config/repackarr
-    fix_path_owner_recursive /fastpool/config/changedetection
-    fix_path_owner_recursive /fastpool/config/karakeep
-    # Samba directory is owned by 101000, but cache and lib must be world-writable (777) so Samba's root process can manage lock files
-    mkdir -p /fastpool/config/samba/cache /fastpool/config/samba/lib/private
-    fix_path_owner_recursive /fastpool/config/samba
-    chmod 777 /fastpool/config/samba/cache /fastpool/config/samba/lib
-    fix_path_owner /datapool/downloads
-    fix_path_owner /datapool/media/kids
-    fix_path_owner /datapool/media/kids/youtube
+    samba_tmp=$(mktemp /fastpool/config/samba/config.yml.XXXXXX)
+    register_runtime_temp_file "$samba_tmp"
+    if ! SAMBA_RENDER_USER="$samba_user" \
+        SAMBA_RENDER_PASSWORD="$samba_password" \
+        python3 - "$WORK_DIR/config/samba/config.yml" "$samba_tmp" <<'PYEOF'
+import json
+import os
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source_file:
+    content = source_file.read()
+
+content = content.replace("${SAMBA_USER}", json.dumps(os.environ["SAMBA_RENDER_USER"]))
+content = content.replace("${SAMBA_PASSWORD}", json.dumps(os.environ["SAMBA_RENDER_PASSWORD"]))
+
+with open(sys.argv[2], "w", encoding="utf-8") as destination_file:
+    destination_file.write(content)
+PYEOF
+    then
+        rm -f "$samba_tmp"
+        print_error "Failed to generate Samba configuration"
+        return 1
+    fi
+
+    yq '.' "$samba_tmp" >/dev/null
+    chown 101000:101000 "$samba_tmp"
+    chmod 0600 "$samba_tmp"
+    mv -f "$samba_tmp" /fastpool/config/samba/config.yml
 
     print_success "Utility directories ready"
 }
@@ -256,14 +211,11 @@ setup_utility_permissions() {
 setup_ai_permissions() {
     print_info "Preparing AI directories"
 
-    mkdir -p /fastpool/config/hermes
-    mkdir -p /fastpool/config/omniroute
+    prepare_host_directory /fastpool/config/omniroute
 
-    fix_path_owner_recursive /fastpool/config/hermes
-    fix_path_owner_recursive /fastpool/config/omniroute
-
-    # Setup Hermes specific configurations (config.yaml and .env)
-    setup_hermes_config
+    # Keep the working Telegram integration while leaving model/provider
+    # configuration to Hermes' first-run wizard and dashboard.
+    setup_hermes_telegram
 
     print_success "AI directories ready"
 }
@@ -272,35 +224,23 @@ setup_ai_permissions() {
 
 # Setup CouchDB directories and configuration
 setup_couchdb_config() {
-    local ct_id="$1"
-
     print_info "Setting up CouchDB"
 
-    # Create CouchDB directories
-    mkdir -p /fastpool/config/couchdb/data
-    mkdir -p /fastpool/config/couchdb/local.d
+    prepare_host_directory /fastpool/config/couchdb
+    prepare_host_directory /fastpool/config/couchdb/data
+    prepare_host_directory /fastpool/config/couchdb/local.d
 
     # Copy CouchDB configuration file
     local source_file="$WORK_DIR/config/couchdb/local.ini"
     local dest_file="/fastpool/config/couchdb/local.d/local.ini"
 
-    if [[ -f "$source_file" ]]; then
-        cp "$source_file" "$dest_file" || {
-            print_error "Failed to copy local.ini"
-            exit 1
-        }
-    else
-        print_error "Source file not found: $source_file"
-        exit 1
-    fi
+    install -o 101000 -g 101000 -m 0644 "$source_file" "$dest_file"
 
     print_success "CouchDB configured"
 }
 
 # Setup Guacamole configuration from template
 setup_guacamole_config() {
-    local ct_id="$1"
-
     print_info "Setting up Guacamole configuration"
 
     if [[ ! -f "${ENV_DECRYPTED_PATH:-}" ]]; then
@@ -308,49 +248,22 @@ setup_guacamole_config() {
         exit 1
     fi
 
-    # Helper function to read values safely from .env without sourcing (prevents command execution of unquoted values with spaces)
-    get_env_val() {
-        local key="$1"
-        local val
-        val=$(grep "^${key}=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- || true)
-        # Strip leading/trailing single/double quotes
-        val=$(echo "$val" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
-        echo "$val"
-    }
-
     local guacamole_user guacamole_password desktop_ip desktop_user desktop_password laptop_ip laptop_rdp_user laptop_rdp_password
-    guacamole_user=$(get_env_val "GUACAMOLE_USER")
-    guacamole_password=$(get_env_val "GUACAMOLE_PASSWORD")
+    guacamole_user=$(get_env_value "GUACAMOLE_USER")
+    guacamole_password=$(get_env_value "GUACAMOLE_PASSWORD")
     
-    desktop_ip=$(get_env_val "DESKTOP_IP")
-    if [[ -z "$desktop_ip" ]]; then
-        desktop_ip=$(get_env_val "WINDOWS_IP")
-    fi
-    
-    desktop_user=$(get_env_val "DESKTOP_USER")
-    if [[ -z "$desktop_user" ]]; then
-        desktop_user=$(get_env_val "WINDOWS_RDP_USER")
-    fi
-    
-    desktop_password=$(get_env_val "DESKTOP_PASSWORD")
-    if [[ -z "$desktop_password" ]]; then
-        desktop_password=$(get_env_val "WINDOWS_RDP_PASSWORD")
-    fi
+    desktop_ip=$(get_env_value "DESKTOP_IP")
+    desktop_user=$(get_env_value "DESKTOP_USER")
+    desktop_password=$(get_env_value "DESKTOP_PASSWORD")
 
-    laptop_ip=$(get_env_val "LAPTOP_IP")
-    laptop_rdp_user=$(get_env_val "LAPTOP_RDP_USER")
-    laptop_rdp_password=$(get_env_val "LAPTOP_RDP_PASSWORD")
+    laptop_ip=$(get_env_value "LAPTOP_IP")
+    laptop_rdp_user=$(get_env_value "LAPTOP_RDP_USER")
+    laptop_rdp_password=$(get_env_value "LAPTOP_RDP_PASSWORD")
 
-    # Fallback for laptop configuration if not explicitly set
-    if [[ -z "$laptop_rdp_user" ]]; then
-        laptop_rdp_user="$desktop_user"
-    fi
-    if [[ -z "$laptop_rdp_password" ]]; then
-        laptop_rdp_password="$desktop_password"
-    fi
-    if [[ -z "$laptop_ip" ]]; then
-        # Default placeholder to prevent sed failure or invalid XML mapping if missing
-        laptop_ip="192.168.1.21"
+    if [[ -n "$laptop_ip$laptop_rdp_user$laptop_rdp_password" ]] && \
+       [[ -z "$laptop_ip" || -z "$laptop_rdp_user" || -z "$laptop_rdp_password" ]]; then
+        print_error "LAPTOP_IP, LAPTOP_RDP_USER and LAPTOP_RDP_PASSWORD must be set together"
+        return 1
     fi
 
     # Fail fast if variables are missing
@@ -359,35 +272,87 @@ setup_guacamole_config() {
         exit 1
     fi
 
-    # Create guacamole config directory on host
-    mkdir -p /fastpool/config/guacamole
+    # The official Guacamole image runs as UID 1001, while host bind sources
+    # are owned by the LXC's UID 1000 mapping. Keep this read-only mount
+    # readable; the Desktop LXC and authenticated Samba administrator remain
+    # trusted boundaries for the credentials stored here.
+    prepare_host_directory /fastpool/config/guacamole
 
     local source_template="$WORK_DIR/config/guacamole/user-mapping.xml.template"
     local dest_file="/fastpool/config/guacamole/user-mapping.xml"
 
-    if [[ -f "$source_template" ]]; then
-        # Replace placeholders with environment values
-        sed -e "s|GUACAMOLE_USER_PLACEHOLDER|${guacamole_user}|g" \
-            -e "s|GUACAMOLE_PASSWORD_PLACEHOLDER|${guacamole_password}|g" \
-            -e "s|WINDOWS_IP_PLACEHOLDER|${desktop_ip}|g" \
-            -e "s|WINDOWS_USER_PLACEHOLDER|${desktop_user}|g" \
-            -e "s|WINDOWS_PASSWORD_PLACEHOLDER|${desktop_password}|g" \
-            -e "s|LAPTOP_IP_PLACEHOLDER|${laptop_ip}|g" \
-            -e "s|LAPTOP_USER_PLACEHOLDER|${laptop_rdp_user}|g" \
-            -e "s|LAPTOP_PASSWORD_PLACEHOLDER|${laptop_rdp_password}|g" \
-            "$source_template" > "$dest_file" || {
-                print_error "Failed to generate user-mapping.xml from template"
-                exit 1
-            }
-    else
-        print_error "Guacamole user-mapping.xml.template not found at $source_template"
-        exit 1
+    local guacamole_tmp
+    guacamole_tmp=$(mktemp /fastpool/config/guacamole/user-mapping.xml.XXXXXX)
+    register_runtime_temp_file "$guacamole_tmp"
+
+    if ! GUACAMOLE_RENDER_USER="$guacamole_user" \
+        GUACAMOLE_RENDER_PASSWORD="$guacamole_password" \
+        DESKTOP_RENDER_IP="$desktop_ip" \
+        DESKTOP_RENDER_USER="$desktop_user" \
+        DESKTOP_RENDER_PASSWORD="$desktop_password" \
+        LAPTOP_RENDER_IP="$laptop_ip" \
+        LAPTOP_RENDER_USER="$laptop_rdp_user" \
+        LAPTOP_RENDER_PASSWORD="$laptop_rdp_password" \
+        python3 - "$source_template" "$guacamole_tmp" <<'PYEOF'
+import os
+import sys
+import xml.etree.ElementTree as ET
+from xml.sax.saxutils import escape
+
+with open(sys.argv[1], encoding="utf-8") as source_file:
+    content = source_file.read()
+
+replacements = {
+    "GUACAMOLE_USER_PLACEHOLDER": os.environ["GUACAMOLE_RENDER_USER"],
+    "GUACAMOLE_PASSWORD_PLACEHOLDER": os.environ["GUACAMOLE_RENDER_PASSWORD"],
+    "DESKTOP_IP_PLACEHOLDER": os.environ["DESKTOP_RENDER_IP"],
+    "DESKTOP_USER_PLACEHOLDER": os.environ["DESKTOP_RENDER_USER"],
+    "DESKTOP_PASSWORD_PLACEHOLDER": os.environ["DESKTOP_RENDER_PASSWORD"],
+    "LAPTOP_IP_PLACEHOLDER": os.environ["LAPTOP_RENDER_IP"],
+    "LAPTOP_USER_PLACEHOLDER": os.environ["LAPTOP_RENDER_USER"],
+    "LAPTOP_PASSWORD_PLACEHOLDER": os.environ["LAPTOP_RENDER_PASSWORD"],
+}
+
+for placeholder, value in replacements.items():
+    content = content.replace(placeholder, escape(value, {'"': "&quot;", "'": "&apos;"}))
+
+root = ET.fromstring(content)
+if not os.environ["LAPTOP_RENDER_IP"]:
+    for authorize in root.findall("authorize"):
+        for connection in authorize.findall("connection"):
+            if connection.get("name") == "Laptop (RDP)":
+                authorize.remove(connection)
+
+ET.indent(root, space="    ")
+ET.ElementTree(root).write(sys.argv[2], encoding="unicode")
+PYEOF
+    then
+        rm -f "$guacamole_tmp"
+        print_error "Failed to generate user-mapping.xml from template"
+        return 1
     fi
 
-    # Fix ownership
-    fix_path_owner_recursive /fastpool/config/guacamole
+    chown 101000:101000 "$guacamole_tmp"
+    chmod 0644 "$guacamole_tmp"
+    mv -f "$guacamole_tmp" "$dest_file"
 
     print_success "Guacamole configured"
+}
+
+
+# Prepare each media stack bind root without recursively touching app data.
+setup_media_permissions() {
+    print_info "Preparing Media directories"
+
+    local app
+    for app in sonarr radarr bazarr jellyfin jellyseerr qbittorrent prowlarr recyclarr cleanuperr; do
+        prepare_host_directory "/fastpool/config/$app"
+    done
+
+    setup_immich_directories
+    setup_tdarr_directories
+
+    print_success "Media directories ready"
 }
 
 
@@ -395,17 +360,17 @@ setup_guacamole_config() {
 setup_immich_directories() {
     print_info "Preparing Immich directories"
 
-    # Create all required Immich directories
-    mkdir -p /datapool/media/immich/{upload,library,thumbs,profile,backups,encoded-video}
-    mkdir -p /fastpool/config/immich/{postgres,cache}
-
-    # These services run as user 1000 inside unprivileged LXC containers, so the
-    # host paths must map to 101000:101000 to remain writable after bind mounts.
-    fix_path_owner_recursive /fastpool/config/immich/cache
-
-    # Set appropriate permissions (chmod only, ownership handled globally)
-    fix_path_chmod_recursive /datapool/media/immich 755
-    fix_path_chmod /fastpool/config/immich/postgres 700
+    prepare_host_directory /datapool/media
+    prepare_host_directory /datapool/media/immich
+    prepare_host_directory /datapool/media/immich/upload
+    prepare_host_directory /datapool/media/immich/library
+    prepare_host_directory /datapool/media/immich/thumbs
+    prepare_host_directory /datapool/media/immich/profile
+    prepare_host_directory /datapool/media/immich/backups
+    prepare_host_directory /datapool/media/immich/encoded-video
+    prepare_host_directory /fastpool/config/immich
+    prepare_host_directory /fastpool/config/immich/postgres 0700
+    prepare_host_directory /fastpool/config/immich/cache
 
     print_success "Immich configured"
 }
@@ -414,22 +379,45 @@ setup_immich_directories() {
 setup_tdarr_directories() {
     print_info "Preparing Tdarr directories"
 
-    # Create config and temp directories
-    mkdir -p /fastpool/config/tdarr/{server,configs,logs}
-    mkdir -p /datapool/temp/tdarr
-
-    # Ensure correct ownership for LXC user (101000 mapping for user 1000)
-    fix_path_owner_recursive /fastpool/config/tdarr
-    fix_path_owner_recursive /datapool/temp/tdarr
-
-    # Ensure correct permissions for the temp directory (transcoding needs write access)
-    fix_path_chmod_recursive /datapool/temp/tdarr 777
+    prepare_host_directory /fastpool/config/tdarr
+    prepare_host_directory /fastpool/config/tdarr/server
+    prepare_host_directory /fastpool/config/tdarr/configs
+    prepare_host_directory /fastpool/config/tdarr/logs
+    prepare_host_directory /datapool/temp
+    prepare_host_directory /datapool/temp/tdarr
 
     print_success "Tdarr configured"
 }
 
 
 
+
+# Prepare stack-specific host bind sources and generated configuration.
+prepare_docker_stack() {
+    local stack_name="$1"
+
+    case "$stack_name" in
+        desktop)
+            setup_desktop_permissions
+            setup_homepage_config
+            setup_couchdb_config
+            setup_guacamole_config
+            setup_sshwifty_config
+            ;;
+        utility)
+            setup_utility_permissions
+            ;;
+        ai)
+            setup_ai_permissions
+            ;;
+        media)
+            setup_media_permissions
+            ;;
+        gateway)
+            setup_gateway_permissions
+            ;;
+    esac
+}
 
 # Download and configure Docker Compose files
 setup_docker_compose() {
@@ -441,29 +429,9 @@ setup_docker_compose() {
     # Copy compose file from local workspace
     local source_file="$WORK_DIR/docker/$stack_name/docker-compose.yml"
     
-    if [[ -f "$source_file" ]]; then
-        # Copy app compose to container root directory directly
-        pct push "$ct_id" "$source_file" "/root/docker-compose.yml" || { 
-            print_error "Failed to push compose file"
-            exit 1 
-        }
-    else
-        print_error "docker-compose.yml not found at $source_file"
-        exit 1
-    fi
+    pct push "$ct_id" "$source_file" "/root/docker-compose.yml"
     
     print_success "Docker Compose configured"
-}
-
-# Verify Docker is available in container (already installed during LXC provisioning)
-verify_docker() {
-    local ct_id="$1"
-
-    # Docker should already be installed by lxc-manager.sh
-    # This verification will fail-fast with visible error if missing
-    pct exec "$ct_id" -- docker --version
-
-    print_success "Docker verified"
 }
 
 # Deploy Docker Compose services - pull latest images
@@ -493,47 +461,13 @@ deploy_docker_stack() {
     local stack_name="$1"
     local ct_id="$2"
     
-    # Check if docker-compose.yml exists for this stack locally
     local compose_file="$WORK_DIR/docker/$stack_name/docker-compose.yml"
-    
-    if [[ ! -f "$compose_file" ]]; then
-        print_info "No docker-compose.yml found for $stack_name at $compose_file, skipping"
-        return 0
-    fi
-    
-    verify_docker "$ct_id"
-    
-    # Setup Homepage config files for desktop stack
-    if [[ "$stack_name" == "desktop" ]]; then
-        setup_desktop_permissions
-        setup_homepage_config "$ct_id"
-        setup_couchdb_config "$ct_id"
-        setup_guacamole_config "$ct_id"
-        setup_sshwifty_config "$ct_id"
-    fi
+    [[ -f "$compose_file" ]] || {
+        print_error "docker-compose.yml not found at $compose_file"
+        return 1
+    }
 
-    if [[ "$stack_name" == "utility" ]]; then
-        setup_utility_permissions
-    fi
-
-    if [[ "$stack_name" == "ai" ]]; then
-        setup_ai_permissions
-    fi
-
-    # Setup Immich directories for media stack
-    if [[ "$stack_name" == "media" ]]; then
-        setup_immich_directories
-        setup_tdarr_directories
-        
-        # Setup secure vault infrastructure requirements
-        print_info "Installing security tools for media stack"
-        pct exec "$ct_id" -- apt-get update
-        pct exec "$ct_id" -- apt-get install -y gocryptfs
-    fi
-
-    if [[ "$stack_name" == "gateway" ]]; then
-        setup_gateway_permissions
-    fi
+    prepare_docker_stack "$stack_name"
 
     setup_docker_compose "$stack_name" "$ct_id"
     deploy_docker_services "$stack_name" "$ct_id"

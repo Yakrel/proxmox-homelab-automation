@@ -50,6 +50,32 @@ prompt_env_passphrase() {
     printf '%s' "$pass"
 }
 
+# Read one value from an env file without sourcing executable shell content.
+get_env_value() {
+    local key="$1"
+    local env_file="${2:-${ENV_DECRYPTED_PATH:-}}"
+    local value
+
+    [[ -f "$env_file" ]] || return 1
+
+    value=$(awk -v key="$key" '
+        index($0, key "=") == 1 {
+            print substr($0, length(key) + 2)
+            exit
+        }
+    ' "$env_file")
+
+    if [[ ${#value} -ge 2 ]]; then
+        if [[ "${value:0:1}" == '"' && "${value: -1}" == '"' ]]; then
+            value="${value:1:${#value}-2}"
+        elif [[ "${value:0:1}" == "'" && "${value: -1}" == "'" ]]; then
+            value="${value:1:${#value}-2}"
+        fi
+    fi
+
+    printf '%s' "$value"
+}
+
 # === SYSTEM UTILITIES ===
 # Common system-level utility functions
 
@@ -80,10 +106,27 @@ ensure_packages() {
 # Fixed topology for homelab - no discovery needed
 
 readonly LXC_IP_BASE="192.168.1"
+# These constants are consumed by scripts that source this file.
+# shellcheck disable=SC2034
 readonly DATAPOOL="/datapool"
+# shellcheck disable=SC2034
 readonly FASTPOOL="/fastpool"
 readonly NETWORK_BRIDGE="vmbr0"
 readonly NETWORK_GATEWAY="192.168.1.1"
+
+declare -ag RUNTIME_TEMP_FILES=()
+
+register_runtime_temp_file() {
+    RUNTIME_TEMP_FILES+=("$1")
+}
+
+cleanup_runtime_temp_files() {
+    local temp_file
+    for temp_file in "${RUNTIME_TEMP_FILES[@]}"; do
+        rm -f -- "$temp_file"
+    done
+    RUNTIME_TEMP_FILES=()
+}
 
 # Compute LXC IP from container ID
 get_lxc_ip() {
@@ -100,6 +143,114 @@ get_nvidia_driver_version() {
     yq -r '.nvidia.driver_version // empty' "$stacks_file"
 }
 
+get_loaded_nvidia_driver_version() {
+    [[ -r /proc/driver/nvidia/version ]] || return 1
+
+    awk '
+        /Kernel Module/ {
+            for (i = 1; i <= NF; i++) {
+                if ($i ~ /^[0-9]+\.[0-9.]+$/) {
+                    print $i
+                    exit
+                }
+            }
+        }
+    ' /proc/driver/nvidia/version
+}
+
+ensure_nvidia_driver_runfile() {
+    local version="$1"
+    local driver_dir="/fastpool/config/temp"
+    local driver_file="$driver_dir/NVIDIA-Linux-x86_64-${version}.run"
+
+    mkdir -p "$driver_dir"
+    if [[ ! -f "$driver_file" ]]; then
+        local driver_url="https://us.download.nvidia.com/XFree86/Linux-x86_64/${version}/NVIDIA-Linux-x86_64-${version}.run"
+        local download_file
+        download_file=$(mktemp "$driver_dir/.nvidia-driver.XXXXXX")
+        register_runtime_temp_file "$download_file"
+        print_info "Downloading NVIDIA ${version} driver runfile"
+        wget -q --show-progress "$driver_url" -O "$download_file"
+        chmod 0755 "$download_file"
+        mv "$download_file" "$driver_file"
+    fi
+    chmod 0755 "$driver_file"
+}
+
+configure_nvidia_host_runtime() {
+    local expected_version="$1"
+    local start_now="${2:-true}"
+
+    cat > /etc/modules-load.d/proxmox-lxc-nvidia.conf << 'EOF'
+nvidia
+nvidia_modeset
+nvidia_uvm
+nvidia_drm
+EOF
+
+    cat > /etc/udev/rules.d/70-proxmox-lxc-nvidia.rules << 'EOF'
+KERNEL=="nvidia", RUN+="/usr/bin/nvidia-modprobe -u -c0"
+KERNEL=="nvidia*", MODE="0666"
+SUBSYSTEM=="drm", KERNEL=="card[0-9]*", MODE="0666"
+SUBSYSTEM=="drm", KERNEL=="renderD[0-9]*", MODE="0666"
+EOF
+
+    cat > /etc/systemd/system/proxmox-lxc-nvidia-devices.service << 'EOF'
+[Unit]
+Description=Prepare NVIDIA devices for unprivileged LXC containers
+After=systemd-modules-load.service local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/modprobe nvidia-uvm
+ExecStart=/usr/bin/nvidia-modprobe -c0
+ExecStart=/usr/bin/nvidia-modprobe -m
+ExecStart=/usr/bin/nvidia-modprobe -u -c0
+# Initialize the user-space driver before validating nodes. On headless hosts,
+# /dev/nvidiactl can otherwise remain absent until the first NVIDIA client runs.
+ExecStart=/usr/bin/nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+ExecStart=/bin/chmod 0666 /dev/nvidia0 /dev/nvidiactl /dev/nvidia-modeset /dev/nvidia-uvm /dev/nvidia-uvm-tools
+ExecStart=/usr/bin/find /dev/dri -maxdepth 1 -type c -exec /bin/chmod 0666 {} +
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable proxmox-lxc-nvidia-devices.service
+
+    [[ "$start_now" == "true" ]] || return 0
+
+    local loaded_version
+    loaded_version=$(get_loaded_nvidia_driver_version) || {
+        print_error "NVIDIA kernel module is not loaded"
+        return 1
+    }
+    if [[ "$loaded_version" != "$expected_version" ]]; then
+        print_error "Loaded NVIDIA driver ${loaded_version} does not match configured version ${expected_version}"
+        return 1
+    fi
+
+    systemctl restart proxmox-lxc-nvidia-devices.service
+
+    local device
+    for device in \
+        /dev/nvidia0 \
+        /dev/nvidiactl \
+        /dev/nvidia-modeset \
+        /dev/nvidia-uvm \
+        /dev/nvidia-uvm-tools \
+        /dev/dri; do
+        if [[ ! -e "$device" ]]; then
+            print_error "Required NVIDIA device is missing: $device"
+            return 1
+        fi
+    done
+
+    nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+}
+
 # Get list of available stacks from stacks.yaml, sorted by CT ID
 get_available_stacks() {
     local stacks_file="${1:-$WORK_DIR/stacks.yaml}"
@@ -113,22 +264,17 @@ get_available_stacks() {
 # Generate dynamic stack menu options
 generate_stack_menu_options() {
     local stacks_file="${1:-$WORK_DIR/stacks.yaml}"
-    local -a options=()
-    
+
     [[ ! -f "$stacks_file" ]] && { print_error "Stacks file not found: $stacks_file"; exit 1; }
-    
-    while IFS= read -r stack; do
-        local ct_id
-        local hostname
-        ct_id=$(yq -r ".stacks.$stack.ct_id" "$stacks_file")
-        hostname=$(yq -r ".stacks.$stack.hostname" "$stacks_file")
-        
-        if [[ "$ct_id" != "null" && -n "$ct_id" ]]; then
-            options+=("Deploy [$stack] Stack -> LXC $ct_id ($hostname)")
-        fi
-    done < <(get_available_stacks "$stacks_file")
-    
-    printf '%s\n' "${options[@]}"
+
+    yq -r '
+        .stacks
+        | to_entries
+        | map(select(.value.ct_id != null))
+        | sort_by(.value.ct_id)
+        | .[]
+        | "Deploy [\(.key)] Stack -> LXC \(.value.ct_id) (\(.value.hostname))"
+    ' "$stacks_file"
 }
 
 # Get stack name from menu selection index  
@@ -156,8 +302,9 @@ get_stack_config() {
     [[ ! -f "$stacks_file" ]] && { print_error "Stacks file not found: $stacks_file"; exit 1; }
 
     # Read all common fields in a single yq call (5x faster)
-    read -r CT_ID CT_HOSTNAME CT_CPU_CORES CT_MEMORY_MB CT_DISK_GB STORAGE_POOL TEMPLATE_POOL <<< \
-        $(yq -r "[.stacks.$stack.ct_id, .stacks.$stack.hostname, .stacks.$stack.cpu_cores, .stacks.$stack.memory_mb, .stacks.$stack.disk_gb, .storage.pool, .storage.template_pool] | @tsv" "$stacks_file")
+    IFS=$'\t' read -r CT_ID CT_HOSTNAME CT_CPU_CORES CT_MEMORY_MB CT_DISK_GB STORAGE_POOL TEMPLATE_POOL < <(
+        yq -r "[.stacks.$stack.ct_id, .stacks.$stack.hostname, .stacks.$stack.cpu_cores, .stacks.$stack.memory_mb, .stacks.$stack.disk_gb, .storage.pool, .storage.template_pool] | @tsv" "$stacks_file"
+    )
 
     # Validate required fields
     [[ -z "$CT_ID" || "$CT_ID" == "null" ]] && { print_error "Stack '$stack' not found in $stacks_file"; exit 1; }
@@ -257,76 +404,13 @@ show_interactive_menu() {
     done
 }
 
-# Fix LXC container permissions globally
-fix_all_permissions() {
-    print_info "Ensuring shared permissions on /datapool (config, backup, media, torrents)"
-    
-    # Create base directories if they don't exist
-    mkdir -p /fastpool/config /datapool/backup /datapool/media /datapool/torrents
-
-    # Performance Optimization: Shallow fix only (Top-level folder permissions)
-    # Recursive scanning 60k+ files (especially in config/media) caused massive delays.
-    # Containers usually inherit correct permissions or manage their own files.
-    local dirs=("/fastpool/config" "/datapool/backup" "/datapool/media" "/datapool/torrents")
-    
-    for dir in "${dirs[@]}"; do
-        if [[ -d "$dir" ]]; then
-            # Only fix the root folder permissions, skip recursive scan
-            chown 101000:101000 "$dir"
-        fi
-    done
-    
-    print_success "Permissions updated for /datapool"
-}
-
-fix_path_owner() {
+# Create one bind-mount directory with the ownership expected by UID/GID 1000
+# inside every unprivileged LXC. Existing contents are never scanned or changed.
+prepare_host_directory() {
     local path="$1"
+    local mode="${2:-0755}"
 
-    [[ -e "$path" ]] || return 0
-    
-    # Optimize ZFS I/O: Only change if it does not match
-    local current_uid current_gid
-    current_uid=$(stat -c "%u" "$path" 2>/dev/null || echo "")
-    current_gid=$(stat -c "%g" "$path" 2>/dev/null || echo "")
-    if [[ "$current_uid" != "101000" ]] || [[ "$current_gid" != "101000" ]]; then
-        chown 101000:101000 "$path"
-    fi
-}
-
-fix_path_owner_recursive() {
-    local path="$1"
-
-    [[ -e "$path" ]] || return 0
-    
-    # Optimize ZFS I/O: Only chown files/dirs that don't match the target UID/GID
-    # This prevents rewriting metadata for unchanged files (read-only scan via ZFS ARC)
-    find "$path" \
-        \( ! -user 101000 -o ! -group 101000 \) \
-        -exec chown 101000:101000 {} +
-}
-
-fix_path_chmod() {
-    local path="$1"
-    local mode="$2"
-
-    [[ -e "$path" ]] || return 0
-
-    # Only chmod if the current permission doesn't match — avoids rewriting metadata
-    local current_mode
-    current_mode=$(stat -c "%a" "$path" 2>/dev/null || echo "")
-    if [[ "$current_mode" != "$mode" ]]; then
-        chmod "$mode" "$path"
-    fi
-}
-
-fix_path_chmod_recursive() {
-    local path="$1"
-    local mode="$2"
-
-    [[ -e "$path" ]] || return 0
-
-    # Only chmod files/dirs that don't already have the target permission
-    find "$path" ! -perm "$mode" -exec chmod "$mode" {} +
+    install -d -o 101000 -g 101000 -m "$mode" "$path"
 }
 
 # === SHARED PROVISIONING UTILITIES ===
@@ -340,23 +424,78 @@ setup_homepage_proxmox_token() {
 
     local pve_user="homepage@pve"
     local token_name="homepage-token"
+    local token_id="${pve_user}!${token_name}"
+    local credential_dir="/root/.config/proxmox-homelab"
+    local secret_file="$credential_dir/homepage-token.secret"
 
     if ! pveum user list | grep -qw "$pve_user"; then
         pveum user add "$pve_user" --comment "Homepage dashboard monitoring"
     fi
 
     pveum acl modify / --user "$pve_user" --role PVEAuditor
-    pveum user token remove "$pve_user" "$token_name" 2>/dev/null || true
 
-    local token_output token_secret
-    token_output=$(pveum user token add "$pve_user" "$token_name" --privsep 0 --output-format=json)
-    token_secret=$(echo "$token_output" | grep -o '"value":"[^"]*"' | cut -d'"' -f4)
+    local token_exists token_output token_secret
+    token_exists=$(pveum user token list "$pve_user" --output-format=json | PVE_TOKEN_NAME="$token_name" python3 -c '
+import json
+import os
+import sys
 
-    if [[ -z "$token_secret" ]]; then
-        print_error "Failed to extract token secret"
-        return 1
+tokens = json.load(sys.stdin)
+print("true" if any(token.get("tokenid") == os.environ["PVE_TOKEN_NAME"] for token in tokens) else "false")
+')
+
+    if [[ "$token_exists" == "true" && -s "$secret_file" ]]; then
+        token_secret=$(<"$secret_file")
+    else
+        if [[ "$token_exists" == "true" ]]; then
+            pveum user token remove "$pve_user" "$token_name"
+        fi
+
+        token_output=$(pveum user token add "$pve_user" "$token_name" --privsep 1 --output-format=json)
+        token_secret=$(PVE_TOKEN_OUTPUT="$token_output" python3 - <<'PYEOF'
+import json
+import os
+
+print(json.loads(os.environ["PVE_TOKEN_OUTPUT"])["value"])
+PYEOF
+        )
+
+        [[ -n "$token_secret" ]] || {
+            print_error "Failed to extract token secret"
+            return 1
+        }
+
+        install -d -m 0700 "$credential_dir"
+        (
+            umask 077
+            printf '%s\n' "$token_secret" > "$secret_file"
+        )
     fi
 
-    sed -i "s/placeholder_will_be_set_on_deploy/$token_secret/g" "$env_file"
+    pveum acl modify / --token "$token_id" --role PVEAuditor
+
+    HOMEPAGE_RENDER_TOKEN="$token_secret" python3 - "$env_file" <<'PYEOF'
+import os
+import stat
+import sys
+import tempfile
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as env_file:
+    content = env_file.read()
+
+content = content.replace("placeholder_will_be_set_on_deploy", os.environ["HOMEPAGE_RENDER_TOKEN"])
+
+fd, temp_path = tempfile.mkstemp(prefix=".homepage-env.", dir=os.path.dirname(path))
+try:
+    with os.fdopen(fd, "w", encoding="utf-8") as temp_file:
+        temp_file.write(content)
+    os.chmod(temp_path, stat.S_IMODE(os.stat(path).st_mode))
+    os.replace(temp_path, path)
+except Exception:
+    if os.path.exists(temp_path):
+        os.unlink(temp_path)
+    raise
+PYEOF
     print_success "API token configured"
 }

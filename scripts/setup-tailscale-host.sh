@@ -21,8 +21,23 @@ if [[ "$tailscale_logged_in" -eq 0 && -z "${TAILSCALE_AUTH_KEY:-}" ]]; then
 fi
 
 if ! command -v tailscale &>/dev/null; then
-    print_info "Installing Tailscale on Proxmox host"
-    curl -fsSL https://tailscale.com/install.sh | sh
+    print_info "Installing Tailscale from its signed Debian repository"
+    . /etc/os-release
+    debian_codename=${VERSION_CODENAME:-}
+    if [[ -z "$debian_codename" ]]; then
+        print_error "Could not determine Debian VERSION_CODENAME"
+        exit 1
+    fi
+
+    install -d -m 0755 /usr/share/keyrings
+    curl -fsSL \
+        "https://pkgs.tailscale.com/stable/debian/${debian_codename}.noarmor.gpg" \
+        -o /usr/share/keyrings/tailscale-archive-keyring.gpg
+    curl -fsSL \
+        "https://pkgs.tailscale.com/stable/debian/${debian_codename}.tailscale-keyring.list" \
+        -o /etc/apt/sources.list.d/tailscale.list
+    apt-get update -qq
+    apt-get install -y -qq tailscale
 else
     print_info "Tailscale is already installed on the Proxmox host"
 fi
@@ -33,10 +48,7 @@ net.ipv4.ip_forward = 1
 EOF
 sysctl -p /etc/sysctl.d/99-tailscale-subnet-router.conf
 
-print_info "Installing ethtool if not present on host"
-if ! command -v ethtool &>/dev/null; then
-    apt-get update -qq && apt-get install -y ethtool -qq || print_warning "Failed to install ethtool"
-fi
+ensure_packages ethtool
 
 print_info "Configuring persistent UDP GRO/GSO optimization systemd service"
 
@@ -66,13 +78,16 @@ if [[ -n "$GW_IF" ]]; then
     for iface in "${UNIQUE_IFS[@]}"; do
         if [[ -d "/sys/class/net/$iface" ]]; then
             echo "Applying UDP GRO optimization to $iface"
-            ethtool -K "$iface" rx-udp-gro-forwarding on rx-gro-list off || true
+            if ! ethtool -K "$iface" rx-udp-gro-forwarding on rx-gro-list off; then
+                echo "Interface $iface does not support the requested UDP GRO settings" >&2
+            fi
         fi
     done
 fi
 
 # TCP MSS Clamping for Tailscale tunnel only (not global FORWARD)
 # Prevents packet fragmentation issues when routing traffic through Tailscale
+# Kept for restrictive hotspots and networks where a lower path MTU can stall VPN traffic
 # Applied only to tailscale0 to avoid affecting local LXC/Docker traffic
 if ip link show tailscale0 &>/dev/null; then
     iptables -t mangle -C FORWARD -i tailscale0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || \
@@ -88,7 +103,8 @@ chmod +x /usr/local/bin/tailscale-udp-gro.sh
 cat > /etc/systemd/system/tailscale-udp-gro.service << 'EOF'
 [Unit]
 Description=Tailscale UDP GRO Optimization
-After=network.target
+Wants=network-online.target
+After=network-online.target tailscaled.service
 
 [Service]
 Type=oneshot
@@ -99,20 +115,9 @@ RemainAfterExit=true
 WantedBy=multi-user.target
 EOF
 
-# Enable and start the systemd service
+# Enable the service; run it after Tailscale creates tailscale0 below
 systemctl daemon-reload
 systemctl enable -q tailscale-udp-gro.service
-systemctl start tailscale-udp-gro.service
-
-print_info "Configuring TCP MSS Clamping for Tailscale tunnel only"
-# Rules are applied now and also persisted via tailscale-udp-gro.service on boot
-# Only tailscale0 traffic is affected - local LXC/Docker traffic is untouched
-if ip link show tailscale0 &>/dev/null; then
-    iptables -t mangle -C FORWARD -i tailscale0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || \
-    iptables -t mangle -A FORWARD -i tailscale0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
-    iptables -t mangle -C FORWARD -o tailscale0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || \
-    iptables -t mangle -A FORWARD -o tailscale0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
-fi
 
 print_info "Configuring Tailscale subnet route"
 if [[ "$tailscale_logged_in" -eq 1 ]]; then
@@ -128,6 +133,7 @@ else
         --accept-dns=false
 fi
 
+systemctl restart tailscale-udp-gro.service
+
 print_success "Tailscale host subnet router configured"
 print_info "Approve the 192.168.1.0/24 route in the Tailscale admin console if it is not pre-approved"
-

@@ -16,10 +16,10 @@ services:
     ports:
       - "3000:3000"
     volumes:
-       - /fastpool/config/homepage:/app/config
-       - /var/run/docker.sock:/var/run/docker.sock:ro
-       - /datapool:/datapool:ro
-       - /sys:/sys:ro
+      - /fastpool/config/homepage:/app/config
+      - /fastpool/config/homepage/assets:/app/public/images:ro
+      - /datapool:/datapool:ro
+      - /sys:/sys:ro
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PUID=1000
@@ -45,6 +45,12 @@ services:
       - HOMEPAGE_VAR_ADGUARD_USERNAME=${HOMEPAGE_VAR_ADGUARD_USERNAME}
       - HOMEPAGE_VAR_ADGUARD_PASSWORD=${HOMEPAGE_VAR_ADGUARD_PASSWORD}
       - HOMEPAGE_VAR_KARAKEEP_API_KEY=${HOMEPAGE_VAR_KARAKEEP_API_KEY}
+      - HOMEPAGE_VAR_JDOWNLOADER_USERNAME=${HOMEPAGE_VAR_JDOWNLOADER_USERNAME}
+      - HOMEPAGE_VAR_JDOWNLOADER_PASSWORD=${HOMEPAGE_VAR_JDOWNLOADER_PASSWORD}
+      - HOMEPAGE_VAR_JDOWNLOADER_CLIENT=${HOMEPAGE_VAR_JDOWNLOADER_CLIENT}
+      - HOMEPAGE_VAR_CLOUDFLARE_ACCOUNT_ID=${HOMEPAGE_VAR_CLOUDFLARE_ACCOUNT_ID}
+      - HOMEPAGE_VAR_CLOUDFLARE_TUNNEL_ID=${HOMEPAGE_VAR_CLOUDFLARE_TUNNEL_ID}
+      - HOMEPAGE_VAR_CLOUDFLARE_API_TOKEN=${HOMEPAGE_VAR_CLOUDFLARE_API_TOKEN}
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
       interval: 30s
@@ -274,12 +280,11 @@ services:
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - WATCHTOWER_CLEANUP=true
-      - PUID=1000
-      - PGID=1000
-      - UMASK=002
       - WATCHTOWER_SCHEDULE=0 36 */6 * * *
       - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
       - WATCHTOWER_NOTIFICATIONS_LEVEL=info
+      - WATCHTOWER_NOTIFICATION_REPORT=true
+      - WATCHTOWER_NO_STARTUP_MESSAGE=true
       - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-desktop
     networks:
       - desktop-net

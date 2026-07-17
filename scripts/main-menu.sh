@@ -19,11 +19,10 @@ deploy_stack_handler() {
     
     stack=$(get_stack_from_menu_index "$index") || { print_error "Failed to get stack for index $index"; return; }
     
-    bash "$WORK_DIR/scripts/deploy-stack.sh" "$stack"
-    local exit_code=$?
-    
-    # If deployment failed, pause to let user see the error
-    if [[ $exit_code -ne 0 ]]; then
+    if bash "$WORK_DIR/scripts/deploy-stack.sh" "$stack"; then
+        return 0
+    else
+        local exit_code=$?
         echo
         print_error "Stack deployment failed with exit code $exit_code"
         press_enter_to_continue
@@ -31,10 +30,10 @@ deploy_stack_handler() {
 }
 
 fast_redeploy_handler() {
-    bash "$WORK_DIR/scripts/fast-redeploy.sh"
-    local exit_code=$?
-
-    if [[ $exit_code -ne 0 ]]; then
+    if bash "$WORK_DIR/scripts/fast-redeploy.sh"; then
+        return 0
+    else
+        local exit_code=$?
         echo
         print_error "Fast redeploy failed with exit code $exit_code"
         press_enter_to_continue
@@ -42,11 +41,10 @@ fast_redeploy_handler() {
 }
 
 helper_menu_handler() {
-    bash "$WORK_DIR/scripts/helper-menu.sh"
-    local exit_code=$?
-    
-    # If helper menu failed, pause to let user see the error
-    if [[ $exit_code -ne 0 ]]; then
+    if bash "$WORK_DIR/scripts/helper-menu.sh"; then
+        return 0
+    else
+        local exit_code=$?
         echo
         print_error "Helper menu failed with exit code $exit_code"
         press_enter_to_continue
@@ -60,20 +58,21 @@ main_menu() {
     while IFS= read -r option; do
         stack_options+=("$option")
     done < <(generate_stack_menu_options "$WORK_DIR/stacks.yaml")
-    
+
+    local stack_count=${#stack_options[@]}
+
     # Add additional options
     stack_options+=("Fast redeploy running Docker stacks...")
     stack_options+=("Run Proxmox Helper Scripts...")
     
     # Create handlers array
     local -a handlers=()
-    local stack_count=0
-    
+
     # Add stack deployment handlers
-    while IFS= read -r stack; do
+    local index
+    for ((index = 0; index < stack_count; index++)); do
         handlers+=("deploy_stack_handler")
-        stack_count=$((stack_count + 1))
-    done < <(get_available_stacks "$WORK_DIR/stacks.yaml")
+    done
     
     # Add additional handlers
     handlers+=("fast_redeploy_handler")

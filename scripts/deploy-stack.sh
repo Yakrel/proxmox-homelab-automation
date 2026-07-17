@@ -16,7 +16,7 @@ source "$WORK_DIR/scripts/helper-functions.sh"
 # --- Arguments and Setup ---
 if [[ $# -eq 0 ]]; then
     print_error "Usage: $0 <stack-name>"
-    print_info "Available stacks: $(get_available_stacks | tr '\n' ' ')"
+    print_info "Stack names are defined in $WORK_DIR/stacks.yaml"
     exit 1
 fi
 
@@ -29,13 +29,19 @@ source "$WORK_DIR/scripts/modules/backrest-deployment.sh"
 # --- Global Variables ---
 ENV_DECRYPTED_PATH=""
 
-# --- Early Validation ---
-# Validate stack name
-get_available_stacks | grep -q "^$STACK_NAME$" || {
-    print_error "Invalid stack name: $STACK_NAME"
-    print_info "Available stacks: $(get_available_stacks | tr '\n' ' ')"
-    exit 1
+cleanup_deploy_secrets() {
+    cleanup_runtime_temp_files
+    if [[ -n "${ENV_DECRYPTED_PATH:-}" ]]; then
+        rm -f -- "$ENV_DECRYPTED_PATH"
+        ENV_DECRYPTED_PATH=""
+    fi
+    unset ENV_ENC_KEY
 }
+
+trap cleanup_deploy_secrets EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # --- Core Deployment Functions ---
 
@@ -46,15 +52,12 @@ decrypt_env_for_deploy() {
     print_info "Decrypting environment for $stack"
 
     local enc_file="$WORK_DIR/docker/$stack/.env.enc"
-    local enc_tmp="$WORK_DIR/.env.enc"
     ENV_DECRYPTED_PATH="$WORK_DIR/.env"
 
     if [[ ! -f "$enc_file" ]]; then
         print_error "Encrypted environment file not found at $enc_file"
         exit 1
     fi
-
-    cp "$enc_file" "$enc_tmp" || { print_error "Failed to copy .env.enc"; exit 1; }
 
     # Get passphrase and decrypt
     local pass
@@ -64,13 +67,14 @@ decrypt_env_for_deploy() {
     ENV_ENC_KEY="$pass"
     export ENV_ENC_KEY
 
-    # Decrypt
-    printf '%s' "$pass" | openssl enc -d -aes-256-cbc -pbkdf2 -salt -pass stdin -in "$enc_tmp" -out "$ENV_DECRYPTED_PATH" || {
+    (
+        umask 077
+        printf '%s' "$pass" | openssl enc -d -aes-256-cbc -pbkdf2 -salt -pass stdin -in "$enc_file" -out "$ENV_DECRYPTED_PATH"
+    ) || {
         print_error "Failed to decrypt .env.enc"
-        rm -f "$enc_tmp" "$ENV_DECRYPTED_PATH"
+        rm -f "$ENV_DECRYPTED_PATH"
         exit 1
     }
-    rm -f "$enc_tmp"
 
     print_success "Environment decrypted"
 }
@@ -81,7 +85,7 @@ prepare_host() {
     
     # Ensure minimal required packages
     require_root
-    ensure_packages curl yq
+    ensure_packages curl python3 yq
     
     print_success "Host ready"
 }
@@ -101,6 +105,7 @@ create_lxc() {
 configure_env() {
     # Copy decrypted .env to container
     pct push "$CT_ID" "$ENV_DECRYPTED_PATH" "/root/.env" || { print_error "Failed to configure environment"; exit 1; }
+    pct exec "$CT_ID" -- chmod 0600 /root/.env
 
     print_success "Environment configured"
 }
@@ -113,70 +118,47 @@ echo "════════════════════════�
 print_info "Deploying stack: $STACK_NAME"
 echo "═══════════════════════════════════════════"
 
-# Load stack configuration
+# Step 1: Prepare the host before decrypting secrets.
+prepare_host
 get_stack_config "$STACK_NAME"
 
-# Step 1: Environment setup
+# Step 2: Environment setup
 if [[ "$STACK_NAME" == "dev" ]]; then
     : # No .env needed
 else
     decrypt_env_for_deploy "$STACK_NAME"
 fi
 
-# Step 2: Prepare host
-prepare_host
-
 # Step 3: Create LXC container
 create_lxc
 
-# Step 4: Stack-specific deployment
+# Step 4: Stack-specific pre-deployment
 case "$STACK_NAME" in
-    "dev")
-        : # Setup completed by LXC manager
-        ;;
     "utility")
-        if deploy_backrest "$CT_ID"; then
-            print_success "Backrest configured"
-        else
-            print_error "Backrest failed"
-            exit 1
-        fi
-        
-        configure_env
-        deploy_docker_stack "$STACK_NAME" "$CT_ID" || { print_error "Deployment failed"; exit 1; }
+        deploy_backrest "$CT_ID"
         ;;
     "desktop")
-        setup_homepage_proxmox_token
-        configure_env
-        deploy_docker_stack "$STACK_NAME" "$CT_ID" || { print_error "Deployment failed"; exit 1; }
-        ;;
-    "gateway")
-        configure_env
-        deploy_docker_stack "$STACK_NAME" "$CT_ID" || { print_error "Deployment failed"; exit 1; }
-        
-        # Install and configure Tailscale on host (idempotent subnet router)
-        if [[ -f "${ENV_DECRYPTED_PATH:-}" ]]; then
-            ts_key=$(grep "^TAILSCALE_AUTH_KEY=" "$ENV_DECRYPTED_PATH" | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//" || true)
-            if [[ -n "$ts_key" ]]; then
-                print_info "Configuring Tailscale on Proxmox host..."
-                TAILSCALE_AUTH_KEY="$ts_key" bash "$WORK_DIR/scripts/setup-tailscale-host.sh"
-            else
-                print_info "TAILSCALE_AUTH_KEY not defined in gateway environment. Skipping Tailscale host setup."
-            fi
-        fi
-        ;;
-    *)
-        configure_env
-        deploy_docker_stack "$STACK_NAME" "$CT_ID" || { print_error "Deployment failed"; exit 1; }
+        setup_homepage_proxmox_token "$ENV_DECRYPTED_PATH"
         ;;
 esac
 
-# Step 5: Finalize permissions
-# Fix permissions on /datapool globally after Docker creates volumes
-fix_all_permissions
+if [[ "$STACK_NAME" != "dev" ]]; then
+    configure_env
+    deploy_docker_stack "$STACK_NAME" "$CT_ID"
+fi
 
-# Cleanup
-rm -f "$ENV_DECRYPTED_PATH" 2>/dev/null || true
+if [[ "$STACK_NAME" == "gateway" ]]; then
+    ts_key=$(get_env_value "TAILSCALE_AUTH_KEY")
+    if [[ -n "$ts_key" ]]; then
+        print_info "Configuring Tailscale on Proxmox host..."
+        TAILSCALE_AUTH_KEY="$ts_key" bash "$WORK_DIR/scripts/setup-tailscale-host.sh"
+    else
+        print_info "TAILSCALE_AUTH_KEY not defined in gateway environment. Skipping Tailscale host setup."
+    fi
+fi
+
+# Remove the host-side plaintext environment before returning to the menu.
+cleanup_deploy_secrets
 
 echo "═══════════════════════════════════════════"
 print_success "Stack [$STACK_NAME] deployed successfully!"
