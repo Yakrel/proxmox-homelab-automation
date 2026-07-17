@@ -140,14 +140,49 @@ PYEOF
     print_success "Hermes Telegram credentials configured"
 }
 
+setup_metube_cookies() {
+    print_info "Configuring MeTube YouTube cookies"
+
+    local cookies_enc="$WORK_DIR/config/metube/youtube-location.cookies.enc"
+    local cookies_path="/fastpool/config/metube/youtube-location.cookies"
+    local cookies_tmp
+
+    cookies_tmp=$(mktemp /fastpool/config/metube/youtube-location.cookies.XXXXXX)
+    register_runtime_temp_file "$cookies_tmp"
+
+    # Decrypt to a private temporary file so a failed decrypt cannot truncate
+    # the last known-good runtime cookies.
+    if ! openssl enc -aes-256-cbc -d -pbkdf2 -salt \
+        -in "$cookies_enc" \
+        -out "$cookies_tmp" \
+        -pass env:ENV_ENC_KEY; then
+        rm -f "$cookies_tmp"
+        print_error "Failed to decrypt MeTube YouTube cookies"
+        return 1
+    fi
+
+    case "$(head -n 1 "$cookies_tmp")" in
+        "# Netscape HTTP Cookie File"|"# HTTP Cookie File") ;;
+        *)
+            rm -f "$cookies_tmp"
+            print_error "Decrypted MeTube cookies are not in Netscape format"
+            return 1
+            ;;
+    esac
+
+    chown 101000:101000 "$cookies_tmp"
+    chmod 0600 "$cookies_tmp"
+    mv -f "$cookies_tmp" "$cookies_path"
+
+    print_success "MeTube YouTube cookies configured"
+}
+
 setup_utility_permissions() {
     print_info "Preparing Utility directories"
 
     prepare_host_directory /fastpool/config/jdownloader2
     prepare_host_directory /fastpool/config/metube
-    install -o 101000 -g 101000 -m 0644 \
-        "$WORK_DIR/config/metube/youtube-location.cookies" \
-        /fastpool/config/metube/youtube-location.cookies
+    setup_metube_cookies
     prepare_host_directory /fastpool/config/repackarr
     prepare_host_directory /fastpool/config/repackarr/data
     prepare_host_directory /fastpool/config/repackarr/logs
@@ -445,7 +480,7 @@ deploy_docker_services() {
 
 
     # Pull images and deploy in one command
-    pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --pull always --remove-orphans" || {
+    pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --build --pull always --remove-orphans" || {
         print_error "Failed to deploy services"
         exit 1
     }

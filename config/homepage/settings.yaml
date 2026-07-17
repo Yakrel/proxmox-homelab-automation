@@ -25,27 +25,22 @@ quicklaunch:
 # Layout Configuration
 layout:
   Infrastructure:
-    tab: Home
     style: row
     columns: 4
     icon: proxmox.png
+  Utilities:
+    style: row
+    columns: 4
+    icon: mdi-tools
   Media:
-    tab: Media
     style: row
     columns: 4
     icon: jellyfin.png
   Downloads:
-    tab: Media
     style: row
     columns: 4
     icon: mdi-download
-  Utilities:
-    tab: Management
-    style: row
-    columns: 4
-    icon: mdi-tools
   External:
-    tab: Management
     style: row
     columns: 4
     icon: mdi-cloud

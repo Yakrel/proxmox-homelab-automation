@@ -296,16 +296,6 @@ EOS
             echo 'export PATH=\"/root/.local/bin:\$PATH\"' >> /root/.bashrc
         fi
 
-        # Download the complete installer before executing it. The temporary
-        # file is current-run state and is always removed on shell exit.
-        antigravity_installer=\$(mktemp /tmp/antigravity-install.XXXXXX)
-        trap 'rm -f \"\$antigravity_installer\"' EXIT
-        curl -fsSL https://antigravity.google/cli/install.sh -o \"\$antigravity_installer\"
-        sed -i 's/BINARY_PATH\" install/BINARY_PATH\" install --skip-aliases --skip-path/g' \"\$antigravity_installer\"
-        bash \"\$antigravity_installer\"
-        rm -f \"\$antigravity_installer\"
-        trap - EXIT
-
         # Install code-server (latest version)
         # Using HTTP redirect to avoid GitHub API rate limits
         CODE_SERVER_URL=\$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)
@@ -473,6 +463,11 @@ if [[ "$STACK_NAME" == "dev" ]]; then
     pct exec "$CT_ID" -- sh -c '
 set -e
 
+# pct exec starts a non-login shell, so it does not load root'"'"'s .bashrc.
+# Keep user-local and system-local CLI installations visible explicitly.
+export HOME=/root
+export PATH="/root/.local/bin:/usr/local/bin:$PATH"
+
 # Use the GitHub CLI maintainers'"'"' official Debian repository. The Debian
 # community package can lag behind versions supported by GitHub APIs.
 install -m 0755 -d /etc/apt/keyrings
@@ -493,12 +488,25 @@ apt-get install -y -qq gh
 # package globally exposes Codex to root and code-server terminals.
 npm install --global @openai/codex
 
-# Antigravity installs to ~/.local/bin while its installer is deliberately
-# prevented from editing shell profiles. Expose it through the system PATH.
+# Antigravity is application state, so install or update it during every dev
+# reconciliation rather than tying it to one-time OS provisioning.
+antigravity_installer=$(mktemp /tmp/antigravity-install.XXXXXX)
+trap '\''rm -f "$antigravity_installer"'\'' EXIT
+curl -fsSL https://antigravity.google/cli/install.sh -o "$antigravity_installer"
+bash "$antigravity_installer"
+test -x /root/.local/bin/agy
+rm -f "$antigravity_installer"
+trap - EXIT
+
+# The installer targets ~/.local/bin. Expose agy through the system PATH for
+# non-login shells and code-server terminals.
 ln -sfnT /root/.local/bin/agy /usr/local/bin/agy
 
 for command_name in node npm git gh python3 bash nano vim htop agy codex code-server; do
-    command -v "$command_name"
+    command -v "$command_name" || {
+        echo "Missing required dev command: $command_name" >&2
+        exit 1
+    }
 done
 
 node --version

@@ -161,7 +161,8 @@ Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, Antigravity CLI
 
 - **Unprivileged LXC containers** with UID/GID mapping (101000:101000 → 1000:1000)
 - **Encrypted secrets**: AES-256-CBC with pbkdf2
-- **Single master key** decrypts all `.env.enc` files
+- **Single master key** decrypts stack `.env.enc` files and service-specific encrypted configuration
+- **MeTube authentication**: Utility deploys decrypt `config/metube/youtube-location.cookies.enc` directly into the protected runtime configuration; plaintext browser cookies are never committed
 - **Per-stack Docker bridge networks**, with selected services published to the homelab LAN
 - **Automated container updates and notifications** via Watchtower configured per stack
 

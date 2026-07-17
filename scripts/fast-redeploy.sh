@@ -89,7 +89,11 @@ fast_redeploy_stack() {
     pct exec "$CT_ID" -- chmod 0600 /root/.env
     pct push "$CT_ID" "$compose_file" /root/docker-compose.yml
 
-    pct exec "$CT_ID" -- sh -c "cd /root && docker compose up -d --remove-orphans"
+    local compose_build_flag=""
+    [[ "$stack" != "ai" ]] || compose_build_flag="--build"
+
+    pct exec "$CT_ID" -- sh -c \
+        "cd /root && docker compose up -d $compose_build_flag --remove-orphans"
 
     rm -f "$ENV_DECRYPTED_PATH"
     ENV_DECRYPTED_PATH=""

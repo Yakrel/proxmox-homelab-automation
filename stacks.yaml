@@ -40,10 +40,10 @@ stacks:
     hostname: lxc-ai
     cpu_cores: 4
     memory_mb: 4096
-    disk_gb: 8
+    disk_gb: 20
   dev:
     ct_id: 106
     hostname: lxc-dev
     cpu_cores: 4
     memory_mb: 6144
-    disk_gb: 15
+    disk_gb: 20
