@@ -97,10 +97,10 @@ JDownloader 2, Samba, Repackarr, Backrest-Rclone (Backup with Google Drive sync)
 Homepage, Desktop Workspace, Guacamole, Sshwifty, CouchDB, Vaultwarden, Desktop OTP Gate, Radicale CalDAV
 
 ### **AI & Automation** (LXC 105 - `192.168.1.105`)
-Hermes Agent, OmniRoute
+Hermes Agent, OmniRoute, Agentmemory
 
 ### **Development (Dev)** (LXC 106 - `192.168.1.106`)
-Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, Antigravity CLI
+Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, OpenCode, Antigravity CLI
 
 ---
 
@@ -129,20 +129,24 @@ Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, Antigravity CLI
 │   ├── lxc-manager.sh       # LXC lifecycle management
 │   ├── fast-redeploy.sh     # Fast Docker stack redeploy
 │   ├── helper-functions.sh  # Common shell utilities
+│   ├── nvidia-userspace-sync.sh # NVIDIA user-space library sync for LXC
 │   ├── setup-tailscale-host.sh # Tailscale host subnet configuration
 │   └── modules/             # Specialized deployment modules
 │       ├── docker-deployment.sh
 │       └── backrest-deployment.sh
 ├── docker/                   # Docker Compose stacks
-│   ├── ai/                  # Hermes Agent, OmniRoute
+│   ├── ai/                  # Hermes Agent, OmniRoute, Agentmemory
 │   ├── desktop/             # Dashboard, desktop workspace, guacamole, sshwifty, radicale
 │   ├── dev/                 # Development stack (no compose, managed by LXC manager)
 │   ├── gateway/             # Nginx Proxy Manager, AdGuard, Cloudflared
 │   ├── media/               # Media automation + GPU acceleration (Jellyfin, Immich, Tdarr)
 │   └── utility/             # Download managers, Backrest backup, Samba, Changedetection, Karakeep
 └── config/                   # Shared configurations
+    ├── antigravity/         # Antigravity CLI hooks and memory config
     ├── backrest/            # Backrest config.json template
     ├── homepage/            # Dashboard widgets
+    ├── metube/              # MeTube encrypted browser cookies
+    ├── opencode/            # OpenCode CLI configuration and memory
     ├── samba/               # Samba share template config
     ├── sshwifty/            # sshwifty profile template config
     ├── couchdb/             # CouchDB local.ini configuration

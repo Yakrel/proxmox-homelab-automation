@@ -57,12 +57,22 @@ fast_redeploy_stack() {
     get_stack_config "$stack"
 
     [[ "$stack" != "dev" ]] || {
-        print_info "Skipping dev stack (no Docker compose)"
+        if ! check_container_running "$CT_ID"; then
+            print_warning "Skipping $stack: LXC $CT_ID is not running"
+            return 0
+        fi
+
+        print_info "Fast redeploying dev CLI applications"
+        decrypt_stack_env ai
+        AGENTMEMORY_ENV_FILE="$ENV_DECRYPTED_PATH" \
+            bash "$WORK_DIR/scripts/lxc-manager.sh" dev
+        rm -f "$ENV_DECRYPTED_PATH"
+        ENV_DECRYPTED_PATH=""
+        print_success "Fast redeployed: dev"
         return 0
     }
 
-    local compose_file="$WORK_DIR/docker/$stack/docker-compose.yml"
-    [[ -f "$compose_file" ]] || {
+    [[ -f "$WORK_DIR/docker/$stack/docker-compose.yml" ]] || {
         print_error "docker-compose.yml not found for $stack"
         return 1
     }
@@ -87,7 +97,7 @@ fast_redeploy_stack() {
 
     pct push "$CT_ID" "$ENV_DECRYPTED_PATH" /root/.env
     pct exec "$CT_ID" -- chmod 0600 /root/.env
-    pct push "$CT_ID" "$compose_file" /root/docker-compose.yml
+    setup_docker_compose "$stack" "$CT_ID"
 
     local compose_build_flag=""
     [[ "$stack" != "ai" ]] || compose_build_flag="--build"

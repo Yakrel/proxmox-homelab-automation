@@ -15,6 +15,7 @@ Shell-based automation for deploying containerized services in LXC containers on
 
 - **Fail Fast & Simple**: Let commands fail naturally. No retry loops. Do not suppress stderr/stdout unless it mixes with command output parsing (e.g. `apt-get update` output mixing with `yq` variables).
 - **Idempotency**: Do not manually check if something exists before running idempotent commands (e.g. run `mkdir -p` or `apt install` directly without `if` checks).
+- **No residue-cleanup code**: Never add recurring script logic whose only purpose is deleting files, users, keys, or configuration left behind by an older deployment or previous commit. Such residue must be removed manually once (with explicit approval), never encoded permanently in the repository. Doing so turns a one-time cleanup into permanent bloat that lingers across versions.
 - **Homelab focus**: Prefer hardcoded static configurations over dynamic runtime detection. Using `latest` image tags is an intentional project policy unless the user requests pinning.
 
 ## Deployment Lifecycle
@@ -22,7 +23,7 @@ Shell-based automation for deploying containerized services in LXC containers on
 - Treat LXC provisioning as a clean installation. If initial provisioning fails, delete the incomplete LXC and create it again; do not add repair or migration logic for partial installations.
 - Treat an existing LXC as already provisioned. Apply Docker Compose and application configuration changes through **Fast Redeploy All** or by redeploying the selected stack. Keep both paths on the same stack-preparation code path.
 - Do not repeat OS package, repository, or base-container provisioning during an application redeploy unless the task explicitly changes that lifecycle.
-- Never add recurring script logic whose only purpose is deleting files, users, keys, or configuration left by an older deployment. With explicit approval, clean live residue directly once instead of permanently encoding the cleanup in the repository.
+- Never add recurring script logic whose only purpose is deleting files, users, keys, or configuration left by an older deployment. With explicit approval, clean live residue directly once instead of permanently encoding the cleanup in the repository. Doing so turns a one-time cleanup into permanent bloat that lingers across versions.
 - Current-run cleanup is still required: remove temporary decrypted secrets and temporary work directories with `trap`, and let declarative tools reconcile resources they own.
 
 ## Technical & Git Guidelines

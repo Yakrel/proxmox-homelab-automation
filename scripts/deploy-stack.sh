@@ -96,7 +96,8 @@ create_lxc() {
     print_info "Creating LXC for $STACK_NAME"
     
     # Use lxc-manager.sh to create and configure the container
-    bash "$WORK_DIR/scripts/lxc-manager.sh" "$STACK_NAME" || { print_error "LXC setup failed"; exit 1; }
+    AGENTMEMORY_ENV_FILE="$ENV_DECRYPTED_PATH" \
+        bash "$WORK_DIR/scripts/lxc-manager.sh" "$STACK_NAME" || { print_error "LXC setup failed"; exit 1; }
     
     print_success "LXC ready"
 }
@@ -124,7 +125,9 @@ get_stack_config "$STACK_NAME"
 
 # Step 2: Environment setup
 if [[ "$STACK_NAME" == "dev" ]]; then
-    : # No .env needed
+    # OpenCode uses the Agentmemory secret from the AI stack. Keep one
+    # encrypted source of truth instead of duplicating the secret.
+    decrypt_env_for_deploy "ai"
 else
     decrypt_env_for_deploy "$STACK_NAME"
 fi

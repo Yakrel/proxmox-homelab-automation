@@ -246,6 +246,7 @@ PYEOF
 setup_ai_permissions() {
     print_info "Preparing AI directories"
 
+    prepare_host_directory /fastpool/config/agentmemory 0700
     prepare_host_directory /fastpool/config/omniroute
 
     # Keep the working Telegram integration while leaving model/provider
@@ -465,6 +466,16 @@ setup_docker_compose() {
     local source_file="$WORK_DIR/docker/$stack_name/docker-compose.yml"
     
     pct push "$ct_id" "$source_file" "/root/docker-compose.yml"
+
+    if [[ "$stack_name" == "ai" ]]; then
+        pct exec "$ct_id" -- mkdir -p /root/agentmemory
+        pct push "$ct_id" \
+            "$WORK_DIR/docker/ai/agentmemory/Dockerfile" \
+            /root/agentmemory/Dockerfile
+        pct push "$ct_id" \
+            "$WORK_DIR/docker/ai/agentmemory/entrypoint.sh" \
+            /root/agentmemory/entrypoint.sh
+    fi
     
     print_success "Docker Compose configured"
 }

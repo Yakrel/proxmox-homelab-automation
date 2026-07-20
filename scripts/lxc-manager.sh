@@ -316,7 +316,7 @@ EOS
             \"https://github.com/coder/code-server/releases/download/v\${CODE_SERVER_VERSION}/code-server_\${CODE_SERVER_VERSION}_\${CODE_SERVER_ARCH}.deb\" \
             -o \"\$code_server_package\"
         dpkg -i \"\$code_server_package\"
-        rm -f \"\$code_server_package\"
+        rm -f "$code_server_package"
         trap - EXIT
 
         # Configure code-server (no auth - homelab internal network only)
@@ -460,7 +460,50 @@ fi
 # provisioning and selected-stack redeploys without repeating OS provisioning.
 if [[ "$STACK_NAME" == "dev" ]]; then
     print_info "Reconciling dev CLI applications"
-    pct exec "$CT_ID" -- sh -c '
+
+    agentmemory_env_file="${AGENTMEMORY_ENV_FILE:-}"
+    [[ -f "$agentmemory_env_file" ]] || {
+        print_error "Decrypted AI environment is required for the dev stack"
+        exit 1
+    }
+    agentmemory_secret=$(get_env_value "AGENTMEMORY_SECRET" "$agentmemory_env_file")
+    [[ -n "$agentmemory_secret" ]] || {
+        print_error "AGENTMEMORY_SECRET is missing from the decrypted AI environment"
+        exit 1
+    }
+
+    agentmemory_secret_file=$(mktemp /tmp/agentmemory-secret.XXXXXX)
+    register_runtime_temp_file "$agentmemory_secret_file"
+    (
+        umask 077
+        printf '%s\n' "$agentmemory_secret" > "$agentmemory_secret_file"
+    )
+
+    pct exec "$CT_ID" -- mkdir -p \
+        /root/.config/agentmemory \
+        /root/.config/opencode/commands \
+        /root/.config/opencode/plugins \
+        /root/.gemini/config \
+        /root/.local/lib/agentmemory \
+        /root/.local/bin
+    pct push "$CT_ID" "$WORK_DIR/config/antigravity/hooks.json" /root/.gemini/config/hooks.json
+    pct push "$CT_ID" "$WORK_DIR/config/antigravity/agy-memory-hook.mjs" /root/.local/lib/agentmemory/agy-memory-hook.mjs
+    pct push "$CT_ID" "$WORK_DIR/config/antigravity/agy-memory" /root/.local/bin/agy
+    pct push "$CT_ID" "$WORK_DIR/config/opencode/opencode.jsonc" /root/.config/opencode/opencode.jsonc
+    pct push "$CT_ID" "$WORK_DIR/config/opencode/package.json" /root/.config/opencode/package.json
+    pct push "$CT_ID" "$WORK_DIR/config/opencode/commands/recall.md" /root/.config/opencode/commands/recall.md
+    pct push "$CT_ID" "$WORK_DIR/config/opencode/commands/remember.md" /root/.config/opencode/commands/remember.md
+    pct push "$CT_ID" "$WORK_DIR/config/opencode/plugins/agentmemory-capture.ts" /root/.config/opencode/plugins/agentmemory-capture.ts
+    pct push "$CT_ID" "$WORK_DIR/config/opencode/opencode-memory" /root/.local/bin/opencode-memory
+    pct push "$CT_ID" "$agentmemory_secret_file" /root/.config/agentmemory/secret
+    pct exec "$CT_ID" -- chmod 0600 /root/.config/agentmemory/secret
+    pct exec "$CT_ID" -- chmod 0600 /root/.gemini/config/hooks.json
+    pct exec "$CT_ID" -- chmod 0644 /root/.local/lib/agentmemory/agy-memory-hook.mjs
+    pct exec "$CT_ID" -- chmod 0644 /root/.config/opencode/plugins/agentmemory-capture.ts
+    pct exec "$CT_ID" -- chmod 0755 /root/.local/bin/agy
+    pct exec "$CT_ID" -- chmod 0755 /root/.local/bin/opencode-memory
+
+    pct exec "$CT_ID" -- bash -c '
 set -e
 
 # pct exec starts a non-login shell, so it does not load root'"'"'s .bashrc.
@@ -472,15 +515,12 @@ export PATH="/root/.local/bin:/usr/local/bin:$PATH"
 # community package can lag behind versions supported by GitHub APIs.
 install -m 0755 -d /etc/apt/keyrings
 gh_keyring=$(mktemp /tmp/githubcli-keyring.XXXXXX)
-trap '\''rm -f "$gh_keyring"'\'' EXIT
 curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o "$gh_keyring"
 install -m 0644 "$gh_keyring" /etc/apt/keyrings/githubcli-archive-keyring.gpg
 rm -f "$gh_keyring"
-trap - EXIT
+chmod 0644 /etc/apt/keyrings/githubcli-archive-keyring.gpg
+printf "deb [arch=%s signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\n" "$(dpkg --print-architecture)" > /etc/apt/sources.list.d/github-cli.list
 
-cat > /etc/apt/sources.list.d/github-cli.list <<EOF
-deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main
-EOF
 apt-get update -qq
 apt-get install -y -qq gh
 
@@ -488,21 +528,58 @@ apt-get install -y -qq gh
 # package globally exposes Codex to root and code-server terminals.
 npm install --global @openai/codex
 
-# Antigravity is application state, so install or update it during every dev
-# reconciliation rather than tying it to one-time OS provisioning.
+# Install or update OpenCode with its official installer. Its real binary stays
+# under ~/.opencode; /usr/local/bin/opencode is wired to the Agentmemory wrapper
+# after installation so every shell inherits the required URL and secret.
+if [ -x /root/.opencode/bin/opencode-real ]; then
+    cp -f /root/.opencode/bin/opencode-real /root/.opencode/bin/opencode
+fi
+opencode_installer=$(mktemp /tmp/opencode-install.XXXXXX)
+curl -fsSL https://opencode.ai/install -o "$opencode_installer"
+SHELL=/bin/bash bash "$opencode_installer" --no-modify-path || true
+test -x /root/.opencode/bin/opencode || test -x /root/.opencode/bin/opencode-real
+rm -f "$opencode_installer"
+
+if [ -x /root/.opencode/bin/opencode ]; then
+    mv -f /root/.opencode/bin/opencode /root/.opencode/bin/opencode-real
+fi
+install -m 0755 /root/.local/bin/opencode-memory /root/.opencode/bin/opencode
+
+
+# Keep the full OpenCode capture plugin aligned with the Agentmemory server version.
+# The official upstream file is installed as agentmemory-capture-upstream.ts
+# so the repository'"'"'s decorator plugin can safely wrap it.
+agentmemory_package_dir=$(mktemp -d /tmp/agentmemory-opencode.XXXXXX)
+npm pack @agentmemory/agentmemory@latest --pack-destination "$agentmemory_package_dir" >/dev/null
+agentmemory_archive=$(find "$agentmemory_package_dir" -maxdepth 1 -type f -name "*.tgz" -print -quit)
+test -n "$agentmemory_archive"
+tar -xzf "$agentmemory_archive" -C "$agentmemory_package_dir"
+install -m 0644 \
+    "$agentmemory_package_dir/package/plugin/opencode/agentmemory-capture.ts" \
+    /root/.config/opencode/plugins/agentmemory-capture-upstream.ts
+rm -rf "$agentmemory_package_dir"
+
+# Install the real Antigravity binary outside ~/.local/bin so the stable
+# Agentmemory wrapper can own the normal agy command path.
+if [ -x /root/.local/lib/antigravity/agy-real ]; then
+    cp -f /root/.local/lib/antigravity/agy-real /root/.local/lib/antigravity/agy
+fi
 antigravity_installer=$(mktemp /tmp/antigravity-install.XXXXXX)
-trap '\''rm -f "$antigravity_installer"'\'' EXIT
 curl -fsSL https://antigravity.google/cli/install.sh -o "$antigravity_installer"
-bash "$antigravity_installer"
-test -x /root/.local/bin/agy
+bash "$antigravity_installer" --dir /root/.local/lib/antigravity || test -x /root/.local/lib/antigravity/agy || test -x /root/.local/lib/antigravity/agy-real
+if [ -x /root/.local/lib/antigravity/agy ]; then
+    mv -f /root/.local/lib/antigravity/agy /root/.local/lib/antigravity/agy-real
+fi
+install -m 0755 /root/.local/bin/agy /root/.local/lib/antigravity/agy
+test -x /root/.local/lib/antigravity/agy-real
 rm -f "$antigravity_installer"
-trap - EXIT
 
-# The installer targets ~/.local/bin. Expose agy through the system PATH for
-# non-login shells and code-server terminals.
+# All installer, user-local, and system-local command paths resolve through the
+# wrapper, which supplies Agentmemory credentials and the originating workspace.
 ln -sfnT /root/.local/bin/agy /usr/local/bin/agy
+ln -sfnT /root/.local/bin/opencode-memory /usr/local/bin/opencode
 
-for command_name in node npm git gh python3 bash nano vim htop agy codex code-server; do
+for command_name in node npm git gh python3 bash nano vim htop agy codex opencode code-server; do
     command -v "$command_name" || {
         echo "Missing required dev command: $command_name" >&2
         exit 1
@@ -516,6 +593,7 @@ gh --version
 python3 --version
 agy --version
 codex --version
+opencode --version
 code-server --version
 systemctl is-enabled code-server@root
 systemctl is-active code-server@root

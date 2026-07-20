@@ -51,6 +51,12 @@
         icon: mdi-brain
         siteMonitor: http://192.168.1.105:20128
 
+    - AgentMemory:
+        description: AI memory and context service
+        href: https://memory.byetgin.com
+        icon: mdi-memory
+        siteMonitor: http://192.168.1.105:3113
+
     - Oracle VPS (Cockpit):
         description: Cloud backup node console
         href: https://opc.byetgin.com

@@ -1,7 +1,7 @@
 // Architecture Data - Single Source of Truth for the Dashboard
 const ARCHITECTURE_DATA = {
     meta: {
-        lastUpdated: "2026-06-11",
+        lastUpdated: "2026-07-20",
         host: "Proxmox VE (192.168.1.10)",
         specs: "Intel Xeon E3-1276 v3 @ 3.60GHz | 32GB DDR3 ECC | ZFS Storage"
     },
@@ -15,7 +15,7 @@ const ARCHITECTURE_DATA = {
             serviceInventory: "Service Inventory",
             timeline: "Infrastructure Timeline",
             status: { active: "Active", standby: "Standby", maintenance: "Maintenance" },
-            categories: { Infrastructure: "Infrastructure", Media: "Media", Utilities: "Utilities", Productivity: "Productivity", Observability: "Observability", Gaming: "Gaming", Development: "Development" }
+            categories: { Infrastructure: "Infrastructure", Media: "Media", Utilities: "Utilities", Productivity: "Productivity", "AI & Automation": "AI & Automation", Development: "Development" }
         },
         tr: {
             title: "Proxmox Homelab Mimarisi",
@@ -26,7 +26,7 @@ const ARCHITECTURE_DATA = {
             serviceInventory: "Servis Envanteri",
             timeline: "Altyapı Geçmişi",
             status: { active: "Aktif", standby: "Beklemede", maintenance: "Bakım" },
-            categories: { Infrastructure: "Altyapı", Media: "Medya", Utilities: "Araçlar", Productivity: "Üretkenlik", Observability: "Gözlemlenebilirlik", Gaming: "Oyun", Development: "Geliştirme" }
+            categories: { Infrastructure: "Altyapı", Media: "Medya", Utilities: "Araçlar", Productivity: "Üretkenlik", "AI & Automation": "Yapay Zeka ve Otomasyon", Development: "Geliştirme" }
         }
     },
     networks: [
@@ -38,8 +38,7 @@ const ARCHITECTURE_DATA = {
     timeline: [
         { date: "2026-06-11", title: { en: "Helper Scripts & CI/CD Refactor", tr: "Yardımcı Scriptler ve CI/CD Yenilemesi" }, desc: { en: "Improved fail2ban logging and created automated GitHub Actions Pages deployment.", tr: "Fail2ban loglama iyileştirildi ve otomatik GitHub Actions Pages dağıtımı kuruldu." } },
         { date: "2026-06-11", title: { en: "Infrastructure Consolidation", tr: "Altyapı Konsolidasyonu" }, desc: { en: "Reorganized stacks, merged backup services into utility (LXC 102), and updated all docker configuration structures.", tr: "Yığınlar yeniden düzenlendi, yedekleme hizmetleri utility (LXC 102) ile birleştirildi ve tüm docker yapılandırma mimarisi güncellendi." } },
-        { date: "2025-12-24", title: { en: "VPN Architecture Upgrade", tr: "VPN Mimari Güncellemesi" }, desc: { en: "Deployed Tailscale as primary VPN; repurposed Cloudflare for Web Tunnel only.", tr: "Tailscale ana VPN olarak yapılandırıldı; Cloudflare sadece Web Tunnel için ayrıldı." } },
-        { date: "2025-12-15", title: { en: "Game Server Expansion", tr: "Oyun Sunucusu Genişletmesi" }, desc: { en: "Added Palworld & Satisfactory with automated switching.", tr: "Otomatik geçişli Palworld ve Satisfactory sunucuları eklendi." } }
+        { date: "2025-12-24", title: { en: "VPN Architecture Upgrade", tr: "VPN Mimari Güncellemesi" }, desc: { en: "Deployed Tailscale as primary VPN; repurposed Cloudflare for Web Tunnel only.", tr: "Tailscale ana VPN olarak yapılandırıldı; Cloudflare sadece Web Tunnel için ayrıldı." } }
     ],
     stacks: [
         {
@@ -71,6 +70,7 @@ const ARCHITECTURE_DATA = {
                 { name: "Prowlarr", icon: "fa-solid fa-search", port: "9696", desc: { en: "Indexer Manager", tr: "İndeksleyici Yöneticisi" }, status: "active" },
                 { name: "qBittorrent", icon: "fa-solid fa-download", port: "8080", desc: { en: "Torrent Client", tr: "Torrent İstemcisi" }, status: "active" },
                 { name: "FlareSolverr", icon: "fa-solid fa-wand-magic-sparkles", port: "8191", desc: { en: "Bypass Cloudflare protection", tr: "Cloudflare korumasını atlatıcı" }, status: "active" },
+                { name: "Tor Proxy", icon: "fa-solid fa-mask", port: "9050", desc: { en: "Tor SOCKS Proxy for anonymized access", tr: "Anonim erişim için Tor SOCKS Proxy" }, status: "active" },
                 { name: "Recyclarr", icon: "fa-solid fa-arrows-spin", port: "Auto", desc: { en: "Sync TRaSH guides profiles", tr: "TRaSH rehberleri profil senkronizesi" }, status: "active" },
                 { name: "Cleanuperr", icon: "fa-solid fa-trash-can", port: "11011", desc: { en: "Disk space cleanup utility", tr: "Disk alanı temizlik aracı" }, status: "active" },
                 { name: "Tdarr", icon: "fa-solid fa-compact-disc", port: "8265", desc: { en: "Distributed Transcoding", tr: "Dağıtık Transcoding Platformu" }, status: "active", gpu: true }
@@ -87,7 +87,9 @@ const ARCHITECTURE_DATA = {
                 { name: "Samba Share", icon: "fa-solid fa-share-nodes", port: "445", desc: { en: "Local File Sharing Service", tr: "Yerel Dosya Paylaşım Servisi" }, status: "active" },
                 { name: "Repackarr", icon: "fa-solid fa-box", port: "Auto", desc: { en: "Release Repackaging Automator", tr: "Sürüm Paketleme Otomasyonu" }, status: "active" },
                 { name: "Backrest", icon: "fa-solid fa-box-archive", port: "9898", desc: { en: "Local Backup Orchestrator", tr: "Yerel Yedekleme Orkestratörü" }, status: "active" },
-                { name: "MeTube", icon: "fa-brands fa-youtube", port: "8081", desc: { en: "YouTube Downloader", tr: "YouTube İndirici" }, status: "active" }
+                { name: "MeTube", icon: "fa-brands fa-youtube", port: "8081", desc: { en: "YouTube Downloader", tr: "YouTube İndirici" }, status: "active" },
+                { name: "Changedetection.io", icon: "fa-solid fa-eye", port: "5000", desc: { en: "Website Change Monitor", tr: "Web Sitesi Değişim İzleyici" }, status: "active" },
+                { name: "Karakeep", icon: "fa-solid fa-bookmark", port: "3000", desc: { en: "Bookmark & Hoarder App", tr: "Yer İmleri ve Toplama Uygulaması" }, status: "active" }
             ]
         },
         {
@@ -102,19 +104,22 @@ const ARCHITECTURE_DATA = {
                 { name: "Apache Guacamole", icon: "fa-solid fa-network-wired", port: "8080", desc: { en: "Clientless Remote Desktop Gateway", tr: "Kurulumsuz Uzak Masaüstü Geçidi" }, status: "active" },
                 { name: "Sshwifty", icon: "fa-solid fa-terminal", port: "8182", desc: { en: "Web-based SSH/Telnet Connector", tr: "Web tabanlı SSH/Telnet Konnektörü" }, status: "active" },
                 { name: "Vaultwarden", icon: "fa-solid fa-lock", port: "8201", desc: { en: "Password Manager", tr: "Şifre Yöneticisi" }, status: "active" },
-                { name: "CouchDB", icon: "fa-solid fa-database", port: "5984", desc: { en: "Obsidian Sync Database", tr: "Obsidian Senkronizasyon Veritabanı" }, status: "active" }
+                { name: "CouchDB", icon: "fa-solid fa-database", port: "5984", desc: { en: "Obsidian Sync Database", tr: "Obsidian Senkronizasyon Veritabanı" }, status: "active" },
+                { name: "Desktop OTP Gate", icon: "fa-solid fa-key", port: "Auto", desc: { en: "TOTP Authentication Gateway", tr: "TOTP Kimlik Doğrulama Geçidi" }, status: "active" },
+                { name: "Radicale CalDAV", icon: "fa-solid fa-calendar-check", port: "5232", desc: { en: "CalDAV/CardDAV Calendar Sync", tr: "CalDAV/CardDAV Takvim Senkronizasyonu" }, status: "active" }
             ]
         },
 
         {
             id: 105,
-            name: { en: "Gaming & Game Servers (Gaming)", tr: "Oyun Sunucuları (Gaming)" },
+            name: { en: "AI & Automation", tr: "Yapay Zeka ve Otomasyon" },
             ip: "192.168.1.105",
-            category: "Gaming",
-            specs: { cpu: 8, ram: "16GB" },
+            category: "AI & Automation",
+            specs: { cpu: 4, ram: "4GB" },
             services: [
-                { name: "Palworld", icon: "fa-solid fa-gamepad", port: "8211 UDP", desc: { en: "Dedicated Server", tr: "Dedicated Sunucu" }, status: "standby" },
-                { name: "Satisfactory", icon: "fa-solid fa-industry", port: "7777 UDP/TCP, 7778 TCP", desc: { en: "Dedicated Server", tr: "Dedicated Sunucu" }, status: "active" }
+                { name: "Hermes Agent", icon: "fa-solid fa-robot", port: "8088", desc: { en: "AI Agent Gateway", tr: "Yapay Zeka Ajanı Geçidi" }, status: "active" },
+                { name: "OmniRoute", icon: "fa-solid fa-route", port: "5001", desc: { en: "API Routing & Mesh", tr: "API Yönlendirme ve Mesh" }, status: "active" },
+                { name: "Agentmemory", icon: "fa-solid fa-brain", port: "3030", desc: { en: "Long-term Memory for Agents", tr: "Ajanlar için Uzun Süreli Hafıza" }, status: "active" }
             ]
         },
         {
@@ -125,7 +130,10 @@ const ARCHITECTURE_DATA = {
             specs: { cpu: 4, ram: "6GB" },
             services: [
                 { name: "Code-Server", icon: "fa-solid fa-code", port: "8680", desc: { en: "Web-based VS Code IDE", tr: "Web tabanlı VS Code Geliştirme Ortamı" }, status: "active" },
-                { name: "Antigravity CLI", icon: "fa-solid fa-terminal", port: "Local", desc: { en: "AI Coding Assistant Tool", tr: "Yapay Zeka Kodlama Yardımcısı" }, status: "active" }
+                { name: "Node.js", icon: "fa-brands fa-node-js", port: "Local", desc: { en: "JavaScript Runtime Environment", tr: "JavaScript Çalışma Ortamı" }, status: "active" },
+                { name: "Python", icon: "fa-brands fa-python", port: "Local", desc: { en: "Python Runtime & Pip", tr: "Python Çalışma Ortamı ve Pip" }, status: "active" },
+                { name: "OpenCode", icon: "fa-solid fa-terminal", port: "Local", desc: { en: "AI Coding Agent CLI", tr: "Yapay Zeka Kodlama Ajanı CLI" }, status: "active" },
+                { name: "Antigravity CLI", icon: "fa-solid fa-rocket", port: "Local", desc: { en: "AI Coding Assistant Tool", tr: "Yapay Zeka Kodlama Yardımcısı" }, status: "active" }
             ]
         }
     ]

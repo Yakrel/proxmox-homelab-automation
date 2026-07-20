@@ -1,0 +1,19 @@
+#!/bin/sh
+set -eu
+
+secret_file="${XDG_CONFIG_HOME:-$HOME/.config}/agentmemory/secret"
+
+if [ ! -s "$secret_file" ]; then
+    echo "Agentmemory secret is missing: $secret_file" >&2
+    exit 1
+fi
+
+export AGENTMEMORY_URL="http://192.168.1.105:3111"
+export AGENTMEMORY_SECRET="$(cat "$secret_file")"
+
+if [ -x /root/.opencode/bin/opencode-real ]; then
+    exec /root/.opencode/bin/opencode-real "$@"
+else
+    exec /root/.opencode/bin/opencode "$@"
+fi
+
