@@ -1,8 +1,17 @@
 import type { Plugin } from "@opencode-ai/plugin";
+import { existsSync, readFileSync } from "node:fs";
 import { AgentmemoryCapturePlugin as UpstreamPlugin } from "./agentmemory-capture-upstream.ts";
 
-const API = process.env.AGENTMEMORY_URL || "http://localhost:3111";
-const SECRET = process.env.AGENTMEMORY_SECRET || "";
+let API = process.env.AGENTMEMORY_URL || "";
+if (!API && existsSync("/root/.config/agentmemory/url")) {
+  try { API = readFileSync("/root/.config/agentmemory/url", "utf8").trim(); } catch {}
+}
+if (!API) API = "http://192.168.1.105:3111";
+
+let SECRET = process.env.AGENTMEMORY_SECRET || "";
+if (!SECRET && existsSync("/root/.config/agentmemory/secret")) {
+  try { SECRET = readFileSync("/root/.config/agentmemory/secret", "utf8").trim(); } catch {}
+}
 
 function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };

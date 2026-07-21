@@ -296,6 +296,16 @@ EOS
             echo 'export PATH=\"/root/.local/bin:\$PATH\"' >> /root/.bashrc
         fi
 
+        # Disable mouse capture in opencode TUI so code-server terminal native
+        # copy/paste works.  opencode's own clipboard chain (OSC52 → xclip/xsel)
+        # silently fails in headless web-based VS Code environments, while the
+        # browser's built-in selection and Ctrl+C work fine when mouse events
+        # are not intercepted by the TUI.
+        # See: https://github.com/anomalyco/opencode/issues/26459
+        if ! grep -q "OPENCODE_DISABLE_MOUSE" /root/.bashrc 2>/dev/null; then
+            echo 'export OPENCODE_DISABLE_MOUSE=true' >> /root/.bashrc
+        fi
+
         # Install code-server (latest version)
         # Using HTTP redirect to avoid GitHub API rate limits
         CODE_SERVER_URL=\$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)
@@ -496,6 +506,7 @@ if [[ "$STACK_NAME" == "dev" ]]; then
     pct push "$CT_ID" "$WORK_DIR/config/opencode/plugins/agentmemory-capture.ts" /root/.config/opencode/plugins/agentmemory-capture.ts
     pct push "$CT_ID" "$WORK_DIR/config/opencode/opencode-memory" /root/.local/bin/opencode-memory
     pct push "$CT_ID" "$agentmemory_secret_file" /root/.config/agentmemory/secret
+    pct exec "$CT_ID" -- bash -c 'printf "http://192.168.1.105:3111" > /root/.config/agentmemory/url'
     pct exec "$CT_ID" -- chmod 0600 /root/.config/agentmemory/secret
     pct exec "$CT_ID" -- chmod 0600 /root/.gemini/config/hooks.json
     pct exec "$CT_ID" -- chmod 0644 /root/.local/lib/agentmemory/agy-memory-hook.mjs

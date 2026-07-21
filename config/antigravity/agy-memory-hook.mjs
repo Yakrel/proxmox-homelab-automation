@@ -8,9 +8,22 @@ import {
 import { basename } from "node:path";
 
 const event = process.argv[2] ?? "";
-const baseUrl =
-  process.env.AGENTMEMORY_URL ?? "http://192.168.1.105:3111";
-const secret = process.env.AGENTMEMORY_SECRET ?? "";
+let baseUrl = process.env.AGENTMEMORY_URL ?? "";
+if (!baseUrl && existsSync("/root/.config/agentmemory/url")) {
+  try {
+    baseUrl = readFileSync("/root/.config/agentmemory/url", "utf8").trim();
+  } catch {}
+}
+if (!baseUrl) {
+  baseUrl = "http://192.168.1.105:3111";
+}
+
+let secret = process.env.AGENTMEMORY_SECRET ?? "";
+if (!secret && existsSync("/root/.config/agentmemory/secret")) {
+  try {
+    secret = readFileSync("/root/.config/agentmemory/secret", "utf8").trim();
+  } catch {}
+}
 const cwd = process.env.AGENTMEMORY_AGY_CWD ?? process.cwd();
 const project = process.env.AGENTMEMORY_AGY_PROJECT ?? basename(cwd);
 const runId = process.env.AGENTMEMORY_AGY_RUN_ID ?? "unknown";
