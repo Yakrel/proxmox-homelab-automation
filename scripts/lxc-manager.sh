@@ -302,16 +302,6 @@ EOS
             echo 'export PATH=\"/root/.local/bin:\$PATH\"' >> /root/.bashrc
         fi
 
-        # Disable mouse capture in opencode TUI so code-server terminal native
-        # copy/paste works.  opencode's own clipboard chain (OSC52 → xclip/xsel)
-        # silently fails in headless web-based VS Code environments, while the
-        # browser's built-in selection and Ctrl+C work fine when mouse events
-        # are not intercepted by the TUI.
-        # See: https://github.com/anomalyco/opencode/issues/26459
-        if ! grep -q "OPENCODE_DISABLE_MOUSE" /root/.bashrc 2>/dev/null; then
-            echo 'export OPENCODE_DISABLE_MOUSE=true' >> /root/.bashrc
-        fi
-
         # Install code-server (latest version)
         # Using HTTP redirect to avoid GitHub API rate limits
         CODE_SERVER_URL=\$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)
@@ -332,7 +322,7 @@ EOS
             \"https://github.com/coder/code-server/releases/download/v\${CODE_SERVER_VERSION}/code-server_\${CODE_SERVER_VERSION}_\${CODE_SERVER_ARCH}.deb\" \
             -o \"\$code_server_package\"
         dpkg -i \"\$code_server_package\"
-        rm -f "$code_server_package"
+        rm -f "\$code_server_package"
         trap - EXIT
 
         # Configure code-server (no auth - homelab internal network only)
@@ -497,39 +487,16 @@ if [[ "$STACK_NAME" == "dev" ]]; then
 
     pct exec "$CT_ID" -- mkdir -p \
         /root/.config/agentmemory \
-        /root/.config/opencode/commands \
-        /root/.config/opencode/plugins \
-        /root/.codex \
-        /root/.gemini/config \
         /root/.pi/agent/extensions/agentmemory \
-        /root/.local/lib/agentmemory \
         /root/.local/bin
-    pct push "$CT_ID" "$WORK_DIR/config/antigravity/hooks.json" /root/.gemini/config/hooks.json
-    pct push "$CT_ID" "$WORK_DIR/config/antigravity/mcp_config.json" /root/.gemini/config/mcp_config.json
-    pct push "$CT_ID" "$WORK_DIR/config/antigravity/agy-memory-hook.mjs" /root/.local/lib/agentmemory/agy-memory-hook.mjs
-    pct push "$CT_ID" "$WORK_DIR/config/antigravity/agy-memory" /root/.local/bin/agy
-    pct push "$CT_ID" "$WORK_DIR/config/codex/codex-memory" /root/.local/bin/codex-memory
-    pct push "$CT_ID" "$WORK_DIR/config/opencode/opencode.jsonc" /root/.config/opencode/opencode.jsonc
-    pct push "$CT_ID" "$WORK_DIR/config/opencode/package.json" /root/.config/opencode/package.json
-    pct push "$CT_ID" "$WORK_DIR/config/opencode/commands/recall.md" /root/.config/opencode/commands/recall.md
-    pct push "$CT_ID" "$WORK_DIR/config/opencode/commands/remember.md" /root/.config/opencode/commands/remember.md
-    pct push "$CT_ID" "$WORK_DIR/config/opencode/plugins/agentmemory-capture.mjs" /root/.config/opencode/plugins/agentmemory-capture.mjs
-    pct push "$CT_ID" "$WORK_DIR/config/opencode/opencode-memory" /root/.local/bin/opencode-memory
     pct push "$CT_ID" "$WORK_DIR/config/pi/pi-memory" /root/.local/bin/pi-memory
     pct push "$CT_ID" "$WORK_DIR/config/pi/agentmemory/index.ts" /root/.pi/agent/extensions/agentmemory/index.ts
     pct push "$CT_ID" "$WORK_DIR/config/pi/agentmemory/security.ts" /root/.pi/agent/extensions/agentmemory/security.ts
     pct push "$CT_ID" "$agentmemory_secret_file" /root/.config/agentmemory/secret
     pct exec "$CT_ID" -- bash -c 'printf "https://memory.byetgin.com" > /root/.config/agentmemory/url'
     pct exec "$CT_ID" -- chmod 0600 /root/.config/agentmemory/secret
-    pct exec "$CT_ID" -- chmod 0600 /root/.gemini/config/hooks.json
-    pct exec "$CT_ID" -- chmod 0600 /root/.gemini/config/mcp_config.json
-    pct exec "$CT_ID" -- chmod 0644 /root/.local/lib/agentmemory/agy-memory-hook.mjs
-    pct exec "$CT_ID" -- chmod 0644 /root/.config/opencode/plugins/agentmemory-capture.mjs
     pct exec "$CT_ID" -- chmod 0644 /root/.pi/agent/extensions/agentmemory/index.ts
     pct exec "$CT_ID" -- chmod 0644 /root/.pi/agent/extensions/agentmemory/security.ts
-    pct exec "$CT_ID" -- chmod 0755 /root/.local/bin/agy
-    pct exec "$CT_ID" -- chmod 0755 /root/.local/bin/codex-memory
-    pct exec "$CT_ID" -- chmod 0755 /root/.local/bin/opencode-memory
     pct exec "$CT_ID" -- chmod 0755 /root/.local/bin/pi-memory
 
     pct exec "$CT_ID" -- bash -c '
@@ -553,48 +520,9 @@ printf "deb [arch=%s signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] 
 apt-get update -qq
 apt-get install -y -qq gh
 
-# npm is already part of the provisioned dev environment. Restore the real
-# Codex command before npm updates it, then keep its resolved package binary
-# under a stable path for the Agentmemory wrapper.
-if [ -x /usr/local/bin/codex-real ]; then
-    ln -sfnT "$(readlink -f /usr/local/bin/codex-real)" /usr/local/bin/codex
-fi
+# npm is already part of the provisioned dev environment.
 npm install --global @openai/codex
-codex_real_target=$(readlink -f /usr/local/bin/codex)
-test -x "$codex_real_target"
-ln -sfnT "$codex_real_target" /usr/local/bin/codex-real
-
-# The official plugin supplies Codex lifecycle hooks, MCP tools, and skills.
-# These commands are idempotent; upgrade refreshes an existing marketplace
-# snapshot before the plugin is reconciled.
-/usr/local/bin/codex-real plugin marketplace add rohitg00/agentmemory
-/usr/local/bin/codex-real plugin marketplace upgrade agentmemory
-/usr/local/bin/codex-real plugin add agentmemory@agentmemory
-ln -sfnT /root/.local/bin/codex-memory /root/.local/bin/codex
-ln -sfnT /root/.local/bin/codex-memory /usr/local/bin/codex
-
-# User-managed Node installations can prepend their own global bin directory
-# after the base provisioning PATH. Keep the Agentmemory wrappers authoritative
-# for interactive terminals and Codex app-server SSH launches.
-wrapper_path_line="export PATH=\"/root/.local/bin:/usr/local/bin:\$PATH\" # Managed Agentmemory CLI wrappers"
-grep -Fqx "$wrapper_path_line" /root/.bashrc || printf "\n%s\n" "$wrapper_path_line" >> /root/.bashrc
-
-# Install or update OpenCode with its official installer. Its real binary stays
-# under ~/.opencode; /usr/local/bin/opencode is wired to the Agentmemory wrapper
-# after installation so every shell inherits the required URL and secret.
-if [ -x /root/.opencode/bin/opencode-real ]; then
-    cp -f /root/.opencode/bin/opencode-real /root/.opencode/bin/opencode
-fi
-opencode_installer=$(mktemp /tmp/opencode-install.XXXXXX)
-curl -fsSL https://opencode.ai/install -o "$opencode_installer"
-SHELL=/bin/bash bash "$opencode_installer" --no-modify-path
-test -x /root/.opencode/bin/opencode || test -x /root/.opencode/bin/opencode-real
-rm -f "$opencode_installer"
-
-if [ -x /root/.opencode/bin/opencode ]; then
-    mv -f /root/.opencode/bin/opencode /root/.opencode/bin/opencode-real
-fi
-install -m 0755 /root/.local/bin/opencode-memory /root/.opencode/bin/opencode
+test -x "$(command -v codex)"
 
 # Pi uses a native Agentmemory extension for automatic recall and capture.
 # Keep the upstream integration current on every dev application reconcile.
@@ -608,27 +536,15 @@ ln -sfnT /root/.local/share/pi-runtime/bin/pi /usr/local/bin/pi-real
 /usr/local/bin/pi-real install npm:pi-antigravity
 ln -sfnT /root/.local/bin/pi-memory /usr/local/bin/pi
 
-# Install the real Antigravity binary outside ~/.local/bin so the stable
-# Agentmemory wrapper can own the normal agy command path.
-if [ -x /root/.local/lib/antigravity/agy-real ]; then
-    cp -f /root/.local/lib/antigravity/agy-real /root/.local/lib/antigravity/agy
-fi
+# Install Antigravity directly, without CLI wrappers.
 antigravity_installer=$(mktemp /tmp/antigravity-install.XXXXXX)
 curl -fsSL https://antigravity.google/cli/install.sh -o "$antigravity_installer"
 bash "$antigravity_installer" --dir /root/.local/lib/antigravity
-if [ -x /root/.local/lib/antigravity/agy ]; then
-    mv -f /root/.local/lib/antigravity/agy /root/.local/lib/antigravity/agy-real
-fi
-install -m 0755 /root/.local/bin/agy /root/.local/lib/antigravity/agy
-test -x /root/.local/lib/antigravity/agy-real
+test -x /root/.local/lib/antigravity/agy
+ln -sfnT /root/.local/lib/antigravity/agy /usr/local/bin/agy
 rm -f "$antigravity_installer"
 
-# All installer, user-local, and system-local command paths resolve through the
-# wrapper, which supplies Agentmemory credentials and the originating workspace.
-ln -sfnT /root/.local/bin/agy /usr/local/bin/agy
-ln -sfnT /root/.local/bin/opencode-memory /usr/local/bin/opencode
-
-for command_name in node npm git gh python3 bash nano vim htop agy codex opencode pi code-server; do
+for command_name in node npm git gh python3 bash nano vim htop agy codex pi code-server; do
     command -v "$command_name" || {
         echo "Missing required dev command: $command_name" >&2
         exit 1
@@ -642,13 +558,12 @@ gh --version
 python3 --version
 agy --version
 codex --version
-opencode --version
 pi --version
 code-server --version
 systemctl is-enabled code-server@root
 systemctl is-active code-server@root
 '
-    print_info "Running Agentmemory integration smoke tests"
+    print_info "Running Pi Agentmemory integration smoke tests"
     if ! pct exec "$CT_ID" -- bash -c '
 set -e
 export HOME=/root
@@ -656,7 +571,8 @@ export PATH="/root/.local/bin:/usr/local/bin:$PATH"
 
 agentmemory_url=$(cat /root/.config/agentmemory/url)
 agentmemory_secret=$(cat /root/.config/agentmemory/secret)
-smoke_output="$pi_setup_tmp/agentmemory-smoke-output"
+smoke_output=$(mktemp /tmp/agentmemory-smoke-output.XXXXXX)
+trap "rm -f \"$smoke_output\"" EXIT
 
 run_agentmemory_smoke_test() {
     smoke_label=$1
@@ -672,26 +588,17 @@ run_agentmemory_smoke_test "server health" \
     curl -fsS --max-time 10 \
         -H "Authorization: Bearer ${agentmemory_secret}" \
         "${agentmemory_url}/agentmemory/health"
-run_agentmemory_smoke_test "Agy lifecycle" \
-    /root/.local/bin/agy --agentmemory-self-test
-run_agentmemory_smoke_test "OpenCode lifecycle" \
-    /root/.local/bin/opencode-memory --agentmemory-self-test
-run_agentmemory_smoke_test "Codex plugin structure" \
-    /root/.local/bin/codex-memory --agentmemory-self-test
 run_agentmemory_smoke_test "Pi native extension" \
     /root/.local/bin/pi-memory --agentmemory-self-test
 
-interactive_codex=$(HOME=/root bash --noprofile --rcfile /root/.bashrc -ic "command -v codex" 2>/dev/null)
-if [ "$interactive_codex" != "/root/.local/bin/codex" ] || \
-    [ "$(readlink -f "$interactive_codex")" != "/root/.local/bin/codex-memory" ]; then
-    echo "Codex does not resolve through the Agentmemory wrapper: $interactive_codex" >&2
-    exit 1
-fi
+test "$(readlink -f "$(command -v codex)")" = "$(npm root -g)/@openai/codex/bin/codex.js"
+test "$(readlink -f "$(command -v agy)")" = /root/.local/lib/antigravity/agy
+! command -v opencode >/dev/null 2>&1
 '; then
-        print_error "Agentmemory integration smoke tests failed; dev redeploy stopped"
+        print_error "Pi Agentmemory integration smoke tests failed; dev redeploy stopped"
         exit 1
     fi
-    print_success "Agentmemory integration smoke tests passed"
+    print_success "Pi Agentmemory integration smoke tests passed"
     print_success "Dev CLI applications reconciled and verified"
 fi
 

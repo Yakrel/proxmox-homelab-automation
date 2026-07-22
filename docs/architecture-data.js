@@ -132,7 +132,8 @@ const ARCHITECTURE_DATA = {
                 { name: "Code-Server", icon: "fa-solid fa-code", port: "8680", desc: { en: "Web-based VS Code IDE", tr: "Web tabanlı VS Code Geliştirme Ortamı" }, status: "active" },
                 { name: "Node.js", icon: "fa-brands fa-node-js", port: "Local", desc: { en: "JavaScript Runtime Environment", tr: "JavaScript Çalışma Ortamı" }, status: "active" },
                 { name: "Python", icon: "fa-brands fa-python", port: "Local", desc: { en: "Python Runtime & Pip", tr: "Python Çalışma Ortamı ve Pip" }, status: "active" },
-                { name: "OpenCode", icon: "fa-solid fa-terminal", port: "Local", desc: { en: "AI Coding Agent CLI", tr: "Yapay Zeka Kodlama Ajanı CLI" }, status: "active" },
+                { name: "Codex CLI", icon: "fa-solid fa-terminal", port: "Local", desc: { en: "AI Coding Agent CLI", tr: "Yapay Zeka Kodlama Ajanı CLI" }, status: "active" },
+                { name: "Pi Coding Agent", icon: "fa-solid fa-terminal", port: "Local", desc: { en: "AI Coding Agent with Agentmemory", tr: "Agentmemory Entegrasyonlu Yapay Zeka Kodlama Ajanı" }, status: "active" },
                 { name: "Antigravity CLI", icon: "fa-solid fa-rocket", port: "Local", desc: { en: "AI Coding Assistant Tool", tr: "Yapay Zeka Kodlama Yardımcısı" }, status: "active" }
             ]
         }

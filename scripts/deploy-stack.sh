@@ -125,7 +125,7 @@ get_stack_config "$STACK_NAME"
 
 # Step 2: Environment setup
 if [[ "$STACK_NAME" == "dev" ]]; then
-    # OpenCode uses the Agentmemory secret from the AI stack. Keep one
+    # Pi uses the Agentmemory secret from the AI stack. Keep one
     # encrypted source of truth instead of duplicating the secret.
     decrypt_env_for_deploy "ai"
 else
