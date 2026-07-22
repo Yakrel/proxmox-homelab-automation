@@ -100,10 +100,14 @@ fast_redeploy_stack() {
     setup_docker_compose "$stack" "$CT_ID"
 
     local compose_build_flag=""
-    [[ "$stack" != "ai" ]] || compose_build_flag="--build"
+    local compose_wait_flags=""
+    if [[ "$stack" == "ai" ]]; then
+        compose_build_flag="--build"
+        compose_wait_flags="--wait --wait-timeout 120"
+    fi
 
     pct exec "$CT_ID" -- sh -c \
-        "cd /root && docker compose up -d $compose_build_flag --remove-orphans"
+        "cd /root && docker compose up -d $compose_build_flag $compose_wait_flags --remove-orphans"
 
     rm -f "$ENV_DECRYPTED_PATH"
     ENV_DECRYPTED_PATH=""

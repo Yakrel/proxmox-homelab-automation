@@ -100,7 +100,9 @@ Homepage, Desktop Workspace, Guacamole, Sshwifty, CouchDB, Vaultwarden, Desktop 
 Hermes Agent, OmniRoute, Agentmemory
 
 ### **Development (Dev)** (LXC 106 - `192.168.1.106`)
-Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, OpenCode, Antigravity CLI
+Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, OpenCode, Antigravity CLI, Pi Coding Agent
+
+Dev stack redeploys verify Agentmemory reachability and run isolated Agy, OpenCode, Codex, and Pi integration smoke tests. The integration tests use in-process mocks or read-only file checks and do not create Agentmemory sessions or observations. Pi also installs the `pi-antigravity` provider automatically; complete its Google OAuth flow interactively with `/login antigravity` on first use.
 
 ---
 
@@ -144,9 +146,11 @@ Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, OpenCode, Antigravity C
 └── config/                   # Shared configurations
     ├── antigravity/         # Antigravity CLI hooks and memory config
     ├── backrest/            # Backrest config.json template
+    ├── codex/               # Codex CLI Agentmemory wrapper
     ├── homepage/            # Dashboard widgets
     ├── metube/              # MeTube encrypted browser cookies
     ├── opencode/            # OpenCode CLI configuration and memory
+    ├── pi/                  # Pi CLI wrapper and native Agentmemory lifecycle extension
     ├── samba/               # Samba share template config
     ├── sshwifty/            # sshwifty profile template config
     ├── couchdb/             # CouchDB local.ini configuration

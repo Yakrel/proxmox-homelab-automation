@@ -1,0 +1,77 @@
+#!/bin/sh
+set -eu
+
+if [ "${1:-}" = "--agentmemory-self-test" ]; then
+    codex_home=${CODEX_HOME:-/root/.codex}
+    plugin_cache="$codex_home/plugins/cache/agentmemory/agentmemory"
+    if [ ! -d "$plugin_cache" ]; then
+        echo "Codex AgentMemory plugin cache is missing: $plugin_cache" >&2
+        exit 1
+    fi
+
+    plugin_manifest=$(find "$plugin_cache" -type f -path '*/.codex-plugin/plugin.json' -print -quit)
+    if [ -z "$plugin_manifest" ]; then
+        echo "Codex AgentMemory plugin manifest is missing" >&2
+        exit 1
+    fi
+
+    plugin_root=$(dirname "$(dirname "$plugin_manifest")")
+    grep -Fq '[plugins."agentmemory@agentmemory"]' "$codex_home/config.toml"
+    exec node -e '
+const fs = require("node:fs");
+const path = require("node:path");
+const [manifestPath, pluginRoot] = process.argv.slice(1);
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const requiredHooks = ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PreCompact", "Stop"];
+if (
+  manifest.name !== "agentmemory" ||
+  typeof manifest.mcpServers !== "string" ||
+  typeof manifest.hooks !== "string"
+) {
+  throw new Error("Invalid Codex AgentMemory plugin manifest");
+}
+const mcp = JSON.parse(fs.readFileSync(path.resolve(pluginRoot, manifest.mcpServers), "utf8"));
+const hooks = JSON.parse(fs.readFileSync(path.resolve(pluginRoot, manifest.hooks), "utf8"));
+if (!mcp.mcpServers?.agentmemory) {
+  throw new Error("Codex AgentMemory MCP definition is missing");
+}
+for (const hook of requiredHooks) {
+  const definitions = hooks.hooks?.[hook];
+  const hasCommand = Array.isArray(definitions) && definitions.some((definition) =>
+    Array.isArray(definition.hooks) && definition.hooks.some((entry) =>
+      entry.type === "command" && typeof entry.command === "string" && entry.command.length > 0,
+    ),
+  );
+  if (!hasCommand) {
+    throw new Error(`Codex AgentMemory hook is missing: ${hook}`);
+  }
+}
+process.stdout.write(`${JSON.stringify({ success: true, integration: "codex", hooks: requiredHooks })}\n`);
+' "$plugin_manifest" "$plugin_root"
+fi
+
+secret_file="${XDG_CONFIG_HOME:-$HOME/.config}/agentmemory/secret"
+url_file="${XDG_CONFIG_HOME:-$HOME/.config}/agentmemory/url"
+
+if [ ! -s "$secret_file" ]; then
+    echo "Agentmemory secret is missing: $secret_file" >&2
+    exit 1
+fi
+
+if [ ! -s "$url_file" ]; then
+    echo "Agentmemory URL is missing: $url_file" >&2
+    exit 1
+fi
+
+if [ ! -x /usr/local/bin/codex-real ]; then
+    echo "Codex binary is missing: /usr/local/bin/codex-real" >&2
+    exit 1
+fi
+
+export AGENTMEMORY_URL="$(cat "$url_file")"
+export AGENTMEMORY_SECRET="$(cat "$secret_file")"
+export AGENTMEMORY_TOOLS="core"
+export AGENTMEMORY_INJECT_CONTEXT="true"
+export AGENT_ID="codex"
+
+exec /usr/local/bin/codex-real "$@"

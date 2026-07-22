@@ -12,6 +12,6 @@
     }
   },
   "plugin": [
-    "./plugins/agentmemory-capture.ts"
+    "./plugins/agentmemory-capture.mjs"
   ]
 }

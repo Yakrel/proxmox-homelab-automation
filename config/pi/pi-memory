@@ -1,0 +1,41 @@
+#!/bin/sh
+set -eu
+
+if [ "${1:-}" = "--agentmemory-self-test" ]; then
+    test -x /usr/local/bin/pi-real
+    test -f /root/.pi/agent/extensions/agentmemory/index.ts
+    test -f /root/.pi/agent/extensions/agentmemory/security.ts
+    node -e '
+const fs = require("node:fs");
+const extension = fs.readFileSync("/root/.pi/agent/extensions/agentmemory/index.ts", "utf8");
+for (const lifecycleMarker of [
+  "session/start",
+  "session/end",
+  "session_shutdown",
+  "sessionContext",
+]) {
+  if (!extension.includes(lifecycleMarker)) process.exit(1);
+}
+const settings = JSON.parse(fs.readFileSync("/root/.pi/agent/settings.json", "utf8"));
+const packages = settings.packages || settings.extensions || [];
+if (!packages.some((entry) => {
+  const source = typeof entry === "string" ? entry : entry?.source;
+  return source === "npm:pi-antigravity" || source === "pi-antigravity";
+})) process.exit(1);
+'
+    exit 0
+fi
+
+secret_file="${XDG_CONFIG_HOME:-$HOME/.config}/agentmemory/secret"
+url_file="${XDG_CONFIG_HOME:-$HOME/.config}/agentmemory/url"
+
+if [ ! -r "$secret_file" ] || [ ! -r "$url_file" ]; then
+    echo "Agentmemory configuration is missing under ${XDG_CONFIG_HOME:-$HOME/.config}/agentmemory" >&2
+    exit 1
+fi
+
+export AGENTMEMORY_SECRET="$(cat "$secret_file")"
+export AGENTMEMORY_URL="$(cat "$url_file")"
+export AGENT_ID="pi"
+
+exec /usr/local/bin/pi-real "$@"

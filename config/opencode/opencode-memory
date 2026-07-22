@@ -1,19 +1,64 @@
 #!/bin/sh
 set -eu
 
+if [ "${1:-}" = "--agentmemory-self-test" ]; then
+    grep -Fq '"./plugins/agentmemory-capture.mjs"' /root/.config/opencode/opencode.jsonc
+
+    capture_plugins=$(find /root/.config/opencode/plugins -maxdepth 1 -type f \
+        \( -name '*agentmemory*capture*.js' -o -name '*agentmemory*capture*.mjs' -o -name '*agentmemory*capture*.ts' \))
+    if [ "$capture_plugins" != "/root/.config/opencode/plugins/agentmemory-capture.mjs" ]; then
+        echo "Expected exactly one auto-loaded AgentMemory capture plugin, found:" >&2
+        printf '%s\n' "$capture_plugins" >&2
+        exit 1
+    fi
+
+    debug_config=$(mktemp /tmp/opencode-agentmemory-debug-config.XXXXXX)
+    trap 'rm -f "$debug_config"' EXIT
+    /root/.opencode/bin/opencode-real debug config > "$debug_config"
+    node -e '
+const fs = require("node:fs");
+const config = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+const capturePlugins = (config.plugin || []).filter((plugin) =>
+  String(plugin).includes("agentmemory-capture"),
+);
+if (
+  capturePlugins.length !== 1 ||
+  !capturePlugins[0].endsWith("/agentmemory-capture.mjs")
+) {
+  throw new Error(`Expected one resolved AgentMemory capture plugin: ${JSON.stringify(capturePlugins)}`);
+}
+' "$debug_config"
+
+    node --input-type=module -e '
+const plugin = await import("file:///root/.config/opencode/plugins/agentmemory-capture.mjs");
+const result = await plugin.runAgentmemoryCaptureSelfTest();
+process.stdout.write(`${JSON.stringify(result)}\n`);
+'
+    exit
+fi
+
 secret_file="${XDG_CONFIG_HOME:-$HOME/.config}/agentmemory/secret"
+url_file="${XDG_CONFIG_HOME:-$HOME/.config}/agentmemory/url"
 
 if [ ! -s "$secret_file" ]; then
     echo "Agentmemory secret is missing: $secret_file" >&2
     exit 1
 fi
 
-export AGENTMEMORY_URL="http://192.168.1.105:3111"
+if [ ! -s "$url_file" ]; then
+    echo "Agentmemory URL is missing: $url_file" >&2
+    exit 1
+fi
+
+export AGENTMEMORY_URL="$(cat "$url_file")"
 export AGENTMEMORY_SECRET="$(cat "$secret_file")"
+export AGENTMEMORY_TOOLS="core"
+export AGENTMEMORY_INJECT_CONTEXT="true"
+export AGENT_ID="opencode"
 
 if [ -x /root/.opencode/bin/opencode-real ]; then
     exec /root/.opencode/bin/opencode-real "$@"
-else
-    exec /root/.opencode/bin/opencode "$@"
 fi
 
+echo "OpenCode binary is missing: /root/.opencode/bin/opencode-real" >&2
+exit 1

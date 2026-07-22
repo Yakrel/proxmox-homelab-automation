@@ -1,16 +1,33 @@
 #!/bin/sh
 set -eu
 
+if [ "${1:-}" = "--agentmemory-self-test" ]; then
+    exec node /root/.local/lib/agentmemory/agy-memory-hook.mjs self-test
+fi
+
 secret_file="${XDG_CONFIG_HOME:-$HOME/.config}/agentmemory/secret"
+url_file="${XDG_CONFIG_HOME:-$HOME/.config}/agentmemory/url"
 
 if [ ! -s "$secret_file" ]; then
     echo "Agentmemory secret is missing: $secret_file" >&2
     exit 1
 fi
 
-export AGENTMEMORY_URL="http://192.168.1.105:3111"
+if [ ! -s "$url_file" ]; then
+    echo "Agentmemory URL is missing: $url_file" >&2
+    exit 1
+fi
+
+project_root=$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$PWD")
+project_name=$(basename "$project_root")
+
+export AGENTMEMORY_URL="$(cat "$url_file")"
 export AGENTMEMORY_SECRET="$(cat "$secret_file")"
+export AGENTMEMORY_TOOLS="core"
+export AGENTMEMORY_INJECT_CONTEXT="true"
+export AGENT_ID="agy"
 export AGENTMEMORY_AGY_CWD="$PWD"
+export AGENTMEMORY_AGY_PROJECT="$project_name"
 export AGENTMEMORY_AGY_RUN_ID="agy-$$-$(date +%s)"
 
 exec /root/.local/lib/antigravity/agy-real "$@"
