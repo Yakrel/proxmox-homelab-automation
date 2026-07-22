@@ -136,12 +136,47 @@ configure_backrest_directories() {
     prepare_host_directory /datapool/backup
 }
 
-# Configure rclone for Google Drive sync - creates config files for Docker container
-# rclone is now installed inside the Docker image, not in the LXC container
+# Decrypt SSH key for Oracle Free VPS offsite backups
+configure_oracle_vps_key() {
+    local key_file="/fastpool/config/backrest/config/oracle-free-vps.key"
+    local key_file_enc="$WORK_DIR/docker/utility/config/oracle-free-vps.key.enc"
+
+    if [[ -f "$key_file_enc" ]]; then
+        print_info "Decrypting Oracle VPS SSH key from encrypted configuration"
+        local key_tmp
+        key_tmp=$(mktemp /fastpool/config/backrest/config/oracle-free-vps.key.XXXXXX)
+        register_runtime_temp_file "$key_tmp"
+
+        if openssl enc -aes-256-cbc -d -pbkdf2 -salt \
+            -in "$key_file_enc" \
+            -out "$key_tmp" \
+            -pass env:ENV_ENC_KEY; then
+            chown 101000:101000 "$key_tmp"
+            chmod 0600 "$key_tmp"
+            mv -f "$key_tmp" "$key_file"
+            print_success "Oracle VPS SSH key decrypted"
+        else
+            rm -f "$key_tmp"
+            print_error "Failed to decrypt oracle-free-vps.key.enc"
+            return 1
+        fi
+    elif [[ -f "/fastpool/config/oracle-free-vps/oracle-free-vps.key" ]]; then
+        cp /fastpool/config/oracle-free-vps/oracle-free-vps.key "$key_file"
+        chown 101000:101000 "$key_file"
+        chmod 0600 "$key_file"
+    fi
+}
+
+# Configure rclone for Google Drive & Oracle VPS offsite sync
 configure_rclone_config() {
     local rclone_conf="/fastpool/config/backrest/config/rclone.conf"
     local rclone_conf_enc="$WORK_DIR/docker/utility/config/rclone.conf.enc"
     local rclone_tmp
+
+    if ! configure_oracle_vps_key; then
+        print_error "Failed to configure Oracle VPS SSH key"
+        return 1
+    fi
 
     print_info "Configuring rclone from encrypted configuration"
 
@@ -169,15 +204,12 @@ configure_rclone_config() {
     register_runtime_temp_file "$sync_tmp"
     cat > "$sync_tmp" << 'SYNCEOF'
 #!/bin/sh
-# Backrest hook script: Sync backups to Google Drive after successful backup
-# This is an exact mirror: successful forget/prune deletions are permanently
-# propagated to Drive so stale restic pack files do not consume cloud quota.
-# Optimized for 20 MB/s connection.
+# Backrest hook script: Sync backups to BOTH Oracle Free VPS and Google Drive
+# Optimized offsite synchronization with fast-list and no redundant checksum API queries.
 
 LOG_FILE="/config/rclone-gdrive-sync.log"
 LOG_MAX_BYTES=5242880
 
-# Keep only the newest log data in a single file. No .1/.2 rotation.
 if [ -f "$LOG_FILE" ]; then
     log_size=$(wc -c "$LOG_FILE" | awk '{print $1}')
     if [ "$log_size" -gt "$LOG_MAX_BYTES" ]; then
@@ -187,21 +219,42 @@ if [ -f "$LOG_FILE" ]; then
     fi
 fi
 
-echo "$(date): Starting Google Drive sync from /repos to gdrive:homelab-backups" >> "$LOG_FILE"
+echo "==================================================" >> "$LOG_FILE"
+echo "$(date): Starting Dual Offsite Sync (Oracle VPS & Google Drive)" >> "$LOG_FILE"
 
+# --- Target 1: Oracle Free VPS (SFTP over SSH) ---
+echo "$(date): [1/2] Syncing to Oracle Free VPS (oracle-vps:pve01-backups)..." >> "$LOG_FILE"
+/usr/bin/rclone sync /repos oracle-vps:pve01-backups \
+    --config=/config/rclone.conf \
+    --log-file="$LOG_FILE" \
+    --log-level=INFO \
+    --fast-list \
+    --transfers=8 \
+    --checkers=16 \
+    --retries=5 \
+    --timeout=5m \
+    --exclude="**/cache/**" \
+    --exclude="**/*.tmp"
+oracle_exit_code=$?
+
+if [ "$oracle_exit_code" -eq 0 ]; then
+    echo "$(date): [1/2] Oracle VPS sync completed successfully" >> "$LOG_FILE"
+else
+    echo "$(date): [1/2] Oracle VPS sync failed with exit code $oracle_exit_code" >> "$LOG_FILE"
+fi
+
+# --- Target 2: Google Drive ---
+echo "$(date): [2/2] Syncing to Google Drive (gdrive:homelab-backups)..." >> "$LOG_FILE"
 /usr/bin/rclone sync /repos gdrive:homelab-backups \
     --config=/config/rclone.conf \
     --log-file="$LOG_FILE" \
     --log-level=INFO \
     --fast-list \
-    --checksum \
     --transfers=4 \
-    --checkers=8 \
-    --tpslimit=8 \
-    --tpslimit-burst=16 \
+    --checkers=12 \
+    --tpslimit=10 \
+    --tpslimit-burst=20 \
     --retries=10 \
-    --low-level-retries=20 \
-    --retries-sleep=10s \
     --timeout=10m \
     --contimeout=60s \
     --drive-chunk-size=64M \
@@ -209,14 +262,18 @@ echo "$(date): Starting Google Drive sync from /repos to gdrive:homelab-backups"
     --drive-use-trash=false \
     --exclude="**/cache/**" \
     --exclude="**/*.tmp"
-rclone_exit_code=$?
+gdrive_exit_code=$?
 
-if [ "$rclone_exit_code" -eq 0 ]; then
-    echo "$(date): Sync completed successfully" >> "$LOG_FILE"
+if [ "$gdrive_exit_code" -eq 0 ]; then
+    echo "$(date): [2/2] Google Drive sync completed successfully" >> "$LOG_FILE"
+else
+    echo "$(date): [2/2] Google Drive sync failed with exit code $gdrive_exit_code" >> "$LOG_FILE"
+fi
+
+if [ "$oracle_exit_code" -eq 0 ] || [ "$gdrive_exit_code" -eq 0 ]; then
     exit 0
 else
-    echo "$(date): Sync failed with exit code $rclone_exit_code" >> "$LOG_FILE"
-    exit "$rclone_exit_code"
+    exit 1
 fi
 SYNCEOF
 
@@ -224,7 +281,7 @@ SYNCEOF
     chmod 0700 "$sync_tmp"
     mv -f "$sync_tmp" /fastpool/config/backrest/config/sync-to-gdrive.sh
 
-    print_success "Rclone configuration decrypted"
+    print_success "Rclone configuration and SSH key decrypted"
 }
 
 # Deploy Backrest stack
