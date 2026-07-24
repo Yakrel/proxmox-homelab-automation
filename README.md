@@ -61,23 +61,24 @@ This project utilizes custom Docker images that are maintained in separate repos
 | Image | Repository | Description |
 | :--- | :--- | :--- |
 | **desktop-workspace** | [Yakrel/docker-desktop-workspace](https://github.com/Yakrel/docker-desktop-workspace) | Multi-app web environment (Brave + Obsidian) |
-| **backrest-rclone** | [Yakrel/docker-backrest-rclone](https://github.com/Yakrel/docker-backrest-rclone) | Backup solution with Google Drive sync hooks |
+| **backrest-rclone** | [Yakrel/docker-backrest-rclone](https://github.com/Yakrel/docker-backrest-rclone) | Backup solution with Oracle VPS and Google Drive sync hooks |
+| **docker-agentmemory** | [Yakrel/docker-agentmemory](https://github.com/Yakrel/docker-agentmemory) | Agentmemory image with the homelab runtime configuration |
 
 **Pipeline Features:**
-- Bi-weekly automatic rebuilds
+- Scheduled weekly rebuilds
 - Automated tag management via GHCR
 - Published to GHCR: `ghcr.io/yakrel/...`
 
 ### **DevOps & Automation Practices**
 - **Configuration-driven Infrastructure**: LXC identities and resources are defined in `stacks.yaml`; service state is defined by Docker Compose and application templates.
 - **Repeatable Deployment Paths**: LXC provisioning assumes a clean installation, while application redeploys reconcile Compose and generated configuration state.
-- **Secret Management**: Production-grade secret handling using AES-256-CBC encryption for all configuration files.
+- **Secret Management**: Repository secrets use salted AES-256-CBC with an explicit 600,000-iteration PBKDF2-HMAC-SHA256 work factor.
 
 ### **Business Continuity & Disaster Recovery**
-- **Off-site Copy**: Local ZFS snapshots plus an encrypted Google Drive mirror of the restic repository.
-- **Automated Cloud Sync**: Backrest repositories synced to Google Drive via post-backup hooks (rclone).
+- **Off-site Copies**: Local ZFS snapshots plus exact encrypted mirrors of the restic repository on Oracle VPS and Google Drive.
+- **Automated Mirror Sync**: Post-backup rclone hooks update both remote mirrors and send a Telegram degradation alert if either target fails.
 - **Secure Archives**: Client-side encryption ensuring data privacy in public cloud environments.
-- **CI/CD Maintained**: Custom `backrest-rclone` image automatically rebuilt twice a week for up-to-date security and cloud sync compatibility.
+- **CI/CD Maintained**: Custom container images are rebuilt on a weekly schedule for upstream updates and security fixes.
 - **Rebuild Path**: After storage and secrets are available, `installer.sh` provides a repeatable path for recreating the LXC and application stacks on the Proxmox host.
 
 ---
@@ -96,11 +97,13 @@ JDownloader 2, Samba, Repackarr, Backrest-Rclone (Backup with Google Drive sync)
 ### **Desktop Workspace (Web Tools)** (LXC 103 - `192.168.1.103`)
 Homepage, Desktop Workspace, Guacamole, Sshwifty, CouchDB, Vaultwarden, Desktop OTP Gate, Radicale CalDAV
 
-### **AI & Automation** (LXC 105 - `192.168.1.105`)
-Hermes Agent, OmniRoute
+### **AI & Automation** (LXC 104 - `192.168.1.104`)
+Hermes Agent, OmniRoute, Agentmemory
 
-### **Development (Dev)** (LXC 106 - `192.168.1.106`)
-Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, Antigravity CLI
+### **Development (Dev)** (LXC 105 - `192.168.1.105`)
+Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, Antigravity CLI, Pi Coding Agent
+
+Only Pi integrates with Agentmemory. Codex CLI and Antigravity CLI (`agy`) remain independently installed without Agentmemory hooks. Pi also installs the `pi-antigravity` provider automatically; complete its Google OAuth flow interactively with `/login antigravity` on first use.
 
 ---
 
@@ -129,12 +132,13 @@ Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, Antigravity CLI
 │   ├── lxc-manager.sh       # LXC lifecycle management
 │   ├── fast-redeploy.sh     # Fast Docker stack redeploy
 │   ├── helper-functions.sh  # Common shell utilities
+│   ├── nvidia-userspace-sync.sh # NVIDIA user-space library sync for LXC
 │   ├── setup-tailscale-host.sh # Tailscale host subnet configuration
 │   └── modules/             # Specialized deployment modules
 │       ├── docker-deployment.sh
 │       └── backrest-deployment.sh
 ├── docker/                   # Docker Compose stacks
-│   ├── ai/                  # Hermes Agent, OmniRoute
+│   ├── ai/                  # Hermes Agent, OmniRoute, Agentmemory
 │   ├── desktop/             # Dashboard, desktop workspace, guacamole, sshwifty, radicale
 │   ├── dev/                 # Development stack (no compose, managed by LXC manager)
 │   ├── gateway/             # Nginx Proxy Manager, AdGuard, Cloudflared
@@ -143,10 +147,10 @@ Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, Antigravity CLI
 └── config/                   # Shared configurations
     ├── backrest/            # Backrest config.json template
     ├── homepage/            # Dashboard widgets
+    ├── pi/                  # Pi CLI wrapper and native Agentmemory lifecycle extension
     ├── samba/               # Samba share template config
     ├── sshwifty/            # sshwifty profile template config
     ├── couchdb/             # CouchDB local.ini configuration
-    ├── vaultwarden/         # Vaultwarden configuration templates
     └── guacamole/           # Apache Guacamole user-mapping configs
 ```
 
@@ -155,16 +159,20 @@ Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, Antigravity CLI
 - **Proxmox VE**: 9.x with ZFS storage
 - **Network**: `vmbr0` bridge, `192.168.1.x` range
 - **Storage**: ZFS pools — `fastpool` (SSD) for configs/databases, `datapool` (HDD) for media/backups
-- **GPU** (optional): NVIDIA for hardware transcoding/ML acceleration
+- **GPU**: NVIDIA is required by the current Media and Desktop stack definitions; other stacks do not require it
 
 ## 🔐 Security
 
 - **Unprivileged LXC containers** with UID/GID mapping (101000:101000 → 1000:1000)
-- **Encrypted secrets**: AES-256-CBC with pbkdf2
-- **Single master key** decrypts all `.env.enc` files
+- **Console-first administration**: LXC SSH servers are omitted; passwordless root autologin is limited to the trusted Proxmox console
+- **Encrypted secrets**: AES-256-CBC with PBKDF2-HMAC-SHA256 and an explicit 600,000-iteration work factor
+- **Single master key** decrypts stack `.env.enc` files and service-specific encrypted configuration
 - **Per-stack Docker bridge networks**, with selected services published to the homelab LAN
+- **Trusted management mounts**: full-pool access for Samba, Hermes, and Dev is intentional so the owner and agents can administer homelab data and configuration directly
 - **Automated container updates and notifications** via Watchtower configured per stack
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+Copyright © 2025–2026 Berkay Yetgin
+
+Licensed under the MIT License. See [LICENSE](LICENSE).

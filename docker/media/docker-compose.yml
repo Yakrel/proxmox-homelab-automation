@@ -301,8 +301,9 @@ services:
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
 
-  # Immich services - version pinning required for component compatibility
-  # Immich recommends using version-pinned images and updating docker-compose with each release
+  # Immich services track the v3 major release channel so server and machine
+  # learning components stay aligned. Digest-pinned data services still require
+  # reviewing the upstream Compose file when Immich changes its dependencies.
   # Reference: https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
   immich-server:
     container_name: immich-server
@@ -521,6 +522,7 @@ services:
       - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
       - WATCHTOWER_NOTIFICATIONS_LEVEL=info
       - WATCHTOWER_NOTIFICATION_REPORT=true
+      - 'WATCHTOWER_NOTIFICATION_TEMPLATE={{- if .Report -}}{{- with .Report -}}{{- if .Updated -}}{{len .Updated}} container updated:{{range .Updated}}{{"\n"}}- {{.Name}} ({{.ImageName}}): {{.CurrentImageID.ShortID}} -> {{.LatestImageID.ShortID}}{{end}}{{- end -}}{{- end -}}{{- end -}}'
       - WATCHTOWER_NO_STARTUP_MESSAGE=true
       - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-media
     networks:

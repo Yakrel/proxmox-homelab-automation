@@ -69,7 +69,7 @@ decrypt_env_for_deploy() {
 
     (
         umask 077
-        printf '%s' "$pass" | openssl enc -d -aes-256-cbc -pbkdf2 -salt -pass stdin -in "$enc_file" -out "$ENV_DECRYPTED_PATH"
+        decrypt_openssl_file "$enc_file" "$ENV_DECRYPTED_PATH" "$pass"
     ) || {
         print_error "Failed to decrypt .env.enc"
         rm -f "$ENV_DECRYPTED_PATH"
@@ -96,7 +96,8 @@ create_lxc() {
     print_info "Creating LXC for $STACK_NAME"
     
     # Use lxc-manager.sh to create and configure the container
-    bash "$WORK_DIR/scripts/lxc-manager.sh" "$STACK_NAME" || { print_error "LXC setup failed"; exit 1; }
+    AGENTMEMORY_ENV_FILE="$ENV_DECRYPTED_PATH" \
+        bash "$WORK_DIR/scripts/lxc-manager.sh" "$STACK_NAME" || { print_error "LXC setup failed"; exit 1; }
     
     print_success "LXC ready"
 }
@@ -124,7 +125,9 @@ get_stack_config "$STACK_NAME"
 
 # Step 2: Environment setup
 if [[ "$STACK_NAME" == "dev" ]]; then
-    : # No .env needed
+    # Pi uses the Agentmemory secret from the AI stack. Keep one
+    # encrypted source of truth instead of duplicating the secret.
+    decrypt_env_for_deploy "ai"
 else
     decrypt_env_for_deploy "$STACK_NAME"
 fi

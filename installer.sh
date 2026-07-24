@@ -49,13 +49,21 @@ cd "$WORK_DIR"
 # 2. Download Core Scripts
 print_info "Downloading the latest scripts from the repository..."
 
-# Download and extract the repository archive (tarball)
-# This ensures we get all files without maintaining a manual list
-curl -sSL "https://github.com/Yakrel/proxmox-homelab-automation/archive/refs/heads/main.tar.gz" | \
-    tar xz -C "$WORK_DIR" --strip-components=1 || {
-    print_error "Failed to download or extract repository archive"
+# Download through GitHub's archive host so a transient github.com HTML error
+# cannot be piped into tar and mistaken for a repository archive.
+archive_file="$WORK_DIR/repository.tar.gz"
+curl -fsSL \
+    "https://codeload.github.com/Yakrel/proxmox-homelab-automation/tar.gz/refs/heads/main" \
+    -o "$archive_file" || {
+    print_error "Failed to download repository archive"
     exit 1
 }
+
+tar -xzf "$archive_file" -C "$WORK_DIR" --strip-components=1 || {
+    print_error "Failed to extract repository archive"
+    exit 1
+}
+rm -f "$archive_file"
 
 print_success "Environment setup complete"
 

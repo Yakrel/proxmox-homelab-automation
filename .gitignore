@@ -49,4 +49,11 @@ setting.local.json
 .env.local
 .env.tmp
 .vault_pass
+
+# Plaintext counterparts of repository-managed encrypted/generated secrets
+docker/utility/config/rclone.conf
+docker/utility/config/*.key
+config/guacamole/user-mapping.xml
+config/backrest/config.json
+
 scratch/

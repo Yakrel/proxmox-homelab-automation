@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+
+secret_file="${XDG_CONFIG_HOME:-$HOME/.config}/agentmemory/secret"
+url_file="${XDG_CONFIG_HOME:-$HOME/.config}/agentmemory/url"
+
+if [ ! -r "$secret_file" ] || [ ! -r "$url_file" ]; then
+    echo "Agentmemory configuration is missing under ${XDG_CONFIG_HOME:-$HOME/.config}/agentmemory" >&2
+    exit 1
+fi
+
+AGENTMEMORY_SECRET=$(cat "$secret_file")
+AGENTMEMORY_URL=$(cat "$url_file")
+export AGENTMEMORY_SECRET AGENTMEMORY_URL
+export AGENT_ID="pi"
+
+exec /usr/local/bin/pi-real "$@"

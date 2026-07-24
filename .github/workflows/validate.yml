@@ -1,0 +1,146 @@
+name: Validate Repository
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.sh"
+      - installer.sh
+      - stacks.yaml
+      - "docker/**"
+      - "config/**"
+      - "docs/**"
+      - .github/workflows/validate.yml
+  pull_request:
+    paths:
+      - "**/*.sh"
+      - installer.sh
+      - stacks.yaml
+      - "docker/**"
+      - "config/**"
+      - "docs/**"
+      - .github/workflows/validate.yml
+  workflow_dispatch:
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Prepare lightweight validators
+        run: |
+          shellcheck --version
+          python3 -m pip install --quiet PyYAML==6.0.2
+
+      - name: Validate shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' shell_files < <(git ls-files -z '*.sh')
+          bash -n "${shell_files[@]}"
+          sh -n config/pi/pi-memory
+          shellcheck -x -S warning "${shell_files[@]}" config/pi/pi-memory
+
+      - name: Validate YAML, JSON, and XML
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import xml.etree.ElementTree as ET
+          import yaml
+
+          for pattern in ('*.yml', '*.yaml'):
+              for path in pathlib.Path('.').glob(f'**/{pattern}'):
+                  if '.git' not in path.parts:
+                      yaml.safe_load(path.read_text(encoding='utf-8'))
+                      print(f'YAML OK: {path}')
+
+          for path in pathlib.Path('.').glob('**/*.json*'):
+              if '.git' not in path.parts and path.suffix in {'.json', '.template'}:
+                  try:
+                      json.loads(path.read_text(encoding='utf-8'))
+                  except json.JSONDecodeError:
+                      if not path.name.endswith('.json.template'):
+                          raise
+                  else:
+                      print(f'JSON OK: {path}')
+
+          for path in pathlib.Path('.').glob('**/*.xml.template'):
+              ET.parse(path)
+              print(f'XML OK: {path}')
+          PY
+
+      - name: Validate Docker Compose
+        shell: bash
+        run: |
+          set -euo pipefail
+          for stack in ai desktop gateway media utility; do
+              cp "docker/$stack/.env.example" "docker/$stack/.env"
+              (cd "docker/$stack" && docker compose config --quiet)
+              rm -f "docker/$stack/.env"
+          done
+
+      - name: Validate Agentmemory TypeScript bundle
+        run: |
+          npx --yes esbuild@0.25.8 config/pi/agentmemory/index.ts \
+            --bundle \
+            --platform=node \
+            --format=esm \
+            --external:typebox \
+            --external:@mariozechner/pi-coding-agent \
+            --outfile=/tmp/agentmemory-extension.js
+          node --check /tmp/agentmemory-extension.js
+
+      - name: Validate dashboard JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check docs/architecture-data.js
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          class Scripts(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.in_script = False
+                  self.external = False
+                  self.current = []
+                  self.parts = []
+
+              def handle_starttag(self, tag, attrs):
+                  if tag == 'script':
+                      self.in_script = True
+                      self.external = 'src' in dict(attrs)
+                      self.current = []
+
+              def handle_data(self, data):
+                  if self.in_script and not self.external:
+                      self.current.append(data)
+
+              def handle_endtag(self, tag):
+                  if tag == 'script' and self.in_script:
+                      content = ''.join(self.current)
+                      if not self.external and content.strip():
+                          self.parts.append(content)
+                      self.in_script = False
+
+          for html in Path('docs').glob('*.html'):
+              parser = Scripts()
+              parser.feed(html.read_text(encoding='utf-8'))
+              Path(f'/tmp/{html.name}.js').write_text(
+                  '\n;\n'.join(parser.parts), encoding='utf-8')
+          PY
+          node --check /tmp/index.html.js
+          node --check /tmp/topology.html.js

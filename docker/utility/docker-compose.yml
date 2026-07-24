@@ -46,10 +46,10 @@ services:
     network_mode: host
     environment:
       - TZ=${TZ:-Europe/Istanbul}
-      - SAMBA_USER=${SAMBA_USER:?Samba username must be defined}
-      - SAMBA_PASSWORD=${SAMBA_PASSWORD:?Samba password must be defined}
     volumes:
       - /fastpool/config/samba:/data
+      # Intentional trusted-admin share: Samba exposes both complete pools so
+      # they can be managed directly from the owner's workstation.
       - /datapool:/datapool
       - /fastpool:/fastpool
       - samba-cache:/data/cache
@@ -123,6 +123,9 @@ services:
       - BACKREST_DATA=/data
       - BACKREST_PORT=9898
       - XDG_CACHE_HOME=/cache
+      # Reuse Utility Watchtower's bot and channels for offsite failure alerts.
+      - OFFSITE_TELEGRAM_TOKEN=${WATCHTOWER_TELEGRAM_TOKEN:-}
+      - OFFSITE_TELEGRAM_CHAT_IDS=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
     user: "1000:1000"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9898/"]
@@ -148,7 +151,6 @@ services:
       - PGID=1000
       - UMASK=002
       - TZ=${TZ:-Europe/Istanbul}
-      - 'YTDL_OPTIONS={"cookiefile":"/config/youtube-location.cookies"}'
     volumes:
       - /fastpool/config/metube:/config
       - /datapool/media/kids/youtube:/downloads
@@ -184,6 +186,7 @@ services:
       - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
       - WATCHTOWER_NOTIFICATIONS_LEVEL=info
       - WATCHTOWER_NOTIFICATION_REPORT=true
+      - 'WATCHTOWER_NOTIFICATION_TEMPLATE={{- if .Report -}}{{- with .Report -}}{{- if .Updated -}}{{len .Updated}} container updated:{{range .Updated}}{{"\n"}}- {{.Name}} ({{.ImageName}}): {{.CurrentImageID.ShortID}} -> {{.LatestImageID.ShortID}}{{end}}{{- end -}}{{- end -}}{{- end -}}'
       - WATCHTOWER_NO_STARTUP_MESSAGE=true
       - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-utility
     networks:

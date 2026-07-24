@@ -5,6 +5,54 @@ networks:
     driver: bridge
 
 services:
+  agentmemory:
+    image: ghcr.io/yakrel/docker-agentmemory:latest
+    container_name: agentmemory
+    restart: unless-stopped
+    depends_on:
+      omniroute:
+        condition: service_started
+    ports:
+      - "192.168.1.104:3111:3111"
+      - "192.168.1.104:3113:3113"
+    volumes:
+      - /fastpool/config/agentmemory:/data
+    environment:
+      - OPENAI_API_KEY=${AGENTMEMORY_OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${AGENTMEMORY_OPENAI_BASE_URL}
+      - OPENAI_MODEL=${AGENTMEMORY_OPENAI_MODEL}
+      - EMBEDDING_PROVIDER=local
+      - AGENTMEMORY_SECRET=${AGENTMEMORY_SECRET}
+      - AGENTMEMORY_AUTO_COMPRESS=false
+      - AGENTMEMORY_INJECT_CONTEXT=true
+      - CONSOLIDATION_ENABLED=true
+      - CONSOLIDATION_INTERVAL_MS=86400000
+      - GRAPH_EXTRACTION_ENABLED=false
+      - AGENTMEMORY_SLOTS=true
+      - AGENTMEMORY_REFLECT=true
+      - AGENTMEMORY_TOOLS=core
+      - AUTO_FORGET_ENABLED=true
+      - LESSON_DECAY_ENABLED=true
+      - INSIGHT_DECAY_ENABLED=true
+      - AGENTMEMORY_VIEWER_HOST=0.0.0.0
+      - VIEWER_ALLOWED_HOSTS=192.168.1.104:3113,memory.byetgin.com
+      - VIEWER_ALLOWED_ORIGINS=http://192.168.1.104:3113,https://memory.byetgin.com
+    networks:
+      - ai-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3111/agentmemory/livez || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
   hermes:
     image: nousresearch/hermes-agent:latest
     container_name: hermes
@@ -12,9 +60,11 @@ services:
     ports:
       # Hermes requires its own authentication for non-loopback dashboard binds,
       # including access through the SNO-protected Nginx Proxy Manager host.
-      - "192.168.1.105:9119:9119"
+      - "192.168.1.104:9119:9119"
     volumes:
       - /fastpool/config/hermes:/opt/data
+      # Intentional trusted-agent access: Hermes manages homelab application
+      # configuration and data through its authenticated web dashboard.
       - /fastpool/config:/fastpool/config
       - /datapool:/datapool
     environment:
@@ -49,6 +99,7 @@ services:
       - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
       - WATCHTOWER_NOTIFICATIONS_LEVEL=info
       - WATCHTOWER_NOTIFICATION_REPORT=true
+      - 'WATCHTOWER_NOTIFICATION_TEMPLATE={{- if .Report -}}{{- with .Report -}}{{- if .Updated -}}{{len .Updated}} container updated:{{range .Updated}}{{"\n"}}- {{.Name}} ({{.ImageName}}): {{.CurrentImageID.ShortID}} -> {{.LatestImageID.ShortID}}{{end}}{{- end -}}{{- end -}}{{- end -}}'
       - WATCHTOWER_NO_STARTUP_MESSAGE=true
       - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-ai
     networks:

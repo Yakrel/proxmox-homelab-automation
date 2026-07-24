@@ -39,7 +39,7 @@ decrypt_stack_env() {
         return 1
     }
 
-    printf '%s' "$ENV_ENC_KEY" | openssl enc -d -aes-256-cbc -pbkdf2 -salt -pass stdin -in "$enc_file" -out "$output_file" || {
+    decrypt_openssl_file "$enc_file" "$output_file" "$ENV_ENC_KEY" || {
         rm -f "$output_file"
         print_error "Failed to decrypt docker/$stack/.env.enc"
         exit 1
@@ -57,12 +57,22 @@ fast_redeploy_stack() {
     get_stack_config "$stack"
 
     [[ "$stack" != "dev" ]] || {
-        print_info "Skipping dev stack (no Docker compose)"
+        if ! check_container_running "$CT_ID"; then
+            print_warning "Skipping $stack: LXC $CT_ID is not running"
+            return 0
+        fi
+
+        print_info "Fast redeploying dev CLI applications"
+        decrypt_stack_env ai
+        AGENTMEMORY_ENV_FILE="$ENV_DECRYPTED_PATH" \
+            bash "$WORK_DIR/scripts/lxc-manager.sh" dev
+        rm -f "$ENV_DECRYPTED_PATH"
+        ENV_DECRYPTED_PATH=""
+        print_success "Fast redeployed: dev"
         return 0
     }
 
-    local compose_file="$WORK_DIR/docker/$stack/docker-compose.yml"
-    [[ -f "$compose_file" ]] || {
+    [[ -f "$WORK_DIR/docker/$stack/docker-compose.yml" ]] || {
         print_error "docker-compose.yml not found for $stack"
         return 1
     }
@@ -87,9 +97,15 @@ fast_redeploy_stack() {
 
     pct push "$CT_ID" "$ENV_DECRYPTED_PATH" /root/.env
     pct exec "$CT_ID" -- chmod 0600 /root/.env
-    pct push "$CT_ID" "$compose_file" /root/docker-compose.yml
+    setup_docker_compose "$stack" "$CT_ID"
 
-    pct exec "$CT_ID" -- sh -c "cd /root && docker compose up -d --remove-orphans"
+    local compose_wait_flags=""
+    if [[ "$stack" == "ai" ]]; then
+        compose_wait_flags="--wait --wait-timeout 120"
+    fi
+
+    pct exec "$CT_ID" -- sh -c \
+        "cd /root && docker compose up -d $compose_wait_flags --remove-orphans"
 
     rm -f "$ENV_DECRYPTED_PATH"
     ENV_DECRYPTED_PATH=""

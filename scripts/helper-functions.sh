@@ -114,6 +114,24 @@ readonly FASTPOOL="/fastpool"
 readonly NETWORK_BRIDGE="vmbr0"
 readonly NETWORK_GATEWAY="192.168.1.1"
 
+# All repository-managed encrypted files use the same explicit KDF parameters.
+# Keep this value centralized: OpenSSL's salted enc format does not store the
+# PBKDF2 iteration count, so encryption and decryption must always agree.
+readonly OPENSSL_PBKDF2_ITERATIONS=600000
+
+decrypt_openssl_file() {
+    local input_file="$1"
+    local output_file="$2"
+    local passphrase="$3"
+
+    printf '%s' "$passphrase" | openssl enc \
+        -d -aes-256-cbc \
+        -pbkdf2 -iter "$OPENSSL_PBKDF2_ITERATIONS" -md sha256 \
+        -pass stdin \
+        -in "$input_file" \
+        -out "$output_file"
+}
+
 declare -ag RUNTIME_TEMP_FILES=()
 
 register_runtime_temp_file() {

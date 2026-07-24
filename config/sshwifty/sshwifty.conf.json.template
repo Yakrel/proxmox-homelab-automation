@@ -22,11 +22,6 @@
             "Title": "Proxmox VE",
             "Type": "SSH",
             "Host": "192.168.1.10:22"
-        },
-        {
-            "Title": "LXC AI (192.168.1.105)",
-            "Type": "SSH",
-            "Host": "192.168.1.105:22"
         }
     ],
     "OnlyAllowPresetRemotes": true

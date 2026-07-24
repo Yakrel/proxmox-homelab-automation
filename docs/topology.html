@@ -583,7 +583,7 @@
                     <path d="M 690,360 L 800,215" class="svg-link virtual-link" id="link-gateway-utility" onclick="selectLink('gateway-utility')"></path>
                     <path d="M 690,360 L 800,345" class="svg-link virtual-link" id="link-gateway-desktop" onclick="selectLink('gateway-desktop')"></path>
                     <path d="M 690,360 L 800,475" class="svg-link virtual-link" id="link-gateway-dev" onclick="selectLink('gateway-dev')"></path>
-                    <path d="M 690,360 L 800,605" class="svg-link virtual-link" id="link-gateway-gaming" onclick="selectLink('gateway-gaming')"></path>
+                    <path d="M 690,360 L 800,605" class="svg-link virtual-link" id="link-gateway-ai" onclick="selectLink('gateway-ai')"></path>
 
                     <!-- NETWORK NODES (HTML Embedded in SVG) -->
                     <!-- Col 1: Access Source -->
@@ -640,7 +640,7 @@
                     <foreignObject x="560" y="325" width="130" height="70" id="node-gateway-lxc" class="svg-node-html" onclick="selectNode('gateway-lxc')">
                         <div class="node-card-html router-node">
                             <div class="node-icon"><i class="fa-solid fa-arrow-right-to-bracket"></i></div>
-                            <div class="node-name">lxc-gateway-01</div>
+                            <div class="node-name">lxc-gateway</div>
                             <div class="node-sub">Nginx Proxy Manager</div>
                             <span class="pulse-dot-html online"></span>
                         </div>
@@ -652,7 +652,7 @@
                         <div class="node-card-html virtual-node lxc-card-html">
                             <div class="node-icon"><i class="fa-solid fa-box"></i></div>
                             <div class="node-details-text">
-                                <span class="node-name">lxc-media-01</span>
+                                <span class="node-name">lxc-media</span>
                                 <span class="node-sub">.1.101 (10G)</span>
                             </div>
                             <span class="pulse-dot-html online"></span>
@@ -664,7 +664,7 @@
                         <div class="node-card-html virtual-node lxc-card-html">
                             <div class="node-icon"><i class="fa-solid fa-box"></i></div>
                             <div class="node-details-text">
-                                <span class="node-name">lxc-utility-01</span>
+                                <span class="node-name">lxc-utility</span>
                                 <span class="node-sub">.1.102 (10G)</span>
                             </div>
                             <span class="pulse-dot-html online"></span>
@@ -676,7 +676,7 @@
                         <div class="node-card-html virtual-node lxc-card-html">
                             <div class="node-icon"><i class="fa-solid fa-box"></i></div>
                             <div class="node-details-text">
-                                <span class="node-name">lxc-desktop-01</span>
+                                <span class="node-name">lxc-desktop</span>
                                 <span class="node-sub">.1.103 (10G)</span>
                             </div>
                             <span class="pulse-dot-html online"></span>
@@ -688,20 +688,20 @@
                         <div class="node-card-html virtual-node lxc-card-html">
                             <div class="node-icon"><i class="fa-solid fa-box"></i></div>
                             <div class="node-details-text">
-                                <span class="node-name">lxc-dev-01</span>
-                                <span class="node-sub">.1.106 (10G)</span>
+                                <span class="node-name">lxc-dev</span>
+                                <span class="node-sub">.1.105 (10G)</span>
                             </div>
                             <span class="pulse-dot-html online"></span>
                         </div>
                     </foreignObject>
 
-                    <!-- LXC Gaming -->
-                    <foreignObject x="800" y="580" width="160" height="42" id="node-lxc-gaming" class="svg-node-html" onclick="selectNode('lxc-gaming')">
+                    <!-- LXC AI -->
+                    <foreignObject x="800" y="580" width="160" height="42" id="node-lxc-ai" class="svg-node-html" onclick="selectNode('lxc-ai')">
                         <div class="node-card-html virtual-node lxc-card-html">
                             <div class="node-icon"><i class="fa-solid fa-box"></i></div>
                             <div class="node-details-text">
-                                <span class="node-name">lxc-gaming-01</span>
-                                <span class="node-sub">.1.105 (10G)</span>
+                                <span class="node-name">lxc-ai</span>
+                                <span class="node-sub">.1.104 (10G)</span>
                             </div>
                             <span class="pulse-dot-html online"></span>
                         </div>
@@ -771,10 +771,10 @@
                         
                         <p><strong>Ingress Paths &amp; Technologies:</strong></p>
                         <ul class="analysis-list">
-                            <li><strong>Cloudflare Zero Trust Tunnel:</strong> Exposes public-facing web applications (e.g. <code>photos.byetgin.com</code>, <code>media.byetgin.com</code>) securely. Public browser traffic hits Cloudflare Edge first, filtering threats before proxying to the NPM gateway.</li>
+                            <li><strong>Cloudflare Zero Trust Tunnel:</strong> Exposes public-facing web applications (e.g. <code>immich.byetgin.com</code>, <code>jellyfin.byetgin.com</code>) securely. Public browser traffic hits Cloudflare Edge first, filtering threats before proxying to the NPM gateway.</li>
                             <li><strong>Tailscale Mesh VPN:</strong> Provides secure administrative backchannel access. Used by the admin device to gain remote access directly into the private LAN subnet router without exposing SSH or Proxmox control panels to the internet.</li>
                             <li><strong>AdGuard Home (Local DNS):</strong> Local LAN clients query AdGuard Home, which implements split-horizon DNS. This routes local traffic directly to NPM without exiting the home network, optimizing bandwidth.</li>
-                            <li><strong>Nginx Proxy Manager Gateway:</strong> LXC container <code>lxc-gateway-01</code> terminates SSL certificates and routes all internal traffic to specific backend virtual stack containers at high speeds.</li>
+                            <li><strong>Nginx Proxy Manager Gateway:</strong> LXC container <code>lxc-gateway</code> terminates SSL certificates and routes all internal traffic to specific backend virtual stack containers at high speeds.</li>
                         </ul>
                     </div>
                 `
@@ -811,10 +811,10 @@
                         
                         <p><strong>Erişim Yolları ve Teknolojiler:</strong></p>
                         <ul class="analysis-list">
-                            <li><strong>Cloudflare Zero Trust Tüneli:</strong> Dış dünyaya açık web servislerini (örn. <code>photos.byetgin.com</code>, <code>media.byetgin.com</code>) tüneller aracılığıyla güvenli şekilde yayınlar. İstekler önce Cloudflare korumasından geçerek NPM ağ geçidine yönlendirilir.</li>
+                            <li><strong>Cloudflare Zero Trust Tüneli:</strong> Dış dünyaya açık web servislerini (örn. <code>immich.byetgin.com</code>, <code>jellyfin.byetgin.com</code>) tüneller aracılığıyla güvenli şekilde yayınlar. İstekler önce Cloudflare korumasından geçerek NPM ağ geçidine yönlendirilir.</li>
                             <li><strong>Tailscale Mesh VPN:</strong> Uzak yönetici erişimi için güvenli bir arka kanal sağlar. Yönetici cihazı, SSH veya Proxmox yönetim panellerini internete açmadan doğrudan dahili ağ yönlendiricisi üzerinden tünel bağlantısı kurar.</li>
                             <li><strong>AdGuard Home (Yerel DNS):</strong> Yerel ağ istemcileri split-DNS yardımıyla AdGuard Home'u sorgular. Bu sayede yerel trafik internete çıkmadan doğrudan NPM'e aktarılarak bant genişliği korunur.</li>
-                            <li><strong>Nginx Proxy Manager Ağ Geçidi:</strong> <code>lxc-gateway-01</code> konteyneri, SSL sertifikalarını sonlandırarak tüm gelen istekleri ilgili dahili sanal stacks konteynerlerine yüksek hızla yönlendirir.</li>
+                            <li><strong>Nginx Proxy Manager Ağ Geçidi:</strong> <code>lxc-gateway</code> konteyneri, SSL sertifikalarını sonlandırarak tüm gelen istekleri ilgili dahili sanal stack konteynerlerine yüksek hızla yönlendirir.</li>
                         </ul>
                     </div>
                 `
@@ -832,13 +832,13 @@
                 'local-dns': { name: 'AdGuard Home', ip: '192.168.1.100', mac: 'BC:24:11:99:AA:68', type: { tr: 'Dahili DNS Sunucusu', en: 'Internal DNS Server' }, speed: 'Split-DNS Active', status: 'online', color: 'var(--color-switch)', icon: 'fa-shield-dog', note: { tr: 'Ağ genelinde reklam engelleme ve yerel alan adları için split-DNS çözümlemesi yapar.', en: 'Provides network-wide ad blocking and split-DNS resolution for local domains.' } },
                 'ts-vpn': { name: 'Tailscale Subnet Router', ip: '100.x.x.x', mac: 'BC:24:11:99:AA:68', type: { tr: 'Mesh VPN Ağ Geçidi', en: 'Mesh VPN Subnet Router' }, speed: 'Subnet routing', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-network-wired', note: { tr: 'Sunucuya ve alt ağlara (192.168.1.0/24) dışarıdan güvenli, şifreli tünel erişimi sağlar.', en: 'Establishes secure, encrypted mesh tunnel access to the host and subnets (192.168.1.0/24).' } },
                 
-                'gateway-lxc': { name: 'lxc-gateway-01', ip: '192.168.1.100', mac: 'BC:24:11:99:AA:68', type: { tr: 'Reverse Proxy (Nginx)', en: 'Reverse Proxy (Nginx)' }, speed: '10+ Gbps Virtual', status: 'online', color: 'var(--color-router)', icon: 'fa-box', note: { tr: 'Nginx Proxy Manager ile tüm web isteklerini SSL sertifikalarıyla iç servislere yönlendirir.', en: 'Routes incoming web requests to internal services using SSL certificates via NPM.' } },
+                'gateway-lxc': { name: 'lxc-gateway', ip: '192.168.1.100', mac: 'BC:24:11:99:AA:68', type: { tr: 'Reverse Proxy (Nginx)', en: 'Reverse Proxy (Nginx)' }, speed: '10+ Gbps Virtual', status: 'online', color: 'var(--color-router)', icon: 'fa-box', note: { tr: 'Nginx Proxy Manager ile tüm web isteklerini SSL sertifikalarıyla iç servislere yönlendirir.', en: 'Routes incoming web requests to internal services using SSL certificates via NPM.' } },
                 
-                'lxc-media': { name: 'lxc-media-01', ip: '192.168.1.101', mac: 'BC:24:11:6B:39:5D', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Jellyfin, Immich ve torrent otomasyonu. NVIDIA GPU passthrough aktiftir.', en: 'Hosts Jellyfin, Immich, and torrent automation. NVIDIA GPU passthrough enabled.' } },
-                'lxc-utility': { name: 'lxc-utility-01', ip: '192.168.1.102', mac: 'BC:24:11:02:61:04', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'JDownloader 2, Samba, Repackarr ve Backrest yedekleme orkestratörü.', en: 'Hosts JDownloader 2, Samba Share, Repackarr, and Backrest backup orchestrator.' } },
-                'lxc-desktop': { name: 'lxc-desktop-01', ip: '192.168.1.103', mac: 'BC:24:11:99:B4:BE', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Homepage, Desktop Workspace (Kasm) ve Vaultwarden şifre yöneticisi.', en: 'Hosts Homepage, Desktop Workspace (Kasm), and Vaultwarden password manager.' } },
-                'lxc-dev': { name: 'lxc-dev-01', ip: '192.168.1.106', mac: 'BC:24:11:C5:44:38', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Code-Server (VS Code), Node.js, Python, Git/GitHub CLI, Codex CLI ve Antigravity CLI.', en: 'Hosts Code-Server (VS Code), Node.js, Python, Git/GitHub CLI, Codex CLI, and Antigravity CLI.' } },
-                'lxc-gaming': { name: 'lxc-gaming-01', ip: '192.168.1.105', mac: 'BC:24:11:A9:A1:6F', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Palworld ve Satisfactory dedicated oyun sunucuları.', en: 'Hosts Palworld and Satisfactory dedicated game servers.' } }
+                'lxc-media': { name: 'lxc-media', ip: '192.168.1.101', mac: 'BC:24:11:6B:39:5D', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Jellyfin, Immich ve torrent otomasyonu. NVIDIA GPU passthrough aktiftir.', en: 'Hosts Jellyfin, Immich, and torrent automation. NVIDIA GPU passthrough enabled.' } },
+                'lxc-utility': { name: 'lxc-utility', ip: '192.168.1.102', mac: 'BC:24:11:02:61:04', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'JDownloader 2, Samba, Repackarr ve Backrest yedekleme orkestratörü.', en: 'Hosts JDownloader 2, Samba Share, Repackarr, and Backrest backup orchestrator.' } },
+                'lxc-desktop': { name: 'lxc-desktop', ip: '192.168.1.103', mac: 'BC:24:11:99:B4:BE', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Homepage, Desktop Workspace ve Vaultwarden şifre yöneticisi.', en: 'Hosts Homepage, Desktop Workspace, and Vaultwarden password manager.' } },
+                'lxc-dev': { name: 'lxc-dev', ip: '192.168.1.105', mac: 'BC:24:11:C5:44:38', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Code-Server (VS Code), Node.js, Python, Git/GitHub CLI, Codex CLI, Pi ve Antigravity CLI.', en: 'Hosts Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, Pi, and Antigravity CLI.' } },
+                'lxc-ai': { name: 'lxc-ai', ip: '192.168.1.104', mac: 'BC:24:11:A9:A1:6F', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Hermes Agent, OmniRoute ve Agentmemory servislerini barındırır.', en: 'Hosts Hermes Agent, OmniRoute, and Agentmemory.' } }
             },
             links: {
                 'user-cf': { name: { tr: 'İnternet Tarayıcısı -> DNS Sorgusu', en: 'Web Ingress -> Cloudflare Edge' }, speed: 'SSL Secured HTTPS', type: { tr: 'Dış Web İstekleri', en: 'External HTTPS requests' }, delay: '15-40 ms', color: 'var(--color-wifi-5g)' },
@@ -854,7 +854,7 @@
                 'gateway-utility': { name: { tr: 'Ters Proxy -> Yedekleme/Dosya', en: 'Reverse Proxy -> Utility Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' },
                 'gateway-desktop': { name: { tr: 'Ters Proxy -> Masaüstü/Panel', en: 'Reverse Proxy -> Desktop Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' },
                 'gateway-dev': { name: { tr: 'Ters Proxy -> Geliştirme/IDE', en: 'Reverse Proxy -> Dev Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' },
-                'gateway-gaming': { name: { tr: 'Ters Proxy -> Oyun Sunucuları', en: 'Reverse Proxy -> Gaming Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' }
+                'gateway-ai': { name: { tr: 'Ters Proxy -> Yapay Zeka Servisleri', en: 'Reverse Proxy -> AI Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' }
             }
         };
 
