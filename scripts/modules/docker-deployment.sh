@@ -144,10 +144,8 @@ setup_utility_permissions() {
     print_info "Preparing Utility directories"
 
     prepare_host_directory /fastpool/config/jdownloader2
+    # MeTube persists cookies uploaded through Advanced Options in this directory.
     prepare_host_directory /fastpool/config/metube
-    install -o 101000 -g 101000 -m 0644 \
-        "$WORK_DIR/config/metube/youtube-location.cookies" \
-        /fastpool/config/metube/youtube-location.cookies
     prepare_host_directory /fastpool/config/repackarr
     prepare_host_directory /fastpool/config/repackarr/data
     prepare_host_directory /fastpool/config/repackarr/logs
@@ -211,6 +209,7 @@ PYEOF
 setup_ai_permissions() {
     print_info "Preparing AI directories"
 
+    prepare_host_directory /fastpool/config/agentmemory 0700
     prepare_host_directory /fastpool/config/omniroute
 
     # Keep the working Telegram integration while leaving model/provider

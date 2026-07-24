@@ -136,12 +136,40 @@ configure_backrest_directories() {
     prepare_host_directory /datapool/backup
 }
 
-# Configure rclone for Google Drive sync - creates config files for Docker container
-# rclone is now installed inside the Docker image, not in the LXC container
+# Decrypt SSH key for Oracle Free VPS offsite backups
+configure_oracle_vps_key() {
+    local key_file="/fastpool/config/backrest/config/opc.key"
+    local key_file_enc="$WORK_DIR/docker/utility/config/opc.key.enc"
+
+    if [[ -f "$key_file_enc" ]]; then
+        print_info "Decrypting Oracle VPS SSH key from encrypted configuration"
+        local key_tmp
+        key_tmp=$(mktemp /fastpool/config/backrest/config/opc.key.XXXXXX)
+        register_runtime_temp_file "$key_tmp"
+
+        if decrypt_openssl_file "$key_file_enc" "$key_tmp" "$ENV_ENC_KEY"; then
+            chown 101000:101000 "$key_tmp"
+            chmod 0600 "$key_tmp"
+            mv -f "$key_tmp" "$key_file"
+            print_success "Oracle VPS SSH key decrypted"
+        else
+            rm -f "$key_tmp"
+            print_error "Failed to decrypt opc.key.enc"
+            return 1
+        fi
+    fi
+}
+
+# Configure rclone for Google Drive & Oracle VPS offsite sync
 configure_rclone_config() {
     local rclone_conf="/fastpool/config/backrest/config/rclone.conf"
     local rclone_conf_enc="$WORK_DIR/docker/utility/config/rclone.conf.enc"
     local rclone_tmp
+
+    if ! configure_oracle_vps_key; then
+        print_error "Failed to configure Oracle VPS SSH key"
+        return 1
+    fi
 
     print_info "Configuring rclone from encrypted configuration"
 
@@ -150,10 +178,7 @@ configure_rclone_config() {
 
     # Decrypt to a private temporary file so a failed decrypt cannot truncate
     # the last known-good runtime configuration.
-    if ! openssl enc -aes-256-cbc -d -pbkdf2 -salt \
-        -in "$rclone_conf_enc" \
-        -out "$rclone_tmp" \
-        -pass env:ENV_ENC_KEY; then
+    if ! decrypt_openssl_file "$rclone_conf_enc" "$rclone_tmp" "$ENV_ENC_KEY"; then
         rm -f "$rclone_tmp"
         print_error "Failed to decrypt rclone.conf.enc"
         return 1
@@ -167,17 +192,47 @@ configure_rclone_config() {
     local sync_tmp
     sync_tmp=$(mktemp /fastpool/config/backrest/config/sync-to-gdrive.sh.XXXXXX)
     register_runtime_temp_file "$sync_tmp"
+    # The generated hook returns non-zero when either mirror is degraded, while
+    # Backrest intentionally keeps ON_ERROR_IGNORE so the successful local
+    # snapshot remains valid; Telegram carries the offsite failure signal.
     cat > "$sync_tmp" << 'SYNCEOF'
 #!/bin/sh
-# Backrest hook script: Sync backups to Google Drive after successful backup
-# This is an exact mirror: successful forget/prune deletions are permanently
-# propagated to Drive so stale restic pack files do not consume cloud quota.
-# Optimized for 20 MB/s connection.
+# Backrest hook script: mirror the encrypted Restic repository to BOTH remote
+# targets. rclone sync (including remote deletions) is intentional: each target
+# must be an exact copy of the local repository, not an independent archive.
 
 LOG_FILE="/config/rclone-gdrive-sync.log"
 LOG_MAX_BYTES=5242880
 
-# Keep only the newest log data in a single file. No .1/.2 rotation.
+notify_offsite_failure() {
+    target="$1"
+
+    if [ -z "${OFFSITE_TELEGRAM_TOKEN:-}" ] || [ -z "${OFFSITE_TELEGRAM_CHAT_IDS:-}" ]; then
+        echo "$(date): Telegram notification skipped; credentials are not configured" >> "$LOG_FILE"
+        return 0
+    fi
+
+    remaining_chats="$OFFSITE_TELEGRAM_CHAT_IDS"
+    while [ -n "$remaining_chats" ]; do
+        case "$remaining_chats" in
+            *,*)
+                chat_id=${remaining_chats%%,*}
+                remaining_chats=${remaining_chats#*,}
+                ;;
+            *)
+                chat_id=$remaining_chats
+                remaining_chats=""
+                ;;
+        esac
+
+        if ! wget -q -O /dev/null \
+            --post-data "chat_id=${chat_id}&text=lxc-utility%3A%20offsite%20mirror%20failed%20for%20${target}" \
+            "https://api.telegram.org/bot${OFFSITE_TELEGRAM_TOKEN}/sendMessage"; then
+            echo "$(date): Failed to send Telegram notification for ${target}" >> "$LOG_FILE"
+        fi
+    done
+}
+
 if [ -f "$LOG_FILE" ]; then
     log_size=$(wc -c "$LOG_FILE" | awk '{print $1}')
     if [ "$log_size" -gt "$LOG_MAX_BYTES" ]; then
@@ -187,21 +242,42 @@ if [ -f "$LOG_FILE" ]; then
     fi
 fi
 
-echo "$(date): Starting Google Drive sync from /repos to gdrive:homelab-backups" >> "$LOG_FILE"
+echo "==================================================" >> "$LOG_FILE"
+echo "$(date): Starting Dual Offsite Sync (Oracle VPS & Google Drive)" >> "$LOG_FILE"
 
+# --- Target 1: Oracle Free VPS (SFTP over SSH) ---
+echo "$(date): [1/2] Syncing to Oracle Free VPS (oracle-vps:pve01-backups)..." >> "$LOG_FILE"
+/usr/bin/rclone sync /repos oracle-vps:pve01-backups \
+    --config=/config/rclone.conf \
+    --log-file="$LOG_FILE" \
+    --log-level=INFO \
+    --fast-list \
+    --transfers=8 \
+    --checkers=16 \
+    --retries=5 \
+    --timeout=5m \
+    --exclude="**/cache/**" \
+    --exclude="**/*.tmp"
+oracle_exit_code=$?
+
+if [ "$oracle_exit_code" -eq 0 ]; then
+    echo "$(date): [1/2] Oracle VPS sync completed successfully" >> "$LOG_FILE"
+else
+    echo "$(date): [1/2] Oracle VPS sync failed with exit code $oracle_exit_code" >> "$LOG_FILE"
+fi
+
+# --- Target 2: Google Drive ---
+echo "$(date): [2/2] Syncing to Google Drive (gdrive:homelab-backups)..." >> "$LOG_FILE"
 /usr/bin/rclone sync /repos gdrive:homelab-backups \
     --config=/config/rclone.conf \
     --log-file="$LOG_FILE" \
     --log-level=INFO \
     --fast-list \
-    --checksum \
     --transfers=4 \
-    --checkers=8 \
-    --tpslimit=8 \
-    --tpslimit-burst=16 \
+    --checkers=12 \
+    --tpslimit=10 \
+    --tpslimit-burst=20 \
     --retries=10 \
-    --low-level-retries=20 \
-    --retries-sleep=10s \
     --timeout=10m \
     --contimeout=60s \
     --drive-chunk-size=64M \
@@ -209,22 +285,38 @@ echo "$(date): Starting Google Drive sync from /repos to gdrive:homelab-backups"
     --drive-use-trash=false \
     --exclude="**/cache/**" \
     --exclude="**/*.tmp"
-rclone_exit_code=$?
+gdrive_exit_code=$?
 
-if [ "$rclone_exit_code" -eq 0 ]; then
-    echo "$(date): Sync completed successfully" >> "$LOG_FILE"
-    exit 0
+if [ "$gdrive_exit_code" -eq 0 ]; then
+    echo "$(date): [2/2] Google Drive sync completed successfully" >> "$LOG_FILE"
 else
-    echo "$(date): Sync failed with exit code $rclone_exit_code" >> "$LOG_FILE"
-    exit "$rclone_exit_code"
+    echo "$(date): [2/2] Google Drive sync failed with exit code $gdrive_exit_code" >> "$LOG_FILE"
 fi
+
+mirror_failed=0
+if [ "$oracle_exit_code" -ne 0 ]; then
+    notify_offsite_failure "oracle-vps"
+    mirror_failed=1
+fi
+if [ "$gdrive_exit_code" -ne 0 ]; then
+    notify_offsite_failure "google-drive"
+    mirror_failed=1
+fi
+
+if [ "$mirror_failed" -eq 0 ]; then
+    echo "$(date): Both offsite mirrors completed successfully" >> "$LOG_FILE"
+    exit 0
+fi
+
+echo "$(date): Offsite mirror degraded; local Restic backup remains intact" >> "$LOG_FILE"
+exit 1
 SYNCEOF
 
     chown 101000:101000 "$sync_tmp"
     chmod 0700 "$sync_tmp"
     mv -f "$sync_tmp" /fastpool/config/backrest/config/sync-to-gdrive.sh
 
-    print_success "Rclone configuration decrypted"
+    print_success "Rclone configuration and SSH key decrypted"
 }
 
 # Deploy Backrest stack
@@ -244,7 +336,6 @@ deploy_backrest() {
 
     backrest_instance_id=$(get_env_value "BACKREST_INSTANCE_ID")
     backrest_repo_id=$(get_env_value "BACKREST_REPO_ID")
-    backrest_repo_guid=$(get_env_value "BACKREST_REPO_GUID")
     backrest_auth_username=$(get_env_value "BACKREST_AUTH_USERNAME")
     backrest_auth_password_bcrypt=$(get_env_value "BACKREST_AUTH_PASSWORD_BCRYPT")
     backrest_repo_password=$(get_env_value "BACKREST_REPO_PASSWORD")
@@ -272,9 +363,6 @@ deploy_backrest() {
         return 1
     fi
 
-    if [[ -n "$backrest_repo_guid" && "$backrest_repo_guid" != "$actual_repo_guid" ]]; then
-        print_warning "BACKREST_REPO_GUID differs from restic repository ID, using repository ID"
-    fi
     backrest_repo_guid="$actual_repo_guid"
 
     # Generate and validate a private temporary config before replacing the

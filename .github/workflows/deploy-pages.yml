@@ -13,7 +13,6 @@ permissions:
   contents: read
   pages: write
   id-token: write
-  deployments: write
 
 # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
 # However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
@@ -30,33 +29,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           # Upload the docs directory
           path: 'docs'
       
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
-
-      - name: Clean up old deployments
-        if: always()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          deployments=$(gh api repos/$GITHUB_REPOSITORY/deployments?environment=github-pages -q '.[] | .id')
-          count=$(echo "$deployments" | grep -c . || true)
-          if [ "$count" -gt 5 ]; then
-            to_delete=$(echo "$deployments" | tail -n +6)
-            for id in $to_delete; do
-              echo "Cleaning up old deployment: $id"
-              gh api -X POST repos/$GITHUB_REPOSITORY/deployments/$id/statuses -f state=inactive || true
-              gh api -X DELETE repos/$GITHUB_REPOSITORY/deployments/$id || true
-            done
-          fi
+        uses: actions/deploy-pages@v5

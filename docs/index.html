@@ -333,12 +333,12 @@
             <li><a href="#security" class="nav-item"><i class="fa-solid fa-shield-halved"></i> <span data-i18n="nav_security">Security & Secrets</span></a></li>
             <li><a href="#backup" class="nav-item"><i class="fa-solid fa-floppy-disk"></i> <span data-i18n="nav_backup">Backup & Recovery</span></a></li>
             <li><a href="#topology" class="nav-item"><i class="fa-solid fa-network-wired"></i> <span data-i18n="nav_topology">Network Topology</span></a></li>
-            <li><a href="#inventory" class="nav-item"><i class="fa-solid fa-server"></i> <span data-i18n="nav_inventory">Live Inventory</span></a></li>
+            <li><a href="#inventory" class="nav-item"><i class="fa-solid fa-server"></i> <span data-i18n="nav_inventory">Infrastructure Inventory</span></a></li>
             <li><a href="#faq" class="nav-item"><i class="fa-solid fa-circle-question"></i> <span data-i18n="nav_faq">FAQ</span></a></li>
         </ul>
         <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted);">
             <p><strong data-i18n="sidebar_brand">Yakrel's Homelab</strong></p>
-            <p><span data-i18n="sidebar_update">Last Update:</span> March 2026</p>
+            <p><span data-i18n="sidebar_update">Last Update:</span> July 2026</p>
             <p><a href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" style="color:var(--accent-blue); text-decoration:none;"><i class="fa-brands fa-github"></i> GitHub</a></p>
             <p><a href="https://cv.byetgin.com" target="_blank" style="color:var(--accent-green); text-decoration:none;"><i class="fa-solid fa-user"></i> <span data-i18n="sidebar_cv">Resume (CV)</span></a></p>
         </div>
@@ -355,10 +355,10 @@
             <div style="background: linear-gradient(135deg, rgba(88, 166, 255, 0.1), rgba(163, 113, 247, 0.1)); padding: 40px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 40px;">
                 <h1 style="border:none; margin:0;" data-i18n="hero_title">Proxmox Homelab Automation</h1>
                 <p style="font-size: 1.1rem; color: var(--text-main); margin-top: 10px;" data-i18n="hero_desc">
-                    Production homelab running family services. 30+ services across 6 LXC containers with GPU passthrough and automated deployment.
+                    Production homelab running family services. 40+ services across 6 LXC containers with GPU passthrough and automated deployment.
                 </p>
                 <div style="display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
-                    <span class="badge" style="background:var(--accent-blue); color:black;"><i class="fa-brands fa-docker"></i> <span data-i18n="badge_services">30+ Services</span></span>
+                    <span class="badge" style="background:var(--accent-blue); color:black;"><i class="fa-brands fa-docker"></i> <span data-i18n="badge_services">40+ Services</span></span>
                     <span class="badge" style="background:var(--accent-purple); color:black;"><i class="fa-solid fa-code"></i> <span data-i18n="badge_bash">~3K Lines Bash</span></span>
                 </div>
                 <div class="screenshot-container">
@@ -374,8 +374,8 @@
             <p data-i18n="iac_intro">I built a setup where I define everything in one YAML file (stacks.yaml), and scripts handle the installation automatically.</p>
             <div class="feature-grid">
                 <div class="feature-card">
-                    <span class="feature-title" data-i18n="iac_ssot_title">Single Source of Truth</span>
-                    <span class="feature-desc" data-i18n="iac_ssot_desc">Manage all containers and networks in stacks.yaml. If it's not there, it doesn't exist.</span>
+                    <span class="feature-title" data-i18n="iac_ssot_title">Defined Configuration</span>
+                    <span class="feature-desc" data-i18n="iac_ssot_desc">LXC identities live in stacks.yaml while services and selected application configuration live in Compose files and templates.</span>
                 </div>
                 <div class="feature-card">
                     <span class="feature-title" data-i18n="iac_idem_title">Idempotency</span>
@@ -387,7 +387,7 @@
         <!-- 3. SECURITY -->
         <section id="security">
             <h2><i class="fa-solid fa-lock"></i> <span data-i18n="nav_security">Security & Secrets Management</span></h2>
-            <p data-i18n="sec_intro">I treat this homelab like a real production server. No open ports, and all API keys are encrypted in the repo.</p>
+            <p data-i18n="sec_intro">Public ingress is tunnel-based, while trusted LAN management paths and encrypted repository secrets support day-to-day administration.</p>
             <div class="feature-grid">
                 <div class="feature-card">
                     <span class="feature-title" data-i18n="sec_enc_title">AES-256 Encryption (OpenSSL)</span>
@@ -395,7 +395,7 @@
                 </div>
                 <div class="feature-card">
                     <span class="feature-title" data-i18n="sec_f2b_title">Fail2Ban Integration</span>
-                    <span class="feature-desc" data-i18n="sec_f2b_desc">Fail2Ban runs locally to block brute-force attempts on internal services.</span>
+                    <span class="feature-desc" data-i18n="sec_f2b_desc">Fail2Ban protects Proxmox host authentication endpoints when enabled from the helper menu.</span>
                 </div>
             </div>
         </section>
@@ -435,8 +435,8 @@
         <!-- 6. INVENTORY -->
         <section id="inventory">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2><i class="fa-solid fa-server"></i> <span data-i18n="nav_inventory">Live Inventory</span></h2>
-                <div style="font-size:0.8rem; color:var(--text-muted);"><i class="fa-solid fa-circle" style="color:var(--accent-green); font-size:0.6rem;"></i> <span data-i18n="inv_status">Systems Operational</span></div>
+                <h2><i class="fa-solid fa-server"></i> <span data-i18n="nav_inventory">Infrastructure Inventory</span></h2>
+                <div style="font-size:0.8rem; color:var(--text-muted);"><i class="fa-solid fa-circle" style="color:var(--accent-green); font-size:0.6rem;"></i> <span data-i18n="inv_status">Configured State</span></div>
             </div>
             <div id="stack-grid">Loading infrastructure data...</div>
         </section>
@@ -463,16 +463,16 @@
     <script>
         const translations = {
             en: {
-                nav_overview: "Overview", nav_iac: "Infrastructure as Code", nav_security: "Security", nav_backup: "Backup", nav_topology: "Network Topology", nav_inventory: "Live Inventory", nav_faq: "FAQ",
-                hero_title: "Proxmox Homelab Automation", hero_desc: "Automated homelab hosting 30+ services across 6 LXC nodes with ZFS storage, GPU passthrough, and configuration-driven deployment paths.",
+                nav_overview: "Overview", nav_iac: "Infrastructure as Code", nav_security: "Security", nav_backup: "Backup", nav_topology: "Network Topology", nav_inventory: "Infrastructure Inventory", nav_faq: "FAQ",
+                hero_title: "Proxmox Homelab Automation", hero_desc: "Automated homelab hosting 40+ services across 6 LXC nodes with ZFS storage, GPU passthrough, and configuration-driven deployment paths.",
                 sidebar_role: "IT Specialist & DevOps", sidebar_brand: "Yakrel's Homelab", sidebar_update: "Last Update:", sidebar_cv: "Resume (CV)",
-                badge_services: "30+ Services", badge_bash: "~3K Lines Bash", img_dash_title: "Centralized Command Center",
+                badge_services: "40+ Services", badge_bash: "~3K Lines Bash", img_dash_title: "Centralized Command Center",
                 iac_intro: "A configuration-driven deployment flow where LXC resources, Docker Compose services, and generated application configuration are managed by modular scripts.",
                 iac_ssot_title: "Defined Configuration", iac_ssot_desc: "LXC identities live in stacks.yaml while service and application state is defined in Compose files and templates.",
                 iac_idem_title: "Repeatable Deployments", iac_idem_desc: "Clean LXC provisioning is separated from repeatable Docker Compose and generated-configuration redeploy paths.",
                 sec_intro: "Security-focused homelab design with tunnel-based public access, per-stack Docker bridge networks, and encrypted secrets stored in Git.",
-                sec_enc_title: "AES-256 Encryption (OpenSSL)", sec_enc_desc: "Sensitive keys are stored as .env.enc in Git, encrypted using PBKDF2 salt-based OpenSSL schemes.",
-                sec_f2b_title: "Fail2Ban Protection", sec_f2b_desc: "Fail2Ban is integrated locally to automatically block anomalous requests and brute-force attempts on internal services.",
+                sec_enc_title: "AES-256 Encryption (OpenSSL)", sec_enc_desc: "Sensitive files use salted AES-256-CBC with PBKDF2-HMAC-SHA256 and an explicit 600,000-iteration work factor.",
+                sec_f2b_title: "Fail2Ban Protection", sec_f2b_desc: "The optional helper configures Fail2Ban for Proxmox host and SSH authentication attempts.",
                 backup_intro: "Multi-layered backup and recovery architecture combining local ZFS snapshots with encrypted remote cloud backups.",
                 backup_l1_title: "Layer 1: ZFS Snapshots", backup_l1_desc: "Automated ZFS snapshots managed by Sanoid, ensuring seconds-level recovery from configuration errors or accidental deletions.",
                 backup_l2_title: "Layer 2: Cloud Archival", backup_l2_desc: "Backrest creates client-side encrypted snapshots, which are securely synced to cloud storage via post-backup rclone hooks.",
@@ -482,21 +482,21 @@
                 topo_path_ts: "Tailscale VPN", topo_path_warp: "Cloudflare WARP", topo_path_tunnel: "CF Tunnel + Access", topo_path_local: "Local WiFi",
                 topo_services: "Services",
                 topo_open_new: "Open Fullscreen",
-                inv_status: "Systems Operational",
+                inv_status: "Configured State",
                 faq_k8s_q: "Why not Kubernetes?", faq_k8s_a: "For a single-node host, Kubernetes introduces unnecessary container overhead and control-plane complexity. Docker Compose provides a lightweight, native-performance runtime matching the homelab scale.",
                 faq_bash_q: "Why Bash for IaC?", faq_bash_a: "Modular Bash scripts interact directly with Proxmox APIs and system tools, ensuring full reproducibility on bare-metal hypervisors without external dependencies."
             },
             tr: {
-                nav_overview: "Genel Bakış", nav_iac: "Kod Olarak Altyapı", nav_security: "Güvenlik", nav_backup: "Yedekleme", nav_topology: "Ağ Topolojisi", nav_inventory: "Canlı Envanter", nav_faq: "SSS",
-                hero_title: "Proxmox Homelab Otomasyonu", hero_desc: "ZFS depolama, GPU geçişi (passthrough) ve otomatik dağıtım süreçlerine sahip, 6 LXC konteyneri üzerinde çalışan 30'dan fazla servis içeren homelab altyapısı.",
+                nav_overview: "Genel Bakış", nav_iac: "Kod Olarak Altyapı", nav_security: "Güvenlik", nav_backup: "Yedekleme", nav_topology: "Ağ Topolojisi", nav_inventory: "Altyapı Envanteri", nav_faq: "SSS",
+                hero_title: "Proxmox Homelab Otomasyonu", hero_desc: "ZFS depolama, GPU geçişi (passthrough) ve otomatik dağıtım süreçlerine sahip, 6 LXC konteyneri üzerinde çalışan 40'dan fazla servis içeren homelab altyapısı.",
                 sidebar_role: "BT Uzmanı & DevOps", sidebar_brand: "Yakrel'in Homelab'ı", sidebar_update: "Son Güncelleme:", sidebar_cv: "Özgeçmiş (CV)",
-                badge_services: "30+ Servis", badge_bash: "~3B Satır Bash", img_dash_title: "Merkezi Komuta Paneli",
+                badge_services: "40+ Servis", badge_bash: "~3B Satır Bash", img_dash_title: "Merkezi Komuta Paneli",
                 iac_intro: "LXC kaynaklarının, Docker Compose servislerinin ve üretilen uygulama yapılandırmalarının modüler scriptlerle yönetildiği konfigürasyon odaklı dağıtım yapısı.",
                 iac_ssot_title: "Tanımlı Konfigürasyon", iac_ssot_desc: "LXC kimlikleri stacks.yaml içinde; servis ve uygulama durumu Compose dosyaları ile şablonlarda tanımlanır.",
                 iac_idem_title: "Tekrarlanabilir Dağıtımlar", iac_idem_desc: "Temiz LXC kurulumu, tekrarlanabilir Docker Compose ve üretilen konfigürasyon dağıtım yollarından ayrılmıştır.",
                 sec_intro: "Tünel tabanlı dış erişim, stack başına Docker bridge ağları ve Git üzerinde şifreli saklanan hassas değişkenlerle güvenlik odaklı homelab tasarımı.",
-                sec_enc_title: "AES-256 Şifreleme (OpenSSL)", sec_enc_desc: "Hassas anahtarlar Git üzerinde OpenSSL (PBKDF2 ve tuzlanmış) şifreleme algoritması ile .env.enc olarak saklanır.",
-                sec_f2b_title: "Fail2Ban Koruması", sec_f2b_desc: "Fail2Ban, iç servislere yapılabilecek kaba kuvvet (brute-force) saldırılarını engellemek amacıyla yerel olarak entegre edilmiştir.",
+                sec_enc_title: "AES-256 Şifreleme (OpenSSL)", sec_enc_desc: "Hassas dosyalar, PBKDF2-HMAC-SHA256 ve açıkça tanımlı 600.000 iterasyonla tuzlanmış AES-256-CBC kullanır.",
+                sec_f2b_title: "Fail2Ban Koruması", sec_f2b_desc: "İsteğe bağlı yardımcı, Proxmox host ve SSH kimlik doğrulama denemeleri için Fail2Ban yapılandırır.",
                 backup_intro: "Kazara veri kayıplarına karşı yerel ZFS snapshot'ları ile felaket kurtarma senaryolarına yönelik şifreli bulut yedeklemelerini birleştiren çok katmanlı koruma.",
                 backup_l1_title: "Katman 1: ZFS Snapshot'ları", backup_l1_desc: "Sanoid ile yönetilen otomatik ZFS snapshot'ları, kazara silinme veya hatalı yapılandırma durumlarında saniyeler düzeyinde kurtarma sağlar.",
                 backup_l2_title: "Katman 2: Bulut Arşivleme", backup_l2_desc: "Backrest ile istemci tarafında şifrelenen yedekler oluşturulur ve rclone kancalarıyla bulut depolama alanlarına güvenli şekilde senkronize edilir.",
@@ -506,7 +506,7 @@
                 topo_path_ts: "Tailscale VPN", topo_path_warp: "Cloudflare WARP", topo_path_tunnel: "CF Tunnel + Access", topo_path_local: "Yerel WiFi",
                 topo_services: "Servisler",
                 topo_open_new: "Tam Ekran Aç",
-                inv_status: "Sistemler Aktif",
+                inv_status: "Tanımlı Durum",
                 faq_k8s_q: "Neden Kubernetes Değil?", faq_k8s_a: "Tek sunuculu bir ortamda Kubernetes, kontrol düzlemi (control-plane) ve ek konteynerler nedeniyle gereksiz kaynak tüketimi yaratır. Docker Compose yerel performansı koruyarak hafif bir çalışma ortamı sağlar.",
                 faq_bash_q: "Neden IaC için Bash?", faq_bash_a: "Modüler Bash scriptleri, Proxmox API'leri ve işletim sistemi araçlarıyla doğrudan etkileşime girerek harici araç bağımlılığı olmaksızın tam tekrar edilebilirlik sunar."
             }

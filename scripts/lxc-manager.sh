@@ -154,9 +154,13 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
         --rootfs "$STORAGE_POOL":"$CT_DISK_GB" || { print_error "Failed to create container"; exit 1; }
 fi
 
-# Storage mounts are host infrastructure and must be reconciled for both new
-# and existing containers. OS/package provisioning remains creation-only.
-reconcile_lxc_mount mp0 "$DATAPOOL"
+# mp0/mp1 are Proxmox mount slots. Every stack uses fastpool for service
+# configuration. Every stack except Gateway also receives datapool for shared
+# media, backup, Samba, or trusted-management access; Gateway has no consumer
+# for that pool.
+if [[ "$STACK_NAME" != "gateway" ]]; then
+    reconcile_lxc_mount mp0 "$DATAPOOL"
+fi
 reconcile_lxc_mount mp1 "$FASTPOOL"
 
 if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
@@ -224,18 +228,11 @@ fi
 # OS provisioning is an initial-build operation. Existing containers are
 # treated as already provisioned; stack configuration is handled separately.
 if [[ "$SKIP_CREATION" == "false" ]]; then
-    SSH_ENABLED=""
-    ROOT_PASSWORD=""
-    if [[ -f "$WORK_DIR/.env" ]]; then
-        SSH_ENABLED=$(get_env_value "SSH_ENABLED" "$WORK_DIR/.env")
-        ROOT_PASSWORD=$(get_env_value "ROOT_PASSWORD" "$WORK_DIR/.env")
-    fi
-
     print_info "Provisioning container OS (stack: $STACK_NAME)"
 
     # The command below is an embedded script interpreted inside the LXC.
     # shellcheck disable=SC1078,SC1079,SC1083,SC2140
-    pct exec "$CT_ID" -- env SSH_ENABLED="${SSH_ENABLED}" ROOT_PASSWORD="${ROOT_PASSWORD}" sh -c "
+    pct exec "$CT_ID" -- sh -c "
 set -e
 STACK_NAME='${STACK_NAME}'
 
@@ -277,7 +274,13 @@ EOS
 
     # Dev stack: code-server + AI CLI tools (no Docker, no GPU)
     if [ \"\$STACK_NAME\" = 'dev' ]; then
-        apt-get install -y -qq nodejs npm git python3 python3-pip bash nano vim htop
+        nodesource_installer=\$(mktemp /tmp/nodesource-setup.XXXXXX)
+        trap 'rm -f \"\$nodesource_installer\"' EXIT
+        curl -fsSL https://deb.nodesource.com/setup_22.x -o \"\$nodesource_installer\"
+        bash \"\$nodesource_installer\"
+        rm -f \"\$nodesource_installer\"
+        trap - EXIT
+        apt-get install -y -qq nodejs git python3 python3-pip bash nano vim htop
 
         # Configure npm
         npm config set fund false
@@ -295,16 +298,6 @@ EOS
         if ! grep -q \"/root/.local/bin\" /root/.bashrc 2>/dev/null; then
             echo 'export PATH=\"/root/.local/bin:\$PATH\"' >> /root/.bashrc
         fi
-
-        # Download the complete installer before executing it. The temporary
-        # file is current-run state and is always removed on shell exit.
-        antigravity_installer=\$(mktemp /tmp/antigravity-install.XXXXXX)
-        trap 'rm -f \"\$antigravity_installer\"' EXIT
-        curl -fsSL https://antigravity.google/cli/install.sh -o \"\$antigravity_installer\"
-        sed -i 's/BINARY_PATH\" install/BINARY_PATH\" install --skip-aliases --skip-path/g' \"\$antigravity_installer\"
-        bash \"\$antigravity_installer\"
-        rm -f \"\$antigravity_installer\"
-        trap - EXIT
 
         # Install code-server (latest version)
         # Using HTTP redirect to avoid GitHub API rate limits
@@ -326,7 +319,7 @@ EOS
             \"https://github.com/coder/code-server/releases/download/v\${CODE_SERVER_VERSION}/code-server_\${CODE_SERVER_VERSION}_\${CODE_SERVER_ARCH}.deb\" \
             -o \"\$code_server_package\"
         dpkg -i \"\$code_server_package\"
-        rm -f \"\$code_server_package\"
+        rm -f "\$code_server_package"
         trap - EXIT
 
         # Configure code-server (no auth - homelab internal network only)
@@ -399,13 +392,25 @@ EOFDOCKER
         systemctl restart docker
     fi
 
-    # Common Debian configuration
-    mkdir -p /etc/systemd/system/getty@tty1.service.d
-    cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'EOFLOGIN'
+    # Proxmox LXC consoles use console-getty.service and container-getty@.service,
+    # not getty@tty1.service. Keep every Debian stack passwordless on the PVE
+    # console while SSH remains absent.
+    mkdir -p \
+        /etc/systemd/system/console-getty.service.d \
+        /etc/systemd/system/container-getty@.service.d
+    cat > /etc/systemd/system/console-getty.service.d/autologin.conf << 'EOFCONSOLELOGIN'
 [Service]
 ExecStart=
-ExecStart=-/sbin/agetty --autologin root --noclear %I \$TERM
-EOFLOGIN
+ExecStart=-/sbin/agetty --autologin root --noreset --noclear --keep-baud 115200,57600,38400,9600 - \${TERM}
+EOFCONSOLELOGIN
+    cat > /etc/systemd/system/container-getty@.service.d/autologin.conf << 'EOFCONTAINERLOGIN'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin root --noreset --noclear - \${TERM}
+EOFCONTAINERLOGIN
+    systemctl daemon-reload
+    systemctl restart console-getty.service
+    systemctl try-restart container-getty@1.service container-getty@2.service
 
     # Set timezone
     timedatectl set-timezone Europe/Istanbul
@@ -430,7 +435,7 @@ else
     fi
     rc-service docker start
 
-    # Alpine autologin
+    # Alpine stacks also use passwordless root autologin on the PVE console.
     sed -i 's|^tty1::|#&|' /etc/inittab
     grep -qF 'autologin root' /etc/inittab || echo 'tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux' >> /etc/inittab
     kill -HUP 1
@@ -439,23 +444,13 @@ else
     apk add --no-cache tzdata
     ln -sf /usr/share/zoneinfo/Europe/Istanbul /etc/localtime
 
-    # Configure SSH dynamically if requested
-    if [ \"\$SSH_ENABLED\" = 'true' ] && [ -n \"\$ROOT_PASSWORD\" ]; then
-        apk add --no-cache openssh
-        rc-update add sshd default
-        echo \"root:\$ROOT_PASSWORD\" | chpasswd
-        sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-        rc-service sshd start
-    fi
+    # SSH is intentionally not installed. Hermes' web dashboard terminal
+    # replaces the former AI-LXC Sshwifty access path.
 fi
 
 # Common setup for all containers
 printf '%s\n' 'export TERM=xterm-256color' > /etc/profile.d/term.sh
-
-# Remove root password (allow passwordless login) if SSH password was not set
-if [ \"\${SSH_ENABLED:-}\" != 'true' ] || [ -z \"\${ROOT_PASSWORD:-}\" ]; then
-    passwd -d root
-fi
+passwd -d root
 
 # Create hushlogin to suppress login messages  
 touch /root/.hushlogin
@@ -470,35 +465,89 @@ fi
 # provisioning and selected-stack redeploys without repeating OS provisioning.
 if [[ "$STACK_NAME" == "dev" ]]; then
     print_info "Reconciling dev CLI applications"
-    pct exec "$CT_ID" -- sh -c '
+
+    agentmemory_env_file="${AGENTMEMORY_ENV_FILE:-}"
+    [[ -f "$agentmemory_env_file" ]] || {
+        print_error "Decrypted AI environment is required for the dev stack"
+        exit 1
+    }
+    agentmemory_secret=$(get_env_value "AGENTMEMORY_SECRET" "$agentmemory_env_file")
+    [[ -n "$agentmemory_secret" ]] || {
+        print_error "AGENTMEMORY_SECRET is missing from the decrypted AI environment"
+        exit 1
+    }
+
+    agentmemory_secret_file=$(mktemp /tmp/agentmemory-secret.XXXXXX)
+    register_runtime_temp_file "$agentmemory_secret_file"
+    (
+        umask 077
+        printf '%s\n' "$agentmemory_secret" > "$agentmemory_secret_file"
+    )
+
+    pct exec "$CT_ID" -- mkdir -p \
+        /root/.config/agentmemory \
+        /root/.pi/agent/extensions/agentmemory \
+        /root/.local/bin
+    pct push "$CT_ID" "$WORK_DIR/config/pi/pi-memory" /root/.local/bin/pi-memory
+    pct push "$CT_ID" "$WORK_DIR/config/pi/agentmemory/index.ts" /root/.pi/agent/extensions/agentmemory/index.ts
+    pct push "$CT_ID" "$WORK_DIR/config/pi/agentmemory/security.ts" /root/.pi/agent/extensions/agentmemory/security.ts
+    pct push "$CT_ID" "$agentmemory_secret_file" /root/.config/agentmemory/secret
+    pct exec "$CT_ID" -- bash -c 'printf "https://memory.byetgin.com" > /root/.config/agentmemory/url'
+    pct exec "$CT_ID" -- chmod 0600 /root/.config/agentmemory/secret
+    pct exec "$CT_ID" -- chmod 0644 /root/.pi/agent/extensions/agentmemory/index.ts
+    pct exec "$CT_ID" -- chmod 0644 /root/.pi/agent/extensions/agentmemory/security.ts
+    pct exec "$CT_ID" -- chmod 0755 /root/.local/bin/pi-memory
+
+    # Variables in this single-quoted script expand inside the container.
+    # shellcheck disable=SC2016
+    pct exec "$CT_ID" -- bash -c '
 set -e
 
-# Use the GitHub CLI maintainers'"'"' official Debian repository. The Debian
-# community package can lag behind versions supported by GitHub APIs.
+# pct exec starts a non-login shell, so the root .bashrc is not loaded.
+# Keep user-local and system-local CLI installations visible explicitly.
+export HOME=/root
+export PATH="/root/.local/share/pi-node/current/bin:/root/.local/bin:/usr/local/bin:$PATH"
+
+# Use the official Debian repository maintained by the GitHub CLI project.
+# The Debian community package can lag behind versions supported by GitHub APIs.
 install -m 0755 -d /etc/apt/keyrings
 gh_keyring=$(mktemp /tmp/githubcli-keyring.XXXXXX)
-trap '\''rm -f "$gh_keyring"'\'' EXIT
 curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o "$gh_keyring"
 install -m 0644 "$gh_keyring" /etc/apt/keyrings/githubcli-archive-keyring.gpg
 rm -f "$gh_keyring"
-trap - EXIT
+chmod 0644 /etc/apt/keyrings/githubcli-archive-keyring.gpg
+printf "deb [arch=%s signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\n" "$(dpkg --print-architecture)" > /etc/apt/sources.list.d/github-cli.list
 
-cat > /etc/apt/sources.list.d/github-cli.list <<EOF
-deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main
-EOF
 apt-get update -qq
 apt-get install -y -qq gh
 
-# npm is already part of the provisioned dev environment. Installing the
-# package globally exposes Codex to root and code-server terminals.
+# npm is already part of the provisioned dev environment.
 npm install --global @openai/codex
+test -x "$(command -v codex)"
 
-# Antigravity installs to ~/.local/bin while its installer is deliberately
-# prevented from editing shell profiles. Expose it through the system PATH.
-ln -sfnT /root/.local/bin/agy /usr/local/bin/agy
+# Pi uses a native Agentmemory extension for automatic recall and capture.
+# Keep the upstream integration current on every dev application reconcile.
+npm install --global --ignore-scripts --min-release-age=0 \
+    --prefix /root/.local/share/pi-runtime --no-fund --no-audit \
+    --loglevel=error --progress=false @earendil-works/pi-coding-agent
+test -x /root/.local/share/pi-runtime/bin/pi
+ln -sfnT /root/.local/share/pi-runtime/bin/pi /usr/local/bin/pi-real
+/usr/local/bin/pi-real install npm:pi-antigravity
+ln -sfnT /root/.local/bin/pi-memory /usr/local/bin/pi
 
-for command_name in node npm git gh python3 bash nano vim htop agy codex code-server; do
-    command -v "$command_name"
+# Install Antigravity directly, without CLI wrappers.
+antigravity_installer=$(mktemp /tmp/antigravity-install.XXXXXX)
+curl -fsSL https://antigravity.google/cli/install.sh -o "$antigravity_installer"
+bash "$antigravity_installer" --dir /root/.local/lib/antigravity
+test -x /root/.local/lib/antigravity/agy
+ln -sfnT /root/.local/lib/antigravity/agy /usr/local/bin/agy
+rm -f "$antigravity_installer"
+
+for command_name in node npm git gh python3 bash nano vim htop agy codex pi code-server; do
+    command -v "$command_name" || {
+        echo "Missing required dev command: $command_name" >&2
+        exit 1
+    }
 done
 
 node --version
@@ -508,9 +557,13 @@ gh --version
 python3 --version
 agy --version
 codex --version
+pi --version
 code-server --version
 systemctl is-enabled code-server@root
 systemctl is-active code-server@root
+test "$(readlink -f "$(command -v codex)")" = "$(npm root -g)/@openai/codex/bin/codex.js"
+test "$(readlink -f "$(command -v agy)")" = /root/.local/lib/antigravity/agy
+! command -v opencode >/dev/null 2>&1
 '
     print_success "Dev CLI applications reconciled and verified"
 fi

@@ -122,7 +122,7 @@ systemctl enable -q tailscale-udp-gro.service
 print_info "Configuring Tailscale subnet route"
 if [[ "$tailscale_logged_in" -eq 1 ]]; then
     print_info "Tailscale is already authenticated. Updating subnet routes..."
-    tailscale up \
+    tailscale set \
         --advertise-routes=192.168.1.0/24 \
         --accept-dns=false
 else
