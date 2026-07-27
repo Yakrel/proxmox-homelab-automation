@@ -316,7 +316,48 @@ SYNCEOF
     chmod 0700 "$sync_tmp"
     mv -f "$sync_tmp" /fastpool/config/backrest/config/sync-to-gdrive.sh
 
-    print_success "Rclone configuration and SSH key decrypted"
+    # Snapshot warnings mean the local backup is incomplete even when both
+    # offsite mirrors succeed, so notify through the shared Telegram channel.
+    local warning_notify_tmp
+    warning_notify_tmp=$(mktemp /fastpool/config/backrest/config/notify-backup-warning.sh.XXXXXX)
+    register_runtime_temp_file "$warning_notify_tmp"
+    cat > "$warning_notify_tmp" << 'WARNINGEOF'
+#!/bin/sh
+
+LOG_FILE="/config/backrest-warning-notifications.log"
+
+if [ -z "${OFFSITE_TELEGRAM_TOKEN:-}" ] || [ -z "${OFFSITE_TELEGRAM_CHAT_IDS:-}" ]; then
+    echo "$(date): Snapshot warning notification skipped; Telegram credentials are not configured" >> "$LOG_FILE"
+    exit 0
+fi
+
+message="${BACKREST_INSTANCE_ID:-backrest}: snapshot warning - partial backup; inspect Backrest"
+remaining_chats="$OFFSITE_TELEGRAM_CHAT_IDS"
+while [ -n "$remaining_chats" ]; do
+    case "$remaining_chats" in
+        *,*)
+            chat_id=${remaining_chats%%,*}
+            remaining_chats=${remaining_chats#*,}
+            ;;
+        *)
+            chat_id=$remaining_chats
+            remaining_chats=""
+            ;;
+    esac
+
+    if ! wget -q -O /dev/null \
+        --post-data "chat_id=${chat_id}&text=${message}" \
+        "https://api.telegram.org/bot${OFFSITE_TELEGRAM_TOKEN}/sendMessage"; then
+        echo "$(date): Failed to send snapshot warning notification to chat ${chat_id}" >> "$LOG_FILE"
+    fi
+done
+WARNINGEOF
+
+    chown 101000:101000 "$warning_notify_tmp"
+    chmod 0700 "$warning_notify_tmp"
+    mv -f "$warning_notify_tmp" /fastpool/config/backrest/config/notify-backup-warning.sh
+
+    print_success "Rclone configuration, SSH key, and backup notification hook configured"
 }
 
 # Deploy Backrest stack
