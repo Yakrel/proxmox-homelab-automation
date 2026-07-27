@@ -35,6 +35,15 @@
             "CONDITION_PRUNE_SUCCESS"
           ],
           "onError": "ON_ERROR_IGNORE"
+        },
+        {
+          "actionCommand": {
+            "command": "/config/notify-backup-warning.sh"
+          },
+          "conditions": [
+            "CONDITION_SNAPSHOT_WARNING"
+          ],
+          "onError": "ON_ERROR_IGNORE"
         }
       ]
     }
@@ -48,6 +57,7 @@
       ],
       "excludes": [
         "/backup-sources/config/desktop-workspace/.config/BraveSoftware",
+        "/backup-sources/config/desktop-workspace/core.*",
         "/backup-sources/config/adguard/work/data",
         "/backup-sources/config/*/.cache",
         "/backup-sources/config/*/cache",
@@ -63,6 +73,7 @@
         "/backup-sources/config/backrest/config/rclone.conf*",
         "/backup-sources/config/backrest/config/*.log",
         "/backup-sources/config/backrest/config/sync-to-gdrive.sh",
+        "/backup-sources/config/backrest/config/notify-backup-warning.sh",
         "/backup-sources/config/jellyfin/data/metadata",
         "/backup-sources/config/jellyfin/data/data/SQLiteBackups",
         "/backup-sources/config/jellyfin/data/data/subtitles",
@@ -100,8 +111,10 @@
         "/backup-sources/config/code-server/data/User",
         "/backup-sources/config/code-server/data/extensions",
         "/backup-sources/config/karakeep/meilisearch/data.ms",
+        "/backup-sources/config/hermes/home/.cache",
         "/backup-sources/config/hermes/config.yaml.corrupt.*",
         "/backup-sources/config/hermes/sessions/request_dump_*",
+        "/backup-sources/config/temp",
         "**/postmaster.pid",
         "**/pg_internal.init",
         "**/pg_logical/replorigin_checkpoint",

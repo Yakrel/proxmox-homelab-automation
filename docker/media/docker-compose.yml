@@ -337,7 +337,7 @@ services:
       disable: false
     networks:
       - media-net
-    restart: always
+    restart: unless-stopped
     stop_grace_period: 30s
     logging:
       driver: "json-file"
@@ -374,7 +374,7 @@ services:
       disable: false
     networks:
       - media-net
-    restart: always
+    restart: unless-stopped
     stop_grace_period: 30s
     logging:
       driver: "json-file"
@@ -391,7 +391,7 @@ services:
       test: redis-cli ping || exit 1
     networks:
       - media-net
-    restart: always
+    restart: unless-stopped
     logging:
       driver: "json-file"
       options:
@@ -417,7 +417,7 @@ services:
     networks:
       - media-net
     shm_size: 128mb
-    restart: always
+    restart: unless-stopped
     stop_grace_period: 120s
     logging:
       driver: "json-file"

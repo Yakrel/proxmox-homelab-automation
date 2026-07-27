@@ -117,16 +117,15 @@ services:
       - /datapool/media/immich:/backup-sources/immich:ro
     environment:
       - TZ=${TZ:-Europe/Istanbul}
-      - PUID=1000
-      - PGID=1000
       - BACKREST_CONFIG=/config/config.json
       - BACKREST_DATA=/data
       - BACKREST_PORT=9898
       - XDG_CACHE_HOME=/cache
-      # Reuse Utility Watchtower's bot and channels for offsite failure alerts.
+      - BACKREST_INSTANCE_ID=${BACKREST_INSTANCE_ID}
+      # Reuse Utility Watchtower's bot and channels for backup and offsite failure alerts.
       - OFFSITE_TELEGRAM_TOKEN=${WATCHTOWER_TELEGRAM_TOKEN:-}
       - OFFSITE_TELEGRAM_CHAT_IDS=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
-    user: "1000:1000"
+    user: "0:0"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9898/"]
       interval: 30s

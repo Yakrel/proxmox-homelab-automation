@@ -74,6 +74,10 @@ services:
     restart: unless-stopped
     stop_grace_period: 1m
     runtime: nvidia
+    ulimits:
+      core:
+        soft: 0
+        hard: 0
     ports:
       - "5800:3001"  # HTTPS web interface
     volumes:
