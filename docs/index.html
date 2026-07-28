@@ -403,15 +403,15 @@
         <!-- 4. BACKUP -->
         <section id="backup">
             <h2><i class="fa-solid fa-floppy-disk"></i> <span data-i18n="nav_backup">Backup & Recovery</span></h2>
-            <p data-i18n="backup_intro">Mix of local snapshots for quick fixes and encrypted cloud backups for disasters.</p>
+            <p data-i18n="backup_intro">Local ZFS recovery plus one encrypted restic repository mirrored to two remote targets.</p>
             <div class="feature-grid">
                 <div class="feature-card">
                     <span class="feature-title" data-i18n="backup_l1_title">Layer 1: ZFS Snapshots</span>
                     <span class="feature-desc" data-i18n="backup_l1_desc">Managed by Sanoid. Seconds-level recovery from accidental deletion.</span>
                 </div>
                 <div class="feature-card">
-                    <span class="feature-title" data-i18n="backup_l2_title">Layer 2: Cloud Archival</span>
-                    <span class="feature-desc" data-i18n="backup_l2_desc">Backrest creates encrypted snapshots, synced to Google Drive via rclone.</span>
+                    <span class="feature-title" data-i18n="backup_l2_title">Layer 2: Encrypted Repository Mirrors</span>
+                    <span class="feature-desc" data-i18n="backup_l2_desc">Backrest maintains one encrypted restic repository, mirrored to Oracle VPS and Google Drive with the same retention lifecycle.</span>
                 </div>
             </div>
         </section>
@@ -473,9 +473,9 @@
                 sec_intro: "Security-focused homelab design with tunnel-based public access, per-stack Docker bridge networks, and encrypted secrets stored in Git.",
                 sec_enc_title: "AES-256 Encryption (OpenSSL)", sec_enc_desc: "Sensitive files use salted AES-256-CBC with PBKDF2-HMAC-SHA256 and an explicit 600,000-iteration work factor.",
                 sec_f2b_title: "Fail2Ban Protection", sec_f2b_desc: "The optional helper configures Fail2Ban for Proxmox host and SSH authentication attempts.",
-                backup_intro: "Multi-layered backup and recovery architecture combining local ZFS snapshots with encrypted remote cloud backups.",
+                backup_intro: "Local ZFS recovery is combined with one client-side encrypted restic repository mirrored to two remote targets.",
                 backup_l1_title: "Layer 1: ZFS Snapshots", backup_l1_desc: "Automated ZFS snapshots managed by Sanoid, ensuring seconds-level recovery from configuration errors or accidental deletions.",
-                backup_l2_title: "Layer 2: Cloud Archival", backup_l2_desc: "Backrest creates client-side encrypted snapshots, which are securely synced to cloud storage via post-backup rclone hooks.",
+                backup_l2_title: "Layer 2: Encrypted Repository Mirrors", backup_l2_desc: "Backrest maintains one encrypted restic repository. Post-backup rclone hooks mirror it to Oracle VPS and Google Drive; the mirrors share the repository's forget and prune lifecycle rather than providing independent retention.",
                 topo_intro: "Multi-path Zero Trust access architecture with split-DNS for seamless and secure connectivity from any location.",
                 topo_layer_clients: "Client Devices", topo_layer_paths: "Access Paths", topo_layer_infra: "Homelab Infrastructure", topo_layer_services: "Application Layer",
                 topo_phone: "Mobile Phone", topo_laptop: "Admin Laptop", topo_browser: "Public Browser",
@@ -497,9 +497,9 @@
                 sec_intro: "Tünel tabanlı dış erişim, stack başına Docker bridge ağları ve Git üzerinde şifreli saklanan hassas değişkenlerle güvenlik odaklı homelab tasarımı.",
                 sec_enc_title: "AES-256 Şifreleme (OpenSSL)", sec_enc_desc: "Hassas dosyalar, PBKDF2-HMAC-SHA256 ve açıkça tanımlı 600.000 iterasyonla tuzlanmış AES-256-CBC kullanır.",
                 sec_f2b_title: "Fail2Ban Koruması", sec_f2b_desc: "İsteğe bağlı yardımcı, Proxmox host ve SSH kimlik doğrulama denemeleri için Fail2Ban yapılandırır.",
-                backup_intro: "Kazara veri kayıplarına karşı yerel ZFS snapshot'ları ile felaket kurtarma senaryolarına yönelik şifreli bulut yedeklemelerini birleştiren çok katmanlı koruma.",
+                backup_intro: "Yerel ZFS kurtarma katmanı, iki uzak hedefe aynalanan tek bir istemci tarafında şifreli restic repository ile birleştirilir.",
                 backup_l1_title: "Katman 1: ZFS Snapshot'ları", backup_l1_desc: "Sanoid ile yönetilen otomatik ZFS snapshot'ları, kazara silinme veya hatalı yapılandırma durumlarında saniyeler düzeyinde kurtarma sağlar.",
-                backup_l2_title: "Katman 2: Bulut Arşivleme", backup_l2_desc: "Backrest ile istemci tarafında şifrelenen yedekler oluşturulur ve rclone kancalarıyla bulut depolama alanlarına güvenli şekilde senkronize edilir.",
+                backup_l2_title: "Katman 2: Şifreli Repository Aynaları", backup_l2_desc: "Backrest tek bir şifreli restic repository tutar. Yedekleme sonrası rclone kancaları bunu Oracle VPS ve Google Drive'a aynalar; bu aynalar bağımsız saklama arşivleri değildir ve repository'nin forget/prune yaşam döngüsünü paylaşır.",
                 topo_intro: "Split-DNS ve Zero Trust ilkelerine dayanan, her yerden kesintisiz ve güvenli bağlantı sunan çok yollu erişim mimarisi.",
                 topo_layer_clients: "İstemci Cihazlar", topo_layer_paths: "Erişim Yolları", topo_layer_infra: "Homelab Altyapısı", topo_layer_services: "Uygulama Katmanı",
                 topo_phone: "Mobil Telefon", topo_laptop: "Yönetici Laptop", topo_browser: "Genel Tarayıcı",

@@ -142,9 +142,6 @@ services:
     depends_on:
       - jellyfin
     environment:
-      - PUID=1000
-      - PGID=1000
-      - UMASK=002
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
       - /fastpool/config/jellyseerr:/app/config
@@ -254,15 +251,9 @@ services:
     environment:
       - LOG_LEVEL=info
       - LOG_HTML=false
-      - CAPTCHA_SOLVER=flaresolverr
       - TZ=${TZ:-Europe/Istanbul}
-      - PUID=1000
-      - PGID=1000
-      - UMASK=002
-      # Route FlareSolverr traffic through Tor Proxy to bypass ISP blocks
-      - PROXY=socks5://tor-proxy:9150
-    ports:
-      - "8191:8191"
+      # Route FlareSolverr traffic through Tor Proxy to bypass ISP blocks.
+      - PROXY_URL=socks5://tor-proxy:9150
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8191/health"]
       interval: 30s
@@ -284,9 +275,6 @@ services:
     image: recyclarr/recyclarr:latest
     container_name: recyclarr
     environment:
-      - PUID=1000
-      - PGID=1000
-      - UMASK=002
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
       - /fastpool/config/recyclarr:/config

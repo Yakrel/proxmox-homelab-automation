@@ -44,6 +44,11 @@ decrypt_stack_env() {
         print_error "Failed to decrypt docker/$stack/.env.enc"
         exit 1
     }
+    if ! validate_env_file_schema "$output_file" "$WORK_DIR/docker/$stack/.env.example"; then
+        rm -f "$output_file"
+        print_error "Encrypted environment schema does not match docker/$stack/.env.example"
+        exit 1
+    fi
 
     ENV_DECRYPTED_PATH="$output_file"
     export ENV_DECRYPTED_PATH ENV_ENC_KEY
@@ -99,13 +104,7 @@ fast_redeploy_stack() {
     pct exec "$CT_ID" -- chmod 0600 /root/.env
     setup_docker_compose "$stack" "$CT_ID"
 
-    local compose_wait_flags=""
-    if [[ "$stack" == "ai" ]]; then
-        compose_wait_flags="--wait --wait-timeout 120"
-    fi
-
-    pct exec "$CT_ID" -- sh -c \
-        "cd /root && docker compose up -d $compose_wait_flags --remove-orphans"
+    deploy_docker_services "$stack" "$CT_ID"
 
     rm -f "$ENV_DECRYPTED_PATH"
     ENV_DECRYPTED_PATH=""

@@ -9,6 +9,7 @@ storage:
 
 nvidia:
   driver_version: "580.173.02"
+  driver_sha256: "8d8eb9001e05a9a8a663d3d5d304feb64ef2844ee185ccdfd952786820f46e1b"
 
 stacks:
   gateway:

@@ -123,7 +123,8 @@ get_latest_template() {
 
 # Container exists check - handle gracefully for idempotency
 if check_container_exists "$CT_ID"; then
-    print_info "Container $CT_ID exists, verifying state"
+    print_info "Container $CT_ID already exists and is treated as provisioned"
+    print_info "If an earlier initial provisioning failed, delete this LXC and deploy it again"
     SKIP_CREATION=true
 else
     SKIP_CREATION=false
@@ -165,10 +166,12 @@ reconcile_lxc_mount mp1 "$FASTPOOL"
 
 if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
     target_version=$(get_nvidia_driver_version "$WORK_DIR/stacks.yaml")
+    target_sha256=$(get_nvidia_driver_sha256 "$WORK_DIR/stacks.yaml")
     [[ -n "$target_version" ]] || { print_error "NVIDIA driver version is not configured"; exit 1; }
+    [[ "$target_sha256" =~ ^[a-f0-9]{64}$ ]] || { print_error "NVIDIA driver SHA-256 is not configured"; exit 1; }
 
     configure_nvidia_host_runtime "$target_version" true
-    ensure_nvidia_driver_runfile "$target_version"
+    ensure_nvidia_driver_runfile "$target_version" "$target_sha256"
 
     uvm_major=$(awk '$2 == "nvidia-uvm" {print $1; exit}' /proc/devices)
     [[ -n "$uvm_major" ]] || { print_error "Could not detect nvidia-uvm device major"; exit 1; }
@@ -197,8 +200,11 @@ if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
 
     # Keep both the script and unit current on existing containers as well.
     pct push "$CT_ID" "$WORK_DIR/scripts/nvidia-userspace-sync.sh" "/usr/local/bin/nvidia-userspace-sync.sh"
-    pct exec "$CT_ID" -- bash -c 'chmod 0755 /usr/local/bin/nvidia-userspace-sync.sh
-cat > /etc/systemd/system/nvidia-userspace-sync.service << "EOF"
+    # The expected checksum is passed as data to the container shell and written
+    # into the unit; the shared runfile is verified again on every sync.
+    # shellcheck disable=SC2016
+    pct exec "$CT_ID" -- env "NVIDIA_DRIVER_SHA256=$target_sha256" bash -c 'chmod 0755 /usr/local/bin/nvidia-userspace-sync.sh
+cat > /etc/systemd/system/nvidia-userspace-sync.service << EOF
 [Unit]
 Description=Sync NVIDIA User-Space Libraries with Host
 Before=docker.service
@@ -206,7 +212,7 @@ After=local-fs.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/nvidia-userspace-sync.sh
+ExecStart=/usr/local/bin/nvidia-userspace-sync.sh ${NVIDIA_DRIVER_SHA256}
 RemainAfterExit=yes
 
 [Install]
@@ -282,6 +288,19 @@ EOS
         trap - EXIT
         apt-get install -y -qq nodejs git python3 python3-pip bash nano vim htop
 
+        # Configure the official GitHub CLI repository during initial OS provisioning.
+        install -m 0755 -d /etc/apt/keyrings
+        gh_keyring=\$(mktemp /tmp/githubcli-keyring.XXXXXX)
+        trap 'rm -f \"\$gh_keyring\"' EXIT
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o \"\$gh_keyring\"
+        install -m 0644 \"\$gh_keyring\" /etc/apt/keyrings/githubcli-archive-keyring.gpg
+        rm -f \"\$gh_keyring\"
+        trap - EXIT
+        printf 'deb [arch=%s signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\n' \"\$(dpkg --print-architecture)\" \
+            > /etc/apt/sources.list.d/github-cli.list
+        apt-get update -qq
+        apt-get install -y -qq gh
+
         # Configure npm
         npm config set fund false
         npm config set update-notifier false
@@ -299,30 +318,11 @@ EOS
             echo 'export PATH=\"/root/.local/bin:\$PATH\"' >> /root/.bashrc
         fi
 
-        # Install code-server (latest version)
-        # Using HTTP redirect to avoid GitHub API rate limits
-        CODE_SERVER_URL=\$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)
-        CODE_SERVER_TAG=\${CODE_SERVER_URL##*/}
-        CODE_SERVER_VERSION=\${CODE_SERVER_TAG#v}
-        CODE_SERVER_ARCH=\$(dpkg --print-architecture)
-        case \"\$CODE_SERVER_ARCH\" in
-            amd64|arm64) ;;
-            *)
-                echo \"Unsupported code-server architecture: \$CODE_SERVER_ARCH\" >&2
-                exit 1
-                ;;
-        esac
-
-        code_server_package=\$(mktemp --suffix=.deb /tmp/code-server.XXXXXX)
-        trap 'rm -f \"\$code_server_package\"' EXIT
-        curl -fsSL \
-            \"https://github.com/coder/code-server/releases/download/v\${CODE_SERVER_VERSION}/code-server_\${CODE_SERVER_VERSION}_\${CODE_SERVER_ARCH}.deb\" \
-            -o \"\$code_server_package\"
-        dpkg -i \"\$code_server_package\"
-        rm -f "\$code_server_package"
-        trap - EXIT
-
-        # Configure code-server (no auth - homelab internal network only)
+        # Security boundary: code-server intentionally relies on the desktop-otp
+        # SNO TOTP auth_request gate at its NPM proxy host; the three-attempt
+        # limit is configured in docker/desktop/docker-compose.yml. NPM and PVE
+        # firewall rules are live state, so block untrusted direct access to 8680.
+        # The application package itself is reconciled after OS provisioning.
         # Persist config and data (extensions/user-data) to fastpool
         mkdir -p /fastpool/config/code-server/config
         mkdir -p /fastpool/config/code-server/data
@@ -341,8 +341,6 @@ auth: none
 cert: false
 EOFCS
 
-        # Enable code-server service
-        systemctl enable --now code-server@root
     else
         # GPU stacks (media, desktop): Docker + NVIDIA
 
@@ -450,7 +448,8 @@ fi
 
 # Common setup for all containers
 printf '%s\n' 'export TERM=xterm-256color' > /etc/profile.d/term.sh
-passwd -d root
+# Console autologin bypasses password authentication, so keep the root password locked.
+passwd -l root
 
 # Create hushlogin to suppress login messages  
 touch /root/.hushlogin
@@ -508,18 +507,35 @@ set -e
 export HOME=/root
 export PATH="/root/.local/share/pi-node/current/bin:/root/.local/bin:/usr/local/bin:$PATH"
 
-# Use the official Debian repository maintained by the GitHub CLI project.
-# The Debian community package can lag behind versions supported by GitHub APIs.
-install -m 0755 -d /etc/apt/keyrings
-gh_keyring=$(mktemp /tmp/githubcli-keyring.XXXXXX)
-curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o "$gh_keyring"
-install -m 0644 "$gh_keyring" /etc/apt/keyrings/githubcli-archive-keyring.gpg
-rm -f "$gh_keyring"
-chmod 0644 /etc/apt/keyrings/githubcli-archive-keyring.gpg
-printf "deb [arch=%s signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main\n" "$(dpkg --print-architecture)" > /etc/apt/sources.list.d/github-cli.list
-
-apt-get update -qq
-apt-get install -y -qq gh
+# Keep code-server current with the other dev applications without repeating
+# repository or base-package provisioning.
+CODE_SERVER_URL=$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)
+CODE_SERVER_TAG=${CODE_SERVER_URL##*/}
+CODE_SERVER_VERSION=${CODE_SERVER_TAG#v}
+CURRENT_CODE_SERVER_VERSION=""
+if command -v code-server >/dev/null 2>&1; then
+    CURRENT_CODE_SERVER_VERSION=$(code-server --version | awk "NR == 1 {print \$1}")
+fi
+if [ "$CURRENT_CODE_SERVER_VERSION" != "$CODE_SERVER_VERSION" ]; then
+    CODE_SERVER_ARCH=$(dpkg --print-architecture)
+    case "$CODE_SERVER_ARCH" in
+        amd64|arm64) ;;
+        *)
+            echo "Unsupported code-server architecture: $CODE_SERVER_ARCH" >&2
+            exit 1
+            ;;
+    esac
+    code_server_package=$(mktemp --suffix=.deb /tmp/code-server.XXXXXX)
+    cleanup_code_server_package() { rm -f "$code_server_package"; }
+    trap cleanup_code_server_package EXIT
+    curl -fsSL \
+        "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server_${CODE_SERVER_VERSION}_${CODE_SERVER_ARCH}.deb" \
+        -o "$code_server_package"
+    dpkg -i "$code_server_package"
+    rm -f "$code_server_package"
+    trap - EXIT
+fi
+systemctl enable --now code-server@root
 
 # npm is already part of the provisioned dev environment.
 npm install --global @openai/codex

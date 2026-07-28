@@ -140,24 +140,32 @@ configure_backrest_directories() {
 configure_oracle_vps_key() {
     local key_file="/fastpool/config/backrest/config/opc.key"
     local key_file_enc="$WORK_DIR/docker/utility/config/opc.key.enc"
+    local key_tmp
 
-    if [[ -f "$key_file_enc" ]]; then
-        print_info "Decrypting Oracle VPS SSH key from encrypted configuration"
-        local key_tmp
-        key_tmp=$(mktemp /fastpool/config/backrest/config/opc.key.XXXXXX)
-        register_runtime_temp_file "$key_tmp"
-
-        if decrypt_openssl_file "$key_file_enc" "$key_tmp" "$ENV_ENC_KEY"; then
-            chown 101000:101000 "$key_tmp"
-            chmod 0600 "$key_tmp"
-            mv -f "$key_tmp" "$key_file"
-            print_success "Oracle VPS SSH key decrypted"
-        else
-            rm -f "$key_tmp"
-            print_error "Failed to decrypt opc.key.enc"
-            return 1
-        fi
+    if [[ ! -f "$key_file_enc" ]]; then
+        print_error "Encrypted Oracle VPS SSH key not found at $key_file_enc"
+        return 1
     fi
+
+    print_info "Decrypting Oracle VPS SSH key from encrypted configuration"
+    key_tmp=$(mktemp /fastpool/config/backrest/config/opc.key.XXXXXX)
+    register_runtime_temp_file "$key_tmp"
+
+    if ! decrypt_openssl_file "$key_file_enc" "$key_tmp" "$ENV_ENC_KEY"; then
+        rm -f "$key_tmp"
+        print_error "Failed to decrypt opc.key.enc"
+        return 1
+    fi
+    if [[ ! -s "$key_tmp" ]]; then
+        rm -f "$key_tmp"
+        print_error "Decrypted Oracle VPS SSH key is empty"
+        return 1
+    fi
+
+    chown 101000:101000 "$key_tmp"
+    chmod 0600 "$key_tmp"
+    mv -f "$key_tmp" "$key_file"
+    print_success "Oracle VPS SSH key decrypted"
 }
 
 # Configure rclone for Google Drive & Oracle VPS offsite sync
@@ -168,6 +176,11 @@ configure_rclone_config() {
 
     if ! configure_oracle_vps_key; then
         print_error "Failed to configure Oracle VPS SSH key"
+        return 1
+    fi
+
+    if [[ ! -f "$rclone_conf_enc" ]]; then
+        print_error "Encrypted rclone configuration not found at $rclone_conf_enc"
         return 1
     fi
 
@@ -184,13 +197,29 @@ configure_rclone_config() {
         return 1
     fi
 
+    local configured_key_file
+    configured_key_file=$(awk -F= '
+        /^[[:space:]]*key_file[[:space:]]*=/ {
+            value=$2
+            sub(/^[[:space:]]*/, "", value)
+            sub(/[[:space:]]*$/, "", value)
+            print value
+            exit
+        }
+    ' "$rclone_tmp")
+    if [[ "$configured_key_file" != "/config/opc.key" ]]; then
+        rm -f "$rclone_tmp"
+        print_error "rclone Oracle key_file must be /config/opc.key"
+        return 1
+    fi
+
     chown 101000:101000 "$rclone_tmp"
     chmod 0600 "$rclone_tmp"
     mv -f "$rclone_tmp" "$rclone_conf"
 
     # Create sync script on host in Backrest config dir (mounted to container as /config)
     local sync_tmp
-    sync_tmp=$(mktemp /fastpool/config/backrest/config/sync-to-gdrive.sh.XXXXXX)
+    sync_tmp=$(mktemp /fastpool/config/backrest/config/sync-offsite-mirrors.sh.XXXXXX)
     register_runtime_temp_file "$sync_tmp"
     # The generated hook returns non-zero when either mirror is degraded, while
     # Backrest intentionally keeps ON_ERROR_IGNORE so the successful local
@@ -201,7 +230,7 @@ configure_rclone_config() {
 # targets. rclone sync (including remote deletions) is intentional: each target
 # must be an exact copy of the local repository, not an independent archive.
 
-LOG_FILE="/config/rclone-gdrive-sync.log"
+LOG_FILE="/config/offsite-mirror-sync.log"
 LOG_MAX_BYTES=5242880
 
 notify_offsite_failure() {
@@ -255,9 +284,7 @@ echo "$(date): [1/2] Syncing to Oracle Free VPS (oracle-vps:pve01-backups)..." >
     --transfers=8 \
     --checkers=16 \
     --retries=5 \
-    --timeout=5m \
-    --exclude="**/cache/**" \
-    --exclude="**/*.tmp"
+    --timeout=5m
 oracle_exit_code=$?
 
 if [ "$oracle_exit_code" -eq 0 ]; then
@@ -282,9 +309,7 @@ echo "$(date): [2/2] Syncing to Google Drive (gdrive:homelab-backups)..." >> "$L
     --contimeout=60s \
     --drive-chunk-size=64M \
     --drive-upload-cutoff=64M \
-    --drive-use-trash=false \
-    --exclude="**/cache/**" \
-    --exclude="**/*.tmp"
+    --drive-use-trash=false
 gdrive_exit_code=$?
 
 if [ "$gdrive_exit_code" -eq 0 ]; then
@@ -314,7 +339,7 @@ SYNCEOF
 
     chown 101000:101000 "$sync_tmp"
     chmod 0700 "$sync_tmp"
-    mv -f "$sync_tmp" /fastpool/config/backrest/config/sync-to-gdrive.sh
+    mv -f "$sync_tmp" /fastpool/config/backrest/config/sync-offsite-mirrors.sh
 
     # Snapshot warnings mean the local backup is incomplete even when both
     # offsite mirrors succeed, so notify through the shared Telegram channel.
