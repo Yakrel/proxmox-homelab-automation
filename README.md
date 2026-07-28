@@ -75,9 +75,10 @@ This project utilizes custom Docker images that are maintained in separate repos
 - **Secret Management**: Repository secrets use salted AES-256-CBC with an explicit 600,000-iteration PBKDF2-HMAC-SHA256 work factor.
 
 ### **Business Continuity & Disaster Recovery**
-- **Off-site Copies**: Local ZFS snapshots plus exact encrypted mirrors of the restic repository on Oracle VPS and Google Drive.
+- **Local Recovery**: Sanoid-managed ZFS snapshots provide an independent local rollback path for configuration errors and accidental deletion.
+- **Off-site Availability Mirrors**: Backrest creates one client-side encrypted restic repository; rclone maintains exact mirrors of that repository on Oracle VPS and Google Drive.
+- **Mirror Semantics**: Remote mirrors follow the local repository lifecycle, including forget/prune deletions, and are availability copies rather than independent retention archives.
 - **Automated Mirror Sync**: Post-backup rclone hooks update both remote mirrors and send a Telegram degradation alert if either target fails.
-- **Secure Archives**: Client-side encryption ensuring data privacy in public cloud environments.
 - **CI/CD Maintained**: Custom container images are rebuilt on a weekly schedule for upstream updates and security fixes.
 - **Rebuild Path**: After storage and secrets are available, `installer.sh` provides a repeatable path for recreating the LXC and application stacks on the Proxmox host.
 
@@ -89,12 +90,12 @@ This project utilizes custom Docker images that are maintained in separate repos
 Nginx Proxy Manager, AdGuard Home, Cloudflared
 
 ### **Media Automation** (LXC 101 - `192.168.1.101`)
-Jellyfin, Immich, Sonarr, Radarr, Bazarr, Jellyseerr, Prowlarr, qBittorrent, FlareSolverr, Tor Proxy, Recyclarr, Tdarr, Cleanuperr
+Jellyfin, Immich, Sonarr, Radarr, Bazarr, Seerr, Prowlarr, qBittorrent, FlareSolverr, Tor Proxy, Recyclarr, Tdarr, Cleanuperr
 
 ### **Utility & Backup** (LXC 102 - `192.168.1.102`)
-JDownloader 2, Samba, Repackarr, Backrest-Rclone (Backup with Google Drive sync), MeTube, Changedetection.io, Karakeep
+JDownloader 2, Samba, Repackarr, Backrest-Rclone (encrypted repository with Oracle VPS and Google Drive mirrors), MeTube, Changedetection.io, Karakeep
 
-### **Desktop Workspace (Web Tools)** (LXC 103 - `192.168.1.103`)
+### **Desktop Workspace** (LXC 103 - `192.168.1.103`)
 Homepage, Desktop Workspace, Guacamole, Sshwifty, CouchDB, Vaultwarden, Desktop OTP Gate, Radicale CalDAV
 
 ### **AI & Automation** (LXC 104 - `192.168.1.104`)

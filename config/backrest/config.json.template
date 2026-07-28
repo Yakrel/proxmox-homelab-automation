@@ -26,7 +26,7 @@
       "hooks": [
         {
           "actionCommand": {
-            "command": "/config/sync-to-gdrive.sh"
+            "command": "/config/sync-offsite-mirrors.sh"
           },
           "conditions": [
             "CONDITION_SNAPSHOT_SUCCESS",
@@ -72,7 +72,7 @@
         "/backup-sources/config/backrest/config/config.json*",
         "/backup-sources/config/backrest/config/rclone.conf*",
         "/backup-sources/config/backrest/config/*.log",
-        "/backup-sources/config/backrest/config/sync-to-gdrive.sh",
+        "/backup-sources/config/backrest/config/sync-offsite-mirrors.sh",
         "/backup-sources/config/backrest/config/notify-backup-warning.sh",
         "/backup-sources/config/jellyfin/data/metadata",
         "/backup-sources/config/jellyfin/data/data/SQLiteBackups",
@@ -93,8 +93,6 @@
         "/backup-sources/config/npm/data/logs",
         "/backup-sources/config/npm/data/nginx/temp",
         "/backup-sources/config/prowlarr/Definitions",
-        "/backup-sources/config/*/Backups",
-        "/backup-sources/config/*/backups",
         "/backup-sources/config/tdarr/server/Tdarr/Backups",
         "/backup-sources/config/tdarr/server/Tdarr/Logs",
         "/backup-sources/config/tdarr/server/Tdarr/DB2/JobReports",
@@ -106,7 +104,6 @@
         "/backup-sources/config/sonarr/Sentry",
         "/backup-sources/config/*/asp",
         "/backup-sources/config/vaultwarden/ssl/key.pem",
-        "/backup-sources/config/tailscale",
         "/backup-sources/config/code-server/data/Machine",
         "/backup-sources/config/code-server/data/User",
         "/backup-sources/config/code-server/data/extensions",

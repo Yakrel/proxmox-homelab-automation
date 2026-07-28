@@ -239,7 +239,6 @@ services:
     ports:
       - "8201:80"
     environment:
-      - WEBSOCKET_ENABLED=true
       - SIGNUPS_ALLOWED=false
       - TZ=${TZ:-Europe/Istanbul}
     volumes:

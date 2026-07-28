@@ -76,6 +76,54 @@ get_env_value() {
     printf '%s' "$value"
 }
 
+# Validate that a decrypted environment has exactly the same variable schema as
+# its committed example without exposing any values.
+validate_env_file_schema() {
+    local env_file="$1"
+    local example_file="$2"
+
+    python3 - "$env_file" "$example_file" <<'PYEOF'
+import pathlib
+import re
+import sys
+
+key_pattern = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def read_keys(path):
+    keys = []
+    for line_number, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].lstrip()
+        if "=" not in line:
+            raise SystemExit(f"Invalid environment line in {path}:{line_number}")
+        key = line.split("=", 1)[0].strip()
+        if not key_pattern.fullmatch(key):
+            raise SystemExit(f"Invalid environment key in {path}:{line_number}: {key}")
+        if key in keys:
+            raise SystemExit(f"Duplicate environment key in {path}: {key}")
+        keys.append(key)
+    return set(keys)
+
+
+env_path = pathlib.Path(sys.argv[1])
+example_path = pathlib.Path(sys.argv[2])
+actual = read_keys(env_path)
+expected = read_keys(example_path)
+missing = sorted(expected - actual)
+extra = sorted(actual - expected)
+if missing or extra:
+    if missing:
+        print("Missing encrypted environment keys: " + ", ".join(missing), file=sys.stderr)
+    if extra:
+        print("Unexpected encrypted environment keys: " + ", ".join(extra), file=sys.stderr)
+    raise SystemExit(1)
+PYEOF
+}
+
 # === SYSTEM UTILITIES ===
 # Common system-level utility functions
 
@@ -161,6 +209,12 @@ get_nvidia_driver_version() {
     yq -r '.nvidia.driver_version // empty' "$stacks_file"
 }
 
+get_nvidia_driver_sha256() {
+    local stacks_file="${1:-$WORK_DIR/stacks.yaml}"
+    [[ -f "$stacks_file" ]] || { print_error "Stacks file not found: $stacks_file"; exit 1; }
+    yq -r '.nvidia.driver_sha256 // empty' "$stacks_file"
+}
+
 get_loaded_nvidia_driver_version() {
     [[ -r /proc/driver/nvidia/version ]] || return 1
 
@@ -178,8 +232,15 @@ get_loaded_nvidia_driver_version() {
 
 ensure_nvidia_driver_runfile() {
     local version="$1"
+    local expected_sha256="$2"
     local driver_dir="/fastpool/config/temp"
     local driver_file="$driver_dir/NVIDIA-Linux-x86_64-${version}.run"
+    local actual_sha256
+
+    if [[ ! "$expected_sha256" =~ ^[a-f0-9]{64}$ ]]; then
+        print_error "NVIDIA driver SHA-256 is missing or invalid"
+        return 1
+    fi
 
     mkdir -p "$driver_dir"
     if [[ ! -f "$driver_file" ]]; then
@@ -189,10 +250,24 @@ ensure_nvidia_driver_runfile() {
         register_runtime_temp_file "$download_file"
         print_info "Downloading NVIDIA ${version} driver runfile"
         wget -q --show-progress "$driver_url" -O "$download_file"
+        actual_sha256=$(sha256sum "$download_file" | awk '{print $1}')
+        if [[ "$actual_sha256" != "$expected_sha256" ]]; then
+            rm -f "$download_file"
+            print_error "Downloaded NVIDIA driver checksum does not match stacks.yaml"
+            return 1
+        fi
         chmod 0755 "$download_file"
         mv "$download_file" "$driver_file"
     fi
+
+    actual_sha256=$(sha256sum "$driver_file" | awk '{print $1}')
+    if [[ "$actual_sha256" != "$expected_sha256" ]]; then
+        print_error "Cached NVIDIA driver checksum does not match stacks.yaml"
+        return 1
+    fi
+
     chmod 0755 "$driver_file"
+    "$driver_file" --check
 }
 
 configure_nvidia_host_runtime() {

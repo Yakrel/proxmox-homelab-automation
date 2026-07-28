@@ -433,20 +433,22 @@ setup_docker_compose() {
     print_success "Docker Compose configured"
 }
 
-# Deploy Docker Compose services - pull latest images
+# Deploy Docker Compose services. Compose recreates only services whose image or
+# effective definition changed; unrelated services are not force-recreated.
 deploy_docker_services() {
     local stack_name="$1"
     local ct_id="$2"
+    local wait_flags=""
+
+    if [[ "$stack_name" == "ai" ]]; then
+        wait_flags="--wait --wait-timeout 120"
+    fi
 
     print_info "Deploying services for $stack_name"
-
-
-
-
-    # Pull images and deploy in one command
-    pct exec "$ct_id" -- sh -c "cd /root && docker compose up -d --pull always --remove-orphans" || {
+    pct exec "$ct_id" -- sh -c \
+        "cd /root && docker compose up -d --pull always $wait_flags --remove-orphans" || {
         print_error "Failed to deploy services"
-        exit 1
+        return 1
     }
 
     print_success "Services deployed"

@@ -1,7 +1,7 @@
 // Curated architecture data for the public dashboard.
 const ARCHITECTURE_DATA = {
     meta: {
-        lastUpdated: "2026-07-24",
+        lastUpdated: "2026-07-28",
         host: "Proxmox VE (192.168.1.10)",
         specs: "Intel Xeon E3-1276 v3 @ 3.60GHz | 32GB DDR3 ECC | ZFS Storage"
     },
@@ -64,10 +64,10 @@ const ARCHITECTURE_DATA = {
                 { name: "Sonarr", icon: "fa-solid fa-tv", port: "8989", desc: { en: "TV Show Automation", tr: "Dizi Otomasyonu" }, status: "active" },
                 { name: "Radarr", icon: "fa-solid fa-film", port: "7878", desc: { en: "Movie Automation", tr: "Film Otomasyonu" }, status: "active" },
                 { name: "Bazarr", icon: "fa-solid fa-closed-captioning", port: "6767", desc: { en: "Subtitle Management", tr: "Altyazı Yönetimi" }, status: "active" },
-                { name: "Jellyseerr", icon: "fa-solid fa-magnifying-glass", port: "5055", desc: { en: "Request Management", tr: "Talep Yönetimi" }, status: "active" },
+                { name: "Seerr", icon: "fa-solid fa-magnifying-glass", port: "5055", desc: { en: "Request Management", tr: "Talep Yönetimi" }, status: "active" },
                 { name: "Prowlarr", icon: "fa-solid fa-search", port: "9696", desc: { en: "Indexer Manager", tr: "İndeksleyici Yöneticisi" }, status: "active" },
                 { name: "qBittorrent", icon: "fa-solid fa-download", port: "8080", desc: { en: "Torrent Client", tr: "Torrent İstemcisi" }, status: "active" },
-                { name: "FlareSolverr", icon: "fa-solid fa-wand-magic-sparkles", port: "8191", desc: { en: "Bypass Cloudflare protection", tr: "Cloudflare korumasını atlatıcı" }, status: "active" },
+                { name: "FlareSolverr", icon: "fa-solid fa-wand-magic-sparkles", port: "Internal", desc: { en: "Cloudflare challenge helper routed through Tor", tr: "Tor üzerinden çalışan Cloudflare doğrulama yardımcısı" }, status: "active" },
                 { name: "Tor Proxy", icon: "fa-solid fa-mask", port: "9150", desc: { en: "Tor SOCKS Proxy for anonymized access", tr: "Anonim erişim için Tor SOCKS Proxy" }, status: "active" },
                 { name: "Recyclarr", icon: "fa-solid fa-arrows-spin", port: "Auto", desc: { en: "Sync TRaSH guides profiles", tr: "TRaSH rehberleri profil senkronizesi" }, status: "active" },
                 { name: "Cleanuperr", icon: "fa-solid fa-trash-can", port: "11011", desc: { en: "Disk space cleanup utility", tr: "Disk alanı temizlik aracı" }, status: "active" },
@@ -81,13 +81,13 @@ const ARCHITECTURE_DATA = {
             category: "Utilities",
             specs: { cpu: 4, ram: "4GB" },
             services: [
-                { name: "JDownloader 2", icon: "fa-solid fa-download", port: "3129", desc: { en: "Download Manager", tr: "İndirme Yöneticisi" }, status: "active" },
+                { name: "JDownloader 2", icon: "fa-solid fa-download", port: "MyJD", desc: { en: "Download Manager", tr: "İndirme Yöneticisi" }, status: "active" },
                 { name: "Samba Share", icon: "fa-solid fa-share-nodes", port: "445", desc: { en: "Local File Sharing Service", tr: "Yerel Dosya Paylaşım Servisi" }, status: "active" },
                 { name: "Repackarr", icon: "fa-solid fa-box", port: "8090", desc: { en: "Release Repackaging Automator", tr: "Sürüm Paketleme Otomasyonu" }, status: "active" },
-                { name: "Backrest", icon: "fa-solid fa-box-archive", port: "9898", desc: { en: "Local Backup Orchestrator", tr: "Yerel Yedekleme Orkestratörü" }, status: "active" },
+                { name: "Backrest", icon: "fa-solid fa-box-archive", port: "9898", desc: { en: "Encrypted Backup and Offsite Mirror Orchestrator", tr: "Şifreli Yedekleme ve Uzak Ayna Orkestratörü" }, status: "active" },
                 { name: "MeTube", icon: "fa-brands fa-youtube", port: "8081", desc: { en: "YouTube Downloader", tr: "YouTube İndirici" }, status: "active" },
                 { name: "Changedetection.io", icon: "fa-solid fa-eye", port: "5000", desc: { en: "Website Change Monitor", tr: "Web Sitesi Değişim İzleyici" }, status: "active" },
-                { name: "Karakeep", icon: "fa-solid fa-bookmark", port: "3080", desc: { en: "Bookmark & Hoarder App", tr: "Yer İmleri ve Toplama Uygulaması" }, status: "active" }
+                { name: "Karakeep", icon: "fa-solid fa-bookmark", port: "3080", desc: { en: "Bookmark and Digital Archive", tr: "Yer İmi ve Dijital Arşiv Uygulaması" }, status: "active" }
             ]
         },
         {

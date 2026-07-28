@@ -13,7 +13,7 @@ Shell-based automation for deploying containerized services in LXC containers on
 
 ## Core Development Principles
 
-- **Fail Fast & Simple**: Let commands fail naturally. No retry loops. Do not suppress stderr/stdout unless it mixes with command output parsing (e.g. `apt-get update` output mixing with `yq` variables).
+- **Fail Fast & Simple**: Let commands fail naturally. No custom retry loops. Bounded retries provided by remote transfer clients are allowed for offsite backup operations, but must still return non-zero after exhaustion. Do not suppress stderr/stdout unless it mixes with command output parsing (e.g. `apt-get update` output mixing with `yq` variables).
 - **Idempotency**: Do not manually check if something exists before running idempotent commands (e.g. run `mkdir -p` or `apt install` directly without `if` checks).
 - **No residue-cleanup code**: Never add recurring script logic whose only purpose is deleting files, users, keys, or configuration left behind by an older deployment or previous commit. Such residue must be removed manually once (with explicit approval), never encoded permanently in the repository. Doing so turns a one-time cleanup into permanent bloat that lingers across versions.
 - **Homelab focus**: Prefer hardcoded static configurations over dynamic runtime detection. Using `latest` image tags is an intentional project policy unless the user requests pinning.
@@ -28,7 +28,7 @@ Shell-based automation for deploying containerized services in LXC containers on
 
 ## Technical & Git Guidelines
 
-- **Encryption & Secrets**: Use `openssl` AES-256-CBC with `-pbkdf2 -iter 600000 -md sha256 -salt` for repository-managed encrypted files. Decrypt/encrypt using `ENV_ENC_KEY` from CI/CD env variables. Commit only `.env.enc` files, never plain `.env`.
+- **Encryption & Secrets**: Use `openssl` AES-256-CBC with `-pbkdf2 -iter 600000 -md sha256 -salt` for repository-managed encrypted files. CI/CD uses the `ENV_ENC_KEY` environment variable. Local Pi sessions may use the root-only key file `/root/.config/proxmox-homelab/env.enc.key` directly with OpenSSL's `-pass file:` option. Never read, print, log, copy into a command argument, or store the key contents in prompts, tool output, temporary files, or Agentmemory; only reference its path. If the file is absent, ask the user instead of creating a placeholder. Commit only `.env.enc` files, never plain `.env`.
 - **Documentation**: Keep project documentation in `README.md` or inline comments. Reserve `AGENTS.md` and `CLAUDE.md` for agent instructions. Do not create separate validation or health-check scripts.
 - **Git Commit Info**: Always use these configurations before committing:
   `git config user.email "85676216+Yakrel@users.noreply.github.com"`

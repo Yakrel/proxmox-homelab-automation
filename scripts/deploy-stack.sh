@@ -76,7 +76,13 @@ decrypt_env_for_deploy() {
         exit 1
     }
 
-    print_success "Environment decrypted"
+    if ! validate_env_file_schema "$ENV_DECRYPTED_PATH" "$WORK_DIR/docker/$stack/.env.example"; then
+        print_error "Encrypted environment schema does not match docker/$stack/.env.example"
+        rm -f "$ENV_DECRYPTED_PATH"
+        exit 1
+    fi
+
+    print_success "Environment decrypted and schema validated"
 }
 
 # Prepare host environment

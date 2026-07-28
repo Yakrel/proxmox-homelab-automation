@@ -23,10 +23,6 @@ run_configure_timezone() {
     print_info "Writing chrony configuration..."
     cat > /etc/chrony/chrony.conf << EOT
 pool tr.pool.ntp.org iburst
-server 0.tr.pool.ntp.org iburst
-server 1.tr.pool.ntp.org iburst
-server 2.tr.pool.ntp.org iburst
-pool 0.pool.ntp.org iburst
 driftfile /var/lib/chrony/chrony.drift
 makestep 1.0 3
 rtcsync
@@ -281,10 +277,15 @@ EOF
 run_setup_gpu_passthrough() {
     require_root
 
-    local target_version
+    local target_version target_sha256
     target_version=$(get_nvidia_driver_version "$WORK_DIR/stacks.yaml")
+    target_sha256=$(get_nvidia_driver_sha256 "$WORK_DIR/stacks.yaml")
     if [[ -z "$target_version" ]]; then
         print_error "NVIDIA driver version is not configured in stacks.yaml. Aborting."
+        return 1
+    fi
+    if [[ ! "$target_sha256" =~ ^[a-f0-9]{64}$ ]]; then
+        print_error "NVIDIA driver SHA-256 is not configured in stacks.yaml. Aborting."
         return 1
     fi
 
@@ -302,7 +303,7 @@ EOF
     # Reconcile boot parameters even when the requested driver is already
     # loaded; a matching driver alone does not prove passthrough is complete.
     local grub_file="/etc/default/grub"
-    local grub_params="intel_iommu=on iommu=pt nvidia-drm.modeset=1 nvidia_drm.fbdev=1 nouveau.modeset=0"
+    local grub_params="nvidia-drm.modeset=1 nvidia_drm.fbdev=1 nouveau.modeset=0"
     local boot_config_changed=false
     local param
     if [[ -f "$grub_file" ]]; then
@@ -408,7 +409,7 @@ EOF
         fi
     done
 
-    ensure_nvidia_driver_runfile "$target_version"
+    ensure_nvidia_driver_runfile "$target_version" "$target_sha256"
     local driver_file="/fastpool/config/temp/NVIDIA-Linux-x86_64-${target_version}.run"
 
     print_info "Installing NVIDIA proprietary driver (this may take a few minutes)..."

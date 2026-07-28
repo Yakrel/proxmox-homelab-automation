@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "**/*.sh"
+      - "**/*.md"
       - installer.sh
       - stacks.yaml
       - "docker/**"
@@ -14,6 +15,7 @@ on:
   pull_request:
     paths:
       - "**/*.sh"
+      - "**/*.md"
       - installer.sh
       - stacks.yaml
       - "docker/**"
@@ -68,17 +70,185 @@ jobs:
 
           for path in pathlib.Path('.').glob('**/*.json*'):
               if '.git' not in path.parts and path.suffix in {'.json', '.template'}:
-                  try:
-                      json.loads(path.read_text(encoding='utf-8'))
-                  except json.JSONDecodeError:
-                      if not path.name.endswith('.json.template'):
-                          raise
-                  else:
-                      print(f'JSON OK: {path}')
+                  json.loads(path.read_text(encoding='utf-8'))
+                  print(f'JSON OK: {path}')
 
           for path in pathlib.Path('.').glob('**/*.xml.template'):
               ET.parse(path)
               print(f'XML OK: {path}')
+          PY
+
+      - name: Validate topology, environment schemas, and deployment invariants
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import re
+          import yaml
+
+          root = pathlib.Path('.')
+
+          allowed_markdown = {
+              pathlib.Path('README.md'),
+              pathlib.Path('AGENTS.md'),
+              pathlib.Path('CLAUDE.md'),
+          }
+          markdown_files = {
+              path for path in root.glob('**/*.md') if '.git' not in path.parts
+          }
+          unexpected_markdown = sorted(markdown_files - allowed_markdown)
+          if unexpected_markdown:
+              raise SystemExit(
+                  'Documentation must stay in the root README.md; unexpected Markdown: '
+                  + ', '.join(map(str, unexpected_markdown))
+              )
+
+          topology = yaml.safe_load(pathlib.Path('stacks.yaml').read_text(encoding='utf-8'))
+          stacks = topology['stacks']
+          required_fields = {'ct_id', 'hostname', 'cpu_cores', 'memory_mb', 'disk_gb'}
+          seen_ids = set()
+          seen_hostnames = set()
+          for name, config in stacks.items():
+              missing = sorted(required_fields - config.keys())
+              if missing:
+                  raise SystemExit(f'{name} is missing stack fields: {missing}')
+              ct_id = config['ct_id']
+              hostname = config['hostname']
+              if ct_id in seen_ids:
+                  raise SystemExit(f'Duplicate LXC ID: {ct_id}')
+              if hostname in seen_hostnames:
+                  raise SystemExit(f'Duplicate LXC hostname: {hostname}')
+              if not 2 <= ct_id <= 254:
+                  raise SystemExit(f'LXC ID cannot form a valid static IP: {ct_id}')
+              if any(config[field] <= 0 for field in ('cpu_cores', 'memory_mb', 'disk_gb')):
+                  raise SystemExit(f'Invalid resources for stack: {name}')
+              seen_ids.add(ct_id)
+              seen_hostnames.add(hostname)
+
+          driver_sha256 = topology.get('nvidia', {}).get('driver_sha256', '')
+          if not re.fullmatch(r'[a-f0-9]{64}', driver_sha256):
+              raise SystemExit('nvidia.driver_sha256 must be a lowercase SHA-256 value')
+
+          env_key_pattern = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+          compose_var_pattern = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)')
+
+          def example_keys(path):
+              keys = []
+              for line_number, raw_line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
+                  line = raw_line.strip()
+                  if not line or line.startswith('#'):
+                      continue
+                  if '=' not in line:
+                      raise SystemExit(f'Invalid env example line: {path}:{line_number}')
+                  key = line.split('=', 1)[0].strip()
+                  if not env_key_pattern.fullmatch(key):
+                      raise SystemExit(f'Invalid env key: {path}:{line_number}: {key}')
+                  if key in keys:
+                      raise SystemExit(f'Duplicate env key in {path}: {key}')
+                  keys.append(key)
+              return set(keys)
+
+          def service_environment(service, stack_name, service_name):
+              environment = service.get('environment') or []
+              result = {}
+              if isinstance(environment, dict):
+                  result = dict(environment)
+              else:
+                  for item in environment:
+                      if not isinstance(item, str) or '=' not in item:
+                          continue
+                      key, value = item.split('=', 1)
+                      if key in result:
+                          raise SystemExit(
+                              f'Duplicate Compose environment key: {stack_name}/{service_name}/{key}'
+                          )
+                      result[key] = value
+              return result
+
+          schedules = {}
+          compose_documents = {}
+          docker_stacks = set(stacks) - {'dev'}
+          for stack_name in sorted(docker_stacks):
+              stack_dir = pathlib.Path('docker') / stack_name
+              compose_path = stack_dir / 'docker-compose.yml'
+              example_path = stack_dir / '.env.example'
+              encrypted_path = stack_dir / '.env.enc'
+              for required_path in (compose_path, example_path, encrypted_path):
+                  if not required_path.is_file():
+                      raise SystemExit(f'Missing stack file: {required_path}')
+              if not encrypted_path.read_bytes().startswith(b'Salted__'):
+                  raise SystemExit(f'Invalid OpenSSL ciphertext header: {encrypted_path}')
+
+              keys = example_keys(example_path)
+              compose_text = compose_path.read_text(encoding='utf-8')
+              referenced = set(compose_var_pattern.findall(compose_text))
+              unknown = sorted(referenced - keys - {'TZ'})
+              if unknown:
+                  raise SystemExit(
+                      f'{compose_path} references variables absent from .env.example: {unknown}'
+                  )
+
+              document = yaml.safe_load(compose_text)
+              compose_documents[stack_name] = document
+              for service_name, service in document.get('services', {}).items():
+                  environment = service_environment(service, stack_name, service_name)
+                  schedule = environment.get('WATCHTOWER_SCHEDULE')
+                  if schedule:
+                      if schedule in schedules:
+                          raise SystemExit(
+                              f'Duplicate Watchtower schedule for {stack_name} and {schedules[schedule]}: {schedule}'
+                          )
+                      schedules[schedule] = stack_name
+
+          for encrypted_path in pathlib.Path('docker').glob('**/*.enc'):
+              if not encrypted_path.read_bytes().startswith(b'Salted__'):
+                  raise SystemExit(f'Invalid OpenSSL ciphertext header: {encrypted_path}')
+
+          forbidden_environment = {
+              ('ai', 'hermes'): {'HERMES_DASHBOARD_TUI'},
+              ('desktop', 'vaultwarden'): {'WEBSOCKET_ENABLED'},
+              ('media', 'jellyseerr'): {'PUID', 'PGID', 'UMASK'},
+              ('media', 'recyclarr'): {'PUID', 'PGID', 'UMASK'},
+              ('media', 'flaresolverr'): {'PROXY', 'CAPTCHA_SOLVER', 'PUID', 'PGID', 'UMASK'},
+          }
+          for (stack_name, service_name), forbidden in forbidden_environment.items():
+              service = compose_documents[stack_name]['services'][service_name]
+              configured = set(service_environment(service, stack_name, service_name))
+              present = sorted(configured & forbidden)
+              if present:
+                  raise SystemExit(
+                      f'Unsupported environment variables in {stack_name}/{service_name}: {present}'
+                  )
+
+          flare_ports = compose_documents['media']['services']['flaresolverr'].get('ports') or []
+          if any('8191' in str(port) for port in flare_ports):
+              raise SystemExit('FlareSolverr must remain internal to the media Docker network')
+          jd_ports = compose_documents['utility']['services']['jdownloader2'].get('ports') or []
+          if any('3129' in str(port) for port in jd_ports):
+              raise SystemExit('JDownloader Direct Connection port must not be published')
+
+          backrest = json.loads(
+              pathlib.Path('config/backrest/config.json.template').read_text(encoding='utf-8')
+          )
+          hook_commands = {
+              hook.get('actionCommand', {}).get('command')
+              for repo in backrest['repos']
+              for hook in repo.get('hooks', [])
+          }
+          if '/config/sync-offsite-mirrors.sh' not in hook_commands:
+              raise SystemExit('Backrest offsite mirror hook path is inconsistent')
+          config_plan = next(plan for plan in backrest['plans'] if plan['id'] == 'config-backup')
+          stale_excludes = {
+              '/backup-sources/config/*/Backups',
+              '/backup-sources/config/*/backups',
+              '/backup-sources/config/tailscale',
+              '/backup-sources/config/backrest/config/sync-to-gdrive.sh',
+          }
+          present = sorted(set(config_plan['excludes']) & stale_excludes)
+          if present:
+              raise SystemExit(f'Stale Backrest exclusions: {present}')
+
+          print('Repository topology and deployment invariants OK')
           PY
 
       - name: Validate Docker Compose
