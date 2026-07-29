@@ -49,6 +49,10 @@ decrypt_stack_env() {
         print_error "Encrypted environment schema does not match docker/$stack/.env.example"
         exit 1
     fi
+    if ! validate_stack_env_values "$stack" "$output_file"; then
+        rm -f "$output_file"
+        exit 1
+    fi
 
     ENV_DECRYPTED_PATH="$output_file"
     export ENV_DECRYPTED_PATH ENV_ENC_KEY
@@ -90,7 +94,15 @@ fast_redeploy_stack() {
     echo
     print_info "Fast redeploying [$stack] on LXC $CT_ID ($CT_HOSTNAME)"
 
+    # Reconcile host-side LXC configuration before applying the stack. This
+    # also restarts an existing LXC when a bind mount or device changed.
+    bash "$WORK_DIR/scripts/lxc-manager.sh" "$stack"
+
     decrypt_stack_env "$stack"
+
+    if [[ "$stack" == "ai" ]]; then
+        preflight_agentmemory_client_secret_sync
+    fi
 
     if [[ "$stack" == "desktop" ]]; then
         setup_homepage_proxmox_token "$ENV_DECRYPTED_PATH"
@@ -105,6 +117,10 @@ fast_redeploy_stack() {
     setup_docker_compose "$stack" "$CT_ID"
 
     deploy_docker_services "$stack" "$CT_ID"
+
+    if [[ "$stack" == "ai" ]]; then
+        sync_agentmemory_client_secret "$ENV_DECRYPTED_PATH"
+    fi
 
     rm -f "$ENV_DECRYPTED_PATH"
     ENV_DECRYPTED_PATH=""

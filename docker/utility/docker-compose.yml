@@ -46,10 +46,10 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
       - /fastpool/config/samba:/data
-      # Intentional trusted-admin share: Samba exposes both complete pools so
-      # they can be managed directly from the owner's workstation.
+      # Share persistent data and service configuration without exposing the
+      # fastpool root, which also contains LXC root filesystems.
       - /datapool:/datapool
-      - /fastpool:/fastpool
+      - /fastpool/config:/fastpool/config
       - samba-cache:/data/cache
       - samba-lib:/data/lib
     restart: unless-stopped

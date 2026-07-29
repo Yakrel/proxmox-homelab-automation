@@ -19,8 +19,13 @@ LXC_RESTART_REQUIRED=false
 reconcile_lxc_mount() {
     local mount_key="$1"
     local source_path="$2"
+    local read_only="${3:-false}"
     local desired_value="${source_path},mp=${source_path},acl=1"
     local current_value
+
+    if [[ "$read_only" == "true" ]]; then
+        desired_value+=",ro=1"
+    fi
 
     current_value=$(pct config "$CT_ID" | awk -F': ' -v key="$mount_key" '$1 == key {print $2; exit}')
     if [[ "$current_value" != "$desired_value" ]]; then
@@ -33,9 +38,7 @@ reconcile_lxc_mount() {
 reconcile_lxc_device_block() {
     local config_path="/etc/pve/lxc/${CT_ID}.conf"
     local uvm_major="$1"
-    local metadata_prefix="# PROXMOX-HOMELAB NVIDIA UVM MAJOR:"
-    local metadata_line="${metadata_prefix} ${uvm_major}"
-    local managed_major temp_config line
+    local temp_config line
     local -a desired_lines=(
         'lxc.cgroup2.devices.allow: c 195:* rwm'
         "lxc.cgroup2.devices.allow: c ${uvm_major}:* rwm"
@@ -55,30 +58,23 @@ reconcile_lxc_device_block() {
         )
     fi
 
-    managed_major=$(awk -v prefix="$metadata_prefix" 'index($0, prefix) == 1 {print $NF; exit}' "$config_path")
-    if [[ "$managed_major" == "$uvm_major" ]]; then
-        local desired_state_present=true
-        for line in "${desired_lines[@]}"; do
-            if [[ $(grep -Fxc "$line" "$config_path") -ne 1 ]]; then
-                desired_state_present=false
-                break
-            fi
-        done
-        [[ "$desired_state_present" == "true" ]] && return 0
-    fi
+    local desired_state_present=true
+    for line in "${desired_lines[@]}"; do
+        if [[ $(grep -Fxc "$line" "$config_path") -ne 1 ]]; then
+            desired_state_present=false
+            break
+        fi
+    done
+    [[ "$desired_state_present" == "true" ]] && return 0
 
     temp_config=$(mktemp /tmp/lxc-config.XXXXXX)
     register_runtime_temp_file "$temp_config"
-    awk -v prefix="$metadata_prefix" -v old_major="$managed_major" '
-        index($0, prefix) == 1 {next}
-        $0 == "lxc.cgroup2.devices.allow: c 195:* rwm" {next}
-        $0 == "lxc.cgroup2.devices.allow: c 226:* rwm" {next}
-        $0 == "lxc.cgroup2.devices.allow: c 10:229 rwm" {next}
-        old_major != "" && $0 == "lxc.cgroup2.devices.allow: c " old_major ":* rwm" {next}
-        $0 ~ /^lxc\.mount\.entry: \/dev\/(nvidia0|nvidiactl|nvidia-uvm|nvidia-uvm-tools|nvidia-modeset|dri|fuse) / {next}
+    awk '
+        /^lxc\.cgroup2\.devices\.allow: c ([0-9]+:\*|10:229) rwm$/ {next}
+        /^lxc\.mount\.entry: \/dev\/(nvidia0|nvidiactl|nvidia-uvm|nvidia-uvm-tools|nvidia-modeset|dri|fuse) / {next}
         {print}
     ' "$config_path" > "$temp_config"
-    printf '\n%s\n' "$metadata_line" >> "$temp_config"
+
     for line in "${desired_lines[@]}"; do
         printf '%s\n' "$line" >> "$temp_config"
     done
@@ -155,14 +151,12 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
         --rootfs "$STORAGE_POOL":"$CT_DISK_GB" || { print_error "Failed to create container"; exit 1; }
 fi
 
-# mp0/mp1 are Proxmox mount slots. Every stack uses fastpool for service
-# configuration. Every stack except Gateway also receives datapool for shared
-# media, backup, Samba, or trusted-management access; Gateway has no consumer
-# for that pool.
+# Limit every LXC to the shared paths used by its stack. In particular, never
+# expose the fastpool root because it also contains the other LXC root filesystems.
 if [[ "$STACK_NAME" != "gateway" ]]; then
     reconcile_lxc_mount mp0 "$DATAPOOL"
 fi
-reconcile_lxc_mount mp1 "$FASTPOOL"
+reconcile_lxc_mount mp1 /fastpool/config
 
 if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
     target_version=$(get_nvidia_driver_version "$WORK_DIR/stacks.yaml")
@@ -471,8 +465,8 @@ if [[ "$STACK_NAME" == "dev" ]]; then
         exit 1
     }
     agentmemory_secret=$(get_env_value "AGENTMEMORY_SECRET" "$agentmemory_env_file")
-    [[ -n "$agentmemory_secret" ]] || {
-        print_error "AGENTMEMORY_SECRET is missing from the decrypted AI environment"
+    validate_agentmemory_secret_value "$agentmemory_secret" || {
+        print_error "AGENTMEMORY_SECRET must be exactly 64 hexadecimal characters"
         exit 1
     }
 
@@ -482,6 +476,7 @@ if [[ "$STACK_NAME" == "dev" ]]; then
         umask 077
         printf '%s\n' "$agentmemory_secret" > "$agentmemory_secret_file"
     )
+    unset agentmemory_secret
 
     pct exec "$CT_ID" -- mkdir -p \
         /root/.config/agentmemory \
@@ -489,13 +484,16 @@ if [[ "$STACK_NAME" == "dev" ]]; then
         /root/.local/bin
     pct push "$CT_ID" "$WORK_DIR/config/pi/pi-memory" /root/.local/bin/pi-memory
     pct push "$CT_ID" "$WORK_DIR/config/pi/agentmemory/index.ts" /root/.pi/agent/extensions/agentmemory/index.ts
+    pct push "$CT_ID" "$WORK_DIR/config/pi/agentmemory/client.ts" /root/.pi/agent/extensions/agentmemory/client.ts
     pct push "$CT_ID" "$WORK_DIR/config/pi/agentmemory/security.ts" /root/.pi/agent/extensions/agentmemory/security.ts
     pct push "$CT_ID" "$agentmemory_secret_file" /root/.config/agentmemory/secret
-    pct exec "$CT_ID" -- bash -c 'printf "https://memory.byetgin.com" > /root/.config/agentmemory/url'
+    pct exec "$CT_ID" -- bash -c 'printf "https://memory.byetgin.com\n" > /root/.config/agentmemory/url'
     pct exec "$CT_ID" -- chmod 0600 /root/.config/agentmemory/secret
     pct exec "$CT_ID" -- chmod 0644 /root/.pi/agent/extensions/agentmemory/index.ts
+    pct exec "$CT_ID" -- chmod 0644 /root/.pi/agent/extensions/agentmemory/client.ts
     pct exec "$CT_ID" -- chmod 0644 /root/.pi/agent/extensions/agentmemory/security.ts
     pct exec "$CT_ID" -- chmod 0755 /root/.local/bin/pi-memory
+    rm -f -- "$agentmemory_secret_file"
 
     # Variables in this single-quoted script expand inside the container.
     # shellcheck disable=SC2016
@@ -573,12 +571,15 @@ gh --version
 python3 --version
 agy --version
 codex --version
-pi --version
+/usr/local/bin/pi-real --version
 code-server --version
 systemctl is-enabled code-server@root
 systemctl is-active code-server@root
 test "$(readlink -f "$(command -v codex)")" = "$(npm root -g)/@openai/codex/bin/codex.js"
 test "$(readlink -f "$(command -v agy)")" = /root/.local/lib/antigravity/agy
+test "$(readlink -f "$(command -v pi)")" = /root/.local/bin/pi-memory
+test -s /root/.config/agentmemory/secret
+test -s /root/.config/agentmemory/url
 ! command -v opencode >/dev/null 2>&1
 '
     print_success "Dev CLI applications reconciled and verified"

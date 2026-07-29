@@ -35,7 +35,7 @@ stacks:
     hostname: lxc-desktop
     cpu_cores: 4
     memory_mb: 6144
-    disk_gb: 30
+    disk_gb: 50
   ai:
     ct_id: 104
     hostname: lxc-ai

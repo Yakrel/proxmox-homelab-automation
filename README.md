@@ -1,6 +1,6 @@
 # Proxmox Homelab Automation
 
-Production-style homelab architected with enterprise-inspired reliability practices, demonstrating infrastructure automation and DevOps patterns. Orchestrates **40+ services** across **6 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
+Production-style homelab architected with enterprise-inspired reliability practices, demonstrating infrastructure automation and DevOps patterns. Orchestrates **40+ services** across **7 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
 
 > **About**: Production homelab running family media services (Jellyfin, Immich), AI automation (Hermes Agent), and productivity tools with production-style infrastructure patterns. Features **configuration-driven automation**, **ZFS-backed storage**, **encrypted secret management**, and **disaster recovery** architecture.
 
@@ -168,8 +168,8 @@ Only Pi integrates with Agentmemory. Codex CLI and Antigravity CLI (`agy`) remai
 - **Console-first administration**: LXC SSH servers are omitted; passwordless root autologin is limited to the trusted Proxmox console
 - **Encrypted secrets**: AES-256-CBC with PBKDF2-HMAC-SHA256 and an explicit 600,000-iteration work factor
 - **Single master key** decrypts stack `.env.enc` files and service-specific encrypted configuration
-- **Per-stack Docker bridge networks**, with selected services published to the homelab LAN
-- **Trusted management mounts**: full-pool access for Samba, Hermes, and Dev is intentional so the owner and agents can administer homelab data and configuration directly
+- **Per-stack Docker networks**, with selected services published to the homelab LAN
+- **Scoped management mounts**: service configuration is exposed through `/fastpool/config` without exposing the LXC root filesystems stored at the pool root
 - **Automated container updates and notifications** via Watchtower configured per stack
 
 ## 📄 License
