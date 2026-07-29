@@ -81,8 +81,12 @@ decrypt_env_for_deploy() {
         rm -f "$ENV_DECRYPTED_PATH"
         exit 1
     fi
+    if ! validate_stack_env_values "$stack" "$ENV_DECRYPTED_PATH"; then
+        rm -f "$ENV_DECRYPTED_PATH"
+        exit 1
+    fi
 
-    print_success "Environment decrypted and schema validated"
+    print_success "Environment decrypted and validated"
 }
 
 # Prepare host environment
@@ -138,6 +142,10 @@ else
     decrypt_env_for_deploy "$STACK_NAME"
 fi
 
+if [[ "$STACK_NAME" == "ai" ]]; then
+    preflight_agentmemory_client_secret_sync
+fi
+
 # Step 3: Create LXC container
 create_lxc
 
@@ -154,6 +162,9 @@ esac
 if [[ "$STACK_NAME" != "dev" ]]; then
     configure_env
     deploy_docker_stack "$STACK_NAME" "$CT_ID"
+    if [[ "$STACK_NAME" == "ai" ]]; then
+        sync_agentmemory_client_secret "$ENV_DECRYPTED_PATH"
+    fi
 fi
 
 if [[ "$STACK_NAME" == "gateway" ]]; then

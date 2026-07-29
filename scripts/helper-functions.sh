@@ -124,6 +124,26 @@ if missing or extra:
 PYEOF
 }
 
+# Validate the Agentmemory bearer secret without logging or otherwise exposing it.
+validate_agentmemory_secret_value() {
+    local secret="$1"
+
+    [[ "$secret" =~ ^[0-9A-Fa-f]{64}$ ]]
+}
+
+validate_stack_env_values() {
+    local stack="$1"
+    local env_file="$2"
+    local agentmemory_secret
+
+    [[ "$stack" == "ai" ]] || return 0
+    agentmemory_secret=$(get_env_value "AGENTMEMORY_SECRET" "$env_file")
+    validate_agentmemory_secret_value "$agentmemory_secret" || {
+        print_error "AGENTMEMORY_SECRET must be exactly 64 hexadecimal characters"
+        return 1
+    }
+}
+
 # === SYSTEM UTILITIES ===
 # Common system-level utility functions
 
@@ -423,6 +443,47 @@ check_container_running() {
     local status
     status=$(pct status "$ct_id" 2>&1 | awk '{print $2}')
     [[ "$status" == "running" ]]
+}
+
+# Keep the Pi client credential aligned when the AI stack is redeployed alone.
+# The dev LXC is intentionally hardcoded by this homelab's static topology.
+preflight_agentmemory_client_secret_sync() {
+    local dev_ct_id=105
+
+    check_container_exists "$dev_ct_id" || return 0
+    check_container_running "$dev_ct_id" || {
+        print_error "Dev LXC $dev_ct_id is stopped; start it before deploying the AI stack"
+        return 1
+    }
+}
+
+sync_agentmemory_client_secret() {
+    local env_file="$1"
+    local dev_ct_id=105
+    local agentmemory_secret
+    local agentmemory_secret_file
+
+    preflight_agentmemory_client_secret_sync || return 1
+    check_container_exists "$dev_ct_id" || return 0
+
+    agentmemory_secret=$(get_env_value "AGENTMEMORY_SECRET" "$env_file")
+    validate_agentmemory_secret_value "$agentmemory_secret" || {
+        print_error "Refusing to sync an invalid 64-hex AGENTMEMORY_SECRET"
+        return 1
+    }
+    agentmemory_secret_file=$(mktemp /tmp/agentmemory-client-secret.XXXXXX)
+    register_runtime_temp_file "$agentmemory_secret_file"
+    (
+        umask 077
+        printf '%s\n' "$agentmemory_secret" > "$agentmemory_secret_file"
+    )
+    unset agentmemory_secret
+
+    pct exec "$dev_ct_id" -- mkdir -p /root/.config/agentmemory
+    pct push "$dev_ct_id" "$agentmemory_secret_file" /root/.config/agentmemory/secret
+    pct exec "$dev_ct_id" -- chmod 0600 /root/.config/agentmemory/secret
+    rm -f -- "$agentmemory_secret_file"
+    print_success "Synchronized Agentmemory client credential to dev LXC"
 }
 
 

@@ -22,14 +22,24 @@ services:
       - OPENAI_BASE_URL=${AGENTMEMORY_OPENAI_BASE_URL}
       - OPENAI_MODEL=${AGENTMEMORY_OPENAI_MODEL}
       - EMBEDDING_PROVIDER=local
-      - AGENTMEMORY_SECRET=${AGENTMEMORY_SECRET}
-      - AGENTMEMORY_AUTO_COMPRESS=false
-      - AGENTMEMORY_INJECT_CONTEXT=true
-      - CONSOLIDATION_ENABLED=true
-      - CONSOLIDATION_INTERVAL_MS=86400000
+      - AGENTMEMORY_SECRET=${AGENTMEMORY_SECRET:?AGENTMEMORY_SECRET is required}
+      - AGENT_ID=pi
+      # Each captured substantive Pi run writes one settled observation. LLM
+      # compression gives it meaningful type/concepts/importance so the
+      # low-value auto-forget branch can apply after 180 days.
+      - AGENTMEMORY_AUTO_COMPRESS=true
+      # Pi performs its own scoped REST recall. Native hook injection, global
+      # slots/reflection, and unscoped semantic consolidation are not consumed.
+      - AGENTMEMORY_INJECT_CONTEXT=false
+      - CONSOLIDATION_ENABLED=false
+      # Keep graph extraction disabled: Agentmemory 0.9.28 graph rows are not
+      # project-scoped and are not cascaded when auto-forget removes observations.
       - GRAPH_EXTRACTION_ENABLED=false
-      - AGENTMEMORY_SLOTS=true
-      - AGENTMEMORY_REFLECT=true
+      # Extraction=false does not disable graph-assisted HybridSearch. A zero
+      # weight prevents any legacy global graph rows from affecting ranking.
+      - AGENTMEMORY_GRAPH_WEIGHT=0
+      - AGENTMEMORY_SLOTS=false
+      - AGENTMEMORY_REFLECT=false
       - AGENTMEMORY_TOOLS=core
       - AUTO_FORGET_ENABLED=true
       - LESSON_DECAY_ENABLED=true
@@ -40,7 +50,7 @@ services:
     networks:
       - ai-net
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3111/agentmemory/livez || exit 1"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3111/agentmemory/health',{headers:{authorization:'Bearer '+process.env.AGENTMEMORY_SECRET}}).then(async r=>{if(!r.ok)process.exit(1);const b=await r.json();if((b.status||b.health?.status)!=='healthy')process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       start_period: 30s
