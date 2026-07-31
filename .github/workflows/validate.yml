@@ -92,6 +92,7 @@ jobs:
               pathlib.Path('README.md'),
               pathlib.Path('AGENTS.md'),
               pathlib.Path('CLAUDE.md'),
+              pathlib.Path('todo.md'),
           }
           markdown_files = {
               path for path in root.glob('**/*.md') if '.git' not in path.parts

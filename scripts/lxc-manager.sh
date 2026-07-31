@@ -119,8 +119,6 @@ get_latest_template() {
 
 # Container exists check - handle gracefully for idempotency
 if check_container_exists "$CT_ID"; then
-    print_info "Container $CT_ID already exists and is treated as provisioned"
-    print_info "If an earlier initial provisioning failed, delete this LXC and deploy it again"
     SKIP_CREATION=true
 else
     SKIP_CREATION=false
@@ -145,11 +143,17 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
         --memory "$CT_MEMORY_MB" \
         --swap 0 \
         --features keyctl=1,nesting=1 \
+        --cmode shell \
         --net0 name=eth0,bridge="$NETWORK_BRIDGE",ip="$CT_IP"/24,gw="$NETWORK_GATEWAY" \
         --onboot 1 \
         --unprivileged 1 \
         --rootfs "$STORAGE_POOL":"$CT_DISK_GB" || { print_error "Failed to create container"; exit 1; }
 fi
+
+# The Proxmox console is the trusted administrative entry point. Shell mode
+# opens a root shell directly and avoids distribution-specific getty handling.
+# Reconcile it for existing containers as well as setting it at creation time.
+pct set "$CT_ID" --cmode shell
 
 # Limit every LXC to the shared paths used by its stack. In particular, never
 # expose the fastpool root because it also contains the other LXC root filesystems.
@@ -186,7 +190,6 @@ fi
 
 # Verify container is ready
 pct exec "$CT_ID" -- test -f /sbin/init
-print_success "Container $CT_ID ready"
 
 # Install NVIDIA user-space drivers inside the container (if applicable)
 if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
@@ -312,6 +315,16 @@ EOS
             echo 'export PATH=\"/root/.local/bin:\$PATH\"' >> /root/.bashrc
         fi
 
+        # Prevent encryption key variables from leaking into shell history.
+        # HISTCONTROL=ignoreboth: leading-space commands + consecutive duplicates are excluded.
+        # HISTIGNORE: any command containing KEY= is excluded even without leading space.
+        if ! grep -q 'HISTIGNORE' /root/.bashrc 2>/dev/null; then
+            cat >> /root/.bashrc <<'HIST_EOF'
+export HISTCONTROL=ignoreboth
+export HISTIGNORE='*KEY=*'
+HIST_EOF
+        fi
+
         # Security boundary: code-server intentionally relies on the desktop-otp
         # SNO TOTP auth_request gate at its NPM proxy host; the three-attempt
         # limit is configured in docker/desktop/docker-compose.yml. NPM and PVE
@@ -384,26 +397,6 @@ EOFDOCKER
         systemctl restart docker
     fi
 
-    # Proxmox LXC consoles use console-getty.service and container-getty@.service,
-    # not getty@tty1.service. Keep every Debian stack passwordless on the PVE
-    # console while SSH remains absent.
-    mkdir -p \
-        /etc/systemd/system/console-getty.service.d \
-        /etc/systemd/system/container-getty@.service.d
-    cat > /etc/systemd/system/console-getty.service.d/autologin.conf << 'EOFCONSOLELOGIN'
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin root --noreset --noclear --keep-baud 115200,57600,38400,9600 - \${TERM}
-EOFCONSOLELOGIN
-    cat > /etc/systemd/system/container-getty@.service.d/autologin.conf << 'EOFCONTAINERLOGIN'
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin root --noreset --noclear - \${TERM}
-EOFCONTAINERLOGIN
-    systemctl daemon-reload
-    systemctl restart console-getty.service
-    systemctl try-restart container-getty@1.service container-getty@2.service
-
     # Set timezone
     timedatectl set-timezone Europe/Istanbul
 
@@ -416,7 +409,7 @@ else
     apk upgrade
     
     # Alpine stacks: Docker runtime + Bash (for script compatibility)
-    apk add --no-cache docker docker-cli-compose util-linux bash
+    apk add --no-cache docker docker-cli-compose bash
     
     # Add docker to boot runlevel and start
     rc-update add docker boot
@@ -427,11 +420,6 @@ else
     fi
     rc-service docker start
 
-    # Alpine stacks also use passwordless root autologin on the PVE console.
-    sed -i 's|^tty1::|#&|' /etc/inittab
-    grep -qF 'autologin root' /etc/inittab || echo 'tty1::respawn:/sbin/agetty --autologin root --noclear tty1 38400 linux' >> /etc/inittab
-    kill -HUP 1
-    
     # Alpine timezone setup
     apk add --no-cache tzdata
     ln -sf /usr/share/zoneinfo/Europe/Istanbul /etc/localtime
@@ -442,7 +430,8 @@ fi
 
 # Common setup for all containers
 printf '%s\n' 'export TERM=xterm-256color' > /etc/profile.d/term.sh
-# Console autologin bypasses password authentication, so keep the root password locked.
+# Proxmox shell-mode console bypasses guest authentication, so keep the root
+# password locked against guest login paths.
 passwd -l root
 
 # Create hushlogin to suppress login messages  
@@ -450,8 +439,18 @@ touch /root/.hushlogin
 "
 
     print_success "Container OS provisioned"
-else
-    print_info "Container $CT_ID already provisioned; skipping OS package setup"
+fi
+
+# Proxmox shell mode launches the root account's configured shell directly.
+# Alpine defaults to BusyBox ash with a minimal "/ #" prompt, so use the Bash
+# package already provisioned above and match Debian's informative root prompt.
+if [[ "$STACK_NAME" != "media" && "$STACK_NAME" != "desktop" && "$STACK_NAME" != "dev" ]]; then
+    pct exec "$CT_ID" -- sh -c '
+set -e
+sed -i "/^root:/ s|:[^:]*$|:/bin/bash|" /etc/passwd
+quote=$(printf "\047")
+printf "PS1=%s%s%s\n" "$quote" "\\u@\\h:\\w\\\$ " "$quote" > /root/.bashrc
+'
 fi
 
 # Dev CLI applications are application state, so reconcile them on both initial
@@ -558,23 +557,14 @@ ln -sfnT /root/.local/lib/antigravity/agy /usr/local/bin/agy
 rm -f "$antigravity_installer"
 
 for command_name in node npm git gh python3 bash nano vim htop agy codex pi code-server; do
-    command -v "$command_name" || {
+    command -v "$command_name" >/dev/null 2>&1 || {
         echo "Missing required dev command: $command_name" >&2
         exit 1
     }
 done
 
-node --version
-npm --version
-git --version
-gh --version
-python3 --version
-agy --version
-codex --version
-/usr/local/bin/pi-real --version
-code-server --version
-systemctl is-enabled code-server@root
-systemctl is-active code-server@root
+systemctl is-enabled code-server@root >/dev/null 2>&1
+systemctl is-active code-server@root >/dev/null 2>&1
 test "$(readlink -f "$(command -v codex)")" = "$(npm root -g)/@openai/codex/bin/codex.js"
 test "$(readlink -f "$(command -v agy)")" = /root/.local/lib/antigravity/agy
 test "$(readlink -f "$(command -v pi)")" = /root/.local/bin/pi-memory
@@ -582,7 +572,7 @@ test -s /root/.config/agentmemory/secret
 test -s /root/.config/agentmemory/url
 ! command -v opencode >/dev/null 2>&1
 '
-    print_success "Dev CLI applications reconciled and verified"
+    print_success "Dev CLI applications reconciled"
 fi
 
-print_success "Container [$STACK_NAME] created and ready"
+print_success "Container [$STACK_NAME] ready"

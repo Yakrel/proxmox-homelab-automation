@@ -49,8 +49,6 @@ trap 'exit 143' TERM
 decrypt_env_for_deploy() {
     local stack="$1"
 
-    print_info "Decrypting environment for $stack"
-
     local enc_file="$WORK_DIR/docker/$stack/.env.enc"
     ENV_DECRYPTED_PATH="$WORK_DIR/.env"
 
@@ -85,31 +83,21 @@ decrypt_env_for_deploy() {
         rm -f "$ENV_DECRYPTED_PATH"
         exit 1
     fi
-
-    print_success "Environment decrypted and validated"
 }
 
 # Prepare host environment
 prepare_host() {
-    print_info "Preparing host"
-    
     # Ensure minimal required packages
     require_root
     ensure_packages curl python3 yq
-    
-    print_success "Host ready"
 }
 
 
 # Create or verify LXC container
 create_lxc() {
-    print_info "Creating LXC for $STACK_NAME"
-    
     # Use lxc-manager.sh to create and configure the container
     AGENTMEMORY_ENV_FILE="$ENV_DECRYPTED_PATH" \
         bash "$WORK_DIR/scripts/lxc-manager.sh" "$STACK_NAME" || { print_error "LXC setup failed"; exit 1; }
-    
-    print_success "LXC ready"
 }
 
 # Configure environment file for standard Docker stacks
@@ -117,17 +105,13 @@ configure_env() {
     # Copy decrypted .env to container
     pct push "$CT_ID" "$ENV_DECRYPTED_PATH" "/root/.env" || { print_error "Failed to configure environment"; exit 1; }
     pct exec "$CT_ID" -- chmod 0600 /root/.env
-
-    print_success "Environment configured"
 }
 
 
 
 
 echo
-echo "═══════════════════════════════════════════"
 print_info "Deploying stack: $STACK_NAME"
-echo "═══════════════════════════════════════════"
 
 # Step 1: Prepare the host before decrypting secrets.
 prepare_host
@@ -180,9 +164,7 @@ fi
 # Remove the host-side plaintext environment before returning to the menu.
 cleanup_deploy_secrets
 
-echo "═══════════════════════════════════════════"
-print_success "Stack [$STACK_NAME] deployed successfully!"
-echo "═══════════════════════════════════════════"
+print_success "Stack [$STACK_NAME] deployed successfully"
 echo
 
 # IMPORTANT: Keep this interactive prompt so errors and deployment output remain visible

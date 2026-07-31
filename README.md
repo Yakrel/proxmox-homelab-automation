@@ -165,7 +165,7 @@ Only Pi integrates with Agentmemory. Codex CLI and Antigravity CLI (`agy`) remai
 ## 🔐 Security
 
 - **Unprivileged LXC containers** with UID/GID mapping (101000:101000 → 1000:1000)
-- **Console-first administration**: LXC SSH servers are omitted; passwordless root autologin is limited to the trusted Proxmox console
+- **Console-first administration**: LXC SSH servers are omitted; Proxmox console shell mode provides direct root access through the trusted host
 - **Encrypted secrets**: AES-256-CBC with PBKDF2-HMAC-SHA256 and an explicit 600,000-iteration work factor
 - **Single master key** decrypts stack `.env.enc` files and service-specific encrypted configuration
 - **Per-stack Docker networks**, with selected services published to the homelab LAN
