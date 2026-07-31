@@ -1,7 +1,7 @@
 // Curated architecture data for the public dashboard.
 const ARCHITECTURE_DATA = {
     meta: {
-        lastUpdated: "2026-07-28",
+        lastUpdated: "2026-07-29",
         host: "Proxmox VE (192.168.1.10)",
         specs: "Intel Xeon E3-1276 v3 @ 3.60GHz | 32GB DDR3 ECC | ZFS Storage"
     },

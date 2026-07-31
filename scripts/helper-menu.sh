@@ -81,9 +81,9 @@ run_install_storage() {
     mkdir -p /etc/sanoid
     cat > /etc/sanoid/sanoid.conf << EOT
 [template_system]
+hourly = 0
 daily = 7
 monthly = 1
-hourly = 24
 autosnap = yes
 autoprune = yes
 [template_data]
@@ -93,7 +93,7 @@ hourly = 0
 autosnap = yes
 autoprune = yes
 [template_config]
-hourly = 24
+hourly = 0
 daily = 7
 monthly = 1
 autosnap = yes

@@ -8,8 +8,6 @@ set -euo pipefail
 
 # Setup homepage configuration files from repository
 setup_homepage_config() {
-    print_info "Setting up Homepage configuration"
-
     prepare_host_directory /fastpool/config/homepage
     prepare_host_directory /fastpool/config/homepage/assets
 
@@ -27,40 +25,27 @@ setup_homepage_config() {
     install -o 101000 -g 101000 -m 0644 \
         "$WORK_DIR/config/homepage/assets/homepage-background.png" \
         /fastpool/config/homepage/assets/homepage-background.png
-
-    print_success "Homepage configured"
 }
 
 setup_gateway_permissions() {
-    print_info "Preparing Gateway directories"
-
     prepare_host_directory /fastpool/config/npm
     prepare_host_directory /fastpool/config/npm/data
     prepare_host_directory /fastpool/config/npm/letsencrypt
     prepare_host_directory /fastpool/config/adguard
     prepare_host_directory /fastpool/config/adguard/work
     prepare_host_directory /fastpool/config/adguard/conf
-
-    print_success "Gateway directories ready"
 }
 
 setup_desktop_permissions() {
-    print_info "Preparing Desktop directories"
-
     prepare_host_directory /fastpool/config/desktop-workspace
     prepare_host_directory /fastpool/config/desktop-workspace/.config
     prepare_host_directory /fastpool/config/vaultwarden
     prepare_host_directory /fastpool/config/radicale
     prepare_host_directory /fastpool/config/radicale/config
     prepare_host_directory /fastpool/config/radicale/data
-
-    print_success "Desktop directories ready"
-
 }
 
 setup_sshwifty_config() {
-    print_info "Setting up sshwifty configuration"
-
     prepare_host_directory /fastpool/config/sshwifty
 
     # Presets contain host addresses only. Sshwifty asks for SSH credentials at
@@ -69,13 +54,9 @@ setup_sshwifty_config() {
     local dest_file="/fastpool/config/sshwifty/sshwifty.conf.json"
 
     install -o 101000 -g 101000 -m 0644 "$source_template" "$dest_file"
-
-    print_success "sshwifty presets configured for interactive SSH authentication"
 }
 
 setup_hermes_telegram() {
-    print_info "Setting up Hermes Agent Telegram credentials"
-
     prepare_host_directory /fastpool/config/hermes 0700
 
     [[ -f "${ENV_DECRYPTED_PATH:-}" ]] || {
@@ -136,13 +117,9 @@ PYEOF
     chown 101000:101000 "$env_tmp"
     chmod 0600 "$env_tmp"
     mv -f "$env_tmp" /fastpool/config/hermes/.env
-
-    print_success "Hermes Telegram credentials configured"
 }
 
 setup_utility_permissions() {
-    print_info "Preparing Utility directories"
-
     prepare_host_directory /fastpool/config/jdownloader2
     # MeTube persists cookies uploaded through Advanced Options in this directory.
     prepare_host_directory /fastpool/config/metube
@@ -201,30 +178,22 @@ PYEOF
     chown 101000:101000 "$samba_tmp"
     chmod 0600 "$samba_tmp"
     mv -f "$samba_tmp" /fastpool/config/samba/config.yml
-
-    print_success "Utility directories ready"
 }
 
 
 setup_ai_permissions() {
-    print_info "Preparing AI directories"
-
     prepare_host_directory /fastpool/config/agentmemory 0700
     prepare_host_directory /fastpool/config/omniroute
 
     # Keep the working Telegram integration while leaving model/provider
     # configuration to Hermes' first-run wizard and dashboard.
     setup_hermes_telegram
-
-    print_success "AI directories ready"
 }
 
 
 
 # Setup CouchDB directories and configuration
 setup_couchdb_config() {
-    print_info "Setting up CouchDB"
-
     prepare_host_directory /fastpool/config/couchdb
     prepare_host_directory /fastpool/config/couchdb/data
     prepare_host_directory /fastpool/config/couchdb/local.d
@@ -234,14 +203,10 @@ setup_couchdb_config() {
     local dest_file="/fastpool/config/couchdb/local.d/local.ini"
 
     install -o 101000 -g 101000 -m 0644 "$source_file" "$dest_file"
-
-    print_success "CouchDB configured"
 }
 
 # Setup Guacamole configuration from template
 setup_guacamole_config() {
-    print_info "Setting up Guacamole configuration"
-
     if [[ ! -f "${ENV_DECRYPTED_PATH:-}" ]]; then
         print_error "Decrypted environment file not found at ENV_DECRYPTED_PATH"
         exit 1
@@ -334,31 +299,17 @@ PYEOF
     chown 101000:101000 "$guacamole_tmp"
     chmod 0644 "$guacamole_tmp"
     mv -f "$guacamole_tmp" "$dest_file"
-
-    print_success "Guacamole configured"
 }
 
 
 # Prepare each media stack bind root without recursively touching app data.
 setup_media_permissions() {
-    print_info "Preparing Media directories"
-
     local app
     for app in sonarr radarr bazarr jellyfin jellyseerr qbittorrent prowlarr recyclarr cleanuperr; do
         prepare_host_directory "/fastpool/config/$app"
     done
 
-    setup_immich_directories
-    setup_tdarr_directories
-
-    print_success "Media directories ready"
-}
-
-
-# Setup Immich directories with correct ownership
-setup_immich_directories() {
-    print_info "Preparing Immich directories"
-
+    # Immich directories
     prepare_host_directory /datapool/media
     prepare_host_directory /datapool/media/immich
     prepare_host_directory /datapool/media/immich/upload
@@ -371,21 +322,13 @@ setup_immich_directories() {
     prepare_host_directory /fastpool/config/immich/postgres 0700
     prepare_host_directory /fastpool/config/immich/cache
 
-    print_success "Immich configured"
-}
-
-# Setup Tdarr directories
-setup_tdarr_directories() {
-    print_info "Preparing Tdarr directories"
-
+    # Tdarr directories
     prepare_host_directory /fastpool/config/tdarr
     prepare_host_directory /fastpool/config/tdarr/server
     prepare_host_directory /fastpool/config/tdarr/configs
     prepare_host_directory /fastpool/config/tdarr/logs
     prepare_host_directory /datapool/temp
     prepare_host_directory /datapool/temp/tdarr
-
-    print_success "Tdarr configured"
 }
 
 
@@ -423,14 +366,10 @@ setup_docker_compose() {
     local stack_name="$1"
     local ct_id="$2"
     
-    print_info "Setting up Docker Compose for $stack_name"
-    
     # Copy compose file from local workspace
     local source_file="$WORK_DIR/docker/$stack_name/docker-compose.yml"
     
     pct push "$ct_id" "$source_file" "/root/docker-compose.yml"
-    
-    print_success "Docker Compose configured"
 }
 
 # Deploy Docker Compose services. Compose recreates only services whose image or
@@ -444,14 +383,11 @@ deploy_docker_services() {
         wait_flags="--wait --wait-timeout 120"
     fi
 
-    print_info "Deploying services for $stack_name"
     pct exec "$ct_id" -- sh -c \
         "cd /root && docker compose up -d --pull always $wait_flags --remove-orphans" || {
         print_error "Failed to deploy services"
         return 1
     }
-
-    print_success "Services deployed"
 }
 
 
