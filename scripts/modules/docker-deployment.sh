@@ -182,7 +182,6 @@ PYEOF
 
 
 setup_ai_permissions() {
-    prepare_host_directory /fastpool/config/agentmemory 0700
     prepare_host_directory /fastpool/config/omniroute
 
     # Keep the working Telegram integration while leaving model/provider

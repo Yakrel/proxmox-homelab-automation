@@ -116,8 +116,7 @@ const ARCHITECTURE_DATA = {
             specs: { cpu: 4, ram: "4GB" },
             services: [
                 { name: "Hermes Agent", icon: "fa-solid fa-robot", port: "9119", desc: { en: "AI agent dashboard, terminal, and Telegram gateway", tr: "Yapay zeka ajan paneli, terminali ve Telegram geçidi" }, status: "active" },
-                { name: "OmniRoute", icon: "fa-solid fa-route", port: "20128", desc: { en: "API Routing & Mesh", tr: "API Yönlendirme ve Mesh" }, status: "active" },
-                { name: "Agentmemory", icon: "fa-solid fa-brain", port: "3111/3113", desc: { en: "Long-term Memory for Agents", tr: "Ajanlar için Uzun Süreli Hafıza" }, status: "active" }
+                { name: "OmniRoute", icon: "fa-solid fa-route", port: "20128", desc: { en: "API Routing & Mesh", tr: "API Yönlendirme ve Mesh" }, status: "active" }
             ]
         },
         {
@@ -131,7 +130,6 @@ const ARCHITECTURE_DATA = {
                 { name: "Node.js", icon: "fa-brands fa-node-js", port: "Local", desc: { en: "JavaScript Runtime Environment", tr: "JavaScript Çalışma Ortamı" }, status: "active" },
                 { name: "Python", icon: "fa-brands fa-python", port: "Local", desc: { en: "Python Runtime & Pip", tr: "Python Çalışma Ortamı ve Pip" }, status: "active" },
                 { name: "Codex CLI", icon: "fa-solid fa-terminal", port: "Local", desc: { en: "AI Coding Agent CLI", tr: "Yapay Zeka Kodlama Ajanı CLI" }, status: "active" },
-                { name: "Pi Coding Agent", icon: "fa-solid fa-terminal", port: "Local", desc: { en: "AI Coding Agent with Agentmemory", tr: "Agentmemory Entegrasyonlu Yapay Zeka Kodlama Ajanı" }, status: "active" },
                 { name: "Antigravity CLI", icon: "fa-solid fa-rocket", port: "Local", desc: { en: "AI Coding Assistant Tool", tr: "Yapay Zeka Kodlama Yardımcısı" }, status: "active" }
             ]
         }

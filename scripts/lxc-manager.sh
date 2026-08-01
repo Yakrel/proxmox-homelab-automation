@@ -458,42 +458,6 @@ fi
 if [[ "$STACK_NAME" == "dev" ]]; then
     print_info "Reconciling dev CLI applications"
 
-    agentmemory_env_file="${AGENTMEMORY_ENV_FILE:-}"
-    [[ -f "$agentmemory_env_file" ]] || {
-        print_error "Decrypted AI environment is required for the dev stack"
-        exit 1
-    }
-    agentmemory_secret=$(get_env_value "AGENTMEMORY_SECRET" "$agentmemory_env_file")
-    validate_agentmemory_secret_value "$agentmemory_secret" || {
-        print_error "AGENTMEMORY_SECRET must be exactly 64 hexadecimal characters"
-        exit 1
-    }
-
-    agentmemory_secret_file=$(mktemp /tmp/agentmemory-secret.XXXXXX)
-    register_runtime_temp_file "$agentmemory_secret_file"
-    (
-        umask 077
-        printf '%s\n' "$agentmemory_secret" > "$agentmemory_secret_file"
-    )
-    unset agentmemory_secret
-
-    pct exec "$CT_ID" -- mkdir -p \
-        /root/.config/agentmemory \
-        /root/.pi/agent/extensions/agentmemory \
-        /root/.local/bin
-    pct push "$CT_ID" "$WORK_DIR/config/pi/pi-memory" /root/.local/bin/pi-memory
-    pct push "$CT_ID" "$WORK_DIR/config/pi/agentmemory/index.ts" /root/.pi/agent/extensions/agentmemory/index.ts
-    pct push "$CT_ID" "$WORK_DIR/config/pi/agentmemory/client.ts" /root/.pi/agent/extensions/agentmemory/client.ts
-    pct push "$CT_ID" "$WORK_DIR/config/pi/agentmemory/security.ts" /root/.pi/agent/extensions/agentmemory/security.ts
-    pct push "$CT_ID" "$agentmemory_secret_file" /root/.config/agentmemory/secret
-    pct exec "$CT_ID" -- bash -c 'printf "https://memory.byetgin.com\n" > /root/.config/agentmemory/url'
-    pct exec "$CT_ID" -- chmod 0600 /root/.config/agentmemory/secret
-    pct exec "$CT_ID" -- chmod 0644 /root/.pi/agent/extensions/agentmemory/index.ts
-    pct exec "$CT_ID" -- chmod 0644 /root/.pi/agent/extensions/agentmemory/client.ts
-    pct exec "$CT_ID" -- chmod 0644 /root/.pi/agent/extensions/agentmemory/security.ts
-    pct exec "$CT_ID" -- chmod 0755 /root/.local/bin/pi-memory
-    rm -f -- "$agentmemory_secret_file"
-
     # Variables in this single-quoted script expand inside the container.
     # shellcheck disable=SC2016
     pct exec "$CT_ID" -- bash -c '
@@ -502,7 +466,7 @@ set -e
 # pct exec starts a non-login shell, so the root .bashrc is not loaded.
 # Keep user-local and system-local CLI installations visible explicitly.
 export HOME=/root
-export PATH="/root/.local/share/pi-node/current/bin:/root/.local/bin:/usr/local/bin:$PATH"
+export PATH="/root/.local/bin:/usr/local/bin:$PATH"
 
 # Keep code-server current with the other dev applications without repeating
 # repository or base-package provisioning.
@@ -538,16 +502,6 @@ systemctl enable --now code-server@root
 npm install --global @openai/codex
 test -x "$(command -v codex)"
 
-# Pi uses a native Agentmemory extension for automatic recall and capture.
-# Keep the upstream integration current on every dev application reconcile.
-npm install --global --ignore-scripts --min-release-age=0 \
-    --prefix /root/.local/share/pi-runtime --no-fund --no-audit \
-    --loglevel=error --progress=false @earendil-works/pi-coding-agent
-test -x /root/.local/share/pi-runtime/bin/pi
-ln -sfnT /root/.local/share/pi-runtime/bin/pi /usr/local/bin/pi-real
-/usr/local/bin/pi-real install npm:pi-antigravity
-ln -sfnT /root/.local/bin/pi-memory /usr/local/bin/pi
-
 # Install Antigravity directly, without CLI wrappers.
 antigravity_installer=$(mktemp /tmp/antigravity-install.XXXXXX)
 curl -fsSL https://antigravity.google/cli/install.sh -o "$antigravity_installer"
@@ -556,7 +510,7 @@ test -x /root/.local/lib/antigravity/agy
 ln -sfnT /root/.local/lib/antigravity/agy /usr/local/bin/agy
 rm -f "$antigravity_installer"
 
-for command_name in node npm git gh python3 bash nano vim htop agy codex pi code-server; do
+for command_name in node npm git gh python3 bash nano vim htop agy codex code-server; do
     command -v "$command_name" >/dev/null 2>&1 || {
         echo "Missing required dev command: $command_name" >&2
         exit 1
@@ -567,9 +521,6 @@ systemctl is-enabled code-server@root >/dev/null 2>&1
 systemctl is-active code-server@root >/dev/null 2>&1
 test "$(readlink -f "$(command -v codex)")" = "$(npm root -g)/@openai/codex/bin/codex.js"
 test "$(readlink -f "$(command -v agy)")" = /root/.local/lib/antigravity/agy
-test "$(readlink -f "$(command -v pi)")" = /root/.local/bin/pi-memory
-test -s /root/.config/agentmemory/secret
-test -s /root/.config/agentmemory/url
 ! command -v opencode >/dev/null 2>&1
 '
     print_success "Dev CLI applications reconciled"

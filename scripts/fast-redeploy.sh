@@ -49,10 +49,6 @@ decrypt_stack_env() {
         print_error "Encrypted environment schema does not match docker/$stack/.env.example"
         exit 1
     fi
-    if ! validate_stack_env_values "$stack" "$output_file"; then
-        rm -f "$output_file"
-        exit 1
-    fi
 
     ENV_DECRYPTED_PATH="$output_file"
     export ENV_DECRYPTED_PATH ENV_ENC_KEY
@@ -72,11 +68,7 @@ fast_redeploy_stack() {
         fi
 
         print_info "Fast redeploying dev CLI applications"
-        decrypt_stack_env ai
-        AGENTMEMORY_ENV_FILE="$ENV_DECRYPTED_PATH" \
-            bash "$WORK_DIR/scripts/lxc-manager.sh" dev
-        rm -f "$ENV_DECRYPTED_PATH"
-        ENV_DECRYPTED_PATH=""
+        bash "$WORK_DIR/scripts/lxc-manager.sh" dev
         print_success "Fast redeployed: dev"
         return 0
     }
@@ -100,10 +92,6 @@ fast_redeploy_stack() {
 
     decrypt_stack_env "$stack"
 
-    if [[ "$stack" == "ai" ]]; then
-        preflight_agentmemory_client_secret_sync
-    fi
-
     if [[ "$stack" == "desktop" ]]; then
         setup_homepage_proxmox_token "$ENV_DECRYPTED_PATH"
     elif [[ "$stack" == "utility" ]]; then
@@ -117,10 +105,6 @@ fast_redeploy_stack() {
     setup_docker_compose "$stack" "$CT_ID"
 
     deploy_docker_services "$stack" "$CT_ID"
-
-    if [[ "$stack" == "ai" ]]; then
-        sync_agentmemory_client_secret "$ENV_DECRYPTED_PATH"
-    fi
 
     rm -f "$ENV_DECRYPTED_PATH"
     ENV_DECRYPTED_PATH=""
@@ -143,8 +127,14 @@ main() {
         done < <(get_available_stacks "$WORK_DIR/stacks.yaml")
     fi
 
-    ENV_ENC_KEY=$(prompt_env_passphrase)
-    export ENV_ENC_KEY
+    local stack
+    for stack in "${stacks[@]}"; do
+        if [[ "$stack" != "dev" ]]; then
+            ENV_ENC_KEY=$(prompt_env_passphrase)
+            export ENV_ENC_KEY
+            break
+        fi
+    done
 
     for stack in "${stacks[@]}"; do
         fast_redeploy_stack "$stack"

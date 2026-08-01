@@ -62,7 +62,6 @@ This project utilizes custom Docker images that are maintained in separate repos
 | :--- | :--- | :--- |
 | **desktop-workspace** | [Yakrel/docker-desktop-workspace](https://github.com/Yakrel/docker-desktop-workspace) | Multi-app web environment (Brave + Obsidian) |
 | **backrest-rclone** | [Yakrel/docker-backrest-rclone](https://github.com/Yakrel/docker-backrest-rclone) | Backup solution with Oracle VPS and Google Drive sync hooks |
-| **docker-agentmemory** | [Yakrel/docker-agentmemory](https://github.com/Yakrel/docker-agentmemory) | Agentmemory image with the homelab runtime configuration |
 
 **Pipeline Features:**
 - Scheduled weekly rebuilds
@@ -99,12 +98,10 @@ JDownloader 2, Samba, Repackarr, Backrest-Rclone (encrypted repository with Orac
 Homepage, Desktop Workspace, Guacamole, Sshwifty, CouchDB, Vaultwarden, Desktop OTP Gate, Radicale CalDAV
 
 ### **AI & Automation** (LXC 104 - `192.168.1.104`)
-Hermes Agent, OmniRoute, Agentmemory
+Hermes Agent, OmniRoute
 
 ### **Development (Dev)** (LXC 105 - `192.168.1.105`)
-Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, Antigravity CLI, Pi Coding Agent
-
-Only Pi integrates with Agentmemory. Codex CLI and Antigravity CLI (`agy`) remain independently installed without Agentmemory hooks. Pi also installs the `pi-antigravity` provider automatically; complete its Google OAuth flow interactively with `/login antigravity` on first use.
+Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, Antigravity CLI
 
 ---
 
@@ -139,7 +136,7 @@ Only Pi integrates with Agentmemory. Codex CLI and Antigravity CLI (`agy`) remai
 │       ├── docker-deployment.sh
 │       └── backrest-deployment.sh
 ├── docker/                   # Docker Compose stacks
-│   ├── ai/                  # Hermes Agent, OmniRoute, Agentmemory
+│   ├── ai/                  # Hermes Agent and OmniRoute
 │   ├── desktop/             # Dashboard, desktop workspace, guacamole, sshwifty, radicale
 │   ├── dev/                 # Development stack (no compose, managed by LXC manager)
 │   ├── gateway/             # Nginx Proxy Manager, AdGuard, Cloudflared
@@ -148,7 +145,6 @@ Only Pi integrates with Agentmemory. Codex CLI and Antigravity CLI (`agy`) remai
 └── config/                   # Shared configurations
     ├── backrest/            # Backrest config.json template
     ├── homepage/            # Dashboard widgets
-    ├── pi/                  # Pi CLI wrapper and native Agentmemory lifecycle extension
     ├── samba/               # Samba share template config
     ├── sshwifty/            # sshwifty profile template config
     ├── couchdb/             # CouchDB local.ini configuration

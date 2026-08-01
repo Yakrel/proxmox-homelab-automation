@@ -79,10 +79,6 @@ decrypt_env_for_deploy() {
         rm -f "$ENV_DECRYPTED_PATH"
         exit 1
     fi
-    if ! validate_stack_env_values "$stack" "$ENV_DECRYPTED_PATH"; then
-        rm -f "$ENV_DECRYPTED_PATH"
-        exit 1
-    fi
 }
 
 # Prepare host environment
@@ -96,8 +92,7 @@ prepare_host() {
 # Create or verify LXC container
 create_lxc() {
     # Use lxc-manager.sh to create and configure the container
-    AGENTMEMORY_ENV_FILE="$ENV_DECRYPTED_PATH" \
-        bash "$WORK_DIR/scripts/lxc-manager.sh" "$STACK_NAME" || { print_error "LXC setup failed"; exit 1; }
+    bash "$WORK_DIR/scripts/lxc-manager.sh" "$STACK_NAME" || { print_error "LXC setup failed"; exit 1; }
 }
 
 # Configure environment file for standard Docker stacks
@@ -118,16 +113,8 @@ prepare_host
 get_stack_config "$STACK_NAME"
 
 # Step 2: Environment setup
-if [[ "$STACK_NAME" == "dev" ]]; then
-    # Pi uses the Agentmemory secret from the AI stack. Keep one
-    # encrypted source of truth instead of duplicating the secret.
-    decrypt_env_for_deploy "ai"
-else
+if [[ "$STACK_NAME" != "dev" ]]; then
     decrypt_env_for_deploy "$STACK_NAME"
-fi
-
-if [[ "$STACK_NAME" == "ai" ]]; then
-    preflight_agentmemory_client_secret_sync
 fi
 
 # Step 3: Create LXC container
@@ -146,9 +133,6 @@ esac
 if [[ "$STACK_NAME" != "dev" ]]; then
     configure_env
     deploy_docker_stack "$STACK_NAME" "$CT_ID"
-    if [[ "$STACK_NAME" == "ai" ]]; then
-        sync_agentmemory_client_secret "$ENV_DECRYPTED_PATH"
-    fi
 fi
 
 if [[ "$STACK_NAME" == "gateway" ]]; then
