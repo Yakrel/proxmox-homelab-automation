@@ -444,7 +444,6 @@ services:
       - /fastpool/config/tdarr/configs:/app/configs
       - /fastpool/config/tdarr/logs:/app/logs
       - /datapool/media:/media
-      - /datapool/temp/tdarr:/temp
     runtime: nvidia
     deploy:
       resources:

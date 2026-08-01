@@ -16,6 +16,88 @@ get_stack_config "$STACK_NAME"
 
 LXC_RESTART_REQUIRED=false
 
+reconcile_stack_firewall() {
+    local firewall_path="/etc/pve/firewall/${CT_ID}.fw"
+    local firewall_tmp current_net desired_net
+
+    case "$STACK_NAME" in
+        dev|desktop|ai) ;;
+        *) return 0 ;;
+    esac
+
+    firewall_tmp=$(mktemp "/tmp/${STACK_NAME}-firewall.XXXXXX")
+    register_runtime_temp_file "$firewall_tmp"
+    cat > "$firewall_tmp" <<'EOF'
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+
+[RULES]
+EOF
+
+    case "$STACK_NAME" in
+        dev)
+            cat >> "$firewall_tmp" <<'EOF'
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 8680
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 8680
+EOF
+            ;;
+        desktop)
+            cat >> "$firewall_tmp" <<'EOF'
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 3000
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 5800
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 8080
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 7079
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 5984
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 8201
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 7681
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 5232
+EOF
+            ;;
+        ai)
+            cat >> "$firewall_tmp" <<'EOF'
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 9119
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 20128
+EOF
+            ;;
+    esac
+
+    if [[ ! -f "$firewall_path" ]] || ! cmp -s "$firewall_tmp" "$firewall_path"; then
+        print_info "Reconciling firewall rules for $STACK_NAME LXC $CT_ID"
+        cat "$firewall_tmp" > "$firewall_path"
+    fi
+
+    current_net=$(pct config "$CT_ID" | awk -F': ' '$1 == "net0" {print $2; exit}')
+    [[ -n "$current_net" ]] || { print_error "LXC $CT_ID has no net0 configuration"; exit 1; }
+    if [[ "$current_net" == *"firewall="* ]]; then
+        desired_net=$(sed -E 's/(^|,)firewall=[^,]*/\1firewall=1/' <<< "$current_net")
+    else
+        desired_net="${current_net},firewall=1"
+    fi
+    if [[ "$current_net" != "$desired_net" ]]; then
+        pct set "$CT_ID" --net0 "$desired_net"
+    fi
+
+    # Guest firewall rules are enforced only while the Datacenter firewall is
+    # enabled. Node firewalling remains independently disabled unless it is
+    # explicitly configured by the operator, so this does not filter host SSH
+    # or the Proxmox web interface.
+    pvesh set /cluster/firewall/options --enable 1
+}
+
+reconcile_dev_features() {
+    [[ "$STACK_NAME" == "dev" ]] || return 0
+
+    local current_features
+    current_features=$(pct config "$CT_ID" | awk -F': ' '$1 == "features" {print $2; exit}')
+    if [[ "$current_features" != "nesting=1" ]]; then
+        print_info "Reconciling systemd nesting for Dev LXC $CT_ID"
+        pct set "$CT_ID" --features nesting=1
+        LXC_RESTART_REQUIRED=true
+    fi
+}
+
 reconcile_lxc_mount() {
     local mount_key="$1"
     local source_path="$2"
@@ -136,13 +218,21 @@ fi
 # Create container only if it doesn't exist
 if [[ "$SKIP_CREATION" == "false" ]]; then
     print_info "Creating container $CT_ID ($CT_HOSTNAME)"
+    create_feature_args=()
+    if [[ "$STACK_NAME" == "dev" ]]; then
+        # Debian 13 systemd requires nesting for service isolation. Dev does
+        # not run Docker, so keyctl remains disabled.
+        create_feature_args=(--features nesting=1)
+    else
+        create_feature_args=(--features keyctl=1,nesting=1)
+    fi
     pct create "$CT_ID" "${TEMPLATE_POOL}:vztmpl/${LATEST_TEMPLATE}" \
         --hostname "$CT_HOSTNAME" \
         --storage "$STORAGE_POOL" \
         --cores "$CT_CPU_CORES" \
         --memory "$CT_MEMORY_MB" \
         --swap 0 \
-        --features keyctl=1,nesting=1 \
+        "${create_feature_args[@]}" \
         --cmode shell \
         --net0 name=eth0,bridge="$NETWORK_BRIDGE",ip="$CT_IP"/24,gw="$NETWORK_GATEWAY" \
         --onboot 1 \
@@ -154,6 +244,8 @@ fi
 # opens a root shell directly and avoids distribution-specific getty handling.
 # Reconcile it for existing containers as well as setting it at creation time.
 pct set "$CT_ID" --cmode shell
+reconcile_dev_features
+reconcile_stack_firewall
 
 # Limit every LXC to the shared paths used by its stack. In particular, never
 # expose the fastpool root because it also contains the other LXC root filesystems.
@@ -226,6 +318,8 @@ if [[ "$STACK_NAME" == "dev" ]]; then
     prepare_host_directory /fastpool/config/code-server
     prepare_host_directory /fastpool/config/code-server/config
     prepare_host_directory /fastpool/config/code-server/data
+    prepare_host_directory /fastpool/config/dev 0700
+    prepare_host_directory /fastpool/config/dev/workspace 0700
 fi
 
 # OS provisioning is an initial-build operation. Existing containers are
@@ -279,11 +373,12 @@ EOS
     if [ \"\$STACK_NAME\" = 'dev' ]; then
         nodesource_installer=\$(mktemp /tmp/nodesource-setup.XXXXXX)
         trap 'rm -f \"\$nodesource_installer\"' EXIT
-        curl -fsSL https://deb.nodesource.com/setup_22.x -o \"\$nodesource_installer\"
+        curl -fsSL https://deb.nodesource.com/setup_lts.x -o \"\$nodesource_installer\"
         bash \"\$nodesource_installer\"
         rm -f \"\$nodesource_installer\"
         trap - EXIT
         apt-get install -y -qq nodejs git python3 python3-pip bash nano vim htop
+        node -e 'if (!process.release.lts) process.exit(1)'
 
         # Configure the official GitHub CLI repository during initial OS provisioning.
         install -m 0755 -d /etc/apt/keyrings
@@ -324,29 +419,6 @@ export HISTCONTROL=ignoreboth
 export HISTIGNORE='*KEY=*'
 HIST_EOF
         fi
-
-        # Security boundary: code-server intentionally relies on the desktop-otp
-        # SNO TOTP auth_request gate at its NPM proxy host; the three-attempt
-        # limit is configured in docker/desktop/docker-compose.yml. NPM and PVE
-        # firewall rules are live state, so block untrusted direct access to 8680.
-        # The application package itself is reconciled after OS provisioning.
-        # Persist config and data (extensions/user-data) to fastpool
-        mkdir -p /fastpool/config/code-server/config
-        mkdir -p /fastpool/config/code-server/data
-        
-        mkdir -p /root/.config
-        mkdir -p /root/.local/share
-
-        # A regular directory here is unexpected; ln fails instead of deleting it.
-        ln -sfnT /fastpool/config/code-server/config /root/.config/code-server
-        ln -sfnT /fastpool/config/code-server/data /root/.local/share/code-server
-
-        # Write config file through the persistent symlink.
-        cat > /root/.config/code-server/config.yaml << 'EOFCS'
-bind-addr: 0.0.0.0:8680
-auth: none
-cert: false
-EOFCS
 
     else
         # GPU stacks (media, desktop): Docker + NVIDIA
@@ -468,6 +540,22 @@ set -e
 export HOME=/root
 export PATH="/root/.local/bin:/usr/local/bin:$PATH"
 
+# Keep Code-Server settings, user data, and the development workspace on
+# fastpool. A regular directory at any link target is unexpected and causes the
+# reconcile to fail instead of deleting or migrating user data.
+mkdir -p /root/.config /root/.local/share
+ln -sfnT /fastpool/config/code-server/config /root/.config/code-server
+ln -sfnT /fastpool/config/code-server/data /root/.local/share/code-server
+ln -sfnT /fastpool/config/dev/workspace /root/workspace
+
+# Code-Server authentication is delegated to the SNO OTP gate at its NPM proxy
+# host. The Dev LXC firewall admits port 8680 only from NPM and Homepage.
+cat > /root/.config/code-server/config.yaml <<'EOFCS'
+bind-addr: 0.0.0.0:8680
+auth: none
+cert: false
+EOFCS
+
 # Keep code-server current with the other dev applications without repeating
 # repository or base-package provisioning.
 CODE_SERVER_URL=$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)
@@ -496,11 +584,20 @@ if [ "$CURRENT_CODE_SERVER_VERSION" != "$CODE_SERVER_VERSION" ]; then
     rm -f "$code_server_package"
     trap - EXIT
 fi
-systemctl enable --now code-server@root
+systemctl enable code-server@root
+systemctl restart code-server@root
 
-# npm is already part of the provisioned dev environment.
-npm install --global @openai/codex
-test -x "$(command -v codex)"
+# Install or update Codex with the official standalone installer. The installer
+# verifies the downloaded release against OpenAI-published SHA-256 metadata.
+codex_installer=$(mktemp /tmp/codex-install.XXXXXX)
+cleanup_codex_installer() { rm -f "$codex_installer"; }
+trap cleanup_codex_installer EXIT
+curl -fsSL https://chatgpt.com/codex/install.sh -o "$codex_installer"
+CODEX_NON_INTERACTIVE=1 bash "$codex_installer"
+rm -f "$codex_installer"
+trap - EXIT
+test "$(command -v codex)" = /root/.local/bin/codex
+codex --version
 
 # Install Antigravity directly, without CLI wrappers.
 antigravity_installer=$(mktemp /tmp/antigravity-install.XXXXXX)
@@ -519,7 +616,7 @@ done
 
 systemctl is-enabled code-server@root >/dev/null 2>&1
 systemctl is-active code-server@root >/dev/null 2>&1
-test "$(readlink -f "$(command -v codex)")" = "$(npm root -g)/@openai/codex/bin/codex.js"
+test "$(command -v codex)" = /root/.local/bin/codex
 test "$(readlink -f "$(command -v agy)")" = /root/.local/lib/antigravity/agy
 ! command -v opencode >/dev/null 2>&1
 '
