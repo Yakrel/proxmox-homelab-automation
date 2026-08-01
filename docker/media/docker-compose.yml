@@ -16,7 +16,7 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
       - /fastpool/config/sonarr:/config
-      - /datapool:/datapool
+      - /datapool/media:/data
     ports:
       - "8989:8989"
     networks:
@@ -41,7 +41,7 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
       - /fastpool/config/radarr:/config
-      - /datapool:/datapool
+      - /datapool/media:/data
     ports:
       - "7878:7878"
     healthcheck:
@@ -72,7 +72,7 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
       - /fastpool/config/bazarr:/config
-      - /datapool:/datapool
+      - /datapool/media/library:/data/library
     ports:
       - "6767:6767"
     healthcheck:
@@ -106,7 +106,8 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
       - /fastpool/config/jellyfin:/config
-      - /datapool:/datapool
+      - /datapool/media/library:/data/library:ro
+      - /datapool/downloads/metube:/data/youtube:ro
     runtime: nvidia
     deploy:
       resources:
@@ -177,7 +178,7 @@ services:
       - WEBUI_PORT=8080
     volumes:
       - /fastpool/config/qbittorrent:/config
-      - /datapool:/datapool
+      - /datapool/media/torrents:/data/torrents
     ports:
       - "8080:8080"
       - "6881:6881"
@@ -229,21 +230,6 @@ services:
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
 
-  tor-proxy:
-    image: peterdavehello/tor-socks-proxy:latest
-    container_name: tor-proxy
-    restart: unless-stopped
-    healthcheck:
-      disable: true
-    networks:
-      - media-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
 
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
@@ -252,8 +238,8 @@ services:
       - LOG_LEVEL=info
       - LOG_HTML=false
       - TZ=${TZ:-Europe/Istanbul}
-      # Route FlareSolverr traffic through Tor Proxy to bypass ISP blocks.
-      - PROXY_URL=socks5://tor-proxy:9150
+      # Keep browser traffic direct; public proxy exits are commonly blocked
+      # by Cloudflare.
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8191/health"]
       interval: 30s
@@ -301,7 +287,7 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
     volumes:
-      - ${UPLOAD_LOCATION}:/data
+      - /datapool/photos/immich:/data
       - /etc/localtime:/etc/localtime:ro
     runtime: nvidia
     deploy:
@@ -443,7 +429,7 @@ services:
       - /fastpool/config/tdarr/server:/app/server
       - /fastpool/config/tdarr/configs:/app/configs
       - /fastpool/config/tdarr/logs:/app/logs
-      - /datapool/media:/media
+      - /datapool/media/library:/data/library
     runtime: nvidia
     deploy:
       resources:
@@ -472,7 +458,7 @@ services:
       - BASE_PATH=
     volumes:
       - /fastpool/config/cleanuperr:/config
-      - /datapool:/datapool
+      - /datapool/media:/data
     ports:
       - "11011:11011"
     healthcheck:

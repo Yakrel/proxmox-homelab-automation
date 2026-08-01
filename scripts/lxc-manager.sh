@@ -8,6 +8,7 @@ STACK_NAME=$1
 WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 
 # --- Load Shared Functions ---
+# shellcheck source=scripts/helper-functions.sh
 source "$WORK_DIR/scripts/helper-functions.sh"
 trap cleanup_runtime_temp_files EXIT
 
@@ -224,7 +225,7 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
         # not run Docker, so keyctl remains disabled.
         create_feature_args=(--features nesting=1)
     else
-        create_feature_args=(--features keyctl=1,nesting=1)
+        create_feature_args=(--features "keyctl=1,nesting=1")
     fi
     pct create "$CT_ID" "${TEMPLATE_POOL}:vztmpl/${LATEST_TEMPLATE}" \
         --hostname "$CT_HOSTNAME" \
@@ -377,7 +378,7 @@ EOS
         bash \"\$nodesource_installer\"
         rm -f \"\$nodesource_installer\"
         trap - EXIT
-        apt-get install -y -qq nodejs git python3 python3-pip bash nano vim htop
+        apt-get install -y -qq nodejs git python3 python3-pip python3-yaml bash nano vim htop shellcheck yq
         node -e 'if (!process.release.lts) process.exit(1)'
 
         # Configure the official GitHub CLI repository during initial OS provisioning.
@@ -517,6 +518,8 @@ fi
 # Alpine defaults to BusyBox ash with a minimal "/ #" prompt, so use the Bash
 # package already provisioned above and match Debian's informative root prompt.
 if [[ "$STACK_NAME" != "media" && "$STACK_NAME" != "desktop" && "$STACK_NAME" != "dev" ]]; then
+    # Variables in this single-quoted script expand inside the container.
+    # shellcheck disable=SC2016
     pct exec "$CT_ID" -- sh -c '
 set -e
 sed -i "/^root:/ s|:[^:]*$|:/bin/bash|" /etc/passwd
@@ -525,13 +528,24 @@ printf "PS1=%s%s%s\n" "$quote" "\\u@\\h:\\w\\\$ " "$quote" > /root/.bashrc
 '
 fi
 
+# Proxmox shell mode starts interactive shells in /. Keep other working
+# directories unchanged while making a newly opened console start in /root.
+# Variables in this single-quoted script expand inside the container.
+# shellcheck disable=SC2016
+pct exec "$CT_ID" -- sh -c '
+set -e
+start_dir_line="[ \"\$PWD\" != / ] || cd /root"
+grep -qxF "$start_dir_line" /root/.bashrc ||
+    printf "%s\n" "$start_dir_line" >> /root/.bashrc
+'
+
 # Dev CLI applications are application state, so reconcile them on both initial
 # provisioning and selected-stack redeploys without repeating OS provisioning.
 if [[ "$STACK_NAME" == "dev" ]]; then
     print_info "Reconciling dev CLI applications"
 
     # Variables in this single-quoted script expand inside the container.
-    # shellcheck disable=SC2016
+    # shellcheck disable=SC2016,SC2026
     pct exec "$CT_ID" -- bash -c '
 set -e
 
@@ -607,12 +621,13 @@ test -x /root/.local/lib/antigravity/agy
 ln -sfnT /root/.local/lib/antigravity/agy /usr/local/bin/agy
 rm -f "$antigravity_installer"
 
-for command_name in node npm git gh python3 bash nano vim htop agy codex code-server; do
+for command_name in node npm git gh python3 bash nano vim htop shellcheck yq agy codex code-server; do
     command -v "$command_name" >/dev/null 2>&1 || {
         echo "Missing required dev command: $command_name" >&2
         exit 1
     }
 done
+python3 -c "import yaml"
 
 systemctl is-enabled code-server@root >/dev/null 2>&1
 systemctl is-active code-server@root >/dev/null 2>&1
