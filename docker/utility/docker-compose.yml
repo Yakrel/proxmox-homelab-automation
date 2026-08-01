@@ -19,7 +19,7 @@ services:
       - JD_DEVICENAME=${MYJD_DEVICE_NAME:-homelab-jdownloader}
     volumes:
       - /fastpool/config/jdownloader2:/jdownloader/cfg
-      - /datapool/downloads:/jdownloader/downloads
+      - /datapool/downloads/jdownloader:/jdownloader/downloads
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f JDownloader || exit 1"]
       interval: 30s
@@ -112,7 +112,7 @@ services:
       - /fastpool/config/backrest/cache:/cache
       - /datapool/backup:/repos
       - /fastpool/config:/backup-sources/config:ro
-      - /datapool/media/immich:/backup-sources/immich:ro
+      - /datapool/photos/immich:/backup-sources/immich:ro
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - BACKREST_CONFIG=/config/config.json
@@ -150,7 +150,7 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
     volumes:
       - /fastpool/config/metube:/config
-      - /datapool/media/kids/youtube:/downloads
+      - /datapool/downloads/metube:/downloads
     ports:
       - "8081:8081"
     healthcheck:

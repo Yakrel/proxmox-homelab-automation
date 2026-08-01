@@ -132,9 +132,8 @@ setup_utility_permissions() {
     prepare_host_directory /fastpool/config/karakeep/data
     prepare_host_directory /fastpool/config/karakeep/meilisearch
     prepare_host_directory /datapool/downloads
-    prepare_host_directory /datapool/media
-    prepare_host_directory /datapool/media/kids
-    prepare_host_directory /datapool/media/kids/youtube
+    prepare_host_directory /datapool/downloads/jdownloader
+    prepare_host_directory /datapool/downloads/metube
 
     [[ -f "${ENV_DECRYPTED_PATH:-}" ]] || {
         print_error "Decrypted environment file not found"
@@ -308,15 +307,34 @@ setup_media_permissions() {
         prepare_host_directory "/fastpool/config/$app"
     done
 
-    # Immich directories
+    # Servarr and qBittorrent share one filesystem root for hardlinks.
     prepare_host_directory /datapool/media
-    prepare_host_directory /datapool/media/immich
-    prepare_host_directory /datapool/media/immich/upload
-    prepare_host_directory /datapool/media/immich/library
-    prepare_host_directory /datapool/media/immich/thumbs
-    prepare_host_directory /datapool/media/immich/profile
-    prepare_host_directory /datapool/media/immich/backups
-    prepare_host_directory /datapool/media/immich/encoded-video
+    prepare_host_directory /datapool/media/torrents
+    prepare_host_directory /datapool/media/torrents/complete
+    prepare_host_directory /datapool/media/torrents/incomplete
+    prepare_host_directory /datapool/media/torrents/movies
+    prepare_host_directory /datapool/media/torrents/tv
+    prepare_host_directory /datapool/media/torrents/games
+    prepare_host_directory /datapool/media/torrents/other
+    prepare_host_directory /datapool/media/torrents/kids
+    prepare_host_directory /datapool/media/torrents/kids/movies
+    prepare_host_directory /datapool/media/torrents/kids/tv
+    prepare_host_directory /datapool/media/library
+    prepare_host_directory /datapool/media/library/movies
+    prepare_host_directory /datapool/media/library/tv
+    prepare_host_directory /datapool/media/library/kids
+    prepare_host_directory /datapool/media/library/kids/movies
+    prepare_host_directory /datapool/media/library/kids/tv
+
+    # Immich directories
+    prepare_host_directory /datapool/photos
+    prepare_host_directory /datapool/photos/immich
+    prepare_host_directory /datapool/photos/immich/upload
+    prepare_host_directory /datapool/photos/immich/library
+    prepare_host_directory /datapool/photos/immich/thumbs
+    prepare_host_directory /datapool/photos/immich/profile
+    prepare_host_directory /datapool/photos/immich/backups
+    prepare_host_directory /datapool/photos/immich/encoded-video
     prepare_host_directory /fastpool/config/immich
     prepare_host_directory /fastpool/config/immich/postgres 0700
     prepare_host_directory /fastpool/config/immich/cache
@@ -326,7 +344,7 @@ setup_media_permissions() {
     prepare_host_directory /fastpool/config/tdarr/server
     prepare_host_directory /fastpool/config/tdarr/configs
     prepare_host_directory /fastpool/config/tdarr/logs
-    prepare_host_directory /datapool/media/.tdarr-cache
+    prepare_host_directory /datapool/media/library/.tdarr-cache
 }
 
 
