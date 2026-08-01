@@ -5,64 +5,6 @@ networks:
     driver: bridge
 
 services:
-  agentmemory:
-    image: ghcr.io/yakrel/docker-agentmemory:latest
-    container_name: agentmemory
-    restart: unless-stopped
-    depends_on:
-      omniroute:
-        condition: service_started
-    ports:
-      - "192.168.1.104:3111:3111"
-      - "192.168.1.104:3113:3113"
-    volumes:
-      - /fastpool/config/agentmemory:/data
-    environment:
-      - OPENAI_API_KEY=${AGENTMEMORY_OPENAI_API_KEY}
-      - OPENAI_BASE_URL=${AGENTMEMORY_OPENAI_BASE_URL}
-      - OPENAI_MODEL=${AGENTMEMORY_OPENAI_MODEL}
-      - EMBEDDING_PROVIDER=local
-      - AGENTMEMORY_SECRET=${AGENTMEMORY_SECRET:?AGENTMEMORY_SECRET is required}
-      - AGENT_ID=pi
-      # Each captured substantive Pi run writes one settled observation. LLM
-      # compression gives it meaningful type/concepts/importance so the
-      # low-value auto-forget branch can apply after 180 days.
-      - AGENTMEMORY_AUTO_COMPRESS=true
-      # Pi performs its own scoped REST recall. Native hook injection, global
-      # slots/reflection, and unscoped semantic consolidation are not consumed.
-      - AGENTMEMORY_INJECT_CONTEXT=false
-      - CONSOLIDATION_ENABLED=false
-      # Keep graph extraction disabled: Agentmemory 0.9.28 graph rows are not
-      # project-scoped and are not cascaded when auto-forget removes observations.
-      - GRAPH_EXTRACTION_ENABLED=false
-      # Extraction=false does not disable graph-assisted HybridSearch. A zero
-      # weight prevents any legacy global graph rows from affecting ranking.
-      - AGENTMEMORY_GRAPH_WEIGHT=0
-      - AGENTMEMORY_SLOTS=false
-      - AGENTMEMORY_REFLECT=false
-      - AGENTMEMORY_TOOLS=core
-      - AUTO_FORGET_ENABLED=true
-      - LESSON_DECAY_ENABLED=true
-      - INSIGHT_DECAY_ENABLED=true
-      - AGENTMEMORY_VIEWER_HOST=0.0.0.0
-      - VIEWER_ALLOWED_HOSTS=192.168.1.104:3113,memory.byetgin.com
-      - VIEWER_ALLOWED_ORIGINS=http://192.168.1.104:3113,https://memory.byetgin.com
-    networks:
-      - ai-net
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3111/agentmemory/health',{headers:{authorization:'Bearer '+process.env.AGENTMEMORY_SECRET}}).then(async r=>{if(!r.ok)process.exit(1);const b=await r.json();if((b.status||b.health?.status)!=='healthy')process.exit(1)}).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 5s
-      start_period: 30s
-      retries: 3
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
-
   hermes:
     image: nousresearch/hermes-agent:latest
     container_name: hermes

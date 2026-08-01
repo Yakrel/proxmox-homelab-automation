@@ -28,6 +28,7 @@ Shell-based automation for deploying containerized services in LXC containers on
 
 ## Technical & Git Guidelines
 
+- **Commit Approval**: Always obtain explicit user approval immediately before creating a Git commit. Never commit changes unless the user has approved that specific commit after reviewing the completed work.
 - **Encryption & Secrets**: Use `openssl` AES-256-CBC with `-pbkdf2 -iter 600000 -md sha256 -salt` for repository-managed encrypted files. The encryption passphrase is available in the `KEY` environment variable. Always pass it to OpenSSL via `-pass env:KEY` — never via command argument, stdin pipe, or any other method. **Agents must never read, echo, print, log, or inspect the value of `KEY`.** Only reference it by name in `-pass env:KEY`. Do not store, copy, or reproduce the key contents in prompts, tool output, temporary files, shell history, or agent memory. If `KEY` is not set in the environment, ask the user to set it — do not create placeholders or attempt to read it from any file. Commit only `.env.enc` files, never plain `.env`. Do not store the key on disk anywhere in the repository.
 - **Documentation**: Keep project documentation in `README.md` or inline comments. Reserve `AGENTS.md` and `CLAUDE.md` for agent instructions. Do not create separate validation or health-check scripts.
 - **Git Commit Info**: Always use these configurations before committing:

@@ -51,8 +51,7 @@ jobs:
           set -euo pipefail
           mapfile -d '' shell_files < <(git ls-files -z '*.sh')
           bash -n "${shell_files[@]}"
-          sh -n config/pi/pi-memory
-          shellcheck -x -S warning "${shell_files[@]}" config/pi/pi-memory
+          shellcheck -x -S warning "${shell_files[@]}"
 
       - name: Validate YAML, JSON, and XML
         run: |
@@ -261,57 +260,6 @@ jobs:
               (cd "docker/$stack" && docker compose config --quiet)
               rm -f "docker/$stack/.env"
           done
-
-      - name: Validate Agentmemory TypeScript bundle
-        shell: bash
-        run: |
-          set -euo pipefail
-          contract_dir=$(mktemp -d /tmp/agentmemory-contract.XXXXXX)
-          test ! -e node_modules
-          trap 'unlink node_modules 2>/dev/null || true; rm -rf "$contract_dir"' EXIT
-          npm install \
-            --prefix "$contract_dir" \
-            --ignore-scripts \
-            --no-audit \
-            --no-fund \
-            --no-save \
-            --package-lock=false \
-            @earendil-works/pi-coding-agent@latest \
-            @types/node@24 \
-            esbuild@0.25.8 \
-            typebox@latest \
-            typescript@5.9.3
-          ln -s "$contract_dir/node_modules" node_modules
-
-          "$contract_dir/node_modules/.bin/tsc" \
-            --noEmit \
-            --strict \
-            --skipLibCheck \
-            --module NodeNext \
-            --moduleResolution NodeNext \
-            --target ES2024 \
-            --lib ES2024,DOM \
-            --types node \
-            config/pi/agentmemory/client.ts \
-            config/pi/agentmemory/index.ts \
-            config/pi/agentmemory/security.ts
-
-          "$contract_dir/node_modules/.bin/esbuild" config/pi/agentmemory/index.ts \
-            --bundle \
-            --platform=node \
-            --format=esm \
-            --external:@earendil-works/pi-coding-agent \
-            --outfile=/tmp/agentmemory-extension.mjs
-          node --check /tmp/agentmemory-extension.mjs
-          "$contract_dir/node_modules/.bin/esbuild" config/pi/agentmemory/client.ts \
-            --bundle \
-            --platform=node \
-            --format=esm \
-            --outfile=/tmp/agentmemory-client.mjs
-          AGENTMEMORY_CLIENT_BUNDLE=/tmp/agentmemory-client.mjs \
-            node --test config/pi/agentmemory/client.test.mjs
-          AGENTMEMORY_EXTENSION_BUNDLE=/tmp/agentmemory-extension.mjs \
-            node --test config/pi/agentmemory/extension.test.mjs
 
       - name: Validate dashboard JavaScript
         shell: bash
