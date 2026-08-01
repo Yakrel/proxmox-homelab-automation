@@ -55,6 +55,13 @@ A robust dual-path architecture ensuring reliable access even in restrictive net
 - **Tailscale Subnet Router**: Runs directly on the Proxmox host and advertises the `192.168.1.0/24` route to authenticated devices.
 - **Cloudflare Tunnel**: Dedicated purely to serving web applications via public domains, protected by Zero Trust policies.
 
+#### **Defense-in-Depth Boundary**
+- **No WAN Port Forwarding**: The router exposes no inbound ports; published web traffic reaches the homelab only through Cloudflare Tunnel.
+- **Layered Web Authentication**: Cloudflare Access protects `*.byetgin.com`. Sensitive administrative routes such as the remote Desktop, Code-Server, and recovery terminal also pass through the NPM OTP gate, whose HTTPS-only authenticated cookies expire after one hour.
+- **Split DNS**: AdGuard rewrites local `*.byetgin.com` queries to Nginx Proxy Manager at `192.168.1.100`, keeping the same domain-based access paths on the LAN.
+- **Recovery Path**: The OTP-protected `terminal.byetgin.com` route is the fallback when the Desktop LXC is unavailable. It is used to reach Proxmox and recover services with tools such as `pct enter`; direct terminal SSH access to the Dev LXC is not required.
+- **Privileged Browser Boundary**: The authenticated remote Desktop browser is intentionally trusted to reach internal administration surfaces and stored user sessions. Its Cloudflare Access and NPM OTP layers are therefore critical security controls.
+
 ### **Maintained Custom Docker Images**
 This project utilizes custom Docker images that are maintained in separate repositories and built via automated CI/CD pipelines on GitHub Actions.
 
@@ -97,11 +104,17 @@ JDownloader 2, Samba, Repackarr, Backrest-Rclone (encrypted repository with Orac
 ### **Desktop Workspace** (LXC 103 - `192.168.1.103`)
 Homepage, Desktop Workspace, Guacamole, Sshwifty, CouchDB, Vaultwarden, Desktop OTP Gate, Radicale CalDAV
 
+The LXC firewall accepts published application traffic only from Nginx Proxy Manager. This keeps the OTP-protected remote browser and the other Desktop services reachable through their domain routes without exposing their direct ports to the LAN.
+
 ### **AI & Automation** (LXC 104 - `192.168.1.104`)
 Hermes Agent, OmniRoute
 
+The LXC firewall accepts the Hermes and OmniRoute application ports only from Nginx Proxy Manager. Outbound agent access remains allowed.
+
 ### **Development (Dev)** (LXC 105 - `192.168.1.105`)
 Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, Antigravity CLI
+
+Code-Server is reachable through the OTP-protected Nginx Proxy Manager route; provisioning enables the Datacenter firewall while leaving node firewalling unchanged, and the LXC firewall permits direct port `8680` traffic only from NPM and the Homepage health monitor. Dev enables LXC nesting for Debian 13 systemd service isolation but leaves Docker-specific keyctl disabled. Code-Server settings and extensions persist under `/fastpool/config/code-server`, while `/root/workspace` persists under `/fastpool/config/dev/workspace`. CLI authentication state remains disposable with the Dev LXC.
 
 ---
 

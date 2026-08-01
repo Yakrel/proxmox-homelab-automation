@@ -326,8 +326,7 @@ setup_media_permissions() {
     prepare_host_directory /fastpool/config/tdarr/server
     prepare_host_directory /fastpool/config/tdarr/configs
     prepare_host_directory /fastpool/config/tdarr/logs
-    prepare_host_directory /datapool/temp
-    prepare_host_directory /datapool/temp/tdarr
+    prepare_host_directory /datapool/media/.tdarr-cache
 }
 
 
