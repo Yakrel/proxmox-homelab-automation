@@ -112,6 +112,12 @@
           type: prowlarr
           url: http://192.168.1.101:9696
           key: "{{HOMEPAGE_VAR_PROWLARR_API_KEY}}"
+
+    - Profilarr:
+        description: Radarr and Sonarr profile management
+        href: https://profilarr.byetgin.com
+        icon: profilarr.png
+        siteMonitor: http://192.168.1.101:6868
     
     - Bazarr:
         description: Subtitle management

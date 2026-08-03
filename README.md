@@ -96,7 +96,7 @@ This project utilizes custom Docker images that are maintained in separate repos
 Nginx Proxy Manager, AdGuard Home, Cloudflared
 
 ### **Media Automation** (LXC 101 - `192.168.1.101`)
-Jellyfin, Immich, Sonarr, Radarr, Bazarr, Seerr, Prowlarr, qBittorrent, FlareSolverr, Tor Proxy, Recyclarr, Tdarr, Cleanuperr
+Jellyfin, Immich, Sonarr, Radarr, Bazarr, Seerr, Prowlarr, qBittorrent, FlareSolverr, Tor Proxy, Profilarr, Tdarr, Cleanuperr
 
 ### **Utility & Backup** (LXC 102 - `192.168.1.102`)
 JDownloader 2, Samba, Repackarr, Backrest-Rclone (encrypted repository with Oracle VPS and Google Drive mirrors), MeTube, Changedetection.io, Karakeep

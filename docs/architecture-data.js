@@ -69,7 +69,7 @@ const ARCHITECTURE_DATA = {
                 { name: "qBittorrent", icon: "fa-solid fa-download", port: "8080", desc: { en: "Torrent Client", tr: "Torrent İstemcisi" }, status: "active" },
                 { name: "FlareSolverr", icon: "fa-solid fa-wand-magic-sparkles", port: "Internal", desc: { en: "Cloudflare challenge helper routed through Tor", tr: "Tor üzerinden çalışan Cloudflare doğrulama yardımcısı" }, status: "active" },
                 { name: "Tor Proxy", icon: "fa-solid fa-mask", port: "9150", desc: { en: "Tor SOCKS Proxy for anonymized access", tr: "Anonim erişim için Tor SOCKS Proxy" }, status: "active" },
-                { name: "Recyclarr", icon: "fa-solid fa-arrows-spin", port: "Auto", desc: { en: "Sync TRaSH guides profiles", tr: "TRaSH rehberleri profil senkronizesi" }, status: "active" },
+                { name: "Profilarr", icon: "fa-solid fa-sliders", port: "6868", desc: { en: "Manage and sync Radarr/Sonarr profiles", tr: "Radarr/Sonarr profillerini yönetme ve senkronize etme" }, status: "active" },
                 { name: "Cleanuperr", icon: "fa-solid fa-trash-can", port: "11011", desc: { en: "Disk space cleanup utility", tr: "Disk alanı temizlik aracı" }, status: "active" },
                 { name: "Tdarr", icon: "fa-solid fa-compact-disc", port: "8265", desc: { en: "Distributed Transcoding", tr: "Dağıtık Transcoding Platformu" }, status: "active", gpu: true }
             ]
