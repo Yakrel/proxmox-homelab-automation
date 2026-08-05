@@ -8,8 +8,8 @@ storage:
   template_pool: datapool
 
 nvidia:
-  driver_version: "580.173.02"
-  driver_sha256: "8d8eb9001e05a9a8a663d3d5d304feb64ef2844ee185ccdfd952786820f46e1b"
+  driver_version: "580.178.04"
+  driver_sha256: "5975a86ee45bffcb626f51ae33d1169b108186a2ea47ad651e72f13fa4b6d6f9"
 
 stacks:
   gateway:
