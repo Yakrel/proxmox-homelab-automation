@@ -208,7 +208,6 @@ jobs:
               ('ai', 'hermes'): {'HERMES_DASHBOARD_TUI'},
               ('desktop', 'vaultwarden'): {'WEBSOCKET_ENABLED'},
               ('media', 'jellyseerr'): {'PUID', 'PGID', 'UMASK'},
-              ('media', 'recyclarr'): {'PUID', 'PGID', 'UMASK'},
               ('media', 'flaresolverr'): {'PROXY', 'CAPTCHA_SOLVER', 'PUID', 'PGID', 'UMASK'},
           }
           for (stack_name, service_name), forbidden in forbidden_environment.items():
