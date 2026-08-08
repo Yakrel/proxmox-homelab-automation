@@ -25,6 +25,7 @@ STACK_NAME=$1
 # --- Load Deployment Modules ---
 source "$WORK_DIR/scripts/modules/docker-deployment.sh"
 source "$WORK_DIR/scripts/modules/backrest-deployment.sh"
+source "$WORK_DIR/scripts/modules/dev-terminal.sh"
 
 # --- Global Variables ---
 ENV_DECRYPTED_PATH=""
@@ -122,6 +123,9 @@ create_lxc
 
 # Step 4: Stack-specific pre-deployment
 case "$STACK_NAME" in
+    "dev")
+        deploy_dev_terminal "$CT_ID"
+        ;;
     "utility")
         deploy_backrest "$CT_ID"
         ;;
