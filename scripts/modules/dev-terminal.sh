@@ -23,9 +23,15 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq fish eza bat zoxide btop
 
-# Debian ships bat as /usr/bin/batcat. Match the NixOS command name so the same
-# Fish alias can be used on both systems.
-ln -sfn /usr/bin/batcat /usr/local/bin/bat
+# Debian ships the bat package as /usr/bin/batcat. Keep a /usr/local/bin/bat
+# compatibility symlink for NixOS muscle memory, but validate the Debian binary
+# directly so deployment does not depend on pct exec's inherited PATH.
+batcat_path=$(command -v batcat || true)
+if [[ -z "$batcat_path" || ! -x "$batcat_path" ]]; then
+    echo "Missing required dev terminal command: batcat" >&2
+    exit 1
+fi
+ln -sfn "$batcat_path" /usr/local/bin/bat
 
 install -d -m 0755 /root/.config/fish
 cat > /root/.config/fish/config.fish <<'FISH_CONFIG'
@@ -37,7 +43,7 @@ if status is-interactive
     alias ll 'eza -lh --icons'
     alias la 'eza -la --icons'
     alias tree 'eza --tree --icons'
-    alias cat 'bat'
+    alias cat 'batcat'
 
     zoxide init fish | source
 end
@@ -82,13 +88,16 @@ cat > /root/.local/share/code-server/Machine/settings.json <<'CODE_SERVER_SETTIN
 }
 CODE_SERVER_SETTINGS
 
-for command_name in fish eza bat zoxide btop; do
+for command_name in fish eza batcat zoxide btop; do
     command -v "$command_name" >/dev/null 2>&1 || {
         echo "Missing required dev terminal command: $command_name" >&2
         exit 1
     }
 done
 
+test -L /usr/local/bin/bat
+test "$(readlink -f /usr/local/bin/bat)" = "$batcat_path"
+/usr/local/bin/bat --version >/dev/null
 python3 -m json.tool /root/.local/share/code-server/Machine/settings.json >/dev/null
 
 # The integrated terminal uses Fish explicitly; administrative/root login paths
