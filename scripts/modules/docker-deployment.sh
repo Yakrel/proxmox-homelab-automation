@@ -303,7 +303,7 @@ PYEOF
 # Prepare each media stack bind root without recursively touching app data.
 setup_media_permissions() {
     local app
-    for app in sonarr radarr bazarr jellyfin jellyseerr qbittorrent prowlarr recyclarr cleanuperr; do
+    for app in sonarr radarr bazarr jellyfin jellyseerr qbittorrent prowlarr profilarr cleanuperr; do
         prepare_host_directory "/fastpool/config/$app"
     done
 

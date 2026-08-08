@@ -64,8 +64,6 @@
         "/backup-sources/config/jellyfin/cache",
         "/backup-sources/config/immich/cache",
         "/backup-sources/config/immich/postgres",
-        "/backup-sources/config/recyclarr/repositories",
-        "/backup-sources/config/recyclarr/resources",
         "/backup-sources/config/backrest/cache",
         "/backup-sources/config/homepage",
         "/backup-sources/config/couchdb/local.d",

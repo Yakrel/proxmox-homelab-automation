@@ -165,9 +165,27 @@ reconcile_lxc_device_block() {
     LXC_RESTART_REQUIRED=true
 }
 
-# Get latest template based on stack type - ensures we always use the newest available
+get_host_template_arch() {
+    local template_arch
+    template_arch=$(dpkg --print-architecture)
+
+    case "$template_arch" in
+        amd64|arm64) ;;
+        *)
+            print_error "Unsupported Proxmox host architecture: $template_arch"
+            exit 1
+            ;;
+    esac
+
+    printf '%s\n' "$template_arch"
+}
+
+# Get latest template based on stack type - ensures we always use the newest
+# template that matches the Proxmox host architecture.
 get_latest_template() {
     local template_type=$1
+    local template_arch
+    template_arch=$(get_host_template_arch)
 
     # Keep stdout quiet because this function returns the template name.
     pveam update >/dev/null
@@ -177,21 +195,33 @@ get_latest_template() {
     available_output=$(pveam available)
     local_output=$(pveam list "$TEMPLATE_POOL")
 
-    # Get the latest available template name from repository
+    # pveam can expose amd64 and arm64 templates on the same host. Never choose
+    # by version alone: doing so can create a foreign-architecture LXC that the
+    # host cannot start.
     local latest_available
-    latest_available=$(echo "$available_output" | awk "/${template_type}/ {print \$2}" | sort -V | tail -n 1)
-    [[ -n "$latest_available" ]] || { print_error "No ${template_type} template available"; exit 1; }
+    latest_available=$(awk -v type="$template_type" -v arch="$template_arch" \
+        '$2 ~ type && index($2, "_" arch ".tar.") {print $2}' \
+        <<< "$available_output" | sort -V | tail -n 1)
+    [[ -n "$latest_available" ]] || {
+        print_error "No ${template_type} template available for ${template_arch}"
+        exit 1
+    }
 
-    # Check if we already have this exact template locally
+    # Check if we already have this exact native-architecture template locally.
+    # Foreign-architecture cache entries are intentionally ignored.
     local local_template
-    local_template=$(echo "$local_output" | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1 | sed "s|^${TEMPLATE_POOL}:vztmpl/||")
+    local_template=$(awk -v type="$template_type" -v arch="$template_arch" \
+        '$1 ~ type && index($1, "_" arch ".tar.") {print $1}' \
+        <<< "$local_output" | sort -V | tail -n 1 | sed "s|^${TEMPLATE_POOL}:vztmpl/||")
 
     # If local template doesn't match latest available, download the new one
     if [[ "$local_template" != "$latest_available" ]]; then
-        print_info "Downloading latest ${template_type} template: $latest_available" >&2
+        print_info "Downloading latest ${template_type} ${template_arch} template: $latest_available" >&2
         pveam download "$TEMPLATE_POOL" "$latest_available" >&2
         # After download, query storage to get actual filename (may differ from available name due to version resolution)
-        local_template=$(pveam list "$TEMPLATE_POOL" | awk "/${template_type}/ {print \$1}" | sort -V | tail -n 1 | sed "s|^${TEMPLATE_POOL}:vztmpl/||")
+        local_template=$(pveam list "$TEMPLATE_POOL" | awk -v type="$template_type" -v arch="$template_arch" \
+            '$1 ~ type && index($1, "_" arch ".tar.") {print $1}' | \
+            sort -V | tail -n 1 | sed "s|^${TEMPLATE_POOL}:vztmpl/||")
         print_success "Downloaded template: $local_template" >&2
     else
         print_info "Using up-to-date template: $local_template" >&2
@@ -200,9 +230,18 @@ get_latest_template() {
     echo "$local_template"
 }
 
+HOST_TEMPLATE_ARCH=$(get_host_template_arch)
+
 # Container exists check - handle gracefully for idempotency
 if check_container_exists "$CT_ID"; then
     SKIP_CREATION=true
+
+    current_container_arch=$(pct config "$CT_ID" | awk -F': ' '$1 == "arch" {print $2; exit}')
+    if [[ -n "$current_container_arch" && "$current_container_arch" != "$HOST_TEMPLATE_ARCH" ]]; then
+        print_error "LXC $CT_ID architecture ${current_container_arch} does not match Proxmox host ${HOST_TEMPLATE_ARCH}"
+        print_error "Destroy the mismatched LXC and redeploy it: pct destroy $CT_ID --purge 1"
+        exit 1
+    fi
 else
     SKIP_CREATION=false
     
@@ -278,7 +317,14 @@ if [[ "$CT_STATUS" == "running" && "$LXC_RESTART_REQUIRED" == "true" && "$SKIP_C
     pct reboot "$CT_ID" --timeout 60
 elif [[ "$CT_STATUS" != "running" ]]; then
     print_info "Starting container"
-    pct start "$CT_ID"
+    if ! pct start "$CT_ID"; then
+        if [[ "$SKIP_CREATION" == "false" ]]; then
+            print_warning "Removing newly created LXC $CT_ID after startup failure"
+            pct destroy "$CT_ID" --purge 1 || true
+        fi
+        print_error "Failed to start LXC $CT_ID"
+        exit 1
+    fi
 fi
 
 # Verify container is ready

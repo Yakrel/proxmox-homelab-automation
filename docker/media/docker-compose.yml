@@ -257,13 +257,20 @@ services:
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
 
-  recyclarr:
-    image: recyclarr/recyclarr:latest
-    container_name: recyclarr
+  profilarr:
+    image: ghcr.io/dictionarry-hub/profilarr:latest
+    container_name: profilarr
     environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
       - TZ=${TZ:-Europe/Istanbul}
+      - AUTH=on
+      - ORIGIN=https://profilarr.byetgin.com
     volumes:
-      - /fastpool/config/recyclarr:/config
+      - /fastpool/config/profilarr:/config
+    ports:
+      - "6868:6868"
     networks:
       - media-net
     restart: unless-stopped

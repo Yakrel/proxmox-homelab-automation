@@ -9,6 +9,7 @@ WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 source "$WORK_DIR/scripts/helper-functions.sh"
 source "$WORK_DIR/scripts/modules/docker-deployment.sh"
 source "$WORK_DIR/scripts/modules/backrest-deployment.sh"
+source "$WORK_DIR/scripts/modules/dev-terminal.sh"
 
 ENV_ENC_KEY=""
 ENV_DECRYPTED_PATH=""
@@ -69,6 +70,7 @@ fast_redeploy_stack() {
 
         print_info "Fast redeploying dev CLI applications"
         bash "$WORK_DIR/scripts/lxc-manager.sh" dev
+        deploy_dev_terminal "$CT_ID"
         print_success "Fast redeployed: dev"
         return 0
     }
