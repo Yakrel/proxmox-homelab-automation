@@ -169,7 +169,7 @@ Code-Server is reachable through the OTP-protected Nginx Proxy Manager route; pr
 
 - **Proxmox VE**: 9.x with ZFS storage
 - **Network**: `vmbr0` bridge, `192.168.1.x` range
-- **Storage**: ZFS pools — `fastpool` (SSD) for configs/databases) and `datapool` (HDD) for media/backups
+- **Storage**: ZFS pools — `fastpool` (SSD) for configs/databases and `datapool` (HDD) for media/backups
 - **GPU**: NVIDIA is required by the current Media and Desktop stack definitions; other stacks do not require it
 
 ## 🔐 Security
