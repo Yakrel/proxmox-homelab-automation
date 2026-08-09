@@ -112,9 +112,9 @@ Hermes Agent, OmniRoute
 The LXC firewall accepts the Hermes and OmniRoute application ports only from Nginx Proxy Manager. Outbound agent access remains allowed.
 
 ### **Development (Dev)** (LXC 105 - `192.168.1.105`)
-Code-Server, Node.js, Python, Git/GitHub CLI, Codex CLI, Antigravity CLI
+Code-Server, Node.js, Python, Git/GitHub CLI, Oh My Pi
 
-Code-Server is reachable through the OTP-protected Nginx Proxy Manager route; provisioning enables the Datacenter firewall while leaving node firewalling unchanged, and the LXC firewall permits direct port `8680` traffic only from NPM and the Homepage health monitor. Dev enables LXC nesting for Debian 13 systemd service isolation but leaves Docker-specific keyctl disabled. Code-Server settings and extensions persist under `/fastpool/config/code-server`, while `/root/workspace` persists under `/fastpool/config/dev/workspace`. CLI authentication state remains disposable with the Dev LXC.
+Code-Server is reachable through the OTP-protected Nginx Proxy Manager route; provisioning enables the Datacenter firewall while leaving node firewalling unchanged, and the LXC firewall permits direct port `8680` traffic only from NPM and the Homepage health monitor. Dev enables LXC nesting for Debian 13 systemd service isolation but leaves Docker-specific keyctl disabled. Code-Server settings and extensions persist under `/fastpool/config/code-server`, while `/root/workspace` persists under `/fastpool/config/dev/workspace`. Its integrated terminal mirrors the NixOS workstation shell with Zsh, Oh My Zsh (`git` + `robbyrussell`), autosuggestions, syntax highlighting, eza, bat, btop, zoxide, JetBrainsMono Nerd Font, and the same Tokyo Night palette. Oh My Pi is the only coding-agent CLI provisioned for Dev and provides the multi-provider agent surface; CLI authentication state remains disposable with the Dev LXC.
 
 ---
 
@@ -147,7 +147,8 @@ Code-Server is reachable through the OTP-protected Nginx Proxy Manager route; pr
 │   ├── setup-tailscale-host.sh # Tailscale host subnet configuration
 │   └── modules/             # Specialized deployment modules
 │       ├── docker-deployment.sh
-│       └── backrest-deployment.sh
+│       ├── backrest-deployment.sh
+│       └── dev-terminal.sh
 ├── docker/                   # Docker Compose stacks
 │   ├── ai/                  # Hermes Agent and OmniRoute
 │   ├── desktop/             # Dashboard, desktop workspace, guacamole, sshwifty, radicale

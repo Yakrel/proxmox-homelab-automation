@@ -2,7 +2,7 @@
 
 # Dev LXC terminal experience shared by full deploys and fast redeploys.
 # Keeps the Proxmox/root login shell on Bash while making code-server's
-# integrated terminal use Zsh with Oh My Zsh and the desktop's Tokyo Night palette.
+# integrated terminal use Zsh with Oh My Zsh and the workstation's Tokyo Night palette.
 
 deploy_dev_terminal() {
     local ct_id="$1"
@@ -24,7 +24,7 @@ apt-get update -qq
 apt-get install -y -qq zsh git zsh-autosuggestions zsh-syntax-highlighting eza bat zoxide btop
 
 # Debian exposes the bat package as /usr/bin/batcat. Keep the familiar `bat`
-# command name available without adding runtime validation logic.
+# command name used by the NixOS shell configuration.
 ln -sfn /usr/bin/batcat /usr/local/bin/bat
 
 # Reconcile Oh My Zsh without its interactive installer so both fresh deploys
@@ -41,16 +41,23 @@ export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
 export ZSH="$HOME/.oh-my-zsh"
 
 ZSH_THEME="robbyrussell"
-plugins=(git zoxide)
+plugins=(git)
 zstyle ':omz:update' mode disabled
 
 source "$ZSH/oh-my-zsh.sh"
 
-alias ls='eza --icons'
-alias ll='eza -lh --icons'
-alias la='eza -la --icons'
-alias tree='eza --tree --icons'
-alias cat='batcat'
+eval "$(zoxide init zsh)"
+eval "$(omp completions zsh)"
+
+# Match Home Manager's eza Zsh integration plus the explicit workstation aliases.
+alias eza='eza --icons=auto'
+alias ls='eza'
+alias ll='eza -lh'
+alias la='eza -la'
+alias lt='eza --tree'
+alias lla='eza -la'
+alias tree='eza --tree'
+alias cat='bat'
 
 source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
