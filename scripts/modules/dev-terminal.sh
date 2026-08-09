@@ -49,10 +49,14 @@ source "$ZSH/oh-my-zsh.sh"
 eval "$(zoxide init zsh)"
 eval "$(omp completions zsh)"
 
-alias ls='eza --icons=auto'
-alias ll='eza -lh --icons=auto'
-alias la='eza -la --icons=auto'
-alias tree='eza --tree --icons=auto'
+# Match Home Manager's eza Zsh integration plus the explicit workstation aliases.
+alias eza='eza --icons=auto'
+alias ls='eza'
+alias ll='eza -lh'
+alias la='eza -la'
+alias lt='eza --tree'
+alias lla='eza -la'
+alias tree='eza --tree'
 alias cat='bat'
 
 source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
