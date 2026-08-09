@@ -416,7 +416,7 @@ Components: main contrib non-free non-free-firmware
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOS
 
-    # Dev stack: code-server + AI CLI tools (no Docker, no GPU)
+    # Dev stack: code-server + developer CLI tools (no Docker, no GPU)
     if [ \"\$STACK_NAME\" = 'dev' ]; then
         nodesource_installer=\$(mktemp /tmp/nodesource-setup.XXXXXX)
         trap 'rm -f \"\$nodesource_installer\"' EXIT
@@ -647,27 +647,13 @@ fi
 systemctl enable code-server@root
 systemctl restart code-server@root
 
-# Install or update Codex with the official standalone installer. The installer
-# verifies the downloaded release against OpenAI-published SHA-256 metadata.
-codex_installer=$(mktemp /tmp/codex-install.XXXXXX)
-cleanup_codex_installer() { rm -f "$codex_installer"; }
-trap cleanup_codex_installer EXIT
-curl -fsSL https://chatgpt.com/codex/install.sh -o "$codex_installer"
-CODEX_NON_INTERACTIVE=1 bash "$codex_installer"
-rm -f "$codex_installer"
-trap - EXIT
-test "$(command -v codex)" = /root/.local/bin/codex
-codex --version
+# Oh My Pi is the single coding-agent CLI for Dev. It provides the multi-provider
+# agent surface without separately installing Codex, Claude Code, or Antigravity.
+curl -fsSL https://omp.sh/install | sh
+export PATH="/root/.local/bin:/usr/local/bin:$PATH"
+omp --version
 
-# Install Antigravity directly, without CLI wrappers.
-antigravity_installer=$(mktemp /tmp/antigravity-install.XXXXXX)
-curl -fsSL https://antigravity.google/cli/install.sh -o "$antigravity_installer"
-bash "$antigravity_installer" --dir /root/.local/lib/antigravity
-test -x /root/.local/lib/antigravity/agy
-ln -sfnT /root/.local/lib/antigravity/agy /usr/local/bin/agy
-rm -f "$antigravity_installer"
-
-for command_name in node npm git gh python3 bash nano vim htop shellcheck yq agy codex code-server; do
+for command_name in node npm git gh python3 bash nano vim htop shellcheck yq omp code-server; do
     command -v "$command_name" >/dev/null 2>&1 || {
         echo "Missing required dev command: $command_name" >&2
         exit 1
@@ -677,9 +663,7 @@ python3 -c "import yaml"
 
 systemctl is-enabled code-server@root >/dev/null 2>&1
 systemctl is-active code-server@root >/dev/null 2>&1
-test "$(command -v codex)" = /root/.local/bin/codex
-test "$(readlink -f "$(command -v agy)")" = /root/.local/lib/antigravity/agy
-! command -v opencode >/dev/null 2>&1
+command -v omp >/dev/null 2>&1
 '
     print_success "Dev CLI applications reconciled"
 fi
