@@ -68,7 +68,7 @@ This project utilizes custom Docker images that are maintained in separate repos
 | Image | Repository | Description |
 | :--- | :--- | :--- |
 | **desktop-workspace** | [Yakrel/docker-desktop-workspace](https://github.com/Yakrel/docker-desktop-workspace) | Multi-app web environment (Brave + Obsidian) |
-| **backrest-rclone** | [Yakrel/docker-backrest-rclone](https://github.com/Yakrel/docker-backrest-rclone) | Backup solution with Google Drive sync hooks |
+| **backrest-rclone** | [Yakrel/docker-backrest-rclone](https://github.com/Yakrel/docker-backrest-rclone) | Backup solution with Oracle VPS and Google Drive sync hooks |
 
 **Pipeline Features:**
 - Scheduled weekly rebuilds
@@ -169,7 +169,7 @@ Code-Server is reachable through the OTP-protected Nginx Proxy Manager route; pr
 
 - **Proxmox VE**: 9.x with ZFS storage
 - **Network**: `vmbr0` bridge, `192.168.1.x` range
-- **Storage**: ZFS pools — `fastpool` (SSD) for configs/databases, `datapool` (HDD) for media/backups
+- **Storage**: ZFS pools — `fastpool` (SSD) for configs/databases) and `datapool` (HDD) for media/backups
 - **GPU**: NVIDIA is required by the current Media and Desktop stack definitions; other stacks do not require it
 
 ## 🔐 Security
