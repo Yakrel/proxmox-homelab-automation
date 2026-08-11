@@ -326,6 +326,9 @@ services:
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - MEILI_NO_ANALYTICS=true
+      # Watchtower follows the latest image, so allow supported Meilisearch
+      # database upgrades when a newer engine replaces the running version.
+      - MEILI_UPGRADE_DB=true
       - MEILI_MASTER_KEY=${KARAKEEP_MEILI_MASTER_KEY:?Karakeep Meili master key is required}
     volumes:
       - /fastpool/config/karakeep/meilisearch:/meili_data
