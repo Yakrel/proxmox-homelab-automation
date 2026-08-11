@@ -22,7 +22,7 @@ reconcile_stack_firewall() {
     local firewall_tmp current_net desired_net
 
     case "$STACK_NAME" in
-        media|dev|desktop|ai) ;;
+        media|utility|dev|desktop|ai) ;;
         *) return 0 ;;
     esac
 
@@ -66,6 +66,28 @@ IN ACCEPT -source 192.168.1.102 -p tcp -dport 8080
 IN ACCEPT -source 192.168.1.102 -p tcp -dport 9696
 IN ACCEPT -p tcp -dport 6881
 IN ACCEPT -p udp -dport 6881
+EOF
+            ;;
+        utility)
+            cat >> "$firewall_tmp" <<'EOF'
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 3080
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 5000
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 8081
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 8090
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 9898
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 3080
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 5000
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 8081
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 8090
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 9898
+IN ACCEPT -source 192.168.1.20 -p udp -dport 137
+IN ACCEPT -source 192.168.1.20 -p udp -dport 138
+IN ACCEPT -source 192.168.1.20 -p tcp -dport 139
+IN ACCEPT -source 192.168.1.20 -p tcp -dport 445
+IN ACCEPT -source 192.168.1.21 -p udp -dport 137
+IN ACCEPT -source 192.168.1.21 -p udp -dport 138
+IN ACCEPT -source 192.168.1.21 -p tcp -dport 139
+IN ACCEPT -source 192.168.1.21 -p tcp -dport 445
 EOF
             ;;
         dev)

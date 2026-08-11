@@ -103,6 +103,8 @@ The Media LXC firewall drops inbound traffic by default. Nginx Proxy Manager and
 ### **Utility & Backup** (LXC 102 - `192.168.1.102`)
 JDownloader 2, Samba, Repackarr, Backrest-Rclone (encrypted repository with Oracle VPS and Google Drive mirrors), MeTube, Changedetection.io, Karakeep
 
+The Utility LXC firewall drops inbound traffic by default. Nginx Proxy Manager and Homepage may reach the five published web backends, while SMB is limited to the fixed workstation and laptop addresses. Independent applications use separate Docker bridge networks; Changedetection shares a browser network with Playwright, while Karakeep bridges its browser network and an internal Meilisearch data network.
+
 ### **Desktop Workspace** (LXC 103 - `192.168.1.103`)
 Homepage, Desktop Workspace, Guacamole, Sshwifty, CouchDB, Vaultwarden, Desktop OTP Gate, Radicale CalDAV
 
