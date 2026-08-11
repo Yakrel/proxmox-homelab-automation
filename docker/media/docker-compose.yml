@@ -3,6 +3,9 @@ name: media
 networks:
   media-net:
     driver: bridge
+  immich-data-net:
+    driver: bridge
+    internal: true
 
 
 services:
@@ -318,6 +321,7 @@ services:
       disable: false
     networks:
       - media-net
+      - immich-data-net
     restart: unless-stopped
     stop_grace_period: 30s
     logging:
@@ -371,7 +375,7 @@ services:
     healthcheck:
       test: redis-cli ping || exit 1
     networks:
-      - media-net
+      - immich-data-net
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -396,7 +400,7 @@ services:
     healthcheck:
       disable: false
     networks:
-      - media-net
+      - immich-data-net
     shm_size: 128mb
     restart: unless-stopped
     stop_grace_period: 120s

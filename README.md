@@ -98,7 +98,7 @@ Nginx Proxy Manager, AdGuard Home, Cloudflared
 ### **Media Automation** (LXC 101 - `192.168.1.101`)
 Jellyfin, Immich, Sonarr, Radarr, Bazarr, Seerr, Prowlarr, qBittorrent, FlareSolverr, Tor Proxy, Profilarr, Tdarr, Cleanuperr
 
-The Media LXC firewall drops inbound traffic by default. Nginx Proxy Manager and Homepage may reach the published web backends, while Repackarr is limited to qBittorrent and Prowlarr. qBittorrent peer traffic on TCP/UDP `6881` is the only unrestricted ingress; same-stack integrations use Docker service names on `media-net`.
+The Media LXC firewall drops inbound traffic by default. Nginx Proxy Manager and Homepage may reach the published web backends, while Repackarr is limited to qBittorrent and Prowlarr. qBittorrent peer traffic on TCP/UDP `6881` is the only unrestricted ingress; same-stack integrations use Docker service names on `media-net`. Immich PostgreSQL and Redis are isolated on the internal `immich-data-net`, shared only with `immich-server`.
 
 ### **Utility & Backup** (LXC 102 - `192.168.1.102`)
 JDownloader 2, Samba, Repackarr, Backrest-Rclone (encrypted repository with Oracle VPS and Google Drive mirrors), MeTube, Changedetection.io, Karakeep
