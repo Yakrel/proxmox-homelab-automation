@@ -22,7 +22,7 @@ reconcile_stack_firewall() {
     local firewall_tmp current_net desired_net
 
     case "$STACK_NAME" in
-        media|utility|dev|desktop|ai) ;;
+        gateway|media|utility|dev|desktop|ai) ;;
         *) return 0 ;;
     esac
 
@@ -38,6 +38,22 @@ policy_out: ACCEPT
 EOF
 
     case "$STACK_NAME" in
+        gateway)
+            cat >> "$firewall_tmp" <<'EOF'
+IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 53
+IN ACCEPT -source 192.168.1.0/24 -p udp -dport 53
+IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 80
+IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 443
+IN ACCEPT -source 192.168.1.10 -p tcp -dport 81
+IN ACCEPT -source 192.168.1.10 -p tcp -dport 3000
+IN ACCEPT -source 192.168.1.20 -p tcp -dport 81
+IN ACCEPT -source 192.168.1.20 -p tcp -dport 3000
+IN ACCEPT -source 192.168.1.21 -p tcp -dport 81
+IN ACCEPT -source 192.168.1.21 -p tcp -dport 3000
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 81
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 3000
+EOF
+            ;;
         media)
             cat >> "$firewall_tmp" <<'EOF'
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 2283
