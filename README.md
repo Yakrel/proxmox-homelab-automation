@@ -95,6 +95,8 @@ This project utilizes custom Docker images that are maintained in separate repos
 ### **Proxy & DNS (Gateway)** (LXC 100 - `192.168.1.100`)
 Nginx Proxy Manager, AdGuard Home, Cloudflared
 
+The Gateway LXC firewall permits LAN DNS and HTTPS proxy traffic while restricting the NPM and AdGuard administration ports to the Proxmox/Tailscale subnet router, Homepage, and the two fixed administrator devices. NPM and Cloudflared share `proxy-net`; AdGuard and Watchtower use independent Docker bridge networks.
+
 ### **Media Automation** (LXC 101 - `192.168.1.101`)
 Jellyfin, Immich, Sonarr, Radarr, Bazarr, Seerr, Prowlarr, qBittorrent, FlareSolverr, Tor Proxy, Profilarr, Tdarr, Cleanuperr
 
