@@ -23,6 +23,59 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq zsh git zsh-autosuggestions zsh-syntax-highlighting eza bat zoxide btop
 
+# code-server renders the terminal in the browser, so fonts installed only in
+# the LXC are invisible to it. Serve the Nerd Font with the workbench instead.
+workbench_dir=/usr/lib/code-server/lib/vscode/out/vs/code/browser/workbench
+font_tmp=$(mktemp /tmp/JetBrainsMonoNerdFontMono.XXXXXX.ttf)
+trap 'rm -f "$font_tmp"' EXIT
+curl -fsSL \
+    https://raw.githubusercontent.com/ryanoasis/nerd-fonts/master/patched-fonts/JetBrainsMono/Ligatures/JetBrainsMonoNerdFontMono-Regular.ttf \
+    -o "$font_tmp"
+install -m 0644 "$font_tmp" "$workbench_dir/JetBrainsMonoNerdFontMono-Regular.ttf"
+rm -f "$font_tmp"
+trap - EXIT
+
+cat > "$workbench_dir/dev-terminal-font.css" <<'FONT_CSS'
+@font-face {
+  font-family: "Dev JetBrainsMono Nerd Font Mono";
+  src: url("./JetBrainsMonoNerdFontMono-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+FONT_CSS
+
+python3 - "$workbench_dir/workbench.html" <<'PYTHON'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+start = "<!-- dev-terminal-font:start -->"
+end = "<!-- dev-terminal-font:end -->"
+stylesheet = (
+    f"\t\t{start}\n"
+    '\t\t<link rel="stylesheet" href="{{WORKBENCH_WEB_BASE_URL}}'
+    '/out/vs/code/browser/workbench/dev-terminal-font.css">\n'
+    f"\t\t{end}"
+)
+workbench_stylesheet = (
+    '\t\t<link rel="stylesheet" href="{{WORKBENCH_WEB_BASE_URL}}'
+    '/out/vs/code/browser/workbench/workbench.css">'
+)
+
+html = path.read_text()
+html = re.sub(
+    rf"\n?\s*{re.escape(start)}.*?{re.escape(end)}",
+    "",
+    html,
+    flags=re.DOTALL,
+)
+if html.count(workbench_stylesheet) != 1:
+    raise SystemExit("Could not locate the code-server workbench stylesheet")
+path.write_text(html.replace(workbench_stylesheet, f"{workbench_stylesheet}\n{stylesheet}"))
+PYTHON
+
 # Debian exposes the bat package as /usr/bin/batcat. Keep the familiar `bat`
 # command name used by the NixOS shell configuration.
 ln -sfn /usr/bin/batcat /usr/local/bin/bat
@@ -75,7 +128,7 @@ cat > /root/.local/share/code-server/Machine/settings.json <<'CODE_SERVER_SETTIN
       "path": "/usr/bin/zsh"
     }
   },
-  "terminal.integrated.fontFamily": "'JetBrainsMono Nerd Font', monospace",
+  "terminal.integrated.fontFamily": "'Dev JetBrainsMono Nerd Font Mono', monospace",
   "terminal.integrated.fontSize": 11,
   "workbench.colorCustomizations": {
     "terminal.background": "#1a1b26",
