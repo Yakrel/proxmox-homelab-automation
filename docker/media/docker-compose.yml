@@ -418,7 +418,6 @@ services:
       - media-net
     ports:
       - 8265:8265 # webUI
-      - 8266:8266 # server
     environment:
       - PUID=1000
       - PGID=1000
