@@ -1,7 +1,11 @@
 name: gateway
 
 networks:
-  gateway-net:
+  proxy-net:
+    driver: bridge
+  adguard-net:
+    driver: bridge
+  watchtower-net:
     driver: bridge
 
 
@@ -20,7 +24,7 @@ services:
     environment:
       - TZ=${TZ:-Europe/Istanbul}
     networks:
-      - gateway-net
+      - proxy-net
     healthcheck:
       test: ["CMD", "/bin/check-health"]
       interval: 10s
@@ -50,7 +54,7 @@ services:
     environment:
       - TZ=${TZ:-Europe/Istanbul}
     networks:
-      - gateway-net
+      - adguard-net
     logging:
       driver: "json-file"
       options:
@@ -70,7 +74,7 @@ services:
     healthcheck:
       disable: true
     networks:
-      - gateway-net
+      - proxy-net
     logging:
       driver: "json-file"
       options:
@@ -96,7 +100,7 @@ services:
       - WATCHTOWER_NO_STARTUP_MESSAGE=true
       - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-gateway
     networks:
-      - gateway-net
+      - watchtower-net
     logging:
       driver: "json-file"
       options:
