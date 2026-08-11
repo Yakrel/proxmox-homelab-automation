@@ -44,6 +44,9 @@ services:
     network_mode: host
     environment:
       - TZ=${TZ:-Europe/Istanbul}
+      # Restrict SMB to the fixed workstation and laptop addresses. The image
+      # maps this directly to Samba's global hosts allow setting.
+      - SAMBA_HOSTS_ALLOW=192.168.1.20 192.168.1.21
     volumes:
       - /fastpool/config/samba:/data
       # Share persistent data and service configuration without exposing the
@@ -208,7 +211,6 @@ services:
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PLAYWRIGHT_DRIVER_URL=ws://playwright-chrome:3000/?stealth=1&--disable-web-security=true
-      - ALLOW_IANA_RESTRICTED_ADDRESSES=true
     depends_on:
       - playwright-chrome
     networks:
