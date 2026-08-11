@@ -299,7 +299,7 @@ services:
         labels: "com.docker.compose.service,com.docker.compose.project"
 
   karakeep-chrome:
-    image: gcr.io/zenika-hub/alpine-chrome:latest
+    image: zenika/alpine-chrome:latest
     container_name: karakeep-chrome
     restart: unless-stopped
     command:
