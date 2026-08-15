@@ -1,8 +1,8 @@
 # Proxmox Homelab Automation
 
-Production-style homelab architected with enterprise-inspired reliability practices, demonstrating infrastructure automation and DevOps patterns. Orchestrates **40+ services** across **7 LXC containers** with **unprivileged NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**. Powered by a security-first automation framework consisting of **~3000 lines of Bash scripts** automating Proxmox host provisioning.
+Actively used personal homelab built with enterprise-inspired reliability practices, demonstrating systems administration, infrastructure automation, and operational tradeoffs. Orchestrates **40+ containerized services and development tooling** across **6 unprivileged LXC containers** with **NVIDIA GPU passthrough**, custom Docker images with **automated CI/CD pipelines**, and approximately **3,500 lines of Bash automation** for Proxmox host provisioning.
 
-> **About**: Production homelab running family media services (Jellyfin, Immich), AI automation (Hermes Agent), and productivity tools with production-style infrastructure patterns. Features **configuration-driven automation**, **ZFS-backed storage**, **encrypted secret management**, and **disaster recovery** architecture.
+> **About**: Personal infrastructure running services used by my family, including media and photo management, AI automation, backup, and remote productivity workloads. The design emphasizes **configuration-driven automation**, **ZFS-backed storage**, **encrypted secret management**, explicit network boundaries, and practical recovery paths.
 
 ---
 
@@ -25,18 +25,17 @@ Interactive menu guides you through stack selection and deployment. Only one pas
 - **Shared Hardware Acceleration**: Centralized NVIDIA driver management on host, mapped to multiple containers for concurrent CUDA/NVENC workloads.
 - **ZFS Storage Foundation**: `lz4` compression, automated snapshots, and ARC caching provide a reliable base for mixed workloads without adding operational complexity.
 
-### **Enterprise-Grade Security & Networking**
+### **Security & Networking Boundaries**
 
 #### **Network Topology & Access Architecture**
-A visualization of the Zero Trust architecture, highlighting how **WARP** provides seamless "LAN-like" experience for family devices while **Cloudflare Tunnel** secures public web access.
+A dual-path access model keeps private administration and published web traffic separate: **Tailscale** provides encrypted access to the management network, while **Cloudflare Tunnel** carries selected web traffic without router port forwarding.
 
-> 🗺️ **Interactive Architecture Dashboard**
+> 🗺️ **Infrastructure Case Study**
 >
-> Explore the live system topology, data flow, and microservices map:
-> **[👉 Launch Interactive Dashboard](https://infra.byetgin.com/)**
+> Start with the interview-focused architecture overview, then open the interactive topology for deeper inspection:
+> **[👉 Open the Infrastructure Case Study](https://infra.byetgin.com/)**
 
-- **Seamless Family Experience**: Mobile devices run **Cloudflare WARP** in "Always-On" mode. This creates a secure, transparent VPN directly to the home network.
-  - *Result:* Family members can open the Jellyfin app anywhere in the world and it works exactly as if they were on the couch. No logins, no OTPs.
+- **Private Administration**: Proxmox and private subnet access stay behind authenticated Tailscale devices rather than being exposed as public management endpoints.
 - **Strict Public Access**: Browser-based access (e.g., from a work computer) is protected by **Cloudflare Access** with Wildcard Email OTP policies.
 - **Dual-Layer Tunneling**:
   - **Tailscale (Primary VPN)**: Used for high-performance, direct "LAN-like" access to the entire network (`192.168.1.0/24`). Ideal for admin tasks, gaming, and bypassing restrictive ISP firewalls.
@@ -126,7 +125,7 @@ Code-Server is reachable through the OTP-protected Nginx Proxy Manager route; pr
 
 ## ⚠️ Personal Homelab Notice
 
-**This is my production homelab optimized for my specific environment.** Values are hardcoded for reliability:
+**This is an actively used personal homelab optimized for my specific environment.** Values are hardcoded for reliability:
 
 - **Network**: `192.168.1.x` range, `vmbr0` bridge
 - **Storage**: ZFS pools `fastpool` (SSD, configs/databases) and `datapool` (HDD, media/backups)
@@ -142,7 +141,7 @@ Code-Server is reachable through the OTP-protected Nginx Proxy Manager route; pr
 ```
 ├── installer.sh              # One-line installer launcher
 ├── stacks.yaml              # Central configuration (LXC resources, IPs, hostnames)
-├── scripts/                  # ~3000 lines of deployment automation
+├── scripts/                  # ~3500 lines of deployment automation
 │   ├── main-menu.sh         # Main interactive CLI menu
 │   ├── helper-menu.sh       # Proxmox host helpers menu
 │   ├── deploy-stack.sh      # Main orchestrator
