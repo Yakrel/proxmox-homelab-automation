@@ -398,9 +398,9 @@
 
         <section id="decisions">
             <div class="section-head">
-                <span class="section-index tr">05 — Gerçek mühendislik kararları</span><span class="section-index en">05 — Engineering decisions in practice</span>
-                <h2 class="tr">Değer, araç listesinden çok çözülen sınır problemlerinde.</h2>
-                <h2 class="en">The value is in resolved boundary problems, not a tool list.</h2>
+                <span class="section-index tr">05 — Teknik kararlar</span><span class="section-index en">05 — Technical decisions</span>
+                <h2 class="tr">Ağ erişimi, GPU paylaşımı ve yedekleme davranışı.</h2>
+                <h2 class="en">Network access, GPU sharing, and backup behavior.</h2>
             </div>
             <div class="card-grid three">
                 <article class="card"><h3 class="tr">Gelen LXC trafiğinde default-deny</h3><h3 class="en">Default-deny inbound LXC traffic</h3><p class="tr">LXC düzeyinde <code>policy_in: DROP</code> ve <code>policy_out: ACCEPT</code> uygulanır; yalnızca gereken kaynak/port çiftleri açık izin kurallarıyla açılır. Reverse proxy, sağlık kontrolü ve zorunlu stack bağımlılıkları açıkça modellenir; SMB sabit yönetici cihazlarıyla sınırlandırılır.</p><p class="en">At the LXC layer, <code>policy_in: DROP</code> and <code>policy_out: ACCEPT</code> are enforced; only required source/port pairs are opened with explicit allow rules. Reverse proxy, health monitoring, and required cross-stack dependencies are modeled explicitly; SMB is limited to fixed administration devices.</p><a class="case-link" href="https://github.com/Yakrel/proxmox-homelab-automation/blob/main/scripts/lxc-manager.sh" target="_blank" rel="noopener"><span class="tr">Uygulamayı gör →</span><span class="en">View implementation →</span></a></article>
@@ -425,8 +425,8 @@
 
         <section id="deep-dive">
             <div class="section-head">
-                <span class="section-index tr">07 — Teknik derinlik</span><span class="section-index en">07 — Technical deep dive</span>
-                <h2 class="tr">Özet burada; kanıt kod ve topolojide.</h2><h2 class="en">The summary is here; the evidence is in the code and topology.</h2>
+                <span class="section-index tr">07 — İlgili kaynaklar</span><span class="section-index en">07 — Related resources</span>
+                <h2 class="tr">Kaynak kod ve etkileşimli topoloji.</h2><h2 class="en">Source code and interactive topology.</h2>
             </div>
             <div class="deep-dive">
                 <a class="deep-link" href="topology.html" target="_blank" rel="noopener"><div><h3 class="tr">Etkileşimli ağ topolojisi</h3><h3 class="en">Interactive network topology</h3><span class="tr">İstemci, erişim yolları, gateway ve LXC bağlantılarını ayrıntılı incele.</span><span class="en">Inspect clients, access paths, gateway, and LXC relationships.</span></div><b class="tr">Topolojiyi aç →</b><b class="en">Open topology →</b></a>
