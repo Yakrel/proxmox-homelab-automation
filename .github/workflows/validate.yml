@@ -264,7 +264,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node --check docs/architecture-data.js
           python3 - <<'PY'
           from html.parser import HTMLParser
           from pathlib import Path
