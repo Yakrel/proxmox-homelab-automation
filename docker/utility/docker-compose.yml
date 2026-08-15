@@ -35,6 +35,8 @@ services:
     volumes:
       - /fastpool/config/jdownloader2:/jdownloader/cfg
       - /datapool/downloads/jdownloader:/jdownloader/downloads
+    ports:
+      - "192.168.1.102:9666:9666"
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f JDownloader || exit 1"]
       interval: 30s
