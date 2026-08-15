@@ -1,565 +1,471 @@
 <!DOCTYPE html>
-<!-- Trigger custom Pages deployment workflow -->
-<html lang="en">
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proxmox Homelab Architecture</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <meta name="description" content="Berkay Yetgin'in Proxmox homelab mimarisi: LXC iş yükü ayrımı, güvenli erişim, otomasyon, ZFS ve yedekleme/kurtarma kararları.">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Berkay Yetgin">
+    <meta name="theme-color" content="#0b0d10">
+    <link rel="canonical" href="https://infra.byetgin.com/">
+    <meta property="og:title" content="Proxmox Homelab | Infrastructure Case Study">
+    <meta property="og:description" content="An actively used Proxmox homelab focused on workload isolation, secure access, repeatable deployment, and recovery.">
+    <meta property="og:url" content="https://infra.byetgin.com/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Berkay Yetgin — Infrastructure">
+    <title>Proxmox Homelab | Berkay Yetgin</title>
     <style>
         :root {
-            --bg-body: #0d1117;
-            --bg-sidebar: #161b22;
-            --bg-card: #161b22;
-            --border: #30363d;
-            --text-main: #c9d1d9;
-            --text-muted: #8b949e;
-            --accent-blue: #58a6ff;
-            --accent-green: #3fb950;
-            --accent-orange: #d29922;
-            --accent-purple: #a371f7;
-            --accent-red: #ff7b72;
+            color-scheme: dark;
+            --bg: #0b0d10;
+            --surface: #11151a;
+            --surface-2: #0c1015;
+            --border: #28303a;
+            --border-strong: #3a4654;
+            --text: #f4f6f8;
+            --soft: #d3d9e0;
+            --muted: #98a4b1;
+            --accent: #8bb9ff;
+            --accent-strong: #6fa5f2;
+            --green: #7ed6a4;
+            --orange: #e7b878;
+            --max: 1160px;
         }
-
         * { box-sizing: border-box; }
-
+        html { scroll-behavior: smooth; }
         body {
             margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            background: var(--bg-body);
-            color: var(--text-main);
-            display: flex;
-            min-height: 100vh;
+            background: radial-gradient(circle at 80% -10%, rgba(111, 165, 242, .11), transparent 35rem), var(--bg);
+            color: var(--text);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            line-height: 1.65;
+            -webkit-font-smoothing: antialiased;
         }
-
-        /* --- SIDEBAR --- */
-        .sidebar {
-            width: 280px;
-            background: var(--bg-sidebar);
-            border-right: 1px solid var(--border);
-            position: fixed;
-            height: 100vh;
+        a { color: inherit; }
+        button { font: inherit; }
+        .wrap { width: min(var(--max), calc(100% - 40px)); margin: 0 auto; }
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            border-bottom: 1px solid rgba(40, 48, 58, .85);
+            background: rgba(11, 13, 16, .88);
+            backdrop-filter: blur(16px);
+        }
+        nav { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+        .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 760; letter-spacing: -.02em; }
+        .brand-mark {
+            width: 32px;
+            height: 32px;
+            display: grid;
+            place-items: center;
+            border: 1px solid var(--border-strong);
+            border-radius: 9px;
+            background: var(--surface);
+            color: var(--accent);
+            font-size: 12px;
+            letter-spacing: .04em;
+        }
+        .nav-links { display: flex; align-items: center; justify-content: flex-end; gap: 18px; flex-wrap: wrap; }
+        .nav-link, .lang-btn { border: 0; background: transparent; color: var(--muted); text-decoration: none; cursor: pointer; font-size: 13px; }
+        .nav-link:hover, .lang-btn:hover, .lang-btn.active { color: var(--text); }
+        .lang-switch { display: inline-flex; gap: 5px; padding-left: 14px; border-left: 1px solid var(--border); }
+        main { padding-bottom: 72px; }
+        .hero { min-height: 670px; display: grid; align-content: center; padding: 92px 0 72px; }
+        .eyebrow { margin-bottom: 17px; color: var(--accent); font-size: 12px; font-weight: 760; letter-spacing: .12em; text-transform: uppercase; }
+        h1 { max-width: 980px; margin: 0; font-size: clamp(3rem, 7.7vw, 6.5rem); line-height: .98; letter-spacing: -.06em; }
+        .lead { max-width: 790px; margin: 28px 0 0; color: var(--soft); font-size: clamp(1.05rem, 2vw, 1.24rem); }
+        .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+        .button {
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 16px;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            background: var(--surface);
+            color: var(--text);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 680;
+        }
+        .button.primary { border-color: var(--accent-strong); background: var(--accent-strong); color: #07101e; }
+        .button:hover { border-color: var(--accent); }
+        .facts {
+            margin-top: 46px;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: rgba(17, 21, 26, .78);
+            overflow: hidden;
+        }
+        .fact { min-height: 108px; padding: 21px; }
+        .fact + .fact { border-left: 1px solid var(--border); }
+        .fact strong { display: block; color: var(--text); font-size: 1.18rem; letter-spacing: -.025em; }
+        .fact span { color: var(--muted); font-size: 13px; }
+        section { padding: 82px 0; border-top: 1px solid var(--border); scroll-margin-top: 68px; }
+        .section-head { max-width: 800px; margin-bottom: 34px; }
+        .section-index { display: block; margin-bottom: 9px; color: var(--accent); font-size: 12px; font-weight: 760; letter-spacing: .1em; text-transform: uppercase; }
+        h2 { margin: 0; font-size: clamp(2rem, 4vw, 3.35rem); line-height: 1.08; letter-spacing: -.045em; }
+        .section-intro { margin: 17px 0 0; color: var(--muted); font-size: 1rem; }
+        h3 { margin: 0; font-size: 1.05rem; letter-spacing: -.015em; }
+        p { margin: 0; }
+        .architecture {
+            padding: 26px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: linear-gradient(150deg, rgba(17, 21, 26, .96), rgba(12, 16, 21, .92));
+        }
+        .layer + .layer { margin-top: 20px; }
+        .layer-label { margin-bottom: 10px; color: var(--muted); font-size: 11px; font-weight: 760; letter-spacing: .1em; text-transform: uppercase; }
+        .node-grid { display: grid; gap: 10px; }
+        .node-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .node-grid.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        .node {
+            min-height: 103px;
+            padding: 17px;
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            background: var(--surface-2);
+        }
+        .node.gateway { border-color: rgba(139, 185, 255, .55); background: rgba(111, 165, 242, .07); }
+        .node strong { display: block; margin-bottom: 5px; font-size: 14px; }
+        .node span { display: block; color: var(--muted); font-size: 12px; line-height: 1.5; }
+        .flow-arrow { padding: 9px 0 3px; color: var(--border-strong); text-align: center; font-size: 20px; }
+        .foundation { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 10px; }
+        .card-grid { display: grid; gap: 13px; }
+        .card-grid.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        .card-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .card-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .card { padding: 22px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); }
+        .card-number {
+            display: inline-grid;
+            width: 28px;
+            height: 28px;
+            margin-bottom: 16px;
+            place-items: center;
+            border-radius: 8px;
+            background: rgba(139, 185, 255, .1);
+            color: var(--accent);
+            font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+        .card p { margin-top: 9px; color: var(--muted); font-size: 13px; }
+        .card code, .path code { color: var(--soft); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; }
+        .path {
+            margin-top: 18px;
+            padding: 18px 20px;
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            background: var(--surface-2);
+            color: var(--soft);
+            font-size: 13px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+        .path b { color: var(--accent); }
+        .recovery {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--surface);
+            overflow: hidden;
+        }
+        .recovery-step { min-height: 205px; padding: 24px; }
+        .recovery-step + .recovery-step { border-left: 1px solid var(--border); }
+        .recovery-step .tag {
+            display: inline-flex;
+            margin-bottom: 17px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: rgba(126, 214, 164, .1);
+            color: var(--green);
+            font-size: 11px;
+            font-weight: 740;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+        .recovery-step p { margin-top: 9px; color: var(--muted); font-size: 13px; }
+        .case-link { display: inline-flex; margin-top: 16px; color: var(--accent); text-decoration: none; font-size: 12px; font-weight: 700; }
+        .case-link:hover { text-decoration: underline; }
+        .limits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .limit {
             padding: 20px;
+            border: 1px solid rgba(231, 184, 120, .28);
+            border-radius: 12px;
+            background: rgba(231, 184, 120, .035);
+        }
+        .limit strong { display: block; color: var(--orange); font-size: 14px; }
+        .limit p { margin-top: 7px; color: var(--muted); font-size: 13px; }
+        .deep-dive { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        .deep-link {
+            min-height: 150px;
             display: flex;
             flex-direction: column;
-            overflow-y: auto;
-            z-index: 100;
-        }
-
-        .profile-section {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 20px;
-        }
-
-        .profile-img {
-            width: 50px;
-            height: 50px;
-            background: var(--accent-purple);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: white;
-            font-size: 1.2rem;
-        }
-
-        .brand-text h3 { margin: 0; font-size: 1rem; color: var(--text-main); }
-        .brand-text p { margin: 3px 0 0 0; font-size: 0.75rem; color: var(--text-muted); }
-
-        .nav-links { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 5px; }
-        .nav-item {
-            padding: 10px 15px;
-            border-radius: 6px;
-            cursor: pointer;
-            color: var(--text-muted);
+            justify-content: space-between;
+            padding: 22px;
+            border: 1px solid var(--border);
+            border-radius: 13px;
+            background: var(--surface);
             text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 0.9rem;
-            transition: all 0.2s;
         }
-        .nav-item:hover, .nav-item.active {
-            background: rgba(88, 166, 255, 0.1);
-            color: var(--accent-blue);
+        .deep-link:hover { border-color: var(--accent); transform: translateY(-2px); }
+        .deep-link span { color: var(--muted); font-size: 13px; }
+        .deep-link b { color: var(--accent); font-size: 13px; }
+        footer { padding: 30px 0 42px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+        .footer-row { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+        .footer-links { display: flex; gap: 15px; flex-wrap: wrap; }
+        .footer-links a { text-decoration: none; }
+        .footer-links a:hover { color: var(--text); }
+        body.lang-tr .en, body.lang-en .tr { display: none !important; }
+        @media (max-width: 980px) {
+            .nav-links .section-nav { display: none; }
+            .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .fact:nth-child(3) { border-left: 0; border-top: 1px solid var(--border); }
+            .fact:nth-child(4) { border-top: 1px solid var(--border); }
+            .node-grid.five, .card-grid.five { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .node-grid.five .node:last-child, .card-grid.five .card:last-child { grid-column: 1 / -1; }
+            .card-grid.three, .deep-dive { grid-template-columns: 1fr; }
         }
-        .nav-item i { width: 20px; text-align: center; }
-
-        /* --- MAIN CONTENT --- */
-        .main-content {
-            margin-left: 280px;
-            padding: 40px 60px;
-            width: auto; 
-            max-width: none;
-            position: relative;
+        @media (max-width: 720px) {
+            .wrap { width: min(var(--max), calc(100% - 28px)); }
+            nav { align-items: flex-start; padding: 16px 0; }
+            .nav-links { gap: 10px; }
+            .hero { min-height: auto; padding: 78px 0 62px; }
+            h1 { font-size: clamp(2.65rem, 14vw, 4.4rem); }
+            section { padding: 62px 0; }
+            .node-grid.three, .node-grid.five, .foundation, .card-grid.two, .card-grid.five, .limits, .recovery { grid-template-columns: 1fr; }
+            .node-grid.five .node:last-child, .card-grid.five .card:last-child { grid-column: auto; }
+            .recovery-step + .recovery-step { border-left: 0; border-top: 1px solid var(--border); }
+            .path { white-space: normal; }
         }
-
-        /* --- LANG SWITCHER --- */
-        .lang-switch {
-            position: absolute;
-            top: 20px;
-            right: 40px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            padding: 8px 15px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s;
-            z-index: 1000;
+        @media (max-width: 520px) {
+            nav { display: block; }
+            .nav-links { margin-top: 11px; justify-content: flex-start; }
+            .facts { grid-template-columns: 1fr; }
+            .fact + .fact { border-left: 0; border-top: 1px solid var(--border); }
+            .architecture { padding: 16px; }
         }
-        .lang-switch:hover { border-color: var(--accent-blue); color: var(--text-main); }
-        .lang-active { color: var(--accent-blue); font-weight: bold; }
-
-        section { 
-            margin-bottom: 80px; 
-            scroll-margin-top: 60px;
-            max-width: 1600px; 
-            margin-left: auto; 
-            margin-right: auto; 
-        }
-
-        h1 { font-size: 2.5rem; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
-        h2 { font-size: 1.8rem; color: var(--text-main); margin-top: 0; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
-        h2 i { color: var(--accent-blue); font-size: 1.4rem; }
-        
-        p { line-height: 1.7; color: var(--text-muted); margin-bottom: 20px; }
-
-        /* CARDS FOR FEATURES */
-        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-        .feature-card { background: var(--bg-card); border: 1px solid var(--border); padding: 20px; border-radius: 8px; }
-        .feature-title { font-weight: bold; margin-bottom: 10px; display: block; color: var(--text-main); }
-        .feature-desc { font-size: 0.85rem; color: var(--text-muted); }
-
-        /* --- INVENTORY GRID --- */
-        #stack-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-        .inv-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0;
-            /* overflow: hidden; Removed to fix tooltip visibility */
-            transition: transform 0.2s;
-            position: relative;
-        }
-        .inv-card:hover { transform: translateY(-3px); border-color: var(--text-muted); }
-        .inv-header { padding: 15px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; border-radius: 8px 8px 0 0; }
-        .inv-body { padding: 15px; }
-        .svc-row { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px; color: var(--text-muted); position: relative; }
-        .svc-row i { width: 20px; text-align: center; margin-right: 5px; }
-        
-        .badge { padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; background: var(--border); }
-        .badge.gpu { background: #76b900; color: black; }
-
-        /* --- TOOLTIPS --- */
-        .tooltip {
-            border-bottom: 1px dotted var(--accent-blue);
-            cursor: help;
-            position: relative;
-            display: inline-block;
-        }
-        .tooltip:hover::after {
-            content: attr(data-tip);
-            position: absolute;
-            bottom: 140%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.95);
-            color: #fff;
-            padding: 10px 15px;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            line-height: 1.4;
-            width: max-content;
-            max-width: 250px;
-            z-index: 10000;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            border: 1px solid var(--border);
-            text-align: center;
-            white-space: normal;
-            pointer-events: none;
-        }
-        .tooltip:hover::before {
-            content: "";
-            position: absolute;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 6px;
-            border-style: solid;
-            border-color: rgba(0,0,0,0.95) transparent transparent transparent;
-            z-index: 10000;
-        }
-
-        /* --- TOPOLOGY --- */
-        .topology-container { 
-            background: rgba(13, 17, 23, 0.5); 
-            border: 1px solid var(--border); 
-            border-radius: 16px; 
-            padding: 40px; 
-            position: relative; 
-        }
-        
-        .topo-row {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 30px;
-            margin: 30px 0;
-            flex-wrap: wrap;
-        }
-        
-        .topo-node { 
-            background: rgba(22, 27, 34, 0.9); 
-            border: 2px solid var(--border); 
-            border-radius: 12px; 
-            padding: 20px 25px; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            gap: 10px; 
-            min-width: 160px;
-            transition: all 0.3s;
-            position: relative;
-        }
-        .topo-node:hover { 
-            transform: translateY(-5px); 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        .topo-icon { 
-            font-size: 2rem; 
-            margin-bottom: 5px; 
-        }
-        .topo-label {
-            font-weight: 600;
-            font-size: 0.95rem;
-            text-align: center;
-        }
-        .topo-sublabel {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-align: center;
-        }
-        
-        .topo-path {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 12px 20px;
-            background: rgba(88, 166, 255, 0.05);
-            border: 1px solid var(--accent-blue);
-            border-radius: 25px;
-            font-size: 0.85rem;
-            color: var(--accent-blue);
-        }
-        .topo-path.warp { border-color: var(--accent-orange); color: var(--accent-orange); background: rgba(210, 153, 34, 0.05); }
-        .topo-path.tunnel { border-color: var(--accent-purple); color: var(--accent-purple); background: rgba(163, 113, 247, 0.05); }
-        .topo-path.local { border-color: var(--accent-green); color: var(--accent-green); background: rgba(63, 185, 80, 0.05); }
-        
-        .topo-arrow {
-            font-size: 1.2rem;
-            opacity: 0.6;
-        }
-        
-        .topo-layer-title {
-            text-align: center;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 15px;
-        }
-
-        .node-card { background: rgba(22, 27, 34, 0.9); border: 1px solid var(--border); border-radius: 8px; padding: 15px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-width: 140px; transition: all 0.3s; z-index: 2; }
-        .node-card:hover { transform: translateY(-5px); border-color: var(--accent-blue); }
-        .node-icon { font-size: 1.5rem; margin-bottom: 5px; }
-        .layer { display: flex; justify-content: center; gap: 40px; }
-        .c-cloud { border-top: 3px solid var(--accent-blue); }
-        .c-edge { border-top: 3px solid var(--accent-orange); }
-        .c-infra { border-top: 3px solid var(--accent-purple); }
-
-        /* --- SCREENSHOTS --- */
-        .screenshot-container { margin-top: 20px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #000; }
-        .screenshot-container img { width: 100%; display: block; opacity: 0.9; transition: opacity 0.3s; cursor: zoom-in; }
-        .screenshot-container img:hover { opacity: 1; }
-        .screenshot-caption { background: var(--bg-card); padding: 10px; font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid var(--border); text-align: center; }
-
-        /* --- LIGHTBOX --- */
-        .lightbox { display: none; position: fixed; z-index: 9999; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); justify-content: center; align-items: center; cursor: zoom-out; }
-        .lightbox img { max-width: 90%; max-height: 90%; border-radius: 4px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-
-        /* --- MOBILE --- */
-        .menu-toggle { display: none; position: fixed; top: 20px; left: 20px; z-index: 1001; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); padding: 10px; border-radius: 8px; cursor: pointer; }
-        .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99; }
-        @media (max-width: 900px) {
-            .menu-toggle { display: block; }
-            .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
-            .sidebar.active { transform: translateX(0); }
-            .main-content { margin-left: 0; padding: 80px 20px 20px 20px; }
-            .lang-switch { top: 20px; right: 20px; }
-            .layer { flex-direction: column; gap: 20px; align-items: center; }
-            .node-card { width: 100%; max-width: 300px; }
-            .topo-row { flex-direction: column; gap: 15px; }
-            .topo-node { width: 100%; max-width: 280px; }
+        @media print {
+            header { position: static; background: var(--bg); }
+            .nav-links, .actions { display: none; }
+            .hero { min-height: auto; padding: 48px 0; }
+            section { break-inside: avoid; padding: 40px 0; }
+            .deep-dive { display: none; }
         }
     </style>
 </head>
-<body>
-
-    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
-    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
-
-    <nav class="sidebar">
-        <div class="profile-section">
-            <div class="profile-img">BY</div>
-            <div class="brand-text">
-                <h3>Berkay Yetgin</h3>
-                <p data-i18n="sidebar_role">IT Specialist</p>
-            </div>
-        </div>
-        <ul class="nav-links">
-            <li><a href="#overview" class="nav-item active"><i class="fa-solid fa-house"></i> <span data-i18n="nav_overview">Overview</span></a></li>
-            <li><a href="#iac" class="nav-item"><i class="fa-solid fa-code"></i> <span data-i18n="nav_iac">Infrastructure as Code</span></a></li>
-            <li><a href="#security" class="nav-item"><i class="fa-solid fa-shield-halved"></i> <span data-i18n="nav_security">Security & Secrets</span></a></li>
-            <li><a href="#backup" class="nav-item"><i class="fa-solid fa-floppy-disk"></i> <span data-i18n="nav_backup">Backup & Recovery</span></a></li>
-            <li><a href="#topology" class="nav-item"><i class="fa-solid fa-network-wired"></i> <span data-i18n="nav_topology">Network Topology</span></a></li>
-            <li><a href="#inventory" class="nav-item"><i class="fa-solid fa-server"></i> <span data-i18n="nav_inventory">Infrastructure Inventory</span></a></li>
-            <li><a href="#faq" class="nav-item"><i class="fa-solid fa-circle-question"></i> <span data-i18n="nav_faq">FAQ</span></a></li>
-        </ul>
-        <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted);">
-            <p><strong data-i18n="sidebar_brand">Yakrel's Homelab</strong></p>
-            <p><span data-i18n="sidebar_update">Last Update:</span> July 2026</p>
-            <p><a href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" style="color:var(--accent-blue); text-decoration:none;"><i class="fa-brands fa-github"></i> GitHub</a></p>
-            <p><a href="https://cv.byetgin.com" target="_blank" style="color:var(--accent-green); text-decoration:none;"><i class="fa-solid fa-user"></i> <span data-i18n="sidebar_cv">Resume (CV)</span></a></p>
-        </div>
-    </nav>
-
-    <main class="main-content"> 
-        <div class="lang-switch" onclick="toggleLanguage()">
-            <i class="fa-solid fa-language"></i>
-            <span id="lang-text"><span class="lang-active">EN</span> / TR</span>
-        </div>
-
-        <!-- 1. OVERVIEW -->
-        <section id="overview">
-            <div style="background: linear-gradient(135deg, rgba(88, 166, 255, 0.1), rgba(163, 113, 247, 0.1)); padding: 40px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 40px;">
-                <h1 style="border:none; margin:0;" data-i18n="hero_title">Proxmox Homelab Automation</h1>
-                <p style="font-size: 1.1rem; color: var(--text-main); margin-top: 10px;" data-i18n="hero_desc">
-                    Production homelab running family services. 40+ services across 6 LXC containers with GPU passthrough and automated deployment.
-                </p>
-                <div style="display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
-                    <span class="badge" style="background:var(--accent-blue); color:black;"><i class="fa-brands fa-docker"></i> <span data-i18n="badge_services">40+ Services</span></span>
-                    <span class="badge" style="background:var(--accent-purple); color:black;"><i class="fa-solid fa-code"></i> <span data-i18n="badge_bash">~3K Lines Bash</span></span>
-                </div>
-                <div class="screenshot-container">
-                    <img src="assets/main-dashboard.png" alt="Dashboard">
-                    <div class="screenshot-caption"><strong data-i18n="img_dash_title">Centralized Command Center</strong></div>
-                </div>
-            </div>
-        </section>
-
-        <!-- 2. IAC -->
-        <section id="iac">
-            <h2><i class="fa-solid fa-terminal"></i> <span data-i18n="nav_iac">Infrastructure as Code</span></h2>
-            <p data-i18n="iac_intro">I built a setup where I define everything in one YAML file (stacks.yaml), and scripts handle the installation automatically.</p>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <span class="feature-title" data-i18n="iac_ssot_title">Defined Configuration</span>
-                    <span class="feature-desc" data-i18n="iac_ssot_desc">LXC identities live in stacks.yaml while services and selected application configuration live in Compose files and templates.</span>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-title" data-i18n="iac_idem_title">Idempotency</span>
-                    <span class="feature-desc" data-i18n="iac_idem_desc">The installer script can run multiple times without breaking anything, only applying necessary changes.</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- 3. SECURITY -->
-        <section id="security">
-            <h2><i class="fa-solid fa-lock"></i> <span data-i18n="nav_security">Security & Secrets Management</span></h2>
-            <p data-i18n="sec_intro">Public ingress is tunnel-based, while trusted LAN management paths and encrypted repository secrets support day-to-day administration.</p>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <span class="feature-title" data-i18n="sec_enc_title">AES-256 Encryption (OpenSSL)</span>
-                    <span class="feature-desc" data-i18n="sec_enc_desc">Sensitive keys are stored as .env.enc in Git, encrypted with OpenSSL.</span>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-title" data-i18n="sec_f2b_title">Fail2Ban Integration</span>
-                    <span class="feature-desc" data-i18n="sec_f2b_desc">Fail2Ban protects Proxmox host authentication endpoints when enabled from the helper menu.</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- 4. BACKUP -->
-        <section id="backup">
-            <h2><i class="fa-solid fa-floppy-disk"></i> <span data-i18n="nav_backup">Backup & Recovery</span></h2>
-            <p data-i18n="backup_intro">Local ZFS recovery plus one encrypted restic repository mirrored to two remote targets.</p>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <span class="feature-title" data-i18n="backup_l1_title">Layer 1: ZFS Snapshots</span>
-                    <span class="feature-desc" data-i18n="backup_l1_desc">Managed by Sanoid. Seconds-level recovery from accidental deletion.</span>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-title" data-i18n="backup_l2_title">Layer 2: Encrypted Repository Mirrors</span>
-                    <span class="feature-desc" data-i18n="backup_l2_desc">Backrest maintains one encrypted restic repository, mirrored to Oracle VPS and Google Drive with the same retention lifecycle.</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- 5. TOPOLOGY -->
-        <section id="topology">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2><i class="fa-solid fa-network-wired"></i> <span data-i18n="nav_topology">Network Topology</span></h2>
-                <a href="topology.html" target="_blank" class="nav-item" style="background: rgba(88, 166, 255, 0.1); border: 1px solid var(--border); padding: 8px 15px; border-radius: 20px; font-size: 0.8rem; text-decoration: none; color: var(--accent-blue); display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                    <i class="fa-solid fa-up-right-from-square"></i>
-                    <span data-i18n="topo_open_new">Open Fullscreen</span>
+<body class="lang-tr">
+    <header>
+        <div class="wrap">
+            <nav>
+                <a class="brand" href="#top" aria-label="Berkay Yetgin Infrastructure">
+                    <span class="brand-mark">BY</span>
+                    <span>Berkay Yetgin <span style="color:var(--muted);font-weight:520">/ Infrastructure</span></span>
                 </a>
+                <div class="nav-links">
+                    <a class="nav-link section-nav tr" href="#architecture">Mimari</a>
+                    <a class="nav-link section-nav en" href="#architecture">Architecture</a>
+                    <a class="nav-link section-nav tr" href="#operations">Operasyon</a>
+                    <a class="nav-link section-nav en" href="#operations">Operations</a>
+                    <a class="nav-link section-nav tr" href="#recovery">Kurtarma</a>
+                    <a class="nav-link section-nav en" href="#recovery">Recovery</a>
+                    <a class="nav-link" href="https://byetgin.com" target="_blank" rel="noopener"><span class="tr">Portfolyo</span><span class="en">Portfolio</span></a>
+                    <a class="nav-link" href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" rel="noopener">GitHub</a>
+                    <span class="lang-switch" aria-label="Language">
+                        <button class="lang-btn" type="button" data-lang="tr">TR</button>
+                        <button class="lang-btn" type="button" data-lang="en">EN</button>
+                    </span>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main id="top" class="wrap">
+        <section class="hero" style="border-top:0">
+            <div class="eyebrow tr">Teknik vaka çalışması · Aktif homelab</div>
+            <div class="eyebrow en">Technical case study · Active homelab</div>
+            <h1 class="tr">Güvenli, tekrar kurulabilir ve kurtarılabilir bir Proxmox altyapısı.</h1>
+            <h1 class="en">A secure, repeatable, and recoverable Proxmox environment.</h1>
+            <p class="lead tr">Ailemin kullandığı servisleri barındıran bu kişisel ortamı altı ayrı LXC iş yükü alanında işletiyorum. Bu sayfa uygulama kataloğundan çok; ayrım, erişim, otomasyon ve arıza anında geri dönüş kararlarını gösterir.</p>
+            <p class="lead en">I operate this personal environment for services used by my family across six LXC workload domains. This page focuses on isolation, access, automation, and recovery decisions rather than presenting an application catalog.</p>
+            <div class="actions">
+                <a class="button primary tr" href="#architecture">Mimariyi incele</a>
+                <a class="button primary en" href="#architecture">Explore the architecture</a>
+                <a class="button tr" href="topology.html" target="_blank" rel="noopener">Etkileşimli topoloji</a>
+                <a class="button en" href="topology.html" target="_blank" rel="noopener">Interactive topology</a>
+                <a class="button tr" href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" rel="noopener">Kaynak kod</a>
+                <a class="button en" href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" rel="noopener">Source code</a>
             </div>
-            <p data-i18n="topo_intro" style="margin-top: -5px; margin-bottom: 20px;">Multi-path access architecture with split DNS for seamless connectivity anywhere.</p>
-            
-            <div style="width: 100%; border: 1px solid var(--border); border-radius: 16px; background: rgba(22, 27, 34, 0.4); backdrop-filter: blur(10px); overflow: hidden;">
-                <iframe src="topology.html" style="width: 100%; height: 950px; border: none; display: block;" id="topology-iframe"></iframe>
+            <div class="facts" aria-label="Architecture facts">
+                <div class="fact"><strong>6 LXC</strong><span class="tr">Ayrılmış iş yükü alanı</span><span class="en">Separated workload domains</span></div>
+                <div class="fact"><strong>0 WAN</strong><span class="tr">Yönlendiricide açık gelen port</span><span class="en">Inbound router port forwards</span></div>
+                <div class="fact"><strong>ZFS + Restic</strong><span class="tr">Yerel geri dönüş ve şifreli yedek</span><span class="en">Local rollback and encrypted backup</span></div>
+                <div class="fact"><strong>Git-managed</strong><span class="tr">Konfigürasyon odaklı dağıtım</span><span class="en">Configuration-driven deployment</span></div>
             </div>
         </section>
 
-        <!-- 6. INVENTORY -->
-        <section id="inventory">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2><i class="fa-solid fa-server"></i> <span data-i18n="nav_inventory">Infrastructure Inventory</span></h2>
-                <div style="font-size:0.8rem; color:var(--text-muted);"><i class="fa-solid fa-circle" style="color:var(--accent-green); font-size:0.6rem;"></i> <span data-i18n="inv_status">Configured State</span></div>
+        <section id="architecture">
+            <div class="section-head">
+                <span class="section-index tr">01 — Bir bakışta sistem</span>
+                <span class="section-index en">01 — System at a glance</span>
+                <h2 class="tr">Erişim yolu ile iş yükü aynı güven sınırında değil.</h2>
+                <h2 class="en">Access paths and workloads do not share one trust boundary.</h2>
+                <p class="section-intro tr">İnternet, özel yönetim erişimi ve yerel ağ farklı yollardan gelir; Gateway LXC istekleri DNS, reverse proxy ve tünel katmanında karşılar. Uygulama alanlarına yalnızca tanımlı akışlar geçer.</p>
+                <p class="section-intro en">Internet, private administration, and LAN traffic use different paths. The Gateway LXC terminates DNS, reverse proxy, and tunnel flows; only defined traffic proceeds to workload domains.</p>
             </div>
-            <div id="stack-grid">Loading infrastructure data...</div>
+            <div class="architecture">
+                <div class="layer">
+                    <div class="layer-label tr">Erişim yolları</div><div class="layer-label en">Access paths</div>
+                    <div class="node-grid three">
+                        <div class="node"><strong class="tr">Yerel ağ + Split DNS</strong><strong class="en">LAN + split DNS</strong><span class="tr">Aynı alan adları, yerelde doğrudan NPM'e çözülür.</span><span class="en">The same domains resolve directly to NPM on the LAN.</span></div>
+                        <div class="node"><strong>Tailscale</strong><span class="tr">Proxmox ve özel ağ için şifreli yönetim yolu.</span><span class="en">Encrypted administration path to Proxmox and the private subnet.</span></div>
+                        <div class="node"><strong>Cloudflare Tunnel + Access</strong><span class="tr">Web yayınları için portsuz dış erişim.</span><span class="en">Port-forward-free web ingress for published services.</span></div>
+                    </div>
+                </div>
+                <div class="flow-arrow" aria-hidden="true">↓</div>
+                <div class="layer">
+                    <div class="layer-label tr">Giriş ve yönlendirme sınırı · LXC 100</div><div class="layer-label en">Ingress and routing boundary · LXC 100</div>
+                    <div class="node gateway"><strong>Gateway — DNS · Reverse Proxy · Tunnel</strong><span class="tr">AdGuard Home, Nginx Proxy Manager ve Cloudflared. Yönetim portları yalnızca açıkça izin verilen cihazlardan erişilebilir.</span><span class="en">AdGuard Home, Nginx Proxy Manager, and Cloudflared. Administrative ports are reachable only from explicitly allowed devices.</span></div>
+                </div>
+                <div class="flow-arrow" aria-hidden="true">↓</div>
+                <div class="layer">
+                    <div class="layer-label tr">İş yükü alanları · LXC 101–105</div><div class="layer-label en">Workload domains · LXC 101–105</div>
+                    <div class="node-grid five">
+                        <div class="node"><strong class="tr">Medya ve fotoğraf</strong><strong class="en">Media & photos</strong><span class="tr">GPU hızlandırmalı medya ve fotoğraf iş yükleri.</span><span class="en">GPU-accelerated media and photo workloads.</span></div>
+                        <div class="node"><strong class="tr">Araçlar ve yedek</strong><strong class="en">Utility & backup</strong><span class="tr">Dosya paylaşımı, yardımcı servisler ve yedek orkestrasyonu.</span><span class="en">File sharing, utility services, and backup orchestration.</span></div>
+                        <div class="node"><strong class="tr">Uzak çalışma alanı</strong><strong class="en">Remote workspace</strong><span class="tr">Tarayıcı tabanlı masaüstü ve kişisel üretkenlik servisleri.</span><span class="en">Browser-based desktop and personal productivity services.</span></div>
+                        <div class="node"><strong class="tr">AI ve otomasyon</strong><strong class="en">AI & automation</strong><span class="tr">Ajan arayüzü ve API yönlendirme katmanı.</span><span class="en">Agent interface and API routing layer.</span></div>
+                        <div class="node"><strong class="tr">Geliştirme</strong><strong class="en">Development</strong><span class="tr">Web IDE, çalışma ortamları ve CLI araçları.</span><span class="en">Web IDE, runtimes, and CLI tooling.</span></div>
+                    </div>
+                </div>
+                <div class="flow-arrow" aria-hidden="true">↓</div>
+                <div class="layer">
+                    <div class="layer-label tr">Fiziksel ve depolama temeli</div><div class="layer-label en">Compute and storage foundation</div>
+                    <div class="foundation">
+                        <div class="node"><strong>Proxmox VE 9</strong><span class="tr">Unprivileged LXC ve konsol odaklı yönetim.</span><span class="en">Unprivileged LXC and console-first administration.</span></div>
+                        <div class="node"><strong>ZFS fastpool / datapool</strong><span class="tr">Konfigürasyon-veritabanı ile büyük verinin ayrılması.</span><span class="en">Separation of configuration/databases from bulk data.</span></div>
+                        <div class="node"><strong>NVIDIA GPU</strong><span class="tr">Seçili LXC'lere paylaşılan hızlandırma.</span><span class="en">Shared acceleration for selected LXCs.</span></div>
+                    </div>
+                </div>
+            </div>
         </section>
 
-        <!-- 7. FAQ -->
-        <section id="faq">
-            <h2><i class="fa-solid fa-circle-question"></i> <span data-i18n="nav_faq">Architectural Decisions</span></h2>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <span class="feature-title" data-i18n="faq_k8s_q">Why not Kubernetes?</span>
-                    <span class="feature-desc" data-i18n="faq_k8s_a">For a single-node environment, Kubernetes introduces significant overhead. Docker Compose maintains native performance.</span>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-title" data-i18n="faq_bash_q">Why Bash for IaC?</span>
-                    <span class="feature-desc" data-i18n="faq_bash_a">Modular Bash scripts stay close to the OS, ensuring full reproducibility on Proxmox without external dependencies.</span>
-                </div>
+        <section id="operations">
+            <div class="section-head">
+                <span class="section-index tr">02 — İşletim modeli</span><span class="section-index en">02 — Operating model</span>
+                <h2 class="tr">Sistem yalnızca kurulmadı; değişiklik ve geri dönüş yolları da tanımlandı.</h2>
+                <h2 class="en">The system was not only deployed; its change and recovery paths are defined.</h2>
+            </div>
+            <div class="card-grid five">
+                <article class="card"><span class="card-number">01</span><h3 class="tr">Tanımla</h3><h3 class="en">Define</h3><p class="tr">LXC kimlikleri ve kaynakları <code>stacks.yaml</code>; servis durumu Compose dosyaları ve şablonlarla tanımlanır.</p><p class="en">LXC identities and resources live in <code>stacks.yaml</code>; service state lives in Compose files and templates.</p></article>
+                <article class="card"><span class="card-number">02</span><h3 class="tr">Provision et</h3><h3 class="en">Provision</h3><p class="tr">İşletim sistemi katmanı temiz LXC kurulumu kabul eder. Yarım kalmış kurulum onarılmak yerine yeniden oluşturulur.</p><p class="en">The OS layer assumes clean LXC provisioning. Partial installations are recreated rather than patched in place.</p></article>
+                <article class="card"><span class="card-number">03</span><h3 class="tr">Yeniden dağıt</h3><h3 class="en">Redeploy</h3><p class="tr">Uygulama değişiklikleri aynı hazırlık yolunu kullanan stack veya toplu hızlı redeploy üzerinden uygulanır.</p><p class="en">Application changes use the same preparation path through per-stack or all-stack fast redeploy.</p></article>
+                <article class="card"><span class="card-number">04</span><h3 class="tr">Doğrula ve güncelle</h3><h3 class="en">Verify & update</h3><p class="tr">Docker healthcheck'leri, Homepage kontrolleri ve ayrık Watchtower zamanlamaları; güncelleme bildirimleri Telegram'a gider.</p><p class="en">Docker health checks, Homepage probes, and staggered Watchtower schedules feed update notifications to Telegram.</p></article>
+                <article class="card"><span class="card-number">05</span><h3 class="tr">Kurtar</h3><h3 class="en">Recover</h3><p class="tr">ZFS snapshot, şifreli restic repository ve yeniden kurulum akışı farklı arıza seviyeleri için ayrı yollar sağlar.</p><p class="en">ZFS snapshots, an encrypted restic repository, and the rebuild path cover different failure levels.</p></article>
+            </div>
+        </section>
+
+        <section id="security">
+            <div class="section-head">
+                <span class="section-index tr">03 — Güvenlik sınırları</span><span class="section-index en">03 — Security boundaries</span>
+                <h2 class="tr">Varsayılan yaklaşım açık erişim değil, gerekli akışa izin vermek.</h2>
+                <h2 class="en">The default is not broad access; it is permission for required flows.</h2>
+            </div>
+            <div class="card-grid two">
+                <article class="card"><h3 class="tr">Ağ katmanı</h3><h3 class="en">Network layer</h3><p class="tr">Her LXC için gelen trafik varsayılan olarak düşürülür. NPM, yönetim cihazları ve zorunlu servis bağımlılıkları kaynak/port bazında açıkça izinlidir; stack içi veritabanları internal Docker ağlarında kalır.</p><p class="en">Inbound traffic is dropped by default per LXC. NPM, administration devices, and required service dependencies are explicitly allowed by source and port; stack-local databases remain on internal Docker networks.</p></article>
+                <article class="card"><h3 class="tr">Yönetim ve secret katmanı</h3><h3 class="en">Administration & secrets</h3><p class="tr">LXC'lerde SSH sunucusu yerine güvenilen Proxmox konsolu kullanılır. Hassas dosyalar Git'te salted AES-256-CBC ve PBKDF2-HMAC-SHA256 ile şifreli tutulur.</p><p class="en">Trusted Proxmox console access replaces SSH servers inside LXCs. Sensitive files remain encrypted in Git with salted AES-256-CBC and PBKDF2-HMAC-SHA256.</p></article>
+            </div>
+            <div class="path"><b class="tr">Web isteği:</b><b class="en">Web request:</b> Internet → Cloudflare Edge → Cloudflared → Nginx Proxy Manager → <code>explicitly allowed backend</code></div>
+            <div class="path"><b class="tr">Yönetim:</b><b class="en">Administration:</b> Admin device → Tailscale → Private subnet → <code>Proxmox / trusted management path</code></div>
+        </section>
+
+        <section id="recovery">
+            <div class="section-head">
+                <span class="section-index tr">04 — Yedekleme ve kurtarma</span><span class="section-index en">04 — Backup and recovery</span>
+                <h2 class="tr">Her kopya aynı problemi çözmüyor.</h2><h2 class="en">Each copy solves a different failure mode.</h2>
+                <p class="section-intro tr">Hızlı yerel geri dönüş, şifreli veri yedeği ve uzak repository erişilebilirliği birbirinden ayrıdır.</p>
+                <p class="section-intro en">Fast local rollback, encrypted data backup, and off-site repository availability are separate concerns.</p>
+            </div>
+            <div class="recovery">
+                <article class="recovery-step"><span class="tag tr">Yerel geri dönüş</span><span class="tag en">Local rollback</span><h3>ZFS + Sanoid</h3><p class="tr">Konfigürasyon hatası veya kazara silme için sık snapshot'lar. Host ayakta olduğu sürece en hızlı geri dönüş yoludur.</p><p class="en">Frequent snapshots for configuration mistakes or accidental deletion. This is the fastest path while the host remains available.</p></article>
+                <article class="recovery-step"><span class="tag tr">Şifreli yedek</span><span class="tag en">Encrypted backup</span><h3>Backrest + Restic</h3><p class="tr">Konfigürasyonlar ve seçili uygulama verileri istemci tarafında şifreli tek bir restic repository'ye yazılır; retention ve repository kontrolleri planlıdır.</p><p class="en">Configuration and selected application data are written to one client-side encrypted restic repository with scheduled retention and repository checks.</p></article>
+                <article class="recovery-step"><span class="tag tr">Uzak erişilebilirlik</span><span class="tag en">Off-site availability</span><h3>Oracle VPS + Google Drive</h3><p class="tr">Repository iki uzak hedefe aynalanır. Ayna hatası yerel backup'ı geçersiz kılmaz; Telegram uyarısı üretir.</p><p class="en">The repository is mirrored to two remote targets. Mirror failure does not invalidate the local snapshot; it raises a Telegram alert.</p></article>
+            </div>
+        </section>
+
+        <section id="decisions">
+            <div class="section-head">
+                <span class="section-index tr">05 — Gerçek mühendislik kararları</span><span class="section-index en">05 — Engineering decisions in practice</span>
+                <h2 class="tr">Değer, araç listesinden çok çözülen sınır problemlerinde.</h2>
+                <h2 class="en">The value is in resolved boundary problems, not a tool list.</h2>
+            </div>
+            <div class="card-grid three">
+                <article class="card"><h3 class="tr">Gelen LXC trafiğinde default-deny</h3><h3 class="en">Default-deny inbound LXC traffic</h3><p class="tr">LXC düzeyinde <code>policy_in: DROP</code> ve <code>policy_out: ACCEPT</code> uygulanır; yalnızca gereken kaynak/port çiftleri açık izin kurallarıyla açılır. Reverse proxy, sağlık kontrolü ve zorunlu stack bağımlılıkları açıkça modellenir; SMB sabit yönetici cihazlarıyla sınırlandırılır.</p><p class="en">At the LXC layer, <code>policy_in: DROP</code> and <code>policy_out: ACCEPT</code> are enforced; only required source/port pairs are opened with explicit allow rules. Reverse proxy, health monitoring, and required cross-stack dependencies are modeled explicitly; SMB is limited to fixed administration devices.</p><a class="case-link" href="https://github.com/Yakrel/proxmox-homelab-automation/blob/main/scripts/lxc-manager.sh" target="_blank" rel="noopener"><span class="tr">Uygulamayı gör →</span><span class="en">View implementation →</span></a></article>
+                <article class="card"><h3 class="tr">Unprivileged LXC GPU paylaşımı</h3><h3 class="en">Unprivileged LXC GPU sharing</h3><p class="tr">cgroup v2 cihaz eşlemeleri ve host/container NVIDIA userspace sürüm uyumu ile medya iş yüklerine ayrıcalıklı konteyner kullanmadan hızlandırma verildi.</p><p class="en">cgroup v2 device mappings and host/container NVIDIA userspace alignment provide acceleration without privileged containers.</p><a class="case-link" href="https://github.com/Yakrel/proxmox-homelab-automation/blob/main/scripts/nvidia-userspace-sync.sh" target="_blank" rel="noopener"><span class="tr">Uygulamayı gör →</span><span class="en">View implementation →</span></a></article>
+                <article class="card"><h3 class="tr">Backup ile mirror ayrımı</h3><h3 class="en">Backup versus mirror semantics</h3><p class="tr">Uzak hedefler bağımsız retention arşivi gibi sunulmadı; aynı repository yaşam döngüsünü izleyen erişilebilirlik kopyaları olarak tasarlandı ve uyarı davranışı buna göre kuruldu.</p><p class="en">Remote targets are not presented as independent retention archives; they are availability copies following the same repository lifecycle, with alerts designed accordingly.</p><a class="case-link" href="https://github.com/Yakrel/proxmox-homelab-automation/blob/main/scripts/modules/backrest-deployment.sh" target="_blank" rel="noopener"><span class="tr">Uygulamayı gör →</span><span class="en">View implementation →</span></a></article>
+            </div>
+        </section>
+
+        <section id="limits">
+            <div class="section-head">
+                <span class="section-index tr">06 — Bilinen sınırlar</span><span class="section-index en">06 — Known constraints</span>
+                <h2 class="tr">Bu bir kurumsal cluster değil; sınırları açıkça tanımlı kişisel altyapı.</h2>
+                <h2 class="en">This is not an enterprise cluster; it is a personal environment with explicit limits.</h2>
+            </div>
+            <div class="limits">
+                <article class="limit"><strong class="tr">Tek fiziksel node, gerçek HA değil</strong><strong class="en">One physical node, not true HA</strong><p class="tr">Host arızası servis kesintisidir. Tasarım kesintisiz devretme yerine veri kurtarma ve yeniden kurulum süresini azaltmaya odaklanır.</p><p class="en">A host failure is a service outage. The design reduces recovery and rebuild time rather than providing failover.</p></article>
+                <article class="limit"><strong class="tr">Mirror, bağımsız retention değildir</strong><strong class="en">Mirrors are not independent retention</strong><p class="tr">Oracle ve Google Drive kopyaları yerel restic repository'nin forget/prune yaşam döngüsünü paylaşır.</p><p class="en">Oracle and Google Drive copies share the local restic repository's forget/prune lifecycle.</p></article>
+                <article class="limit"><strong class="tr">Ölçeğe uygun hafif izleme</strong><strong class="en">Right-sized lightweight monitoring</strong><p class="tr">Merkezi metrik/log stack'i daha önce işletildi; tek node homelab ölçeğinde kaynak ve bakım maliyeti ile unprivileged LXC entegrasyon yükü sağladığı değeri aşınca bilinçli olarak kaldırıldı. Güncel görünürlük Docker healthcheck'leri, Homepage kontrolleri ve hedefli bildirimlerle sağlanır.</p><p class="en">A centralized metrics/logging stack was operated previously, then deliberately removed when its resource and maintenance cost—and the integration overhead across unprivileged LXCs—outweighed its value at single-node homelab scale. Current visibility relies on Docker health checks, Homepage probes, and targeted notifications.</p></article>
+                <article class="limit"><strong class="tr">Genel ürün değil, ortama özel otomasyon</strong><strong class="en">Environment-specific automation, not a generic product</strong><p class="tr">Ağ, storage ve donanım varsayımları bilinçli olarak sabittir. Başka ortam için fork ve refactor gerekir.</p><p class="en">Network, storage, and hardware assumptions are intentionally fixed. Another environment requires a fork and refactor.</p></article>
+            </div>
+        </section>
+
+        <section id="deep-dive">
+            <div class="section-head">
+                <span class="section-index tr">07 — Teknik derinlik</span><span class="section-index en">07 — Technical deep dive</span>
+                <h2 class="tr">Özet burada; kanıt kod ve topolojide.</h2><h2 class="en">The summary is here; the evidence is in the code and topology.</h2>
+            </div>
+            <div class="deep-dive">
+                <a class="deep-link" href="topology.html" target="_blank" rel="noopener"><div><h3 class="tr">Etkileşimli ağ topolojisi</h3><h3 class="en">Interactive network topology</h3><span class="tr">İstemci, erişim yolları, gateway ve LXC bağlantılarını ayrıntılı incele.</span><span class="en">Inspect clients, access paths, gateway, and LXC relationships.</span></div><b class="tr">Topolojiyi aç →</b><b class="en">Open topology →</b></a>
+                <a class="deep-link" href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" rel="noopener"><div><h3 class="tr">Kaynak kod ve README</h3><h3 class="en">Source and README</h3><span class="tr">Deployment scriptleri, Compose tanımları, firewall ve backup uygulaması.</span><span class="en">Deployment scripts, Compose definitions, firewall, and backup implementation.</span></div><b>GitHub →</b></a>
+                <a class="deep-link" href="https://byetgin.com" target="_blank" rel="noopener"><div><h3 class="tr">Profesyonel profil</h3><h3 class="en">Professional profile</h3><span class="tr">Kurumsal Microsoft/endpoint deneyimi ve diğer seçilmiş çalışmalar.</span><span class="en">Enterprise Microsoft/endpoint experience and other selected work.</span></div><b class="tr">Portfolyoya dön →</b><b class="en">Return to portfolio →</b></a>
             </div>
         </section>
     </main>
 
-    <div id="lightbox" class="lightbox"><img id="lightbox-img" src=""></div>
+    <footer>
+        <div class="wrap footer-row">
+            <span>© 2026 Berkay Yetgin · Proxmox Homelab Case Study</span>
+            <div class="footer-links">
+                <a href="https://byetgin.com" target="_blank" rel="noopener">byetgin.com</a>
+                <a href="https://www.linkedin.com/in/berkayyetgin" target="_blank" rel="noopener">LinkedIn</a>
+                <a href="https://github.com/Yakrel" target="_blank" rel="noopener">GitHub</a>
+            </div>
+        </div>
+    </footer>
 
-    <script src="architecture-data.js"></script>
     <script>
-        const translations = {
-            en: {
-                nav_overview: "Overview", nav_iac: "Infrastructure as Code", nav_security: "Security", nav_backup: "Backup", nav_topology: "Network Topology", nav_inventory: "Infrastructure Inventory", nav_faq: "FAQ",
-                hero_title: "Proxmox Homelab Automation", hero_desc: "Automated homelab hosting 40+ services across 6 LXC nodes with ZFS storage, GPU passthrough, and configuration-driven deployment paths.",
-                sidebar_role: "IT Specialist & DevOps", sidebar_brand: "Yakrel's Homelab", sidebar_update: "Last Update:", sidebar_cv: "Resume (CV)",
-                badge_services: "40+ Services", badge_bash: "~3K Lines Bash", img_dash_title: "Centralized Command Center",
-                iac_intro: "A configuration-driven deployment flow where LXC resources, Docker Compose services, and generated application configuration are managed by modular scripts.",
-                iac_ssot_title: "Defined Configuration", iac_ssot_desc: "LXC identities live in stacks.yaml while service and application state is defined in Compose files and templates.",
-                iac_idem_title: "Repeatable Deployments", iac_idem_desc: "Clean LXC provisioning is separated from repeatable Docker Compose and generated-configuration redeploy paths.",
-                sec_intro: "Security-focused homelab design with tunnel-based public access, per-stack Docker bridge networks, and encrypted secrets stored in Git.",
-                sec_enc_title: "AES-256 Encryption (OpenSSL)", sec_enc_desc: "Sensitive files use salted AES-256-CBC with PBKDF2-HMAC-SHA256 and an explicit 600,000-iteration work factor.",
-                sec_f2b_title: "Fail2Ban Protection", sec_f2b_desc: "The optional helper configures Fail2Ban for Proxmox host and SSH authentication attempts.",
-                backup_intro: "Local ZFS recovery is combined with one client-side encrypted restic repository mirrored to two remote targets.",
-                backup_l1_title: "Layer 1: ZFS Snapshots", backup_l1_desc: "Automated ZFS snapshots managed by Sanoid, ensuring seconds-level recovery from configuration errors or accidental deletions.",
-                backup_l2_title: "Layer 2: Encrypted Repository Mirrors", backup_l2_desc: "Backrest maintains one encrypted restic repository. Post-backup rclone hooks mirror it to Oracle VPS and Google Drive; the mirrors share the repository's forget and prune lifecycle rather than providing independent retention.",
-                topo_intro: "Multi-path Zero Trust access architecture with split-DNS for seamless and secure connectivity from any location.",
-                topo_layer_clients: "Client Devices", topo_layer_paths: "Access Paths", topo_layer_infra: "Homelab Infrastructure", topo_layer_services: "Application Layer",
-                topo_phone: "Mobile Phone", topo_laptop: "Admin Laptop", topo_browser: "Public Browser",
-                topo_path_ts: "Tailscale VPN", topo_path_warp: "Cloudflare WARP", topo_path_tunnel: "CF Tunnel + Access", topo_path_local: "Local WiFi",
-                topo_services: "Services",
-                topo_open_new: "Open Fullscreen",
-                inv_status: "Configured State",
-                faq_k8s_q: "Why not Kubernetes?", faq_k8s_a: "For a single-node host, Kubernetes introduces unnecessary container overhead and control-plane complexity. Docker Compose provides a lightweight, native-performance runtime matching the homelab scale.",
-                faq_bash_q: "Why Bash for IaC?", faq_bash_a: "Modular Bash scripts interact directly with Proxmox APIs and system tools, ensuring full reproducibility on bare-metal hypervisors without external dependencies."
-            },
-            tr: {
-                nav_overview: "Genel Bakış", nav_iac: "Kod Olarak Altyapı", nav_security: "Güvenlik", nav_backup: "Yedekleme", nav_topology: "Ağ Topolojisi", nav_inventory: "Altyapı Envanteri", nav_faq: "SSS",
-                hero_title: "Proxmox Homelab Otomasyonu", hero_desc: "ZFS depolama, GPU geçişi (passthrough) ve otomatik dağıtım süreçlerine sahip, 6 LXC konteyneri üzerinde çalışan 40'dan fazla servis içeren homelab altyapısı.",
-                sidebar_role: "BT Uzmanı & DevOps", sidebar_brand: "Yakrel'in Homelab'ı", sidebar_update: "Son Güncelleme:", sidebar_cv: "Özgeçmiş (CV)",
-                badge_services: "40+ Servis", badge_bash: "~3B Satır Bash", img_dash_title: "Merkezi Komuta Paneli",
-                iac_intro: "LXC kaynaklarının, Docker Compose servislerinin ve üretilen uygulama yapılandırmalarının modüler scriptlerle yönetildiği konfigürasyon odaklı dağıtım yapısı.",
-                iac_ssot_title: "Tanımlı Konfigürasyon", iac_ssot_desc: "LXC kimlikleri stacks.yaml içinde; servis ve uygulama durumu Compose dosyaları ile şablonlarda tanımlanır.",
-                iac_idem_title: "Tekrarlanabilir Dağıtımlar", iac_idem_desc: "Temiz LXC kurulumu, tekrarlanabilir Docker Compose ve üretilen konfigürasyon dağıtım yollarından ayrılmıştır.",
-                sec_intro: "Tünel tabanlı dış erişim, stack başına Docker bridge ağları ve Git üzerinde şifreli saklanan hassas değişkenlerle güvenlik odaklı homelab tasarımı.",
-                sec_enc_title: "AES-256 Şifreleme (OpenSSL)", sec_enc_desc: "Hassas dosyalar, PBKDF2-HMAC-SHA256 ve açıkça tanımlı 600.000 iterasyonla tuzlanmış AES-256-CBC kullanır.",
-                sec_f2b_title: "Fail2Ban Koruması", sec_f2b_desc: "İsteğe bağlı yardımcı, Proxmox host ve SSH kimlik doğrulama denemeleri için Fail2Ban yapılandırır.",
-                backup_intro: "Yerel ZFS kurtarma katmanı, iki uzak hedefe aynalanan tek bir istemci tarafında şifreli restic repository ile birleştirilir.",
-                backup_l1_title: "Katman 1: ZFS Snapshot'ları", backup_l1_desc: "Sanoid ile yönetilen otomatik ZFS snapshot'ları, kazara silinme veya hatalı yapılandırma durumlarında saniyeler düzeyinde kurtarma sağlar.",
-                backup_l2_title: "Katman 2: Şifreli Repository Aynaları", backup_l2_desc: "Backrest tek bir şifreli restic repository tutar. Yedekleme sonrası rclone kancaları bunu Oracle VPS ve Google Drive'a aynalar; bu aynalar bağımsız saklama arşivleri değildir ve repository'nin forget/prune yaşam döngüsünü paylaşır.",
-                topo_intro: "Split-DNS ve Zero Trust ilkelerine dayanan, her yerden kesintisiz ve güvenli bağlantı sunan çok yollu erişim mimarisi.",
-                topo_layer_clients: "İstemci Cihazlar", topo_layer_paths: "Erişim Yolları", topo_layer_infra: "Homelab Altyapısı", topo_layer_services: "Uygulama Katmanı",
-                topo_phone: "Mobil Telefon", topo_laptop: "Yönetici Laptop", topo_browser: "Genel Tarayıcı",
-                topo_path_ts: "Tailscale VPN", topo_path_warp: "Cloudflare WARP", topo_path_tunnel: "CF Tunnel + Access", topo_path_local: "Yerel WiFi",
-                topo_services: "Servisler",
-                topo_open_new: "Tam Ekran Aç",
-                inv_status: "Tanımlı Durum",
-                faq_k8s_q: "Neden Kubernetes Değil?", faq_k8s_a: "Tek sunuculu bir ortamda Kubernetes, kontrol düzlemi (control-plane) ve ek konteynerler nedeniyle gereksiz kaynak tüketimi yaratır. Docker Compose yerel performansı koruyarak hafif bir çalışma ortamı sağlar.",
-                faq_bash_q: "Neden IaC için Bash?", faq_bash_a: "Modüler Bash scriptleri, Proxmox API'leri ve işletim sistemi araçlarıyla doğrudan etkileşime girerek harici araç bağımlılığı olmaksızın tam tekrar edilebilirlik sunar."
-            }
-        };
-
-        function switchLang(lang, save = true) {
-            if (save) localStorage.setItem('lang', lang);
-            document.documentElement.lang = lang;
-            document.querySelectorAll('[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                if (translations[lang][key]) el.innerHTML = translations[lang][key];
+        const languageButtons = document.querySelectorAll("[data-lang]");
+        function setLanguage(language) {
+            const selected = language === "en" ? "en" : "tr";
+            document.body.classList.toggle("lang-tr", selected === "tr");
+            document.body.classList.toggle("lang-en", selected === "en");
+            document.documentElement.lang = selected;
+            languageButtons.forEach(function (button) {
+                button.classList.toggle("active", button.dataset.lang === selected);
             });
-            const btn = document.querySelector('.lang-switch span');
-            btn.innerHTML = lang === 'en' ? '<span class="lang-active">EN</span> / TR' : 'EN / <span class="lang-active">TR</span>';
-            renderInventory(lang);
-
-            // Sync with interactive topology iframe if loaded
-            const iframe = document.getElementById('topology-iframe');
-            if (iframe && iframe.contentWindow && typeof iframe.contentWindow.switchLang === 'function') {
-                iframe.contentWindow.switchLang(lang);
-            }
+            localStorage.setItem("infra-language", selected);
         }
-
-        function renderInventory(lang) {
-            const grid = document.getElementById('stack-grid');
-            if (typeof ARCHITECTURE_DATA === 'undefined') return;
-            grid.innerHTML = '';
-            ARCHITECTURE_DATA.stacks.forEach(stack => {
-                const stackName = typeof stack.name === 'object' ? stack.name[lang] : stack.name;
-                let servicesHtml = '';
-                stack.services.forEach(svc => {
-                    const svcDesc = typeof svc.desc === 'object' ? svc.desc[lang] : svc.desc;
-                    servicesHtml += `<div class="svc-row"><div class="tooltip" data-tip="${svcDesc}"><i class="${svc.icon}"></i> ${svc.name}</div><span>${svc.port}</span></div>`;
-                });
-                const card = document.createElement('div');
-                card.className = 'inv-card';
-                card.innerHTML = `<div class="inv-header"><div><strong>${stackName}</strong><br><small>${stack.ip}</small></div></div><div class="inv-body">${servicesHtml}</div>`;
-                grid.appendChild(card);
+        const savedLanguage = localStorage.getItem("infra-language");
+        const browserLanguage = navigator.language && navigator.language.toLowerCase().startsWith("tr") ? "tr" : "en";
+        setLanguage(savedLanguage || browserLanguage);
+        languageButtons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                setLanguage(button.dataset.lang);
             });
-        }
-
-        function toggleLanguage() { switchLang(document.documentElement.lang === 'en' ? 'tr' : 'en'); }
-        function toggleSidebar() { document.querySelector('.sidebar').classList.toggle('active'); document.querySelector('.sidebar-overlay').classList.toggle('active'); }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedLang = localStorage.getItem('lang') || (navigator.language.startsWith('tr') ? 'tr' : 'en');
-            switchLang(savedLang, false);
-            const lightbox = document.getElementById('lightbox');
-            const lightboxImg = document.getElementById('lightbox-img');
-            document.querySelectorAll('.screenshot-container img').forEach(img => {
-                img.addEventListener('click', () => { lightboxImg.src = img.src; lightbox.style.display = 'flex'; });
-            });
-            lightbox.addEventListener('click', () => lightbox.style.display = 'none');
         });
     </script>
 </body>
