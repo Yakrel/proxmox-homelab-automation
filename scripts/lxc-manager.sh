@@ -100,6 +100,7 @@ IN ACCEPT -source 192.168.1.20 -p udp -dport 137
 IN ACCEPT -source 192.168.1.20 -p udp -dport 138
 IN ACCEPT -source 192.168.1.20 -p tcp -dport 139
 IN ACCEPT -source 192.168.1.20 -p tcp -dport 445
+IN ACCEPT -source 192.168.1.20 -p tcp -dport 9666
 IN ACCEPT -source 192.168.1.21 -p udp -dport 137
 IN ACCEPT -source 192.168.1.21 -p udp -dport 138
 IN ACCEPT -source 192.168.1.21 -p tcp -dport 139
