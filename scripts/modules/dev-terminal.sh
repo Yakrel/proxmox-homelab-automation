@@ -154,6 +154,29 @@ cat > /root/.local/share/code-server/Machine/settings.json <<'CODE_SERVER_SETTIN
   }
 }
 CODE_SERVER_SETTINGS
+
+# Reconcile Oh My Pi Hindsight memory configuration
+install -d -m 0700 /root/.omp/agent
+python3 - <<'OMP_CONFIG'
+from pathlib import Path
+
+config_path = Path("/root/.omp/agent/config.yml")
+content = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
+
+if "backend: hindsight" not in content:
+    hindsight_block = """
+memory:
+  backend: hindsight
+hindsight:
+  apiUrl: http://192.168.1.104:8888
+  bankId: main
+  autoRecall: true
+  autoRetain: true
+  retainEveryNTurns: 3
+  scoping: per-project-tagged
+"""
+    config_path.write_text((content.rstrip() + "\n" + hindsight_block).lstrip(), encoding="utf-8")
+OMP_CONFIG
 GUEST_SCRIPT
 
     pct push "$ct_id" "$guest_script" "$remote_script"

@@ -51,6 +51,18 @@
         icon: mdi-brain
         siteMonitor: https://omniroute.byetgin.com
 
+    - Hindsight:
+        description: AI agent memory engine
+        href: https://hindsight.byetgin.com/
+        icon: mdi-head-cog
+        siteMonitor: https://hindsight.byetgin.com/
+
+    - Hermes:
+        description: Autonomous AI agent
+        href: https://hermes.byetgin.com/
+        icon: mdi-robot
+        siteMonitor: https://hermes.byetgin.com/
+
     - Oracle VPS (Cockpit):
         description: Cloud backup node console
         href: https://opc.byetgin.com

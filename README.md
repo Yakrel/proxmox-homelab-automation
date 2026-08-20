@@ -112,9 +112,9 @@ Homepage, Desktop Workspace, Guacamole, Sshwifty, CouchDB, Vaultwarden, Desktop 
 The LXC firewall accepts published application traffic only from Nginx Proxy Manager. This keeps the OTP-protected remote browser and the other Desktop services reachable through their domain routes without exposing their direct ports to the LAN.
 
 ### **AI & Automation** (LXC 104 - `192.168.1.104`)
-Hermes Agent, OmniRoute
+Hermes Agent, OmniRoute, Hindsight
 
-The LXC firewall accepts the Hermes and OmniRoute application ports only from Nginx Proxy Manager. Outbound agent access remains allowed.
+The LXC firewall accepts the Hermes, OmniRoute, and Hindsight dashboard application ports only from Nginx Proxy Manager, while Hindsight memory API access on port `8888` is permitted for the Dev container, fixed workstation, and laptop. Outbound agent access remains allowed.
 
 ### **Development (Dev)** (LXC 105 - `192.168.1.105`)
 Code-Server, Node.js, Python, Git/GitHub CLI, Oh My Pi

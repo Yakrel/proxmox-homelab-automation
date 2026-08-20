@@ -182,6 +182,7 @@ PYEOF
 
 setup_ai_permissions() {
     prepare_host_directory /fastpool/config/omniroute
+    prepare_host_directory /fastpool/config/hindsight
 
     # Keep the working Telegram integration while leaving model/provider
     # configuration to Hermes' first-run wizard and dashboard.
@@ -239,6 +240,22 @@ setup_guacamole_config() {
     # readable; the Desktop LXC and authenticated Samba administrator remain
     # trusted boundaries for the credentials stored here.
     prepare_host_directory /fastpool/config/guacamole
+    prepare_host_directory /fastpool/config/guacamole/extensions
+
+    local quickconnect_jar="/fastpool/config/guacamole/extensions/guacamole-auth-quickconnect-1.5.5.jar"
+    if [[ ! -f "$quickconnect_jar" ]]; then
+        local qc_tmp
+        qc_tmp=$(mktemp /fastpool/config/guacamole/extensions/quickconnect.XXXXXX)
+        register_runtime_temp_file "$qc_tmp"
+        if curl -fsSL "https://archive.apache.org/dist/guacamole/1.5.5/binary/guacamole-auth-quickconnect-1.5.5.tar.gz" | tar -xz -O "guacamole-auth-quickconnect-1.5.5/guacamole-auth-quickconnect-1.5.5.jar" > "$qc_tmp"; then
+            chown 101000:101000 "$qc_tmp"
+            chmod 0644 "$qc_tmp"
+            mv -f "$qc_tmp" "$quickconnect_jar"
+        else
+            rm -f "$qc_tmp"
+            print_error "Failed to download guacamole-auth-quickconnect extension"
+        fi
+    fi
 
     local source_template="$WORK_DIR/config/guacamole/user-mapping.xml.template"
     local dest_file="/fastpool/config/guacamole/user-mapping.xml"
