@@ -13,6 +13,7 @@
             <param name="ignore-cert">true</param>
             <param name="color-depth">32</param>
             <param name="disable-audio">true</param>
+            <param name="server-layout">tr-tr-q</param>
             <!-- Performance & Smoothness Optimizations -->
             <param name="enable-wallpaper">false</param>
             <param name="enable-theming">true</param>
@@ -28,6 +29,24 @@
             <param name="username">LAPTOP_USER_PLACEHOLDER</param>
             <param name="password">LAPTOP_PASSWORD_PLACEHOLDER</param>
             <param name="ignore-cert">true</param>
+            <param name="server-layout">tr-tr-q</param>
+            <!-- Performance & Smoothness Optimizations -->
+            <param name="enable-wallpaper">false</param>
+            <param name="enable-theming">true</param>
+            <param name="enable-font-smoothing">true</param>
+            <param name="resize-method">display</param>
+        </connection>
+
+        <!-- Windows Server RDP Connection -->
+        <connection name="Windows Server (RDP)">
+            <protocol>rdp</protocol>
+            <param name="hostname">192.168.1.200</param>
+            <param name="port">3389</param>
+            <param name="security">any</param>
+            <param name="ignore-cert">true</param>
+            <param name="color-depth">32</param>
+            <param name="disable-audio">true</param>
+            <param name="server-layout">tr-tr-q</param>
             <!-- Performance & Smoothness Optimizations -->
             <param name="enable-wallpaper">false</param>
             <param name="enable-theming">true</param>

@@ -89,3 +89,26 @@ services:
         max-file: "3"
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
+
+  hindsight:
+    image: ghcr.io/vectorize-io/hindsight:latest
+    container_name: hindsight
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+      - "9999:9999"
+    volumes:
+      - /fastpool/config/hindsight:/home/hindsight/.pg0
+    environment:
+      - HINDSIGHT_API_LLM_PROVIDER=gemini
+      - HINDSIGHT_API_LLM_API_KEY=${GEMINI_API_KEY}
+      - HINDSIGHT_API_LLM_MODEL=gemini-3.5-flash-lite
+    networks:
+      - ai-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"

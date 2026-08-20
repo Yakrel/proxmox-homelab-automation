@@ -129,6 +129,10 @@ EOF
             cat >> "$firewall_tmp" <<'EOF'
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 9119
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 20128
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 9999
+IN ACCEPT -source 192.168.1.20 -p tcp -dport 8888
+IN ACCEPT -source 192.168.1.21 -p tcp -dport 8888
+IN ACCEPT -source 192.168.1.105 -p tcp -dport 8888
 EOF
             ;;
     esac
