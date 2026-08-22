@@ -100,9 +100,10 @@ services:
     volumes:
       - /fastpool/config/hindsight:/home/hindsight/.pg0
     environment:
-      - HINDSIGHT_API_LLM_PROVIDER=gemini
-      - HINDSIGHT_API_LLM_API_KEY=${GEMINI_API_KEY}
-      - HINDSIGHT_API_LLM_MODEL=gemini-3.5-flash-lite
+      - HINDSIGHT_API_LLM_PROVIDER=openai
+      - HINDSIGHT_API_LLM_BASE_URL=http://omniroute:20128/v1
+      - HINDSIGHT_API_LLM_API_KEY=${HINDSIGHT_API_LLM_API_KEY:-${GEMINI_API_KEY}}
+      - HINDSIGHT_API_LLM_MODEL=shared/resilient-multimodal
     networks:
       - ai-net
     logging:
