@@ -228,6 +228,7 @@ services:
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       - PLAYWRIGHT_DRIVER_URL=ws://playwright-chrome:3000/?stealth=1&--disable-web-security=true
+      - ALLOW_IANA_RESTRICTED_ADDRESSES=true
     depends_on:
       - playwright-chrome
     networks:
@@ -282,8 +283,8 @@ services:
       - NEXTAUTH_URL=${KARAKEEP_NEXTAUTH_URL:?Karakeep NextAuth URL is required}
       - OPENAI_API_KEY=${KARAKEEP_OPENAI_API_KEY}
       - OPENAI_BASE_URL=${KARAKEEP_OPENAI_BASE_URL}
-      - INFERENCE_TEXT_MODEL=${KARAKEEP_INFERENCE_TEXT_MODEL:-gemini-3.5-flash}
-      - INFERENCE_IMAGE_MODEL=${KARAKEEP_INFERENCE_IMAGE_MODEL:-gemini-3.5-flash}
+      - INFERENCE_TEXT_MODEL=${KARAKEEP_INFERENCE_TEXT_MODEL:-shared/resilient-multimodal}
+      - INFERENCE_IMAGE_MODEL=${KARAKEEP_INFERENCE_IMAGE_MODEL:-shared/resilient-multimodal}
     volumes:
       - /fastpool/config/karakeep/data:/data
     depends_on:
