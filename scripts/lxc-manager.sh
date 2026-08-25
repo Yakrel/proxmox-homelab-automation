@@ -40,22 +40,34 @@ EOF
     case "$STACK_NAME" in
         gateway)
             cat >> "$firewall_tmp" <<'EOF'
+# Local Subnet Services (192.168.1.0/24)
+# AdGuard Home DNS
 IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 53
 IN ACCEPT -source 192.168.1.0/24 -p udp -dport 53
+# Nginx Proxy Manager (HTTP / HTTPS Ingress)
 IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 80
 IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 443
+# Admin Web UIs (81: NPM Admin, 3000: AdGuard Home Web UI)
+# Management Host (192.168.1.10)
 IN ACCEPT -source 192.168.1.10 -p tcp -dport 81
 IN ACCEPT -source 192.168.1.10 -p tcp -dport 3000
+# Workstation (192.168.1.20)
 IN ACCEPT -source 192.168.1.20 -p tcp -dport 81
 IN ACCEPT -source 192.168.1.20 -p tcp -dport 3000
+# Laptop (192.168.1.21)
 IN ACCEPT -source 192.168.1.21 -p tcp -dport 81
 IN ACCEPT -source 192.168.1.21 -p tcp -dport 3000
+# Desktop Container / Homepage Dashboard (192.168.1.103)
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 81
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 3000
 EOF
             ;;
         media)
             cat >> "$firewall_tmp" <<'EOF'
+# Reverse Proxy Ingress from Gateway NPM (192.168.1.100)
+# 2283: Immich Server | 5055: Jellyseerr | 6767: Bazarr     | 6868: Profilarr
+# 7878: Radarr        | 8080: qBittorrent Web UI | 8096: Jellyfin   | 8265: Tdarr Web UI
+# 8989: Sonarr        | 9696: Prowlarr  | 11011: Cleanuparr
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 2283
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 5055
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 6767
@@ -67,6 +79,7 @@ IN ACCEPT -source 192.168.1.100 -p tcp -dport 8265
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 8989
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 9696
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 11011
+# Desktop Container / Homepage Dashboard Widgets & SiteMonitors (192.168.1.103)
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 2283
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 5055
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 6767
@@ -78,43 +91,78 @@ IN ACCEPT -source 192.168.1.103 -p tcp -dport 8265
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 8989
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 9696
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 11011
+# Utility Container / Repackarr Integration (192.168.1.102)
+# 8080: qBittorrent Web UI | 9696: Prowlarr API
 IN ACCEPT -source 192.168.1.102 -p tcp -dport 8080
 IN ACCEPT -source 192.168.1.102 -p tcp -dport 9696
+# qBittorrent Public Peer Listening Port (P2P Inbound)
 IN ACCEPT -p tcp -dport 6881
 IN ACCEPT -p udp -dport 6881
 EOF
             ;;
         utility)
             cat >> "$firewall_tmp" <<'EOF'
+# Reverse Proxy Ingress from Gateway NPM (192.168.1.100)
+# 3080: Karakeep | 5000: ChangeDetection | 8081: MeTube | 8090: Repackarr | 9898: Backrest
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 3080
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 5000
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 8081
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 8090
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 9898
+# Desktop Container / Homepage Dashboard Widgets & SiteMonitors (192.168.1.103)
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 3080
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 5000
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 8081
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 8090
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 9898
+# Workstation (192.168.1.20)
+# Samba File Sharing (NetBIOS & SMB)
 IN ACCEPT -source 192.168.1.20 -p udp -dport 137
 IN ACCEPT -source 192.168.1.20 -p udp -dport 138
 IN ACCEPT -source 192.168.1.20 -p tcp -dport 139
 IN ACCEPT -source 192.168.1.20 -p tcp -dport 445
+# WS-Discovery (Windows & Linux/KDE WSD Auto-Discovery)
+IN ACCEPT -source 192.168.1.20 -p udp -dport 3702
+IN ACCEPT -source 192.168.1.20 -p tcp -dport 3702
+# mDNS / Avahi (Linux/KDE Dolphin & macOS Finder Bonjour Auto-Discovery)
+IN ACCEPT -source 192.168.1.20 -p udp -dport 5353
+# LLMNR Name Resolution
+IN ACCEPT -source 192.168.1.20 -p udp -dport 5355
+IN ACCEPT -source 192.168.1.20 -p tcp -dport 5355
+# JDownloader Click'n'Load
 IN ACCEPT -source 192.168.1.20 -p tcp -dport 9666
+# Laptop (192.168.1.21)
+# Samba File Sharing (NetBIOS & SMB)
 IN ACCEPT -source 192.168.1.21 -p udp -dport 137
 IN ACCEPT -source 192.168.1.21 -p udp -dport 138
 IN ACCEPT -source 192.168.1.21 -p tcp -dport 139
 IN ACCEPT -source 192.168.1.21 -p tcp -dport 445
+# WS-Discovery (Windows & Linux/KDE WSD Auto-Discovery)
+IN ACCEPT -source 192.168.1.21 -p udp -dport 3702
+IN ACCEPT -source 192.168.1.21 -p tcp -dport 3702
+# mDNS / Avahi (Linux/KDE Dolphin & macOS Finder Bonjour Auto-Discovery)
+IN ACCEPT -source 192.168.1.21 -p udp -dport 5353
+# LLMNR Name Resolution
+IN ACCEPT -source 192.168.1.21 -p udp -dport 5355
+IN ACCEPT -source 192.168.1.21 -p tcp -dport 5355
 EOF
             ;;
         dev)
             cat >> "$firewall_tmp" <<'EOF'
+# Code-Server (VS Code Web IDE - 8680)
+# Reverse Proxy Ingress from Gateway NPM (192.168.1.100)
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 8680
+# Desktop Container / Homepage SiteMonitor (192.168.1.103)
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 8680
 EOF
             ;;
         desktop)
             cat >> "$firewall_tmp" <<'EOF'
+# Reverse Proxy Ingress from Gateway NPM (192.168.1.100)
+# 3000: Homepage Dashboard           | 5800: Desktop Workspace HTTPS Web UI
+# 8080: Apache Guacamole Web UI      | 7079: Desktop Workspace OTP Gate
+# 5984: CouchDB (Obsidian LiveSync)  | 8201: Vaultwarden Password Manager
+# 7681: Sshwifty Web Terminal        | 5232: Radicale CalDAV/CardDAV
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 3000
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 5800
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 8080
@@ -127,11 +175,17 @@ EOF
             ;;
         ai)
             cat >> "$firewall_tmp" <<'EOF'
+# Reverse Proxy Ingress from Gateway NPM (192.168.1.100)
+# 9119: Hermes Agent Dashboard | 20128: OmniRoute AI Gateway API/UI | 9999: Hindsight Memory Dashboard
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 9119
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 20128
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 9999
+# Hindsight Memory API Direct Access (Port 8888)
+# Workstation (192.168.1.20)
 IN ACCEPT -source 192.168.1.20 -p tcp -dport 8888
+# Laptop (192.168.1.21)
 IN ACCEPT -source 192.168.1.21 -p tcp -dport 8888
+# Dev Container / Agent Workspaces (192.168.1.105)
 IN ACCEPT -source 192.168.1.105 -p tcp -dport 8888
 EOF
             ;;
