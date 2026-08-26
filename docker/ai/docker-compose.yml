@@ -64,7 +64,7 @@ services:
         labels: "com.docker.compose.service,com.docker.compose.project"
 
   omniroute:
-    image: diegosouzapw/omniroute:latest
+    image: diegosouzapw/omniroute:next
     container_name: omniroute
     restart: unless-stopped
     stop_grace_period: 40s
