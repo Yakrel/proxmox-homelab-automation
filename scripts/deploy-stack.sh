@@ -60,7 +60,7 @@ decrypt_env_for_deploy() {
 
     # Get passphrase and decrypt
     local pass
-    pass=$(prompt_env_passphrase)
+    pass=$(get_or_prompt_env_passphrase)
 
     # Export passphrase for use by deployment modules (e.g., backup stack needs it)
     ENV_ENC_KEY="$pass"
@@ -114,7 +114,22 @@ prepare_host
 get_stack_config "$STACK_NAME"
 
 # Step 2: Environment setup
-if [[ "$STACK_NAME" != "dev" ]]; then
+if [[ "$STACK_NAME" == "dev" ]]; then
+    if [[ -f "$WORK_DIR/docker/ai/.env.enc" ]]; then
+        ENV_ENC_KEY=$(get_or_prompt_env_passphrase)
+        export ENV_ENC_KEY
+
+        # Validate passphrase upfront against ai/.env.enc before provisioning
+        test_tmp=$(mktemp)
+        register_runtime_temp_file "$test_tmp"
+        if ! decrypt_openssl_file "$WORK_DIR/docker/ai/.env.enc" "$test_tmp" "$ENV_ENC_KEY"; then
+            rm -f "$test_tmp"
+            print_error "Failed to decrypt docker/ai/.env.enc"
+            exit 1
+        fi
+        rm -f "$test_tmp"
+    fi
+else
     decrypt_env_for_deploy "$STACK_NAME"
 fi
 

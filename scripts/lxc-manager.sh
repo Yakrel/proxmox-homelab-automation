@@ -22,7 +22,7 @@ reconcile_stack_firewall() {
     local firewall_tmp current_net desired_net
 
     case "$STACK_NAME" in
-        gateway|media|utility|dev|desktop|ai) ;;
+        gateway|media|utility|dev|desktop|ai|gaming) ;;
         *) return 0 ;;
     esac
 
@@ -124,6 +124,7 @@ IN ACCEPT -source 192.168.1.20 -p tcp -dport 445
 # WS-Discovery (Windows & Linux/KDE WSD Auto-Discovery)
 IN ACCEPT -source 192.168.1.20 -p udp -dport 3702
 IN ACCEPT -source 192.168.1.20 -p tcp -dport 3702
+IN ACCEPT -source 192.168.1.20 -p tcp -dport 5357
 # mDNS / Avahi (Linux/KDE Dolphin & macOS Finder Bonjour Auto-Discovery)
 IN ACCEPT -source 192.168.1.20 -p udp -dport 5353
 # LLMNR Name Resolution
@@ -140,6 +141,7 @@ IN ACCEPT -source 192.168.1.21 -p tcp -dport 445
 # WS-Discovery (Windows & Linux/KDE WSD Auto-Discovery)
 IN ACCEPT -source 192.168.1.21 -p udp -dport 3702
 IN ACCEPT -source 192.168.1.21 -p tcp -dport 3702
+IN ACCEPT -source 192.168.1.21 -p tcp -dport 5357
 # mDNS / Avahi (Linux/KDE Dolphin & macOS Finder Bonjour Auto-Discovery)
 IN ACCEPT -source 192.168.1.21 -p udp -dport 5353
 # LLMNR Name Resolution
@@ -187,6 +189,18 @@ IN ACCEPT -source 192.168.1.20 -p tcp -dport 8888
 IN ACCEPT -source 192.168.1.21 -p tcp -dport 8888
 # Dev Container / Agent Workspaces (192.168.1.105)
 IN ACCEPT -source 192.168.1.105 -p tcp -dport 8888
+EOF
+            ;;
+        gaming)
+            cat >> "$firewall_tmp" <<'EOF'
+# Palworld Dedicated Server (8211: UDP Game, 27015: UDP Query, 8212: TCP REST API)
+# Local Subnet (192.168.1.0/24)
+IN ACCEPT -source 192.168.1.0/24 -p udp -dport 8211
+IN ACCEPT -source 192.168.1.0/24 -p udp -dport 27015
+IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 8212
+# Public / Inbound Game Ports (if forwarded by router/firewall)
+IN ACCEPT -p udp -dport 8211
+IN ACCEPT -p udp -dport 27015
 EOF
             ;;
     esac

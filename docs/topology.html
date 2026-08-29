@@ -3,1060 +3,345 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yakrel's Homelab Ingress Topology</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <meta name="description" content="Berkay Yetgin'in Proxmox homelab ağ ve erişim topolojisi.">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Berkay Yetgin">
+    <meta name="theme-color" content="#0b0d10">
+    <link rel="canonical" href="https://infra.byetgin.com/topology.html">
+    <meta property="og:title" content="Homelab Topology | Berkay Yetgin">
+    <meta property="og:description" content="Proxmox, LXC, Cloudflare Tunnel, Tailscale, split DNS ve yerel ağ topolojisi.">
+    <meta property="og:url" content="https://infra.byetgin.com/topology.html">
+    <meta property="og:type" content="website">
+    <title>Homelab Topology | Berkay Yetgin</title>
     <style>
         :root {
-            --bg-dark: #070913;
-            --bg-card: rgba(15, 23, 42, 0.65);
-            --border: rgba(255, 255, 255, 0.08);
-            --border-hover: rgba(255, 255, 255, 0.18);
-            
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            
-            /* Theme Colors */
-            --color-router: #3b82f6;      /* Blue - Gateway */
-            --color-switch: #06b6d4;      /* Cyan - LAN / DNS */
-            --color-wifi-5g: #f97316;     /* Orange - Cloudflare */
-            --color-wifi-2g: #a855f7;     /* Purple - Tailscale */
-            --color-guest: #ef4444;       /* Red - Isolated */
-            --color-virtual: #10b981;     /* Emerald - LXC Stack */
-            --color-offline: #64748b;     /* Gray */
+            color-scheme: dark;
+            --bg: #0b0d10;
+            --surface: #11151a;
+            --surface-2: #0d1116;
+            --border: #29313b;
+            --text: #f3f5f7;
+            --soft: #d1d7dd;
+            --muted: #9ba7b4;
+            --accent: #8bb9ff;
+            --public: #e7b878;
+            --lan: #7ed6a4;
+            --admin: #b7a1ff;
+            --max: 1160px;
         }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
         body {
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            font-family: 'Inter', sans-serif;
-            min-height: 100vh;
-            overflow-x: hidden;
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.05) 0%, transparent 40%);
-            display: flex;
-            flex-direction: column;
-        }
-
-        header {
-            padding: 25px 50px;
-            background: rgba(15, 23, 42, 0.4);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        header h1 {
-            font-family: 'Outfit', sans-serif;
-            font-size: 1.6rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #fff 30%, var(--color-router) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        header h1 i {
-            color: var(--color-router);
-            text-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
-        }
-
-        .header-links a {
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.9rem;
-            transition: color 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            border-radius: 20px;
-            border: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        .header-links a:hover {
-            color: var(--text-main);
-            border-color: var(--border-hover);
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .main-container {
-            display: grid;
-            grid-template-columns: 1fr 420px;
-            flex: 1;
-            padding: 30px 50px;
-            gap: 30px;
-        }
-
-        @media (max-width: 1300px) {
-            .main-container {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* --- VISUALIZER PANEL --- */
-        .visualizer-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 30px;
-            backdrop-filter: blur(20px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            min-height: 700px;
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 15px;
-        }
-
-        .card-title {
-            font-family: 'Outfit', sans-serif;
-            font-size: 1.2rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .legend {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .legend-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
-
-        /* Topology SVG Tree Styles */
-        .map-container {
-            flex: 1;
-            position: relative;
-            width: 100%;
-            height: 100%;
-            min-height: 550px;
-            background: rgba(0, 0, 0, 0.15);
-            border-radius: 16px;
-            border: 1px solid rgba(255,255,255,0.03);
-            overflow: auto;
-        }
-
-        svg#network-svg {
-            width: 100%;
-            height: 100%;
-            min-width: 800px;
-            min-height: 550px;
-            display: block;
-        }
-
-        /* SVG Element Classes */
-        .svg-link {
-            stroke: var(--border);
-            stroke-width: 2;
-            fill: none;
-            transition: all 0.3s;
-            cursor: pointer;
-        }
-
-        .svg-link:hover, .svg-link.highlighted {
-            stroke-width: 4;
-            filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.4));
-        }
-
-        .svg-link.wifi-5g-link {
-            stroke: var(--color-wifi-5g);
-            stroke-dasharray: 4 4;
-        }
-        .svg-link.wifi-2g-link {
-            stroke: var(--color-wifi-2g);
-            stroke-dasharray: 4 4;
-        }
-        .svg-link.guest-link {
-            stroke: var(--color-guest);
-            stroke-dasharray: 4 4;
-        }
-        .svg-link.virtual-link {
-            stroke: var(--color-virtual);
-            stroke-width: 1.5;
-        }
-
-        .svg-node {
-            cursor: pointer;
-        }
-
-        .node-rect {
-            fill: #0d1527;
-            stroke: var(--border);
-            stroke-width: 1.5;
-            rx: 10;
-            ry: 10;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .svg-node:hover .node-rect, .svg-node.selected .node-rect {
-            stroke: var(--color-router);
-            fill: #111a36;
-            filter: drop-shadow(0 8px 16px rgba(59, 130, 246, 0.25));
-            transform: translateY(-2px);
-        }
-
-        /* --- CONTROL SIDEBAR PANEL --- */
-        .control-panel {
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-        }
-
-        .tab-menu {
-            display: flex;
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--border);
-            padding: 4px;
-            border-radius: 12px;
-        }
-
-        .tab-btn {
-            flex: 1;
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            padding: 10px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .tab-btn.active {
-            background: var(--color-router);
-            color: #fff;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-        }
-
-        .panel-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 25px;
-            backdrop-filter: blur(20px);
-            min-height: 480px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .panel-title-sub {
-            font-family: 'Outfit', sans-serif;
-            font-size: 1.1rem;
-            font-weight: 700;
-            margin-bottom: 20px;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            color: var(--text-muted);
-            flex: 1;
-            gap: 15px;
-            padding: 40px 10px;
-        }
-
-        .empty-state i {
-            font-size: 3rem;
-            opacity: 0.2;
-        }
-
-        .empty-state p {
-            font-size: 0.85rem;
-            line-height: 1.5;
-        }
-
-        /* Details Content */
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.03);
-            font-size: 0.85rem;
-        }
-
-        .detail-label {
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        .detail-val {
-            color: var(--text-main);
-            font-family: monospace;
-        }
-
-        /* Gauge */
-        .gauge-card {
-            background: rgba(0,0,0,0.25);
-            border: 1px solid rgba(255,255,255,0.02);
-            padding: 15px;
-            border-radius: 12px;
-            margin-top: 15px;
-            text-align: center;
-        }
-
-        .gauge-title {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-        }
-
-        .gauge-value {
-            font-size: 1.8rem;
-            font-weight: 800;
-            font-family: 'Outfit', sans-serif;
-            text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
-        }
-
-        .gauge-bar-outer {
-            width: 100%;
-            height: 6px;
-            background: var(--border);
-            border-radius: 3px;
-            margin-top: 10px;
-            overflow: hidden;
-        }
-
-        .gauge-bar-inner {
-            height: 100%;
-            border-radius: 3px;
-            width: 0%;
-            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* Ingress description text inside Analysis Tab */
-        .analysis-text {
-            font-size: 0.85rem;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             line-height: 1.6;
-            color: var(--text-muted);
+        }
+        a { color: inherit; }
+        button { font: inherit; }
+        .wrap { width: min(var(--max), calc(100% - 40px)); margin: 0 auto; }
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 1px solid var(--border);
+            background: rgba(11, 13, 16, .94);
+            backdrop-filter: blur(12px);
+        }
+        nav {
+            min-height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+        }
+        .brand { text-decoration: none; font-weight: 760; letter-spacing: -.02em; }
+        .nav-links { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .nav-link, .lang-btn {
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .nav-link:hover, .lang-btn:hover, .lang-btn.active { color: var(--text); }
+        .lang-switch { display: inline-flex; gap: 5px; padding-left: 12px; border-left: 1px solid var(--border); }
+        main { padding: 82px 0 72px; }
+        .hero { max-width: 850px; margin-bottom: 42px; }
+        .eyebrow { color: var(--accent); font-size: 12px; font-weight: 760; letter-spacing: .1em; text-transform: uppercase; }
+        h1 { margin: 10px 0 0; font-size: clamp(2.7rem, 7vw, 5.3rem); line-height: 1; letter-spacing: -.055em; }
+        .lead { margin: 22px 0 0; color: var(--soft); font-size: 1.08rem; }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            margin-bottom: 54px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--surface);
+        }
+        .summary-item { padding: 18px; }
+        .summary-item + .summary-item { border-left: 1px solid var(--border); }
+        .summary-item strong { display: block; margin-bottom: 4px; }
+        .summary-item span { color: var(--muted); font-size: 13px; }
+        .section { padding: 54px 0; border-top: 1px solid var(--border); }
+        .section-head { max-width: 790px; margin-bottom: 26px; }
+        .section-index { color: var(--accent); font-size: 12px; font-weight: 760; letter-spacing: .08em; text-transform: uppercase; }
+        h2 { margin: 8px 0 0; font-size: clamp(1.9rem, 4vw, 2.9rem); line-height: 1.08; letter-spacing: -.04em; }
+        .section-head p { margin: 13px 0 0; color: var(--muted); }
+        .lane {
+            padding: 22px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--surface-2);
+        }
+        .lane + .lane { margin-top: 14px; }
+        .lane.public { border-left: 3px solid var(--public); }
+        .lane.lan { border-left: 3px solid var(--lan); }
+        .lane.admin { border-left: 3px solid var(--admin); }
+        .lane-title { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 17px; }
+        .lane-title strong { font-size: 1rem; }
+        .lane-title span { color: var(--muted); font-size: 12px; }
+        .flow {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto 1.25fr auto 1.25fr;
+            align-items: stretch;
+            gap: 9px;
+        }
+        .flow.five { grid-template-columns: 1fr auto 1.2fr auto 1.4fr; }
+        .flow.admin-flow { grid-template-columns: 1fr auto 1fr auto 1.6fr; }
+        .node {
+            min-height: 100px;
+            padding: 16px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
-        }
-
-        .analysis-text p strong {
-            color: var(--text-main);
-        }
-
-        .analysis-list {
-            padding-left: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .analysis-list li {
-            list-style-type: square;
-        }
-
-        /* --- HTML Node Cards inside SVG --- */
-        .node-card-html {
-            width: 100%;
-            height: 100%;
-            background: #0d1527;
-            border: 1.5px solid var(--border);
+            justify-content: center;
+            border: 1px solid var(--border);
             border-radius: 10px;
-            padding: 8px;
+            background: var(--surface);
+        }
+        .node.gateway { border-color: rgba(139, 185, 255, .58); }
+        .node strong { display: block; font-size: 14px; }
+        .node span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+        .arrow {
+            min-width: 68px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            cursor: pointer;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            user-select: none;
-            position: relative;
+            color: var(--muted);
             text-align: center;
+            font-size: 12px;
         }
-
-        .node-card-html:hover, .selected .node-card-html {
-            border-color: var(--color-router);
-            background: #111a36;
-            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.25);
-            transform: translateY(-2px);
+        .arrow b { display: block; margin-bottom: 3px; color: var(--soft); font-size: 20px; font-weight: 500; }
+        .subflow { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+        .gateway-box {
+            padding: 22px;
+            border: 1px solid rgba(139, 185, 255, .52);
+            border-radius: 14px;
+            background: var(--surface);
         }
-
-        .svg-node-html {
-            cursor: pointer;
+        .gateway-head { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+        .gateway-head h3 { margin: 0; font-size: 1.08rem; }
+        .gateway-head span { color: var(--muted); font-size: 13px; }
+        .services { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        .service { padding: 15px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); }
+        .service strong { display: block; font-size: 13px; }
+        .service span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+        .workloads { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+        .workload { padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+        .workload strong { display: block; font-size: 13px; }
+        .workload span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+        .foundation { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        footer { padding: 28px 0 40px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+        .footer-row { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+        .footer-links { display: flex; gap: 14px; flex-wrap: wrap; }
+        .footer-links a { text-decoration: none; }
+        .footer-links a:hover { color: var(--text); }
+        body.lang-tr .en, body.lang-en .tr { display: none !important; }
+        @media (max-width: 980px) {
+            .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .summary-item:nth-child(3) { border-left: 0; border-top: 1px solid var(--border); }
+            .summary-item:nth-child(4) { border-top: 1px solid var(--border); }
+            .flow, .flow.five, .flow.admin-flow { grid-template-columns: 1fr; }
+            .arrow { min-height: 40px; }
+            .arrow b { transform: rotate(90deg); }
+            .services, .foundation { grid-template-columns: 1fr; }
+            .workloads { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
-
-        .node-card-html.offline {
-            opacity: 0.55;
-            border-color: var(--color-offline);
-        }
-        .node-card-html.offline:hover {
-            opacity: 0.85;
-            border-color: var(--text-muted);
-        }
-
-        .node-card-html .node-icon {
-            font-size: 1.1rem;
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 26px;
-            height: 26px;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.03);
-        }
-
-        .wan-node .node-icon { color: var(--text-main); }
-        .router-node .node-icon { color: var(--color-router); }
-        .switch-node .node-icon { color: var(--color-switch); }
-        .wifi-5g-node .node-icon { color: var(--color-wifi-5g); }
-        .wifi-2g-node .node-icon { color: var(--color-wifi-2g); }
-        .guest-node .node-icon { color: var(--color-guest); }
-        .virtual-node .node-icon { color: var(--color-virtual); }
-
-        .node-card-html .node-name {
-            font-size: 10px;
-            font-weight: 600;
-            color: var(--text-main);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            width: 100%;
-        }
-
-        .node-card-html .node-sub {
-            font-size: 8px;
-            color: var(--text-muted);
-            font-family: monospace;
-            margin-top: 2px;
-        }
-
-        /* Status Pulse */
-        .pulse-dot-html {
-            width: 6px;
-            height: 6px;
-            background-color: var(--color-virtual);
-            border-radius: 50%;
-            position: absolute;
-            top: 6px;
-            right: 6px;
-            box-shadow: 0 0 6px var(--color-virtual);
-        }
-
-        .pulse-dot-html.online {
-            animation: pulse-dot-key 2s infinite;
-        }
-
-        @keyframes pulse-dot-key {
-            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-        }
-
-        /* LXC Node Cards (compact) */
-        .lxc-card-html {
-            padding: 4px 8px;
-            flex-direction: row;
-            gap: 8px;
-            justify-content: flex-start;
-        }
-        .lxc-card-html .node-icon {
-            font-size: 0.85rem;
-            width: 20px;
-            height: 20px;
-            margin-bottom: 0;
-        }
-        .lxc-card-html .node-details-text {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            overflow: hidden;
-            width: calc(100% - 28px);
-        }
-
-        /* Embedded mode overrides */
-        body.is-embedded header {
-            display: none !important;
-        }
-        body.is-embedded .main-container {
-            padding: 15px !important;
-            grid-template-columns: 1fr 340px;
-        }
-        @media (max-width: 1100px) {
-            body.is-embedded .main-container {
-                grid-template-columns: 1fr;
-            }
+        @media (max-width: 620px) {
+            .wrap { width: min(var(--max), calc(100% - 28px)); }
+            nav { align-items: flex-start; padding: 15px 0; }
+            .nav-links { gap: 10px; }
+            main { padding-top: 62px; }
+            .summary, .workloads { grid-template-columns: 1fr; }
+            .summary-item + .summary-item { border-left: 0; border-top: 1px solid var(--border); }
+            .gateway-head, .lane-title { display: block; }
+            .gateway-head span, .lane-title span { display: block; margin-top: 5px; }
         }
     </style>
 </head>
-<body>
-
+<body class="lang-tr">
     <header>
-        <h1 data-i18n="header_title"><i class="fa-solid fa-circle-nodes"></i> Yakrel's Homelab Topology Dashboard</h1>
-        <div class="header-links">
-            <a href="index.html" data-i18n="header_back"><i class="fa-solid fa-house"></i> Ana Dashboard'a Dön</a>
+        <div class="wrap">
+            <nav>
+                <a class="brand" href="index.html">Berkay Yetgin / Homelab</a>
+                <div class="nav-links">
+                    <a class="nav-link" href="index.html"><span class="tr">Ana sayfa</span><span class="en">Overview</span></a>
+                    <a class="nav-link" href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" rel="noopener">GitHub</a>
+                    <span class="lang-switch" aria-label="Language">
+                        <button class="lang-btn" type="button" data-lang="tr">TR</button>
+                        <button class="lang-btn" type="button" data-lang="en">EN</button>
+                    </span>
+                </div>
+            </nav>
         </div>
     </header>
 
-    <div class="main-container">
-        <!-- SVG MAP PANEL -->
-        <div class="visualizer-card">
-            <div class="card-header">
-                <div class="card-title" data-i18n="map_title"><i class="fa-solid fa-network-wired"></i> Ağ Haritası (Interactive Map)</div>
-                <div class="legend">
-                    <div class="legend-item"><span class="legend-dot" style="background:var(--text-muted)"></span> <span data-i18n="legend_client">İstemci</span></div>
-                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-wifi-5g)"></span> <span data-i18n="legend_cf">Cloudflare Tunnel</span></div>
-                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-wifi-2g)"></span> <span data-i18n="legend_ts">Tailscale VPN</span></div>
-                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-switch)"></span> <span data-i18n="legend_dns">Dahili DNS</span></div>
-                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-router)"></span> <span data-i18n="legend_gateway">Gateway / Proxy</span></div>
-                    <div class="legend-item"><span class="legend-dot" style="background:var(--color-virtual)"></span> <span data-i18n="legend_virtual">Sanal Konteyner</span></div>
+    <main class="wrap">
+        <div class="hero">
+            <div class="eyebrow tr">Ağ ve erişim topolojisi</div>
+            <div class="eyebrow en">Network and access topology</div>
+            <h1>Proxmox Homelab Topology</h1>
+            <p class="lead tr">Proxmox üzerinde çalışan LXC'ler, gateway servisleri, dış erişim, yerel ağ ve uzaktan yönetim bağlantıları.</p>
+            <p class="lead en">LXCs, gateway services, public access, local networking, and remote administration paths in my Proxmox homelab.</p>
+        </div>
+
+        <div class="summary">
+            <div class="summary-item"><strong>6 LXC</strong><span class="tr">Gateway + 5 iş yükü alanı</span><span class="en">Gateway + 5 workload groups</span></div>
+            <div class="summary-item"><strong>0 WAN port forward</strong><span class="tr">Dış web erişimi Cloudflare Tunnel ile</span><span class="en">Public web access via Cloudflare Tunnel</span></div>
+            <div class="summary-item"><strong>Tailscale</strong><span class="tr">Uzaktan yönetim erişimi</span><span class="en">Remote administration access</span></div>
+            <div class="summary-item"><strong>192.168.1.0/24</strong><span class="tr">Yerel homelab ağı</span><span class="en">Local homelab network</span></div>
+        </div>
+
+        <section class="section" id="paths">
+            <div class="section-head">
+                <span class="section-index tr">01 — Erişim yolları</span><span class="section-index en">01 — Access paths</span>
+                <h2 class="tr">Dış erişim, yerel ağ ve yönetim.</h2>
+                <h2 class="en">Public access, local network, and administration.</h2>
+            </div>
+
+            <div class="lane public">
+                <div class="lane-title"><strong class="tr">Dış web erişimi</strong><strong class="en">Public web access</strong><span>HTTPS</span></div>
+                <div class="flow">
+                    <div class="node"><strong class="tr">İnternet kullanıcısı</strong><strong class="en">Internet client</strong><span class="tr">Yayınlanan web servisi</span><span class="en">Published web service</span></div>
+                    <div class="arrow"><b>→</b><span>HTTPS</span></div>
+                    <div class="node"><strong>Cloudflare Edge</strong><span>DNS / Access</span></div>
+                    <div class="arrow"><b>→</b><span>Tunnel</span></div>
+                    <div class="node gateway"><strong>LXC 100 — Gateway</strong><span>Cloudflared → Nginx Proxy Manager</span></div>
+                    <div class="arrow"><b>→</b><span>HTTP / HTTPS</span></div>
+                    <div class="node"><strong class="tr">Web servisi</strong><strong class="en">Web service</strong><span class="tr">İlgili LXC içindeki uygulama</span><span class="en">Application in the target LXC</span></div>
                 </div>
             </div>
 
-            <div class="map-container">
-                <svg id="network-svg" viewBox="0 0 1000 720" preserveAspectRatio="xMidYMid meet">
-                    <!-- SVG DEFS FOR GRADIENTS -->
-                    <defs>
-                        <linearGradient id="gradient-line" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stop-color="var(--color-router)" stop-opacity="0.3"/>
-                            <stop offset="100%" stop-color="var(--color-virtual)" stop-opacity="0.8"/>
-                        </linearGradient>
-                    </defs>
-
-                    <!-- NETWORK LINKS (LINES) -->
-                    <!-- Ingress Entry paths -->
-                    <path d="M 190,155 L 320,155" class="svg-link" id="link-user-cf" onclick="selectLink('user-cf')"></path>
-                    <path d="M 430,155 Q 500,250 560,345" class="svg-link wifi-5g-link" id="link-cf-gateway" onclick="selectLink('cf-gateway')"></path>
-                    
-                    <path d="M 190,360 L 320,360" class="svg-link" id="link-lan-dns" onclick="selectLink('lan-dns')"></path>
-                    <path d="M 430,360 L 560,360" class="svg-link" id="link-dns-gateway" onclick="selectLink('dns-gateway')"></path>
-                    
-                    <path d="M 190,565 L 320,565" class="svg-link" id="link-admin-ts" onclick="selectLink('admin-ts')"></path>
-                    <path d="M 430,565 Q 500,470 560,375" class="svg-link wifi-2g-link" id="link-ts-gateway" onclick="selectLink('ts-gateway')"></path>
-
-                    <!-- Gateway to LXC Containers (Virtual vmbr0) -->
-                    <path d="M 690,360 L 800,85" class="svg-link virtual-link" id="link-gateway-media" onclick="selectLink('gateway-media')"></path>
-                    <path d="M 690,360 L 800,215" class="svg-link virtual-link" id="link-gateway-utility" onclick="selectLink('gateway-utility')"></path>
-                    <path d="M 690,360 L 800,345" class="svg-link virtual-link" id="link-gateway-desktop" onclick="selectLink('gateway-desktop')"></path>
-                    <path d="M 690,360 L 800,475" class="svg-link virtual-link" id="link-gateway-dev" onclick="selectLink('gateway-dev')"></path>
-                    <path d="M 690,360 L 800,605" class="svg-link virtual-link" id="link-gateway-ai" onclick="selectLink('gateway-ai')"></path>
-
-                    <!-- NETWORK NODES (HTML Embedded in SVG) -->
-                    <!-- Col 1: Access Source -->
-                    <foreignObject x="80" y="120" width="110" height="70" id="node-public-user" class="svg-node-html" onclick="selectNode('public-user')">
-                        <div class="node-card-html wan-node">
-                            <div class="node-icon"><i class="fa-solid fa-globe"></i></div>
-                            <div class="node-name" data-i18n="node_public_user">Genel Ziyaretçi</div>
-                            <div class="node-sub" data-i18n="node_public_sub">Public Client</div>
-                        </div>
-                    </foreignObject>
-
-                    <foreignObject x="80" y="325" width="110" height="70" id="node-lan-user" class="svg-node-html" onclick="selectNode('lan-user')">
-                        <div class="node-card-html switch-node">
-                            <div class="node-icon"><i class="fa-solid fa-desktop"></i></div>
-                            <div class="node-name" data-i18n="node_lan_user">Yerel Kullanıcı</div>
-                            <div class="node-sub" data-i18n="node_lan_sub">LAN Client</div>
-                        </div>
-                    </foreignObject>
-
-                    <foreignObject x="80" y="530" width="110" height="70" id="node-admin-vpn" class="svg-node-html" onclick="selectNode('admin-vpn')">
-                        <div class="node-card-html wifi-5g-node">
-                            <div class="node-icon"><i class="fa-solid fa-user-shield"></i></div>
-                            <div class="node-name" data-i18n="node_admin_vpn">Güvenli Yönetici</div>
-                            <div class="node-sub" data-i18n="node_admin_sub">Admin Device</div>
-                        </div>
-                    </foreignObject>
-
-                    <!-- Col 2: Access Path -->
-                    <foreignObject x="320" y="120" width="110" height="70" id="node-cf-tunnel" class="svg-node-html" onclick="selectNode('cf-tunnel')">
-                        <div class="node-card-html wifi-5g-node">
-                            <div class="node-icon"><i class="fa-brands fa-cloudflare"></i></div>
-                            <div class="node-name" data-i18n="node_cf_name">Cloudflare Tunnel</div>
-                            <div class="node-sub" data-i18n="node_cf_sub">CF Zero Trust</div>
-                        </div>
-                    </foreignObject>
-
-                    <foreignObject x="320" y="325" width="110" height="70" id="node-local-dns" class="svg-node-html" onclick="selectNode('local-dns')">
-                        <div class="node-card-html switch-node">
-                            <div class="node-icon"><i class="fa-solid fa-shield-dog"></i></div>
-                            <div class="node-name" data-i18n="node_local_dns">AdGuard Home</div>
-                            <div class="node-sub">192.168.1.100</div>
-                        </div>
-                    </foreignObject>
-
-                    <foreignObject x="320" y="530" width="110" height="70" id="node-ts-vpn" class="svg-node-html" onclick="selectNode('ts-vpn')">
-                        <div class="node-card-html wifi-2g-node">
-                            <div class="node-icon"><i class="fa-solid fa-network-wired"></i></div>
-                            <div class="node-name" data-i18n="node_ts_name">Tailscale Mesh</div>
-                            <div class="node-sub" data-i18n="node_ts_sub">VPN Access</div>
-                        </div>
-                    </foreignObject>
-
-                    <!-- Col 3: Gateway / Ingress Router -->
-                    <foreignObject x="560" y="325" width="130" height="70" id="node-gateway-lxc" class="svg-node-html" onclick="selectNode('gateway-lxc')">
-                        <div class="node-card-html router-node">
-                            <div class="node-icon"><i class="fa-solid fa-arrow-right-to-bracket"></i></div>
-                            <div class="node-name">lxc-gateway</div>
-                            <div class="node-sub">Nginx Proxy Manager</div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-
-                    <!-- Col 4: Virtual LXC Stack (Right Column) -->
-                    <!-- LXC Media -->
-                    <foreignObject x="800" y="60" width="160" height="42" id="node-lxc-media" class="svg-node-html" onclick="selectNode('lxc-media')">
-                        <div class="node-card-html virtual-node lxc-card-html">
-                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
-                            <div class="node-details-text">
-                                <span class="node-name">lxc-media</span>
-                                <span class="node-sub">.1.101 (10G)</span>
-                            </div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-
-                    <!-- LXC Utility -->
-                    <foreignObject x="800" y="190" width="160" height="42" id="node-lxc-utility" class="svg-node-html" onclick="selectNode('lxc-utility')">
-                        <div class="node-card-html virtual-node lxc-card-html">
-                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
-                            <div class="node-details-text">
-                                <span class="node-name">lxc-utility</span>
-                                <span class="node-sub">.1.102 (10G)</span>
-                            </div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-
-                    <!-- LXC Desktop -->
-                    <foreignObject x="800" y="320" width="160" height="42" id="node-lxc-desktop" class="svg-node-html" onclick="selectNode('lxc-desktop')">
-                        <div class="node-card-html virtual-node lxc-card-html">
-                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
-                            <div class="node-details-text">
-                                <span class="node-name">lxc-desktop</span>
-                                <span class="node-sub">.1.103 (10G)</span>
-                            </div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-
-                    <!-- LXC Dev -->
-                    <foreignObject x="800" y="450" width="160" height="42" id="node-lxc-dev" class="svg-node-html" onclick="selectNode('lxc-dev')">
-                        <div class="node-card-html virtual-node lxc-card-html">
-                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
-                            <div class="node-details-text">
-                                <span class="node-name">lxc-dev</span>
-                                <span class="node-sub">.1.105 (10G)</span>
-                            </div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-
-                    <!-- LXC AI -->
-                    <foreignObject x="800" y="580" width="160" height="42" id="node-lxc-ai" class="svg-node-html" onclick="selectNode('lxc-ai')">
-                        <div class="node-card-html virtual-node lxc-card-html">
-                            <div class="node-icon"><i class="fa-solid fa-box"></i></div>
-                            <div class="node-details-text">
-                                <span class="node-name">lxc-ai</span>
-                                <span class="node-sub">.1.104 (10G)</span>
-                            </div>
-                            <span class="pulse-dot-html online"></span>
-                        </div>
-                    </foreignObject>
-
-                </svg>
-            </div>
-        </div>
-
-        <!-- CONTROL SIDEBAR -->
-        <div class="control-panel">
-            <div class="tab-menu">
-                <button class="tab-btn active" onclick="switchTab('details')"><i class="fa-solid fa-circle-info"></i> <span data-i18n="tab_details">Detaylar</span></button>
-                <button class="tab-btn" onclick="switchTab('analysis')"><i class="fa-solid fa-lightbulb"></i> <span data-i18n="tab_design">Tasarım Kararları</span></button>
-            </div>
-
-            <!-- TAB 1: DETAILS PANEL -->
-            <div class="panel-card" id="tab-details">
-                <div class="panel-title-sub"><i class="fa-solid fa-circle-info"></i> <span data-i18n="details_title">Cihaz ve Bağlantı Detayları</span></div>
-                <div id="details-content" class="panel-body" style="flex:1;">
-                    <div class="empty-state" data-i18n="empty_state">
-                        <i class="fa-solid fa-network-wired"></i>
-                        <p>Analiz etmek için ağ haritası üzerindeki herhangi bir <strong>cihaza (kutu)</strong> veya <strong>bağlantı çizgisine</strong> tıklayın.</p>
+            <div class="lane lan">
+                <div class="lane-title"><strong class="tr">Yerel ağ</strong><strong class="en">Local network</strong><span>Split DNS + HTTP/HTTPS</span></div>
+                <div class="flow five">
+                    <div class="node"><strong>LAN Client</strong><span>192.168.1.x</span></div>
+                    <div class="arrow"><b>→</b><span>DNS</span></div>
+                    <div class="node gateway"><strong>AdGuard Home</strong><span>LXC 100 · 192.168.1.100</span></div>
+                    <div class="arrow"><b>→</b><span class="tr">DNS cevabı</span><span class="en">DNS response</span></div>
+                    <div class="node"><strong class="tr">Yerel servis adresi</strong><strong class="en">Local service address</strong><span>192.168.1.100</span></div>
+                </div>
+                <div class="subflow">
+                    <div class="flow five">
+                        <div class="node"><strong>LAN Client</strong><span>192.168.1.x</span></div>
+                        <div class="arrow"><b>→</b><span>HTTP / HTTPS</span></div>
+                        <div class="node gateway"><strong>Nginx Proxy Manager</strong><span>LXC 100 · 192.168.1.100</span></div>
+                        <div class="arrow"><b>→</b><span>HTTP / HTTPS</span></div>
+                        <div class="node"><strong class="tr">Web servisi</strong><strong class="en">Web service</strong><span class="tr">İlgili LXC</span><span class="en">Target LXC</span></div>
                     </div>
                 </div>
             </div>
 
-            <!-- TAB 3: DESIGN DECISIONS -->
-            <div class="panel-card" id="tab-analysis" style="display:none;">
-                <!-- populated dynamically -->
+            <div class="lane admin">
+                <div class="lane-title"><strong class="tr">Uzaktan yönetim</strong><strong class="en">Remote administration</strong><span>Tailscale</span></div>
+                <div class="flow admin-flow">
+                    <div class="node"><strong class="tr">Yönetici cihazı</strong><strong class="en">Admin device</strong><span class="tr">Laptop / telefon</span><span class="en">Laptop / phone</span></div>
+                    <div class="arrow"><b>→</b><span>Tailscale</span></div>
+                    <div class="node"><strong class="tr">Private ağ</strong><strong class="en">Private network</strong><span>192.168.1.0/24</span></div>
+                    <div class="arrow"><b>→</b><span class="tr">Yönetim</span><span class="en">Management</span></div>
+                    <div class="node"><strong class="tr">Proxmox ve dahili servisler</strong><strong class="en">Proxmox and internal services</strong><span>Proxmox VE · LXC servisleri · SMB</span></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="gateway">
+            <div class="section-head">
+                <span class="section-index">02 — Gateway</span>
+                <h2>LXC 100 — lxc-gateway</h2>
+                <p class="tr">Gateway servisleri aynı LXC üzerinde <strong>192.168.1.100</strong> adresinde çalışıyor.</p>
+                <p class="en">Gateway services run together in one LXC at <strong>192.168.1.100</strong>.</p>
+            </div>
+            <div class="gateway-box">
+                <div class="gateway-head">
+                    <div><h3>lxc-gateway</h3><span>192.168.1.100</span></div>
+                    <span>DNS · Reverse Proxy · Tunnel</span>
+                </div>
+                <div class="services">
+                    <div class="service"><strong>AdGuard Home</strong><span class="tr">Yerel DNS ve split-DNS kayıtları</span><span class="en">Local DNS and split-DNS records</span></div>
+                    <div class="service"><strong>Nginx Proxy Manager</strong><span>HTTP / HTTPS reverse proxy</span></div>
+                    <div class="service"><strong>Cloudflared</strong><span class="tr">Cloudflare Tunnel bağlantısı</span><span class="en">Cloudflare Tunnel connection</span></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="workloads">
+            <div class="section-head">
+                <span class="section-index tr">03 — İş yükleri</span><span class="section-index en">03 — Workloads</span>
+                <h2 class="tr">LXC yapısı.</h2>
+                <h2 class="en">LXC layout.</h2>
+            </div>
+            <div class="workloads">
+                <div class="workload"><strong>LXC 101 — Media</strong><span>192.168.1.101</span><span class="tr">Medya ve fotoğraf servisleri</span><span class="en">Media and photo services</span></div>
+                <div class="workload"><strong>LXC 102 — Utility</strong><span>192.168.1.102</span><span class="tr">Dosya paylaşımı, yardımcı servisler, backup</span><span class="en">File sharing, utilities, backup</span></div>
+                <div class="workload"><strong>LXC 103 — Desktop</strong><span>192.168.1.103</span><span class="tr">Uzak çalışma ve kişisel servisler</span><span class="en">Remote workspace and personal services</span></div>
+                <div class="workload"><strong>LXC 104 — AI</strong><span>192.168.1.104</span><span class="tr">AI ve API servisleri</span><span class="en">AI and API services</span></div>
+                <div class="workload"><strong>LXC 105 — Dev</strong><span>192.168.1.105</span><span class="tr">Geliştirme araçları ve runtimes</span><span class="en">Development tools and runtimes</span></div>
+            </div>
+        </section>
+
+        <section class="section" id="foundation">
+            <div class="section-head">
+                <span class="section-index tr">04 — Altyapı</span><span class="section-index en">04 — Infrastructure</span>
+                <h2 class="tr">Host, depolama ve ağ.</h2>
+                <h2 class="en">Host, storage, and network.</h2>
+            </div>
+            <div class="foundation">
+                <div class="node"><strong>Proxmox VE 9</strong><span class="tr">LXC ve sanal ağ yönetimi</span><span class="en">LXC and virtual networking</span></div>
+                <div class="node"><strong>ZFS</strong><span class="tr">Storage ve snapshot</span><span class="en">Storage and snapshots</span></div>
+                <div class="node"><strong>Firewall</strong><span class="tr">LXC inbound default DROP, gerekli kaynak/port izinleri</span><span class="en">LXC inbound default DROP with required source/port rules</span></div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="wrap footer-row">
+            <span>© 2026 Berkay Yetgin · Proxmox Homelab</span>
+            <div class="footer-links">
+                <a href="index.html"><span class="tr">Ana sayfa</span><span class="en">Overview</span></a>
+                <a href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" rel="noopener">GitHub</a>
+                <a href="https://byetgin.com" target="_blank" rel="noopener">byetgin.com</a>
             </div>
         </div>
-    </div>
+    </footer>
 
     <script>
-        // STATIC TRANSLATIONS
-        const translations = {
-            en: {
-                header_title: '<i class="fa-solid fa-circle-nodes"></i> Yakrel\'s Homelab Topology Dashboard',
-                header_back: '<i class="fa-solid fa-house"></i> Back to Main Dashboard',
-                map_title: '<i class="fa-solid fa-network-wired"></i> Interactive Network Map',
-                legend_client: 'Client',
-                legend_cf: 'Cloudflare Tunnel',
-                legend_ts: 'Tailscale VPN',
-                legend_dns: 'Internal DNS',
-                legend_gateway: 'Gateway / Proxy',
-                legend_virtual: 'Virtual Container',
-                tab_details: 'Details',
-                tab_design: 'Design Decisions',
-                details_title: 'Device & Link Details',
-                empty_state: '<i class="fa-solid fa-network-wired"></i><p>Click on any device (box) or connection line on the network map to view its details.</p>',
-                node_public_user: 'Public Visitor',
-                node_public_sub: 'Public Client',
-                node_lan_user: 'Local User',
-                node_lan_sub: 'LAN Client',
-                node_admin_vpn: 'Secure Admin',
-                node_admin_sub: 'Admin Device',
-                node_cf_name: 'Cloudflare Tunnel',
-                node_cf_sub: 'CF Zero Trust',
-                node_local_dns: 'AdGuard Home',
-                node_ts_name: 'Tailscale Mesh',
-                node_ts_sub: 'VPN Access',
-                design_content: `
-                    <div class="panel-title-sub"><i class="fa-solid fa-lightbulb"></i> Architectural Ingress Design</div>
-                    <div class="analysis-text">
-                        <p>The homelab's ingress path is designed following zero-trust principles to allow seamless remote access while enforcing strict security boundaries.</p>
-                        
-                        <p><strong>Ingress Paths &amp; Technologies:</strong></p>
-                        <ul class="analysis-list">
-                            <li><strong>Cloudflare Zero Trust Tunnel:</strong> Exposes public-facing web applications (e.g. <code>immich.byetgin.com</code>, <code>jellyfin.byetgin.com</code>) securely. Public browser traffic hits Cloudflare Edge first, filtering threats before proxying to the NPM gateway.</li>
-                            <li><strong>Tailscale Mesh VPN:</strong> Provides secure administrative backchannel access. Used by the admin device to gain remote access directly into the private LAN subnet router without exposing SSH or Proxmox control panels to the internet.</li>
-                            <li><strong>AdGuard Home (Local DNS):</strong> Local LAN clients query AdGuard Home, which implements split-horizon DNS. This routes local traffic directly to NPM without exiting the home network, optimizing bandwidth.</li>
-                            <li><strong>Nginx Proxy Manager Gateway:</strong> LXC container <code>lxc-gateway</code> terminates SSL certificates and routes all internal traffic to specific backend virtual stack containers at high speeds.</li>
-                        </ul>
-                    </div>
-                `
-            },
-            tr: {
-                header_title: '<i class="fa-solid fa-circle-nodes"></i> Yakrel\'in Homelab Topoloji Paneli',
-                header_back: '<i class="fa-solid fa-house"></i> Ana Dashboard\'a Dön',
-                map_title: '<i class="fa-solid fa-network-wired"></i> Ağ Haritası',
-                legend_client: 'İstemci',
-                legend_cf: 'Cloudflare Tunnel',
-                legend_ts: 'Tailscale VPN',
-                legend_dns: 'Dahili DNS',
-                legend_gateway: 'Geçit / Proxy',
-                legend_virtual: 'Sanal Konteyner',
-                tab_details: 'Detaylar',
-                tab_design: 'Tasarım Kararları',
-                details_title: 'Cihaz ve Bağlantı Detayları',
-                empty_state: '<i class="fa-solid fa-network-wired"></i><p>Analiz etmek için ağ haritası üzerindeki herhangi bir cihaza (kutu) veya bağlantı çizgisine tıklayın.</p>',
-                node_public_user: 'Genel Ziyaretçi',
-                node_public_sub: 'Harici İstemci',
-                node_lan_user: 'Yerel Kullanıcı',
-                node_lan_sub: 'Dahili İstemci',
-                node_admin_vpn: 'Güvenli Yönetici',
-                node_admin_sub: 'Yönetici Cihazı',
-                node_cf_name: 'Cloudflare Tunnel',
-                node_cf_sub: 'CF Zero Trust',
-                node_local_dns: 'AdGuard Home',
-                node_ts_name: 'Tailscale Mesh',
-                node_ts_sub: 'VPN Erişimi',
-                design_content: `
-                    <div class="panel-title-sub"><i class="fa-solid fa-lightbulb"></i> Mimari Erişim Giriş Tasarımı</div>
-                    <div class="analysis-text">
-                        <p>Homelab erişim yolları, harici bağlantıları güvenli sınırlarda tutarken kesintisiz uzak bağlantı sağlamak amacıyla Sıfır Güven (Zero-Trust) ilkelerine göre tasarlanmıştır.</p>
-                        
-                        <p><strong>Erişim Yolları ve Teknolojiler:</strong></p>
-                        <ul class="analysis-list">
-                            <li><strong>Cloudflare Zero Trust Tüneli:</strong> Dış dünyaya açık web servislerini (örn. <code>immich.byetgin.com</code>, <code>jellyfin.byetgin.com</code>) tüneller aracılığıyla güvenli şekilde yayınlar. İstekler önce Cloudflare korumasından geçerek NPM ağ geçidine yönlendirilir.</li>
-                            <li><strong>Tailscale Mesh VPN:</strong> Uzak yönetici erişimi için güvenli bir arka kanal sağlar. Yönetici cihazı, SSH veya Proxmox yönetim panellerini internete açmadan doğrudan dahili ağ yönlendiricisi üzerinden tünel bağlantısı kurar.</li>
-                            <li><strong>AdGuard Home (Yerel DNS):</strong> Yerel ağ istemcileri split-DNS yardımıyla AdGuard Home'u sorgular. Bu sayede yerel trafik internete çıkmadan doğrudan NPM'e aktarılarak bant genişliği korunur.</li>
-                            <li><strong>Nginx Proxy Manager Ağ Geçidi:</strong> <code>lxc-gateway</code> konteyneri, SSL sertifikalarını sonlandırarak tüm gelen istekleri ilgili dahili sanal stack konteynerlerine yüksek hızla yönlendirir.</li>
-                        </ul>
-                    </div>
-                `
-            }
-        };
-
-        // DATA MODEL FOR THE TOPOLOGY
-        const NETWORK_TOPOLOGY = {
-            nodes: {
-                'public-user': { name: { tr: 'Genel Ziyaretçi', en: 'Public Visitor' }, ip: 'External IP', mac: '—', type: { tr: 'Harici İstemci', en: 'External Client' }, speed: 'Modem Uplink', status: 'online', color: 'var(--text-muted)', icon: 'fa-globe' },
-                'lan-user': { name: { tr: 'Yerel Kullanıcı', en: 'Local User' }, ip: '192.168.1.x', mac: '—', type: { tr: 'Kablolu / Wi-Fi İstemci', en: 'Wired / Wi-Fi Client' }, speed: '1 Gbps Max', status: 'online', color: 'var(--color-switch)', icon: 'fa-desktop' },
-                'admin-vpn': { name: { tr: 'Güvenli Yönetici', en: 'Secure Admin' }, ip: 'Tailscale IP', mac: '—', type: { tr: 'Uzak VPN İstemcisi', en: 'Remote VPN Client' }, speed: 'Direct VPN Tunnel', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-user-shield' },
-                
-                'cf-tunnel': { name: 'Cloudflare Tunnel', ip: 'Edge Routing', mac: '—', type: { tr: 'Zero Trust İnternet Girişi', en: 'Zero Trust Web Ingress' }, speed: 'Secure Web Proxy', status: 'online', color: 'var(--color-wifi-5g)', icon: 'fa-brands fa-cloudflare', note: { tr: 'Dış dünyaya açık port bırakmadan web servislerini Cloudflare Edge üzerinden güvenle yayınlar.', en: 'Exposes web services securely through Cloudflare Edge without opening firewall ports.' } },
-                'local-dns': { name: 'AdGuard Home', ip: '192.168.1.100', mac: '—', type: { tr: 'Dahili DNS Sunucusu', en: 'Internal DNS Server' }, speed: 'Split-DNS Active', status: 'online', color: 'var(--color-switch)', icon: 'fa-shield-dog', note: { tr: 'Ağ genelinde reklam engelleme ve yerel alan adları için split-DNS çözümlemesi yapar.', en: 'Provides network-wide ad blocking and split-DNS resolution for local domains.' } },
-                'ts-vpn': { name: 'Tailscale Subnet Router', ip: '100.x.x.x', mac: '—', type: { tr: 'Mesh VPN Ağ Geçidi', en: 'Mesh VPN Subnet Router' }, speed: 'Subnet routing', status: 'online', color: 'var(--color-wifi-2g)', icon: 'fa-network-wired', note: { tr: 'Sunucuya ve alt ağlara (192.168.1.0/24) dışarıdan güvenli, şifreli tünel erişimi sağlar.', en: 'Establishes secure, encrypted mesh tunnel access to the host and subnets (192.168.1.0/24).' } },
-                
-                'gateway-lxc': { name: 'lxc-gateway', ip: '192.168.1.100', mac: '—', type: { tr: 'Reverse Proxy (Nginx)', en: 'Reverse Proxy (Nginx)' }, speed: '10+ Gbps Virtual', status: 'online', color: 'var(--color-router)', icon: 'fa-box', note: { tr: 'Nginx Proxy Manager ile tüm web isteklerini SSL sertifikalarıyla iç servislere yönlendirir.', en: 'Routes incoming web requests to internal services using SSL certificates via NPM.' } },
-                
-                'lxc-media': { name: 'lxc-media', ip: '192.168.1.101', mac: '—', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'GPU hızlandırmalı medya ve fotoğraf iş yüklerini barındırır.', en: 'Hosts GPU-accelerated media and photo workloads.' } },
-                'lxc-utility': { name: 'lxc-utility', ip: '192.168.1.102', mac: '—', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Dosya paylaşımı, yardımcı servisler ve yedek orkestrasyonunu barındırır.', en: 'Hosts file sharing, utility services, and backup orchestration.' } },
-                'lxc-desktop': { name: 'lxc-desktop', ip: '192.168.1.103', mac: '—', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Güvenli uzak çalışma alanı ve kişisel üretkenlik servislerini barındırır.', en: 'Hosts a secure remote workspace and personal productivity services.' } },
-                'lxc-dev': { name: 'lxc-dev', ip: '192.168.1.105', mac: '—', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Web IDE, Node.js/Python çalışma ortamları, Git araçları ve Oh My Pi.', en: 'Hosts a web IDE, Node.js/Python runtimes, Git tooling, and Oh My Pi.' } },
-                'lxc-ai': { name: 'lxc-ai', ip: '192.168.1.104', mac: '—', type: { tr: 'LXC Konteyneri (Sanal)', en: 'LXC Container (Virtual)' }, speed: '10+ Gbps (vmbr0)', status: 'online', color: 'var(--color-virtual)', icon: 'fa-box', note: { tr: 'Ajan arayüzü ve API yönlendirme iş yüklerini barındırır.', en: 'Hosts agent interface and API routing workloads.' } }
-            },
-            links: {
-                'user-cf': { name: { tr: 'İnternet Tarayıcısı -> DNS Sorgusu', en: 'Web Ingress -> Cloudflare Edge' }, speed: 'SSL Secured HTTPS', type: { tr: 'Dış Web İstekleri', en: 'External HTTPS requests' }, delay: '15-40 ms', color: 'var(--color-wifi-5g)' },
-                'cf-gateway': { name: { tr: 'Cloudflare Tüneli -> NPM', en: 'CF Tunnel -> NPM Gateway' }, speed: 'Encrypted Tunnels', type: 'Cloudflared Tunnel', delay: '2 ms', color: 'var(--color-wifi-5g)' },
-                
-                'lan-dns': { name: { tr: 'Yerel İstek -> AdGuard Çözümlemesi', en: 'LAN Request -> AdGuard Resolution' }, speed: 'Split-DNS Direct', type: 'Local DNS Query', delay: '<1 ms', color: 'var(--color-switch)' },
-                'dns-gateway': { name: { tr: 'Yerel İstek -> NPM', en: 'Direct LAN -> NPM Gateway' }, speed: '1 Gbps CAT6', type: 'Direct Ingress Routing', delay: '<1 ms', color: 'var(--color-switch)' },
-                
-                'admin-ts': { name: { tr: 'Yönetici -> Tailscale Bağlantısı', en: 'Admin -> Tailscale Endpoint' }, speed: 'Mesh Encrypted Tunnel', type: 'WireGuard Mesh', delay: '10-35 ms', color: 'var(--color-wifi-2g)' },
-                'ts-gateway': { name: { tr: 'Tailscale Tüneli -> Yönlendirici', en: 'Tailscale Tunnel -> Subnet Router' }, speed: 'Direct P2P Link', type: 'Subnet router routing', delay: '<1 ms', color: 'var(--color-wifi-2g)' },
-                
-                'gateway-media': { name: { tr: 'Ters Proxy -> Medya Sunucuları', en: 'Reverse Proxy -> Media Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' },
-                'gateway-utility': { name: { tr: 'Ters Proxy -> Yedekleme/Dosya', en: 'Reverse Proxy -> Utility Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' },
-                'gateway-desktop': { name: { tr: 'Ters Proxy -> Masaüstü/Panel', en: 'Reverse Proxy -> Desktop Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' },
-                'gateway-dev': { name: { tr: 'Ters Proxy -> Geliştirme/IDE', en: 'Reverse Proxy -> Dev Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' },
-                'gateway-ai': { name: { tr: 'Ters Proxy -> Yapay Zeka Servisleri', en: 'Reverse Proxy -> AI Stack' }, speed: '10+ Gbps', type: { tr: 'Sanal Köprü (vmbr0)', en: 'Virtual Bridge (vmbr0)' }, delay: '<0.1 ms', color: 'var(--color-virtual)' }
-            }
-        };
-
-        // UI STATE
-        let activeTab = 'details';
-        let currentLang = 'tr';
-        let selectedNodeId = null;
-        let selectedLinkId = null;
-
-        function switchTab(tabId) {
-            activeTab = tabId;
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.getAttribute('onclick').includes(tabId));
-            });
-            document.getElementById('tab-details').style.display = tabId === 'details' ? 'flex' : 'none';
-            document.getElementById('tab-analysis').style.display = tabId === 'analysis' ? 'flex' : 'none';
+        const buttons = document.querySelectorAll('[data-lang]');
+        function setLanguage(language) {
+            const selected = language === 'en' ? 'en' : 'tr';
+            document.body.classList.toggle('lang-tr', selected === 'tr');
+            document.body.classList.toggle('lang-en', selected === 'en');
+            document.documentElement.lang = selected;
+            buttons.forEach((button) => button.classList.toggle('active', button.dataset.lang === selected));
+            localStorage.setItem('infra-language', selected);
         }
-
-        function switchLang(lang) {
-            currentLang = lang;
-            document.documentElement.lang = lang;
-
-            // Translate static elements with data-i18n
-            document.querySelectorAll('[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                if (translations[lang][key]) el.innerHTML = translations[lang][key];
-            });
-
-            // Translate architectural choices tab
-            const analysisTab = document.getElementById('tab-analysis');
-            if (analysisTab && translations[lang].design_content) {
-                analysisTab.innerHTML = translations[lang].design_content;
-            }
-
-            // Refresh dynamic details if active
-            if (selectedNodeId) {
-                renderNodeDetails(selectedNodeId);
-            } else if (selectedLinkId) {
-                renderLinkDetails(selectedLinkId);
-            } else {
-                // Render empty state in correct language
-                document.getElementById('details-content').innerHTML = translations[lang].empty_state;
-            }
-        }
-
-        // SELECTION LOGIC
-        function selectNode(nodeId) {
-            clearSelection();
-            selectedNodeId = nodeId;
-            selectedLinkId = null;
-            
-            // Highlight node visually
-            const nodeEl = document.getElementById(`node-${nodeId}`);
-            if (nodeEl) nodeEl.classList.add('selected');
-
-            // Switch to details tab automatically
-            switchTab('details');
-
-            highlightPathNodes(nodeId);
-            renderNodeDetails(nodeId);
-        }
-
-        function renderNodeDetails(nodeId) {
-            const node = NETWORK_TOPOLOGY.nodes[nodeId];
-            if (!node) return;
-
-            const nodeName = typeof node.name === 'object' ? node.name[currentLang] : node.name;
-            const nodeType = typeof node.type === 'object' ? node.type[currentLang] : node.type;
-
-            let speedPercent = 0;
-            if (node.speed.includes('10+ Gbps')) speedPercent = 100;
-            else if (node.speed.includes('1 Gbps')) speedPercent = 85;
-            else if (node.speed.includes('VPN')) speedPercent = 60;
-            else if (node.speed.includes('Secure')) speedPercent = 60;
-            else if (node.speed.includes('Modem')) speedPercent = 25;
-
-            const ipLabel = currentLang === 'en' ? 'IP Address' : 'IP Adresi';
-            const macLabel = currentLang === 'en' ? 'MAC Address' : 'MAC Adresi';
-            const typeLabel = currentLang === 'en' ? 'Device Type' : 'Cihaz Türü';
-            const statusLabel = node.status === 'online' ? (currentLang === 'en' ? 'Online' : 'Aktif') : (currentLang === 'en' ? 'Offline' : 'Pasif');
-            const bandwidthLabel = currentLang === 'en' ? 'Link Speed' : 'Max Bağlantı Hızı';
-
-            let detailsHtml = `
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <i class="fa-solid ${node.icon}" style="font-size: 3rem; color: ${node.color}; text-shadow: 0 0 15px ${node.color}50;"></i>
-                    <h3 style="margin: 10px 0 5px 0; font-size: 1.25rem; font-family:'Outfit', sans-serif;">${nodeName}</h3>
-                    <span class="badge" style="background: ${node.status === 'online' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}; color: ${node.status === 'online' ? 'var(--color-virtual)' : 'var(--color-guest)'}; border: 1px solid ${node.status === 'online' ? 'var(--color-virtual)' : 'var(--color-guest)'}; padding: 2px 8px; border-radius: 4px; font-size:0.75rem; font-weight:700;">
-                        ${statusLabel}
-                    </span>
-                </div>
-
-                <div class="detail-row"><span class="detail-label">${ipLabel}</span><span class="detail-val">${node.ip}</span></div>
-                <div class="detail-row"><span class="detail-label">${macLabel}</span><span class="detail-val">${node.mac}</span></div>
-                <div class="detail-row"><span class="detail-label">${typeLabel}</span><span class="detail-val">${nodeType}</span></div>
-            `;
-
-            if (node.status === 'online' && speedPercent > 0) {
-                detailsHtml += `
-                    <div class="gauge-card">
-                        <div class="gauge-title">${bandwidthLabel}</div>
-                        <div class="gauge-value" style="color: ${node.color}">${node.speed}</div>
-                        <div class="gauge-bar-outer">
-                            <div class="gauge-bar-inner" style="width: ${speedPercent}%; background: ${node.color};"></div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            if (node.note) {
-                const noteText = typeof node.note === 'object' ? node.note[currentLang] : node.note;
-                detailsHtml += `
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius:12px; padding:15px; margin-top:15px; font-size:0.8rem; line-height:1.4; color:var(--text-muted);">
-                        <i class="fa-solid fa-info-circle" style="color:var(--color-router); margin-right:5px;"></i> ${noteText}
-                    </div>
-                `;
-            }
-
-            document.getElementById('details-content').innerHTML = detailsHtml;
-        }
-
-        function selectLink(linkId) {
-            clearSelection();
-            selectedLinkId = linkId;
-            selectedNodeId = null;
-            
-            // Highlight link visually
-            const linkEl = document.getElementById(`link-${linkId}`);
-            if (linkEl) linkEl.classList.add('highlighted');
-
-            // Switch to details tab automatically
-            switchTab('details');
-
-            renderLinkDetails(linkId);
-        }
-
-        function renderLinkDetails(linkId) {
-            const link = NETWORK_TOPOLOGY.links[linkId];
-            if (!link) return;
-
-            const linkName = typeof link.name === 'object' ? link.name[currentLang] : link.name;
-            const linkType = typeof link.type === 'object' ? link.type[currentLang] : link.type;
-
-            const speedLabel = currentLang === 'en' ? 'Connection Speed' : 'Bağlantı Hızı';
-            const latencyLabel = currentLang === 'en' ? 'Latency (Ping)' : 'Gecikme (Ping)';
-
-            let detailsHtml = `
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <i class="fa-solid fa-arrows-left-right-to-line" style="font-size: 3rem; color: ${link.color}; text-shadow: 0 0 15px ${link.color}50;"></i>
-                    <h3 style="margin: 10px 0 5px 0; font-size: 1.25rem; font-family:'Outfit', sans-serif;">${linkName}</h3>
-                    <span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border); padding: 2px 8px; border-radius: 4px; font-size:0.75rem; font-weight:700;">
-                        ${linkType}
-                    </span>
-                </div>
-
-                <div class="detail-row"><span class="detail-label">${speedLabel}</span><span class="detail-val" style="font-weight:700; color:${link.color}">${link.speed}</span></div>
-                <div class="detail-row"><span class="detail-label">${latencyLabel}</span><span class="detail-val">${link.delay}</span></div>
-            `;
-
-            if (link.note) {
-                const noteText = typeof link.note === 'object' ? link.note[currentLang] : link.note;
-                detailsHtml += `
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius:12px; padding:15px; margin-top:15px; font-size:0.8rem; line-height:1.4; color:var(--text-muted);">
-                        <i class="fa-solid fa-info-circle" style="color:var(--color-router); margin-right:5px;"></i> ${noteText}
-                    </div>
-                `;
-            }
-
-            document.getElementById('details-content').innerHTML = detailsHtml;
-        }
-
-        function clearSelection() {
-            document.querySelectorAll('.svg-node-html').forEach(el => el.classList.remove('selected'));
-            document.querySelectorAll('.svg-link').forEach(el => {
-                el.classList.remove('highlighted');
-                el.style.strokeWidth = '';
-            });
-        }
-
-        function highlightPathNodes(nodeId) {
-            // Highlights paths depending on selected target node
-            if (nodeId.startsWith('lxc-')) {
-                const linkId = `gateway-${nodeId.replace('node-', '').replace('lxc-', '')}`;
-                const linkEl = document.getElementById(`link-${linkId}`);
-                if (linkEl) linkEl.classList.add('highlighted');
-            } else if (nodeId === 'gateway-lxc') {
-                const links = ['link-cf-gateway', 'link-dns-gateway', 'link-ts-gateway'];
-                links.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.classList.add('highlighted');
-                });
-            }
-        }
-
-        // Check if embedded in iframe
-        if (window.self !== window.top) {
-            document.body.classList.add('is-embedded');
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedLang = localStorage.getItem('lang') || (navigator.language.startsWith('tr') ? 'tr' : 'en');
-            switchLang(savedLang);
-        });
+        const saved = localStorage.getItem('infra-language');
+        const browser = navigator.language && navigator.language.toLowerCase().startsWith('tr') ? 'tr' : 'en';
+        setLanguage(saved || browser);
+        buttons.forEach((button) => button.addEventListener('click', () => setLanguage(button.dataset.lang)));
     </script>
 </body>
 </html>

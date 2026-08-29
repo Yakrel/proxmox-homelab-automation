@@ -59,15 +59,24 @@ services:
     image: crazymax/samba:latest
     container_name: samba
     network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
     environment:
       - TZ=${TZ:-Europe/Istanbul}
       # Restrict SMB to the fixed workstation and laptop addresses. The image
       # maps this directly to Samba's global hosts allow setting.
       - SAMBA_HOSTS_ALLOW=192.168.1.20 192.168.1.21
+      - SAMBA_NETBIOS_NAME=HOMELAB-SMB
+      - SAMBA_SERVER_STRING=HOMELAB-SMB
       - WSDD2_ENABLE=1
+      - WSDD2_HOSTNAME=HOMELAB-SMB
       - WSDD2_NETBIOS_NAME=HOMELAB-SMB
+      - WSDD2_INTERFACE=eth0
       - AVAHI_ENABLE=1
       - AVAHI_NAME=Homelab Samba
+      - AVAHI_HOSTNAME=homelab-smb
+      - AVAHI_INTERFACES=eth0
     volumes:
       - /fastpool/config/samba:/data
       # Share persistent data and service configuration without exposing the

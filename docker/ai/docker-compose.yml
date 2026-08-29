@@ -64,7 +64,7 @@ services:
         labels: "com.docker.compose.service,com.docker.compose.project"
 
   omniroute:
-    image: diegosouzapw/omniroute:latest
+    image: diegosouzapw/omniroute:next
     container_name: omniroute
     restart: unless-stopped
     stop_grace_period: 40s
@@ -94,6 +94,7 @@ services:
     image: ghcr.io/vectorize-io/hindsight:latest
     container_name: hindsight
     restart: unless-stopped
+    stop_grace_period: 40s
     ports:
       - "8888:8888"
       - "9999:9999"
@@ -102,8 +103,42 @@ services:
     environment:
       - HINDSIGHT_API_LLM_PROVIDER=openai
       - HINDSIGHT_API_LLM_BASE_URL=http://omniroute:20128/v1
-      - HINDSIGHT_API_LLM_API_KEY=${HINDSIGHT_API_LLM_API_KEY:-${GEMINI_API_KEY}}
+      - HINDSIGHT_API_LLM_API_KEY=${HINDSIGHT_API_LLM_API_KEY}
       - HINDSIGHT_API_LLM_MODEL=shared/resilient-multimodal
+      - HINDSIGHT_API_LLM_OUTPUT_LANGUAGE=Turkish
+      - HINDSIGHT_API_LLM_MAX_CONCURRENT=2
+      - HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT=1
+      - HINDSIGHT_API_REFLECT_LLM_MAX_CONCURRENT=1
+      - HINDSIGHT_API_CONSOLIDATION_LLM_MAX_CONCURRENT=1
+      - HINDSIGHT_API_LLM_MAX_RETRIES=0
+      - HINDSIGHT_API_CONSOLIDATION_MAX_ATTEMPTS=2
+      - HINDSIGHT_API_WORKER_ID=hindsight-prod
+      - HINDSIGHT_API_WORKER_MAX_SLOTS=3
+      - HINDSIGHT_API_WORKER_CONSOLIDATION_RESERVED_SLOTS=0
+      - HINDSIGHT_API_WORKER_MAX_RETRIES=3
+      - HINDSIGHT_API_WORKER_TASK_RETRY_BACKOFF_SECONDS=60
+      - HINDSIGHT_API_CONSOLIDATION_LLM_PARALLELISM=1
+      - HINDSIGHT_API_MENTAL_MODEL_MIN_REFRESH_INTERVAL_SECONDS=21600
+      - HINDSIGHT_API_EMBEDDINGS_PROVIDER=google
+      - HINDSIGHT_API_EMBEDDINGS_GEMINI_API_KEY=${HINDSIGHT_API_EMBEDDINGS_GEMINI_API_KEY}
+      - HINDSIGHT_API_EMBEDDINGS_GEMINI_MODEL=gemini-embedding-001
+      - HINDSIGHT_API_EMBEDDINGS_GEMINI_OUTPUT_DIMENSIONALITY=768
+      - HINDSIGHT_API_RERANKER_PROVIDER=rrf
+      - HINDSIGHT_API_ENABLE_RERANKING=false
+      - HINDSIGHT_API_TEXT_SEARCH_EXTENSION_NATIVE_LANGUAGE=turkish
+      - HINDSIGHT_API_LLM_TRACE_ENABLED=false
+      - HINDSIGHT_API_OPERATION_RETENTION_DAYS=7
+      - HINDSIGHT_API_OPERATION_CLEANUP_INTERVAL_SECONDS=3600
+      - HINDSIGHT_API_TENANT_EXTENSION=hindsight_api.extensions.builtin.tenant:ApiKeyTenantExtension
+      - HINDSIGHT_API_TENANT_API_KEY=${HINDSIGHT_API_KEY}
+      - HINDSIGHT_CP_DATAPLANE_API_KEY=${HINDSIGHT_API_KEY}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8888/health/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
     networks:
       - ai-net
     logging:
