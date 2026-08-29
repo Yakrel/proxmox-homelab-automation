@@ -7,6 +7,21 @@
 deploy_dev_terminal() {
     local ct_id="$1"
     local guest_script remote_script
+    local hindsight_api_key=""
+    local ai_env_enc="$WORK_DIR/docker/ai/.env.enc"
+
+    if [[ -f "$ai_env_enc" ]]; then
+        local ai_tmp
+        ai_tmp=$(mktemp)
+        register_runtime_temp_file "$ai_tmp"
+        if ! decrypt_openssl_file "$ai_env_enc" "$ai_tmp" "${ENV_ENC_KEY:-${KEY:-}}"; then
+            rm -f "$ai_tmp"
+            print_error "Failed to decrypt docker/ai/.env.enc for dev terminal configuration"
+            return 1
+        fi
+        hindsight_api_key=$(get_env_value "HINDSIGHT_API_KEY" "$ai_tmp")
+        rm -f "$ai_tmp"
+    fi
 
     guest_script=$(mktemp /tmp/dev-terminal-setup.XXXXXX)
     register_runtime_temp_file "$guest_script"
@@ -157,32 +172,70 @@ CODE_SERVER_SETTINGS
 
 # Reconcile Oh My Pi Hindsight memory configuration
 install -d -m 0700 /root/.omp/agent
-python3 - <<'OMP_CONFIG'
+python3 - "${HINDSIGHT_API_KEY:-}" <<'OMP_CONFIG'
+import re
+import sys
 from pathlib import Path
 
+api_key = sys.argv[1] if sys.argv[1] else ""
 config_path = Path("/root/.omp/agent/config.yml")
 content = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
 
-if "backend: hindsight" not in content:
-    hindsight_block = """
-memory:
+api_key_line = f"  apiToken: {api_key}\n" if api_key else ""
+hindsight_block = f"""memory:
   backend: hindsight
 hindsight:
   apiUrl: http://192.168.1.104:8888
-  bankId: main
-  autoRecall: true
-  autoRetain: true
-  retainEveryNTurns: 3
+{api_key_line}  bankId: main
   scoping: per-project-tagged
 """
-    config_path.write_text((content.rstrip() + "\n" + hindsight_block).lstrip(), encoding="utf-8")
+
+if "backend: hindsight" not in content:
+    content = (content.rstrip() + "\n\n" + hindsight_block).lstrip()
+else:
+    # Clean up deprecated apiKey if present.
+    content = re.sub(r"(?m)^  apiKey:[^\n]*\n?", "", content)
+    if api_key:
+        if re.search(r"(?m)^  apiToken:", content):
+            content = re.sub(
+                r"(?m)^  apiToken:[^\n]*$",
+                f"  apiToken: {api_key}",
+                content,
+                count=1,
+            )
+        else:
+            content = re.sub(
+                r"(?m)^(hindsight:\s*)$",
+                rf"\1\n{api_key_line.rstrip()}",
+                content,
+                count=1,
+            )
+
+    # Let the installed OMP version own its supported retention defaults and
+    # lifecycle behavior instead of carrying local tuning across upgrades.
+    for key in (
+        "autoRecall",
+        "autoRetain",
+        "retainMode",
+        "retainUpdateMode",
+        "retainEveryNTurns",
+        "retainOverlapTurns",
+    ):
+        content = re.sub(
+            rf"(?m)^  {re.escape(key)}:[^\n]*\n?",
+            "",
+            content,
+        )
+
+config_path.write_text(content, encoding="utf-8")
+config_path.chmod(0o600)
 OMP_CONFIG
 GUEST_SCRIPT
 
     pct push "$ct_id" "$guest_script" "$remote_script"
     pct exec "$ct_id" -- chmod 0700 "$remote_script"
 
-    if ! pct exec "$ct_id" -- "$remote_script"; then
+    if ! pct exec "$ct_id" -- env HINDSIGHT_API_KEY="$hindsight_api_key" "$remote_script"; then
         pct exec "$ct_id" -- rm -f "$remote_script" || true
         print_error "Failed to configure dev terminal"
         return 1

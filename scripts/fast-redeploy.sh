@@ -129,14 +129,18 @@ main() {
         done < <(get_available_stacks "$WORK_DIR/stacks.yaml")
     fi
 
-    local stack
+    local stack needs_encryption=false
     for stack in "${stacks[@]}"; do
-        if [[ "$stack" != "dev" ]]; then
-            ENV_ENC_KEY=$(prompt_env_passphrase)
-            export ENV_ENC_KEY
+        if [[ -f "$WORK_DIR/docker/$stack/.env.enc" ]] || [[ "$stack" == "dev" && -f "$WORK_DIR/docker/ai/.env.enc" ]]; then
+            needs_encryption=true
             break
         fi
     done
+
+    if [[ "$needs_encryption" == true ]]; then
+        ENV_ENC_KEY=$(get_or_prompt_env_passphrase)
+        export ENV_ENC_KEY
+    fi
 
     for stack in "${stacks[@]}"; do
         fast_redeploy_stack "$stack"

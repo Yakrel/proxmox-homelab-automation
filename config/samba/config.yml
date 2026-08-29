@@ -7,6 +7,9 @@ auth:
 
 global:
   - "acl allow execute always = yes"
+  - "netbios name = HOMELAB-SMB"
+  - "server string = HOMELAB-SMB"
+  - "map to guest = Never"
 
 share:
   - name: datapool

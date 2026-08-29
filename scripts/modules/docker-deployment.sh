@@ -364,6 +364,13 @@ setup_media_permissions() {
     prepare_host_directory /datapool/media/library/.tdarr-cache
 }
 
+setup_gaming_permissions() {
+    prepare_host_directory /fastpool/config/gameservers
+    prepare_host_directory /fastpool/config/gameservers/palworld
+    prepare_host_directory /fastpool/config/gameservers/palworld/Saved
+    prepare_host_directory /fastpool/config/gameservers/palworld/backups
+}
+
 
 
 
@@ -391,6 +398,9 @@ prepare_docker_stack() {
         gateway)
             setup_gateway_permissions
             ;;
+        gaming)
+            setup_gaming_permissions
+            ;;
     esac
 }
 
@@ -417,7 +427,7 @@ deploy_docker_services() {
     fi
 
     pct exec "$ct_id" -- sh -c \
-        "cd /root && docker compose up -d --pull always $wait_flags --remove-orphans" || {
+        "cd /root && docker compose up -d $wait_flags --remove-orphans" || {
         print_error "Failed to deploy services"
         return 1
     }

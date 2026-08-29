@@ -50,6 +50,16 @@ prompt_env_passphrase() {
     printf '%s' "$pass"
 }
 
+get_or_prompt_env_passphrase() {
+    if [[ -n "${ENV_ENC_KEY:-}" ]]; then
+        printf '%s' "$ENV_ENC_KEY"
+    elif [[ -n "${KEY:-}" ]]; then
+        printf '%s' "$KEY"
+    else
+        prompt_env_passphrase
+    fi
+}
+
 # Read one value from an env file without sourcing executable shell content.
 get_env_value() {
     local key="$1"

@@ -1,0 +1,51 @@
+services:
+  palworld-server:
+    image: thijsvanloef/palworld-server-docker:latest
+    container_name: palworld-server
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ:-Europe/Istanbul}
+
+      # --- Server Identity & Security ---
+      - SERVER_NAME=${PALWORLD_SERVER_NAME:-Proxmox Homelab Palworld}
+      - SERVER_DESCRIPTION=${PALWORLD_SERVER_DESCRIPTION:-Homelab Palworld Server}
+      - SERVER_PASSWORD=${PALWORLD_SERVER_PASSWORD}
+      - ADMIN_PASSWORD=${PALWORLD_ADMIN_PASSWORD}
+      - PLAYERS=${PALWORLD_MAX_PLAYERS:-4}
+      - USEAUTH=false
+
+      # --- Performance (Multi-threading) ---
+      - ENABLE_PERF_THREADING_ARGS=true
+
+      # --- Backup Settings (Every 6h, keep 7 days) ---
+      - BACKUP_CRON_EXPRESSION=0 */6 * * *
+      - DELETE_OLD_BACKUPS=true
+      - OLD_BACKUP_DAYS=7
+
+      # --- Auto Reboot (Memory Leak Protection, Daily 04:00) ---
+      - AUTO_REBOOT_ENABLED=true
+      - AUTO_REBOOT_CRON_EXPRESSION=0 4 * * *
+
+      # --- Solo / QoL Game Settings ---
+      - BASE_CAMP_WORKER_MAX_NUM=20
+      - ENABLE_NON_LOGIN_PENALTY=false
+      - AUTO_SAVE_SPAN=300
+      - PAL_EGG_DEFAULT_HATCHING_TIME=${PALWORLD_EGG_HATCHING_TIME:-0}
+
+    volumes:
+      - /root/palworld:/palworld
+      - /fastpool/config/gameservers/palworld/Saved:/palworld/Pal/Saved
+      - /fastpool/config/gameservers/palworld/backups:/palworld/backups
+    ports:
+      - "8211:8211/udp"
+      - "27015:27015/udp"
+      - "8212:8212/tcp"
+    restart: unless-stopped
+    stop_grace_period: 120s
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep \"PalServer-Linux\" > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
