@@ -1,6 +1,6 @@
 # Proxmox Homelab Automation
 
-Personal Proxmox VE homelab running services across 6 unprivileged LXC containers. The repository contains the LXC definitions, Docker Compose stacks, deployment scripts, firewall setup, backup configuration, and supporting service templates used to run and rebuild the environment.
+Personal Proxmox VE homelab running services across 7 unprivileged LXC containers. The repository contains the LXC definitions, Docker Compose stacks, deployment scripts, firewall setup, backup configuration, and supporting service templates used to run and rebuild the environment.
 
 The setup is built around Proxmox VE, ZFS, Docker Compose, Tailscale, Cloudflare Tunnel, Nginx Proxy Manager, AdGuard Home, Restic/Backrest, and a shared NVIDIA GPU for selected workloads.
 
@@ -164,6 +164,12 @@ Contains the AI agent interface, model/API routing, and memory services used by 
 
 Provides a persistent remote development environment. Workspace and Code-Server state are stored under `fastpool`.
 
+### Gaming — LXC 106
+
+**Services:** Palworld dedicated server
+
+Provides an isolated game-server workload managed separately from the media and utility stacks.
+
 ---
 
 ## Secret Handling
@@ -198,6 +204,7 @@ The deployment scripts decrypt the required files at deployment time using the m
 ├── docker/
 │   ├── ai/
 │   ├── desktop/
+│   ├── gaming/
 │   ├── gateway/
 │   ├── media/
 │   └── utility/
