@@ -188,6 +188,9 @@ hindsight:
   apiUrl: http://192.168.1.104:8888
 {api_key_line}  bankId: main
   scoping: per-project-tagged
+  retainMode: last-turn
+  retainEveryNTurns: 2
+  retainOverlapTurns: 1
 """
 
 if "backend: hindsight" not in content:
@@ -211,8 +214,8 @@ else:
                 count=1,
             )
 
-    # Let the installed OMP version own its supported retention defaults and
-    # lifecycle behavior instead of carrying local tuning across upgrades.
+    # Retain every 2 user turns with one preceding turn of conversational context.
+    # Remove prior tuning first so repeated deployments remain idempotent.
     for key in (
         "autoRecall",
         "autoRetain",
@@ -226,6 +229,22 @@ else:
             "",
             content,
         )
+
+    retention_lines = "\n".join(
+        (
+            "  retainMode: last-turn",
+            "  retainEveryNTurns: 2",
+            "  retainOverlapTurns: 1",
+        )
+    )
+    content, updated = re.subn(
+        r"(?m)^(  scoping:[^\n]*)$",
+        rf"\1\n{retention_lines}",
+        content,
+        count=1,
+    )
+    if updated != 1:
+        raise RuntimeError("Unable to reconcile OMP retention settings")
 
 config_path.write_text(content, encoding="utf-8")
 config_path.chmod(0o600)
