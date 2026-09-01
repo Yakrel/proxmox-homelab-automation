@@ -142,9 +142,9 @@ Media and photo workloads run here. Selected services use NVIDIA GPU acceleratio
 
 ### Utility — LXC 102
 
-**Services:** JDownloader 2, Samba, Repackarr, Backrest-Rclone, MeTube, Changedetection.io, Karakeep
+**Services:** JDownloader 2, Samba, Repackarr, Backrest-Rclone, MeTube, Changedetection.io, Karakeep, Beszel
 
-Contains download, file-sharing, utility, monitoring, and backup-related services. SMB access is restricted to the configured administrator devices.
+Contains download, file-sharing, utility, monitoring, and backup-related services. The Beszel Hub runs in Docker, while PVE and LXC agents run as native system services (systemd on Debian/PVE and OpenRC on Alpine) so LXC and nested Docker metrics remain accurate. Agent configuration is reconciled during both full deployments and Fast Redeploy.
 
 ### Desktop — LXC 103
 

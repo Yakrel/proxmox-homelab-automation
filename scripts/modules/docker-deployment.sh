@@ -45,6 +45,8 @@ setup_desktop_permissions() {
     prepare_host_directory /fastpool/config/radicale/data
 }
 
+
+
 setup_sshwifty_config() {
     prepare_host_directory /fastpool/config/sshwifty
 
@@ -131,6 +133,7 @@ setup_utility_permissions() {
     prepare_host_directory /fastpool/config/karakeep
     prepare_host_directory /fastpool/config/karakeep/data
     prepare_host_directory /fastpool/config/karakeep/meilisearch
+    prepare_host_directory /fastpool/config/beszel
     prepare_host_directory /datapool/downloads
     prepare_host_directory /datapool/downloads/jdownloader
     prepare_host_directory /datapool/downloads/metube
@@ -402,6 +405,7 @@ prepare_docker_stack() {
             setup_gaming_permissions
             ;;
     esac
+
 }
 
 # Download and configure Docker Compose files
@@ -448,6 +452,9 @@ deploy_docker_stack() {
     }
 
     prepare_docker_stack "$stack_name"
+
+    deploy_lxc_beszel_agent \
+        "$ct_id" "lxc-${stack_name}" "$ENV_DECRYPTED_PATH" "docker*,beszel*"
 
     setup_docker_compose "$stack_name" "$ct_id"
     deploy_docker_services "$stack_name" "$ct_id"

@@ -9,6 +9,7 @@ WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 
 # --- Load Shared Functions ---
 source "$WORK_DIR/scripts/helper-functions.sh"
+source "$WORK_DIR/scripts/modules/beszel-agent.sh"
 trap cleanup_runtime_temp_files EXIT
 
 # --- Core Logic Functions ---
@@ -428,6 +429,31 @@ EOF
     print_warning "Please REBOOT the Proxmox Host to fully apply kernel parameters and load the driver."
 }
 
+run_install_beszel_agent() {
+    require_root
+
+    local enc_file="$WORK_DIR/docker/utility/.env.enc"
+    local env_tmp pass
+
+    [[ -f "$enc_file" ]] || {
+        print_error "Encrypted Utility environment not found at $enc_file"
+        return 1
+    }
+
+    env_tmp=$(mktemp /tmp/beszel-agent-env.XXXXXX)
+    register_runtime_temp_file "$env_tmp"
+    pass=$(get_or_prompt_env_passphrase)
+    if ! decrypt_openssl_file "$enc_file" "$env_tmp" "$pass"; then
+        print_error "Failed to decrypt Utility environment"
+        return 1
+    fi
+
+    install_local_beszel_agent \
+        "$env_tmp" "pve" "pve*,zfs*,beszel*" "/fastpool,/datapool"
+    unset pass
+}
+
+
 # --- Main Menu ---
 
 while true; do
@@ -442,6 +468,7 @@ while true; do
     echo "   4) Optimize ZFS Performance"
     echo "   5) Setup Network Bonding (Interactive)"
     echo "   6) Setup GPU Passthrough (NVIDIA GTX 970)"
+    echo "   7) Install/Update Beszel Agent (PVE)"
     echo "---------------------------------------"
     echo "   b) Back to Main Menu"
     echo "   q) Quit"
@@ -455,6 +482,7 @@ while true; do
         4) run_optimize_zfs; press_enter_to_continue ;;
         5) run_setup_bonding; press_enter_to_continue ;;
         6) run_setup_gpu_passthrough; press_enter_to_continue ;;
+        7) run_install_beszel_agent; press_enter_to_continue ;;
         b|B) exit 0 ;;
         q|Q) echo "Exiting."; exit 0 ;;
         *) print_error "Invalid choice. Please try again." ;;

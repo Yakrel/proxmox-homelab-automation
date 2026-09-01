@@ -7,6 +7,7 @@ set -euo pipefail
 WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 
 source "$WORK_DIR/scripts/helper-functions.sh"
+source "$WORK_DIR/scripts/modules/beszel-agent.sh"
 source "$WORK_DIR/scripts/modules/docker-deployment.sh"
 source "$WORK_DIR/scripts/modules/backrest-deployment.sh"
 source "$WORK_DIR/scripts/modules/dev-terminal.sh"
@@ -101,6 +102,9 @@ fast_redeploy_stack() {
     fi
 
     prepare_docker_stack "$stack"
+
+    deploy_lxc_beszel_agent \
+        "$CT_ID" "lxc-${stack}" "$ENV_DECRYPTED_PATH" "docker*,beszel*"
 
     pct push "$CT_ID" "$ENV_DECRYPTED_PATH" /root/.env
     pct exec "$CT_ID" -- chmod 0600 /root/.env

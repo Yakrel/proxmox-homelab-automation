@@ -182,10 +182,10 @@ decrypt_openssl_file() {
     local output_file="$2"
     local passphrase="$3"
 
-    printf '%s' "$passphrase" | openssl enc \
+    KEY="$passphrase" openssl enc \
         -d -aes-256-cbc \
         -pbkdf2 -iter "$OPENSSL_PBKDF2_ITERATIONS" -md sha256 \
-        -pass stdin \
+        -pass env:KEY \
         -in "$input_file" \
         -out "$output_file"
 }

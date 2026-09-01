@@ -23,6 +23,7 @@ fi
 STACK_NAME=$1
 
 # --- Load Deployment Modules ---
+source "$WORK_DIR/scripts/modules/beszel-agent.sh"
 source "$WORK_DIR/scripts/modules/docker-deployment.sh"
 source "$WORK_DIR/scripts/modules/backrest-deployment.sh"
 source "$WORK_DIR/scripts/modules/dev-terminal.sh"
