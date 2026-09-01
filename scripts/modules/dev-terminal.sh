@@ -7,21 +7,22 @@
 deploy_dev_terminal() {
     local ct_id="$1"
     local guest_script remote_script
-    local hindsight_api_key=""
+    local hindsight_api_key="" ai_tmp=""
     local ai_env_enc="$WORK_DIR/docker/ai/.env.enc"
 
-    if [[ -f "$ai_env_enc" ]]; then
-        local ai_tmp
-        ai_tmp=$(mktemp)
-        register_runtime_temp_file "$ai_tmp"
-        if ! decrypt_openssl_file "$ai_env_enc" "$ai_tmp" "${ENV_ENC_KEY:-${KEY:-}}"; then
-            rm -f "$ai_tmp"
-            print_error "Failed to decrypt docker/ai/.env.enc for dev terminal configuration"
-            return 1
-        fi
-        hindsight_api_key=$(get_env_value "HINDSIGHT_API_KEY" "$ai_tmp")
-        rm -f "$ai_tmp"
+    if [[ ! -f "$ai_env_enc" ]]; then
+        print_error "docker/ai/.env.enc is required for Dev configuration"
+        return 1
     fi
+
+    ai_tmp=$(mktemp)
+    register_runtime_temp_file "$ai_tmp"
+    if ! decrypt_openssl_file "$ai_env_enc" "$ai_tmp" "${ENV_ENC_KEY:-${KEY:-}}"; then
+        rm -f "$ai_tmp"
+        print_error "Failed to decrypt docker/ai/.env.enc for Dev configuration"
+        return 1
+    fi
+    hindsight_api_key=$(get_env_value "HINDSIGHT_API_KEY" "$ai_tmp")
 
     guest_script=$(mktemp /tmp/dev-terminal-setup.XXXXXX)
     register_runtime_temp_file "$guest_script"
@@ -249,17 +250,27 @@ else:
 config_path.write_text(content, encoding="utf-8")
 config_path.chmod(0o600)
 OMP_CONFIG
+
 GUEST_SCRIPT
 
     pct push "$ct_id" "$guest_script" "$remote_script"
     pct exec "$ct_id" -- chmod 0700 "$remote_script"
 
-    if ! pct exec "$ct_id" -- env HINDSIGHT_API_KEY="$hindsight_api_key" "$remote_script"; then
+    if ! pct exec "$ct_id" -- env \
+        HINDSIGHT_API_KEY="$hindsight_api_key" \
+        "$remote_script"; then
         pct exec "$ct_id" -- rm -f "$remote_script" || true
         print_error "Failed to configure dev terminal"
         return 1
     fi
 
     pct exec "$ct_id" -- rm -f "$remote_script"
-    print_success "Dev code-server terminal reconciled"
+
+    if ! deploy_lxc_beszel_agent \
+        "$ct_id" "lxc-dev" "$ai_tmp" "code-server*,beszel*"; then
+        print_error "Failed to configure the Dev Beszel agent"
+        return 1
+    fi
+    rm -f "$ai_tmp"
+    print_success "Dev terminal and Beszel agent reconciled"
 }

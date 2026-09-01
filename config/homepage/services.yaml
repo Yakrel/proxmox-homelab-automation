@@ -14,6 +14,12 @@
           username: "{{HOMEPAGE_VAR_PROXMOX_TOKEN_ID}}"
           password: "{{HOMEPAGE_VAR_PROXMOX_TOKEN_SECRET}}"
 
+    - Beszel:
+        description: Infrastructure monitoring
+        href: https://beszel.byetgin.com
+        icon: beszel.png
+        siteMonitor: https://beszel.byetgin.com
+
     - Backrest:
         description: Backup management
         href: https://backrest.byetgin.com

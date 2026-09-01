@@ -103,19 +103,29 @@ EOF
         utility)
             cat >> "$firewall_tmp" <<'EOF'
 # Reverse Proxy Ingress from Gateway NPM (192.168.1.100)
-# 3080: Karakeep | 5000: ChangeDetection | 8081: MeTube | 8090: Repackarr | 9898: Backrest
+# 3080: Karakeep | 5000: ChangeDetection | 8081: MeTube | 8090: Repackarr | 8095: Beszel | 9898: Backrest
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 3080
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 5000
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 8081
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 8090
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 8095
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 9898
-# Desktop Container / Homepage Dashboard Widgets & SiteMonitors (192.168.1.103)
+# Desktop Container / Homepage Dashboard and Beszel UI (192.168.1.103)
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 3080
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 5000
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 8081
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 8090
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 8095
 IN ACCEPT -source 192.168.1.103 -p tcp -dport 9898
+# Beszel agent outbound WebSocket registration
+IN ACCEPT -source 192.168.1.10 -p tcp -dport 8095
+IN ACCEPT -source 192.168.1.101 -p tcp -dport 8095
+IN ACCEPT -source 192.168.1.104 -p tcp -dport 8095
+IN ACCEPT -source 192.168.1.105 -p tcp -dport 8095
+IN ACCEPT -source 192.168.1.106 -p tcp -dport 8095
 # Workstation (192.168.1.20)
+# Beszel UI
+IN ACCEPT -source 192.168.1.20 -p tcp -dport 8095
 # Samba File Sharing (NetBIOS & SMB)
 IN ACCEPT -source 192.168.1.20 -p udp -dport 137
 IN ACCEPT -source 192.168.1.20 -p udp -dport 138
@@ -133,6 +143,8 @@ IN ACCEPT -source 192.168.1.20 -p tcp -dport 5355
 # JDownloader Click'n'Load
 IN ACCEPT -source 192.168.1.20 -p tcp -dport 9666
 # Laptop (192.168.1.21)
+# Beszel UI
+IN ACCEPT -source 192.168.1.21 -p tcp -dport 8095
 # Samba File Sharing (NetBIOS & SMB)
 IN ACCEPT -source 192.168.1.21 -p udp -dport 137
 IN ACCEPT -source 192.168.1.21 -p udp -dport 138
