@@ -12,7 +12,7 @@ setup_homepage_config() {
     prepare_host_directory /fastpool/config/homepage/assets
 
     # List of homepage config files to copy
-    local config_files=("services.yaml" "bookmarks.yaml" "widgets.yaml" "settings.yaml" "docker.yaml")
+    local config_files=("services.yaml" "bookmarks.yaml" "widgets.yaml" "settings.yaml" "docker.yaml" "custom.css")
 
     # Copy all files from local workspace
     for config_file in "${config_files[@]}"; do
