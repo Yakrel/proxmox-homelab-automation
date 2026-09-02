@@ -39,7 +39,7 @@ Shell-based automation for deploying containerized services in LXC containers on
 ## Proxmox & LXC Context
 
 - **Network & Storage**: Timezone is `Europe/Istanbul`, topology uses `192.168.1.x`, ZFS pool is `datapool`, bridge is `vmbr0`.
-- **Environment**: Work normally happens inside the dev LXC, where host commands such as `pct` and `pvesh` are unavailable; mounted storage can still expose part of the live state. Use explicitly authorized SSH access when live host inspection or intervention is part of the task; never store credentials in the repository.
+- **Environment**: Work happens exclusively inside the dev LXC. SSH is completely disabled across all LXCs and host access is unavailable; commands like `pct`, `pvesh`, or remote container execution cannot be run directly. Live state inspection is limited to mounted storage (e.g., `/fastpool/config`) and local/network endpoints. Any host-level or LXC-level operations requiring PVE console access must be delegated to the user.
 - **LXC Permissions (CRITICAL)**:
   - **Never run `chown` inside LXC containers.**
   - Always set host permissions with `chown 101000:101000` (which maps to `1000:1000` in container).

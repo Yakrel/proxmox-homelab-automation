@@ -569,7 +569,7 @@ Components: main contrib non-free non-free-firmware
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOS
 
-    # Dev stack: code-server + developer CLI tools (no Docker, no GPU)
+    # Dev stack: code-server + developer CLI tools + headless browser runtime (no Docker, no GPU)
     if [ \"\$STACK_NAME\" = 'dev' ]; then
         nodesource_installer=\$(mktemp /tmp/nodesource-setup.XXXXXX)
         trap 'rm -f \"\$nodesource_installer\"' EXIT
@@ -577,7 +577,12 @@ EOS
         bash \"\$nodesource_installer\"
         rm -f \"\$nodesource_installer\"
         trap - EXIT
-        apt-get install -y -qq nodejs git python3 python3-pip python3-yaml bash nano vim htop shellcheck yq
+        apt-get install -y -qq \
+            nodejs git python3 python3-pip python3-yaml bash nano vim htop shellcheck yq \
+            libglib2.0-0t64 libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 \
+            libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 \
+            libpango-1.0-0 libcairo2 libasound2t64 libx11-6 libx11-xcb1 libxcb1 libxext6 \
+            fonts-liberation
         node -e 'if (!process.release.lts) process.exit(1)'
 
         # Configure the official GitHub CLI repository during initial OS provisioning.

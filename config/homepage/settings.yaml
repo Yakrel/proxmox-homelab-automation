@@ -28,25 +28,28 @@ layout:
     style: row
     columns: 4
     icon: proxmox.png
-  Utilities:
+  Platforms:
     style: row
-    columns: 4
-    icon: mdi-tools
+    columns: 5
+    icon: mdi-server-network
   Media:
     style: row
     columns: 4
     icon: jellyfin.png
-  Downloads:
+  Operations:
     style: row
     columns: 4
-    icon: mdi-download
-  External:
+    icon: mdi-chart-box
+  Network:
     style: row
     columns: 4
-    icon: mdi-cloud
+    icon: mdi-lan
+  Applications:
+    style: row
+    columns: 6
+    icon: mdi-apps
 
 # Display Options - Minimalist
-statusStyle: dot
 fullWidth: true
-useEqualHeights: false
+useEqualHeights: true
 disableCollapse: true
