@@ -73,23 +73,59 @@ if ! command -v yq &>/dev/null; then
     apt-get install -y yq || { print_error "Failed to install yq"; exit 1; }
 fi
 
-# 3. Execute the Main Menu
-print_info "Starting main application"
-echo "-------------------------------------------------"
+# 3. Parse CLI arguments or launch interactive menu
+raw_0="${0:-}"
+args=("$@")
 
-if bash "$WORK_DIR/scripts/main-menu.sh"; then
-    main_menu_exit_code=0
+if [[ ! "$raw_0" =~ (^-?(bash|sh|zsh)$|\.sh$|/) ]]; then
+    target_args=("$raw_0" "${args[@]}")
 else
-    main_menu_exit_code=$?
+    target_args=("${args[@]}")
 fi
 
-# Only report error if it's a real failure
-if [[ $main_menu_exit_code -ne 0 && $main_menu_exit_code -ne 124 && $main_menu_exit_code -ne 130 ]]; then
-    echo
-    print_error "Main menu failed with exit code $main_menu_exit_code"
-    print_error "Possible causes: missing packages, permission issues, configuration problems"
-    print_info "Ensure you are running as root on Proxmox"
-    exit $main_menu_exit_code
+if [[ "${target_args[0]:-}" =~ ^(_|--)$ ]]; then
+    target_args=("${target_args[@]:1}")
+fi
+
+if [[ ${#target_args[@]} -eq 0 ]]; then
+    print_info "Starting main application"
+    echo "-------------------------------------------------"
+    bash "$WORK_DIR/scripts/main-menu.sh"
+else
+    action="${target_args[0]}"
+    case "$action" in
+        redeploy|fast-redeploy)
+            target="${target_args[1]:-all}"
+            if [[ "$target" != "all" && -f "$WORK_DIR/stacks.yaml" ]] && ! yq -e ".stacks[\"$target\"]" "$WORK_DIR/stacks.yaml" &>/dev/null; then
+                print_error "Unknown stack for redeploy: '$target'"
+                print_info "Available stacks: all, $(yq -r '.stacks | keys | join(", ")' "$WORK_DIR/stacks.yaml")"
+                exit 1
+            fi
+            echo "-------------------------------------------------"
+            if [[ "$target" == "all" ]]; then
+                print_info "Starting fast redeploy for all running stacks..."
+                bash "$WORK_DIR/scripts/fast-redeploy.sh"
+            else
+                print_info "Starting fast redeploy for stack: $target..."
+                bash "$WORK_DIR/scripts/fast-redeploy.sh" "$target"
+            fi
+            ;;
+        helper|helpers)
+            echo "-------------------------------------------------"
+            bash "$WORK_DIR/scripts/helper-menu.sh" "${target_args[@]:1}"
+            ;;
+        *)
+            if [[ -f "$WORK_DIR/stacks.yaml" ]] && ! yq -e ".stacks[\"$action\"]" "$WORK_DIR/stacks.yaml" &>/dev/null; then
+                print_error "Unknown stack or command: '$action'"
+                print_info "Available stacks: $(yq -r '.stacks | keys | join(", ")' "$WORK_DIR/stacks.yaml")"
+                print_info "Commands: redeploy [stack|all], helper"
+                exit 1
+            fi
+            echo "-------------------------------------------------"
+            print_info "Starting deployment for stack: $action..."
+            bash "$WORK_DIR/scripts/deploy-stack.sh" "$action"
+            ;;
+    esac
 fi
 
 # The 'trap' will handle cleanup automatically on exit
