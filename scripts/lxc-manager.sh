@@ -123,6 +123,8 @@ IN ACCEPT -source 192.168.1.101 -p tcp -dport 8095
 IN ACCEPT -source 192.168.1.104 -p tcp -dport 8095
 IN ACCEPT -source 192.168.1.105 -p tcp -dport 8095
 IN ACCEPT -source 192.168.1.106 -p tcp -dport 8095
+# Multicast membership queries from the LAN IGMP querier
+IN ACCEPT -source 192.168.1.1 -p igmp
 # Workstation (192.168.1.20)
 # Beszel UI
 IN ACCEPT -source 192.168.1.20 -p tcp -dport 8095

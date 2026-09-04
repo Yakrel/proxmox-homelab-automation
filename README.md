@@ -11,23 +11,23 @@ The setup is built around Proxmox VE, ZFS, Docker Compose, Tailscale, Cloudflare
 
 ## Quick Start
 
-Run on the Proxmox host:
+Run this command on the Proxmox host:
 
 ```bash
-# Launch interactive deployment menu
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)"
-
-# Deploy a specific stack directly (e.g. ai, media, desktop)
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)" ai
-
-# Fast redeploy a single running stack
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)" redeploy ai
-
-# Fast redeploy all running stacks
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)" redeploy all
 ```
 
-The installer opens an interactive menu when called without arguments, or directly executes stack operations when arguments are supplied. Encrypted environment files are decrypted with the homelab master key during deployment.
+This opens the interactive deployment menu.
+
+To run an operation directly, append one of the following arguments to the command:
+
+| Arguments | Action |
+| --- | --- |
+| `ai` | Deploy a specific stack; replace `ai` with another stack name |
+| `redeploy ai` | Fast redeploy a single running stack |
+| `redeploy all` | Fast redeploy all running stacks |
+
+Encrypted environment files are decrypted with the homelab master key during deployment.
 
 ---
 
