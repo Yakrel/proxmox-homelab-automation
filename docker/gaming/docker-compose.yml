@@ -1,3 +1,9 @@
+name: gaming
+
+networks:
+  gaming-net:
+    driver: bridge
+
 services:
   palworld-server:
     image: thijsvanloef/palworld-server-docker:latest
@@ -8,15 +14,17 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
 
       # --- Server Identity & Security ---
-      - SERVER_NAME=${PALWORLD_SERVER_NAME:-Proxmox Homelab Palworld}
-      - SERVER_DESCRIPTION=${PALWORLD_SERVER_DESCRIPTION:-Homelab Palworld Server}
+      - SERVER_NAME=Proxmox Homelab Palworld
+      - SERVER_DESCRIPTION=Homelab Palworld Server
       - SERVER_PASSWORD=${PALWORLD_SERVER_PASSWORD}
       - ADMIN_PASSWORD=${PALWORLD_ADMIN_PASSWORD}
-      - PLAYERS=${PALWORLD_MAX_PLAYERS:-4}
+      - PLAYERS=4
       - USEAUTH=false
 
-      # --- Performance (Multi-threading) ---
-      - ENABLE_PERF_THREADING_ARGS=true
+      # --- Internal Management ---
+      # Required by the container's graceful backup/save and auto-reboot jobs.
+      # Port 8212 is intentionally not published to the LXC/LAN.
+      - REST_API_ENABLED=true
 
       # --- Backup Settings (Every 6h, keep 7 days) ---
       - BACKUP_CRON_EXPRESSION=0 */6 * * *
@@ -28,11 +36,12 @@ services:
       - AUTO_REBOOT_CRON_EXPRESSION=0 4 * * *
 
       # --- Solo / QoL Game Settings ---
-      - BASE_CAMP_WORKER_MAX_NUM=20
+      - AUTO_PAUSE_ENABLED=false
+      - BASE_CAMP_WORKER_MAX_NUM=50
+      - PAL_EGG_DEFAULT_HATCHING_TIME=0
+      - DEATH_PENALTY=Item
       - ENABLE_NON_LOGIN_PENALTY=false
       - AUTO_SAVE_SPAN=300
-      - PAL_EGG_DEFAULT_HATCHING_TIME=${PALWORLD_EGG_HATCHING_TIME:-0}
-
     volumes:
       - /root/palworld:/palworld
       - /fastpool/config/gameservers/palworld/Saved:/palworld/Pal/Saved
@@ -40,8 +49,9 @@ services:
     ports:
       - "8211:8211/udp"
       - "27015:27015/udp"
-      - "8212:8212/tcp"
     restart: unless-stopped
+    networks:
+      - gaming-net
     stop_grace_period: 120s
     healthcheck:
       test: ["CMD-SHELL", "pgrep \"PalServer-Linux\" > /dev/null || exit 1"]
@@ -49,3 +59,36 @@ services:
       timeout: 10s
       retries: 3
       start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  watchtower:
+    image: nickfedor/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=${TZ:-Europe/Istanbul}
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 48 */6 * * *
+      - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
+      - WATCHTOWER_NOTIFICATIONS_LEVEL=info
+      - WATCHTOWER_NOTIFICATION_REPORT=true
+      - 'WATCHTOWER_NOTIFICATION_TEMPLATE={{- if .Report -}}{{- with .Report -}}{{- if .Updated -}}{{len .Updated}} container updated:{{range .Updated}}{{"\n"}}- {{.Name}} ({{.ImageName}}): {{.CurrentImageID.ShortID}} -> {{.LatestImageID.ShortID}}{{end}}{{- end -}}{{- end -}}{{- end -}}'
+      - WATCHTOWER_NO_STARTUP_MESSAGE=true
+      - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-gaming
+    networks:
+      - gaming-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
