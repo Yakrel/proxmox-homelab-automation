@@ -1,6 +1,6 @@
 services:
   palworld-server:
-    image: thijsvanloef/palworld-server-docker:latest
+    image: thijsvanloef/palworld-server-docker:2.7.3
     container_name: palworld-server
     environment:
       - PUID=1000
@@ -15,8 +15,10 @@ services:
       - PLAYERS=${PALWORLD_MAX_PLAYERS:-4}
       - USEAUTH=false
 
-      # --- Performance (Multi-threading) ---
-      - ENABLE_PERF_THREADING_ARGS=true
+      # --- Internal Management ---
+      # Required by the container's graceful backup/save and auto-reboot jobs.
+      # Port 8212 is intentionally not published to the LXC/LAN.
+      - REST_API_ENABLED=true
 
       # --- Backup Settings (Every 6h, keep 7 days) ---
       - BACKUP_CRON_EXPRESSION=0 */6 * * *
@@ -40,7 +42,6 @@ services:
     ports:
       - "8211:8211/udp"
       - "27015:27015/udp"
-      - "8212:8212/tcp"
     restart: unless-stopped
     stop_grace_period: 120s
     healthcheck:
