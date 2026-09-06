@@ -207,11 +207,10 @@ EOF
             ;;
         gaming)
             cat >> "$firewall_tmp" <<'EOF'
-# Palworld Dedicated Server (8211: UDP Game, 27015: UDP Query, 8212: TCP REST API)
+# Palworld Dedicated Server (8211: UDP Game, 27015: UDP Query)
 # Local Subnet (192.168.1.0/24)
 IN ACCEPT -source 192.168.1.0/24 -p udp -dport 8211
 IN ACCEPT -source 192.168.1.0/24 -p udp -dport 27015
-IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 8212
 # Public / Inbound Game Ports (if forwarded by router/firewall)
 IN ACCEPT -p udp -dport 8211
 IN ACCEPT -p udp -dport 27015
