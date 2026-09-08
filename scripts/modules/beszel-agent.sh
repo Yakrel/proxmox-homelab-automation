@@ -226,11 +226,12 @@ EOF
     chmod 0755 /etc/periodic/daily/beszel-agent-update
 
     if ! rc-service crond status >/dev/null 2>&1; then
-        rc-service crond start >/dev/null 2>&1 || true
+        rc-service crond start >/dev/null 2>&1
     fi
-    rc-update add crond default >/dev/null 2>&1 || true
-    rc-update add beszel-agent default >/dev/null 2>&1 || true
+    rc-update add crond default >/dev/null 2>&1
+    rc-update add beszel-agent default >/dev/null 2>&1
     rc-service beszel-agent restart >/dev/null 2>&1
+    rc-service beszel-agent status >/dev/null 2>&1
 else
     cat > /etc/systemd/system/beszel-agent.service <<'EOF'
 [Unit]
