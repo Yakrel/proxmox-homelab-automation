@@ -805,12 +805,20 @@ if [ "$CURRENT_CODE_SERVER_VERSION" != "$CODE_SERVER_VERSION" ]; then
     trap - EXIT
 fi
 fi
+if [[ "${FAST_REDEPLOY:-false}" == "true" ]] && ! command -v code-server >/dev/null 2>&1; then
+    echo "Missing required Dev command during Fast Redeploy: code-server" >&2
+    exit 1
+fi
 systemctl enable code-server@root
 systemctl restart code-server@root
 
 # Oh My Pi is the single coding-agent CLI for Dev. It provides the multi-provider
 # agent surface without separately installing Codex, Claude Code, or Antigravity.
-if [[ "${FAST_REDEPLOY:-false}" != "true" ]] && ! command -v omp >/dev/null 2>&1; then
+if ! command -v omp >/dev/null 2>&1; then
+    if [[ "${FAST_REDEPLOY:-false}" == "true" ]]; then
+        echo "Missing required Dev command during Fast Redeploy: omp" >&2
+        exit 1
+    fi
     curl -fsSL https://omp.sh/install | sh
 fi
 export PATH="/root/.local/bin:/usr/local/bin:$PATH"

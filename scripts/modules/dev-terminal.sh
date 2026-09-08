@@ -46,7 +46,11 @@ else
             exit 1
         }
     done
-    for required_file in         /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh         /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh; do
+    required_files=(
+        /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+        /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+    )
+    for required_file in "${required_files[@]}"; do
         [[ -f "$required_file" ]] || {
             echo "Missing required Dev terminal file during Fast Redeploy: $required_file" >&2
             exit 1
@@ -67,6 +71,10 @@ if [[ "${FAST_REDEPLOY:-false}" != "true" ]]; then
     rm -f "$font_tmp"
     trap - EXIT
 else
+    [[ -f "$workbench_dir/workbench.html" ]] || {
+        echo "Missing code-server workbench during Fast Redeploy" >&2
+        exit 1
+    }
     [[ -f "$workbench_dir/JetBrainsMonoNerdFontMono-Regular.ttf" ]] || {
         echo "Missing Dev terminal Nerd Font during Fast Redeploy" >&2
         exit 1
@@ -118,8 +126,8 @@ PYTHON
 # command name used by the NixOS shell configuration.
 ln -sfn /usr/bin/batcat /usr/local/bin/bat
 
-# Reconcile Oh My Zsh without its interactive installer so both fresh deploys
-# and fast redeploys follow the same idempotent path.
+# Refresh Oh My Zsh during full deploys. Fast Redeploy deliberately avoids
+# network access and only validates that the existing checkout is usable.
 if [[ "${FAST_REDEPLOY:-false}" != "true" ]]; then
     install -d -m 0755 /root/.oh-my-zsh
     git -C /root/.oh-my-zsh init -q
