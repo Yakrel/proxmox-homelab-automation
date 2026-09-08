@@ -240,16 +240,30 @@ get_loaded_nvidia_driver_version() {
     ' /proc/driver/nvidia/version
 }
 
+nvidia_fast_redeploy_cache_file() {
+    local key="$1"
+
+    [[ "${FAST_REDEPLOY:-false}" == "true" ]] || return 1
+    [[ -n "${FAST_REDEPLOY_CACHE_DIR:-}" && -d "$FAST_REDEPLOY_CACHE_DIR" ]] || return 1
+    printf '%s/%s' "$FAST_REDEPLOY_CACHE_DIR" "$key"
+}
+
 ensure_nvidia_driver_runfile() {
     local version="$1"
     local expected_sha256="$2"
     local driver_dir="/fastpool/config/temp"
     local driver_file="$driver_dir/NVIDIA-Linux-x86_64-${version}.run"
-    local actual_sha256
+    local actual_sha256 cache_file=""
 
     if [[ ! "$expected_sha256" =~ ^[a-f0-9]{64}$ ]]; then
         print_error "NVIDIA driver SHA-256 is missing or invalid"
         return 1
+    fi
+
+    if cache_file=$(nvidia_fast_redeploy_cache_file "nvidia-runfile-${version}-${expected_sha256}.verified"); then
+        [[ ! -f "$cache_file" ]] || return 0
+    else
+        cache_file=""
     fi
 
     mkdir -p "$driver_dir"
@@ -278,11 +292,20 @@ ensure_nvidia_driver_runfile() {
 
     chmod 0755 "$driver_file"
     "$driver_file" --check
+    [[ -z "$cache_file" ]] || : > "$cache_file"
 }
 
 configure_nvidia_host_runtime() {
     local expected_version="$1"
     local start_now="${2:-true}"
+    local cache_file=""
+
+    if [[ "$start_now" == "true" ]] &&
+        cache_file=$(nvidia_fast_redeploy_cache_file "nvidia-host-runtime-${expected_version}.ready"); then
+        [[ ! -f "$cache_file" ]] || return 0
+    else
+        cache_file=""
+    fi
 
     cat > /etc/modules-load.d/proxmox-lxc-nvidia.conf << 'EOF'
 nvidia
@@ -352,6 +375,7 @@ EOF
     done
 
     nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+    [[ -z "$cache_file" ]] || : > "$cache_file"
 }
 
 # Get list of available stacks from stacks.yaml, sorted by CT ID
