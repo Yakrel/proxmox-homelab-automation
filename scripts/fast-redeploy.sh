@@ -9,12 +9,12 @@ WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 source "$WORK_DIR/scripts/helper-functions.sh"
 source "$WORK_DIR/scripts/modules/beszel-agent.sh"
 source "$WORK_DIR/scripts/modules/docker-deployment.sh"
-source "$WORK_DIR/scripts/modules/backrest-deployment.sh"
 source "$WORK_DIR/scripts/modules/dev-terminal.sh"
 
 ENV_ENC_KEY=""
 ENV_DECRYPTED_PATH=""
 TEMP_DIR=""
+FAST_REDEPLOY_CACHE_DIR=""
 
 cleanup_fast_redeploy_secrets() {
     cleanup_runtime_temp_files
@@ -56,8 +56,6 @@ decrypt_stack_env() {
     export ENV_DECRYPTED_PATH ENV_ENC_KEY
 }
 
-
-
 fast_redeploy_stack() {
     local stack="$1"
 
@@ -97,8 +95,6 @@ fast_redeploy_stack() {
 
     if [[ "$stack" == "desktop" ]]; then
         setup_homepage_proxmox_token "$ENV_DECRYPTED_PATH"
-    elif [[ "$stack" == "utility" ]]; then
-        deploy_backrest "$CT_ID"
     fi
 
     prepare_docker_stack "$stack"
@@ -122,6 +118,9 @@ main() {
     require_root
     umask 077
     TEMP_DIR=$(mktemp -d /tmp/fast-redeploy.XXXXXX)
+    # Expensive host validations may be reused only inside this invocation.
+    FAST_REDEPLOY_CACHE_DIR="$TEMP_DIR"
+    export FAST_REDEPLOY_CACHE_DIR
 
     local -a stacks=()
 

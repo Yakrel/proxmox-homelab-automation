@@ -32,24 +32,31 @@ deploy_dev_terminal() {
 #!/bin/bash
 set -euo pipefail
 
-export DEBIAN_FRONTEND=noninteractive
+# Provisioning lives in lxc-manager.sh. Both redeploy paths validate the
+# installed tools before changing terminal configuration.
+for command_name in zsh git eza batcat zoxide btop; do
+    command -v "$command_name" >/dev/null 2>&1 || {
+        echo "Missing required Dev terminal command: $command_name" >&2
+        exit 1
+    }
+done
 
-# Keep the server lean: code-server is the terminal emulator, so only install
-# shell/CLI tooling. Kitty and desktop packages intentionally stay on NixOS.
-apt-get update -qq
-apt-get install -y -qq zsh git zsh-autosuggestions zsh-syntax-highlighting eza bat zoxide btop
-
-# code-server renders the terminal in the browser, so fonts installed only in
-# the LXC are invisible to it. Serve the Nerd Font with the workbench instead.
 workbench_dir=/usr/lib/code-server/lib/vscode/out/vs/code/browser/workbench
-font_tmp=$(mktemp /tmp/JetBrainsMonoNerdFontMono.XXXXXX.ttf)
-trap 'rm -f "$font_tmp"' EXIT
-curl -fsSL \
-    https://raw.githubusercontent.com/ryanoasis/nerd-fonts/master/patched-fonts/JetBrainsMono/Ligatures/JetBrainsMonoNerdFontMono-Regular.ttf \
-    -o "$font_tmp"
-install -m 0644 "$font_tmp" "$workbench_dir/JetBrainsMonoNerdFontMono-Regular.ttf"
-rm -f "$font_tmp"
-trap - EXIT
+required_files=(
+    /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+    /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+    /root/.oh-my-zsh/oh-my-zsh.sh
+    /root/.oh-my-zsh/themes/robbyrussell.zsh-theme
+    /root/.oh-my-zsh/plugins/git/git.plugin.zsh
+    "$workbench_dir/workbench.html"
+    "$workbench_dir/JetBrainsMonoNerdFontMono-Regular.ttf"
+)
+for required_file in "${required_files[@]}"; do
+    [[ -f "$required_file" ]] || {
+        echo "Missing required Dev terminal file: $required_file" >&2
+        exit 1
+    }
+done
 
 cat > "$workbench_dir/dev-terminal-font.css" <<'FONT_CSS'
 @font-face {
@@ -95,15 +102,6 @@ PYTHON
 # Debian exposes the bat package as /usr/bin/batcat. Keep the familiar `bat`
 # command name used by the NixOS shell configuration.
 ln -sfn /usr/bin/batcat /usr/local/bin/bat
-
-# Reconcile Oh My Zsh without its interactive installer so both fresh deploys
-# and fast redeploys follow the same idempotent path.
-install -d -m 0755 /root/.oh-my-zsh
-git -C /root/.oh-my-zsh init -q
-git -C /root/.oh-my-zsh config remote.origin.url https://github.com/ohmyzsh/ohmyzsh.git
-git -C /root/.oh-my-zsh config remote.origin.fetch '+refs/heads/master:refs/remotes/origin/master'
-git -C /root/.oh-my-zsh fetch -q --depth=1 origin master
-git -C /root/.oh-my-zsh reset -q --hard FETCH_HEAD
 
 cat > /root/.zshrc <<'ZSH_CONFIG'
 export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"

@@ -10,21 +10,6 @@ set -euo pipefail
 setup_homepage_config() {
     prepare_host_directory /fastpool/config/homepage
     prepare_host_directory /fastpool/config/homepage/assets
-
-    # List of homepage config files to copy
-    local config_files=("services.yaml" "bookmarks.yaml" "widgets.yaml" "settings.yaml" "docker.yaml" "custom.css")
-
-    # Copy all files from local workspace
-    for config_file in "${config_files[@]}"; do
-        local source_file="$WORK_DIR/config/homepage/$config_file"
-        local dest_file="/fastpool/config/homepage/$config_file"
-        
-        install -o 101000 -g 101000 -m 0644 "$source_file" "$dest_file"
-    done
-
-    install -o 101000 -g 101000 -m 0644 \
-        "$WORK_DIR/config/homepage/assets/homepage-background.png" \
-        /fastpool/config/homepage/assets/homepage-background.png
 }
 
 setup_gateway_permissions() {
@@ -49,13 +34,6 @@ setup_desktop_permissions() {
 
 setup_sshwifty_config() {
     prepare_host_directory /fastpool/config/sshwifty
-
-    # Presets contain host addresses only. Sshwifty asks for SSH credentials at
-    # connection time, so no private key or password is stored on disk.
-    local source_template="$WORK_DIR/config/sshwifty/sshwifty.conf.json.template"
-    local dest_file="/fastpool/config/sshwifty/sshwifty.conf.json"
-
-    install -o 101000 -g 101000 -m 0644 "$source_template" "$dest_file"
 }
 
 setup_hermes_telegram() {
@@ -134,52 +112,15 @@ setup_utility_permissions() {
     prepare_host_directory /fastpool/config/karakeep/data
     prepare_host_directory /fastpool/config/karakeep/meilisearch
     prepare_host_directory /fastpool/config/beszel
+    prepare_host_directory /fastpool/config/backrest 0700
+    prepare_host_directory /fastpool/config/backrest/config 0700
+    prepare_host_directory /fastpool/config/backrest/data 0700
+    prepare_host_directory /fastpool/config/backrest/cache 0700
+    prepare_host_directory /datapool/backup
     prepare_host_directory /datapool/downloads
     prepare_host_directory /datapool/downloads/jdownloader
     prepare_host_directory /datapool/downloads/metube
 
-    [[ -f "${ENV_DECRYPTED_PATH:-}" ]] || {
-        print_error "Decrypted environment file not found"
-        return 1
-    }
-
-    local samba_user samba_password samba_tmp
-    samba_user=$(get_env_value "SAMBA_USER")
-    samba_password=$(get_env_value "SAMBA_PASSWORD")
-
-    if [[ -z "$samba_user" || -z "$samba_password" ]]; then
-        print_error "Missing required Samba environment variables"
-        return 1
-    fi
-
-    samba_tmp=$(mktemp /fastpool/config/samba/config.yml.XXXXXX)
-    register_runtime_temp_file "$samba_tmp"
-    if ! SAMBA_RENDER_USER="$samba_user" \
-        SAMBA_RENDER_PASSWORD="$samba_password" \
-        python3 - "$WORK_DIR/config/samba/config.yml" "$samba_tmp" <<'PYEOF'
-import json
-import os
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as source_file:
-    content = source_file.read()
-
-content = content.replace("${SAMBA_USER}", json.dumps(os.environ["SAMBA_RENDER_USER"]))
-content = content.replace("${SAMBA_PASSWORD}", json.dumps(os.environ["SAMBA_RENDER_PASSWORD"]))
-
-with open(sys.argv[2], "w", encoding="utf-8") as destination_file:
-    destination_file.write(content)
-PYEOF
-    then
-        rm -f "$samba_tmp"
-        print_error "Failed to generate Samba configuration"
-        return 1
-    fi
-
-    yq '.' "$samba_tmp" >/dev/null
-    chown 101000:101000 "$samba_tmp"
-    chmod 0600 "$samba_tmp"
-    mv -f "$samba_tmp" /fastpool/config/samba/config.yml
 }
 
 
@@ -199,49 +140,10 @@ setup_couchdb_config() {
     prepare_host_directory /fastpool/config/couchdb
     prepare_host_directory /fastpool/config/couchdb/data
     prepare_host_directory /fastpool/config/couchdb/local.d
-
-    # Copy CouchDB configuration file
-    local source_file="$WORK_DIR/config/couchdb/local.ini"
-    local dest_file="/fastpool/config/couchdb/local.d/local.ini"
-
-    install -o 101000 -g 101000 -m 0644 "$source_file" "$dest_file"
 }
 
 # Setup Guacamole configuration from template
 setup_guacamole_config() {
-    if [[ ! -f "${ENV_DECRYPTED_PATH:-}" ]]; then
-        print_error "Decrypted environment file not found at ENV_DECRYPTED_PATH"
-        exit 1
-    fi
-
-    local guacamole_user guacamole_password desktop_ip desktop_user desktop_password laptop_ip laptop_rdp_user laptop_rdp_password
-    guacamole_user=$(get_env_value "GUACAMOLE_USER")
-    guacamole_password=$(get_env_value "GUACAMOLE_PASSWORD")
-    
-    desktop_ip=$(get_env_value "DESKTOP_IP")
-    desktop_user=$(get_env_value "DESKTOP_USER")
-    desktop_password=$(get_env_value "DESKTOP_PASSWORD")
-
-    laptop_ip=$(get_env_value "LAPTOP_IP")
-    laptop_rdp_user=$(get_env_value "LAPTOP_RDP_USER")
-    laptop_rdp_password=$(get_env_value "LAPTOP_RDP_PASSWORD")
-
-    if [[ -n "$laptop_ip$laptop_rdp_user$laptop_rdp_password" ]] && \
-       [[ -z "$laptop_ip" || -z "$laptop_rdp_user" || -z "$laptop_rdp_password" ]]; then
-        print_error "LAPTOP_IP, LAPTOP_RDP_USER and LAPTOP_RDP_PASSWORD must be set together"
-        return 1
-    fi
-
-    # Fail fast if variables are missing
-    if [[ -z "$guacamole_user" || -z "$guacamole_password" || -z "$desktop_ip" || -z "$desktop_user" || -z "$desktop_password" ]]; then
-        print_error "Missing required Guacamole or Desktop workstation configuration in environment file"
-        exit 1
-    fi
-
-    # The official Guacamole image runs as UID 1001, while host bind sources
-    # are owned by the LXC's UID 1000 mapping. Keep this read-only mount
-    # readable; the Desktop LXC and authenticated Samba administrator remain
-    # trusted boundaries for the credentials stored here.
     prepare_host_directory /fastpool/config/guacamole
     prepare_host_directory /fastpool/config/guacamole/extensions
 
@@ -259,64 +161,6 @@ setup_guacamole_config() {
             print_error "Failed to download guacamole-auth-quickconnect extension"
         fi
     fi
-
-    local source_template="$WORK_DIR/config/guacamole/user-mapping.xml.template"
-    local dest_file="/fastpool/config/guacamole/user-mapping.xml"
-
-    local guacamole_tmp
-    guacamole_tmp=$(mktemp /fastpool/config/guacamole/user-mapping.xml.XXXXXX)
-    register_runtime_temp_file "$guacamole_tmp"
-
-    if ! GUACAMOLE_RENDER_USER="$guacamole_user" \
-        GUACAMOLE_RENDER_PASSWORD="$guacamole_password" \
-        DESKTOP_RENDER_IP="$desktop_ip" \
-        DESKTOP_RENDER_USER="$desktop_user" \
-        DESKTOP_RENDER_PASSWORD="$desktop_password" \
-        LAPTOP_RENDER_IP="$laptop_ip" \
-        LAPTOP_RENDER_USER="$laptop_rdp_user" \
-        LAPTOP_RENDER_PASSWORD="$laptop_rdp_password" \
-        python3 - "$source_template" "$guacamole_tmp" <<'PYEOF'
-import os
-import sys
-import xml.etree.ElementTree as ET
-from xml.sax.saxutils import escape
-
-with open(sys.argv[1], encoding="utf-8") as source_file:
-    content = source_file.read()
-
-replacements = {
-    "GUACAMOLE_USER_PLACEHOLDER": os.environ["GUACAMOLE_RENDER_USER"],
-    "GUACAMOLE_PASSWORD_PLACEHOLDER": os.environ["GUACAMOLE_RENDER_PASSWORD"],
-    "DESKTOP_IP_PLACEHOLDER": os.environ["DESKTOP_RENDER_IP"],
-    "DESKTOP_USER_PLACEHOLDER": os.environ["DESKTOP_RENDER_USER"],
-    "DESKTOP_PASSWORD_PLACEHOLDER": os.environ["DESKTOP_RENDER_PASSWORD"],
-    "LAPTOP_IP_PLACEHOLDER": os.environ["LAPTOP_RENDER_IP"],
-    "LAPTOP_USER_PLACEHOLDER": os.environ["LAPTOP_RENDER_USER"],
-    "LAPTOP_PASSWORD_PLACEHOLDER": os.environ["LAPTOP_RENDER_PASSWORD"],
-}
-
-for placeholder, value in replacements.items():
-    content = content.replace(placeholder, escape(value, {'"': "&quot;", "'": "&apos;"}))
-
-root = ET.fromstring(content)
-if not os.environ["LAPTOP_RENDER_IP"]:
-    for authorize in root.findall("authorize"):
-        for connection in authorize.findall("connection"):
-            if connection.get("name") == "Laptop (RDP)":
-                authorize.remove(connection)
-
-ET.indent(root, space="    ")
-ET.ElementTree(root).write(sys.argv[2], encoding="unicode")
-PYEOF
-    then
-        rm -f "$guacamole_tmp"
-        print_error "Failed to generate user-mapping.xml from template"
-        return 1
-    fi
-
-    chown 101000:101000 "$guacamole_tmp"
-    chmod 0644 "$guacamole_tmp"
-    mv -f "$guacamole_tmp" "$dest_file"
 }
 
 

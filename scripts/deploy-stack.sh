@@ -25,7 +25,6 @@ STACK_NAME=$1
 # --- Load Deployment Modules ---
 source "$WORK_DIR/scripts/modules/beszel-agent.sh"
 source "$WORK_DIR/scripts/modules/docker-deployment.sh"
-source "$WORK_DIR/scripts/modules/backrest-deployment.sh"
 source "$WORK_DIR/scripts/modules/dev-terminal.sh"
 
 # --- Global Variables ---
@@ -141,9 +140,6 @@ create_lxc
 case "$STACK_NAME" in
     "dev")
         deploy_dev_terminal "$CT_ID"
-        ;;
-    "utility")
-        deploy_backrest "$CT_ID"
         ;;
     "desktop")
         setup_homepage_proxmox_token "$ENV_DECRYPTED_PATH"

@@ -580,6 +580,7 @@ EOS
         trap - EXIT
         apt-get install -y -qq \
             nodejs git python3 python3-pip python3-yaml bash nano vim htop shellcheck yq \
+            zsh zsh-autosuggestions zsh-syntax-highlighting eza bat zoxide btop \
             libglib2.0-0t64 libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 \
             libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 \
             libpango-1.0-0 libcairo2 libasound2t64 libx11-6 libx11-xcb1 libxcb1 libxext6 \
@@ -744,15 +745,15 @@ grep -qxF "$start_dir_line" /root/.bashrc ||
     printf "%s\n" "$start_dir_line" >> /root/.bashrc
 '
 
-# Dev CLI applications are application state, so reconcile them on both initial
-# provisioning and selected-stack redeploys without repeating OS provisioning.
+# Install Dev applications only on a new LXC. Both redeploy entry points
+# reconcile local configuration and validate the existing installation.
 if [[ "$STACK_NAME" == "dev" ]]; then
     print_info "Reconciling dev CLI applications"
 
     # Variables in this single-quoted script expand inside the container.
     # shellcheck disable=SC2016,SC2026
-    pct exec "$CT_ID" -- bash -c '
-set -e
+    pct exec "$CT_ID" -- env SKIP_CREATION="$SKIP_CREATION" bash -c '
+set -euo pipefail
 
 # pct exec starts a non-login shell, so the root .bashrc is not loaded.
 # Keep user-local and system-local CLI installations visible explicitly.
@@ -775,16 +776,11 @@ auth: none
 cert: false
 EOFCS
 
-# Keep code-server current with the other dev applications without repeating
-# repository or base-package provisioning.
-CODE_SERVER_URL=$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)
-CODE_SERVER_TAG=${CODE_SERVER_URL##*/}
-CODE_SERVER_VERSION=${CODE_SERVER_TAG#v}
-CURRENT_CODE_SERVER_VERSION=""
-if command -v code-server >/dev/null 2>&1; then
-    CURRENT_CODE_SERVER_VERSION=$(code-server --version | awk "NR == 1 {print \$1}")
-fi
-if [ "$CURRENT_CODE_SERVER_VERSION" != "$CODE_SERVER_VERSION" ]; then
+# Application downloads belong to initial provisioning, not redeploys.
+if [[ "$SKIP_CREATION" == "false" ]]; then
+    CODE_SERVER_URL=$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)
+    CODE_SERVER_TAG=${CODE_SERVER_URL##*/}
+    CODE_SERVER_VERSION=${CODE_SERVER_TAG#v}
     CODE_SERVER_ARCH=$(dpkg --print-architecture)
     case "$CODE_SERVER_ARCH" in
         amd64|arm64) ;;
@@ -802,15 +798,31 @@ if [ "$CURRENT_CODE_SERVER_VERSION" != "$CODE_SERVER_VERSION" ]; then
     dpkg -i "$code_server_package"
     rm -f "$code_server_package"
     trap - EXIT
-fi
-systemctl enable code-server@root
-systemctl restart code-server@root
 
-# Oh My Pi is the single coding-agent CLI for Dev. It provides the multi-provider
-# agent surface without separately installing Codex, Claude Code, or Antigravity.
-curl -fsSL https://omp.sh/install | sh
-export PATH="/root/.local/bin:/usr/local/bin:$PATH"
-omp --version
+    # Oh My Pi is the single coding-agent CLI. Updates are a separate,
+    # explicit maintenance operation rather than a redeploy side effect.
+    curl -fsSL https://omp.sh/install | sh
+
+    # Serve the terminal font through code-server; browser clients cannot
+    # use fonts installed only in the LXC.
+    workbench_dir=/usr/lib/code-server/lib/vscode/out/vs/code/browser/workbench
+    font_tmp=$(mktemp /tmp/JetBrainsMonoNerdFontMono.XXXXXX.ttf)
+    cleanup_font() { rm -f "$font_tmp"; }
+    trap cleanup_font EXIT
+    curl -fsSL \
+        https://raw.githubusercontent.com/ryanoasis/nerd-fonts/master/patched-fonts/JetBrainsMono/Ligatures/JetBrainsMonoNerdFontMono-Regular.ttf \
+        -o "$font_tmp"
+    install -m 0644 "$font_tmp" "$workbench_dir/JetBrainsMonoNerdFontMono-Regular.ttf"
+    rm -f "$font_tmp"
+    trap - EXIT
+
+    install -d -m 0755 /root/.oh-my-zsh
+    git -C /root/.oh-my-zsh init -q
+    git -C /root/.oh-my-zsh config remote.origin.url https://github.com/ohmyzsh/ohmyzsh.git
+    git -C /root/.oh-my-zsh config remote.origin.fetch "+refs/heads/master:refs/remotes/origin/master"
+    git -C /root/.oh-my-zsh fetch -q --depth=1 origin master
+    git -C /root/.oh-my-zsh reset -q --hard FETCH_HEAD
+fi
 
 for command_name in node npm git gh python3 bash nano vim htop shellcheck yq omp code-server; do
     command -v "$command_name" >/dev/null 2>&1 || {
@@ -820,9 +832,12 @@ for command_name in node npm git gh python3 bash nano vim htop shellcheck yq omp
 done
 python3 -c "import yaml"
 
+omp --version
+systemctl enable code-server@root
+systemctl restart code-server@root
+
 systemctl is-enabled code-server@root >/dev/null 2>&1
 systemctl is-active code-server@root >/dev/null 2>&1
-command -v omp >/dev/null 2>&1
 '
     print_success "Dev CLI applications reconciled"
 fi
