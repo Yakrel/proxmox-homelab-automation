@@ -1,0 +1,313 @@
+name: One-shot Fast Redeploy Optimization
+
+on:
+  push:
+    branches:
+      - perf/streamline-redeploy-reconcile
+    paths:
+      - .github/workflows/one-shot-fast-redeploy-optimize.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v7
+        with:
+          ref: perf/streamline-redeploy-reconcile
+          fetch-depth: 0
+
+      - name: Apply fast redeploy optimizations
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one match in {path}, found {count}: {old[:80]!r}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          # Fast redeploy explicitly identifies itself to child reconciliation paths
+          # and exposes a run-scoped cache directory for expensive host validations.
+          replace_once(
+              "scripts/fast-redeploy.sh",
+              '''ENV_ENC_KEY=""
+          ENV_DECRYPTED_PATH=""
+          TEMP_DIR=""
+          ''',
+              '''ENV_ENC_KEY=""
+          ENV_DECRYPTED_PATH=""
+          TEMP_DIR=""
+          FAST_REDEPLOY=true
+          FAST_REDEPLOY_CACHE_DIR=""
+          export FAST_REDEPLOY
+          ''',
+          )
+          replace_once(
+              "scripts/fast-redeploy.sh",
+              '''    TEMP_DIR=$(mktemp -d /tmp/fast-redeploy.XXXXXX)
+          ''',
+              '''    TEMP_DIR=$(mktemp -d /tmp/fast-redeploy.XXXXXX)
+              FAST_REDEPLOY_CACHE_DIR="$TEMP_DIR"
+              export FAST_REDEPLOY_CACHE_DIR
+          ''',
+          )
+
+          # Run-scoped NVIDIA cache: first GPU stack performs the complete host
+          # runtime/checksum validation; subsequent GPU stacks in the same Fast
+          # Redeploy invocation reuse that successful result. The temp directory
+          # is deleted at the end of the run, so normal deploys always revalidate.
+          replace_once(
+              "scripts/helper-functions.sh",
+              '''ensure_nvidia_driver_runfile() {
+          ''',
+              '''nvidia_fast_redeploy_cache_file() {
+              local key="$1"
+
+              [[ "${FAST_REDEPLOY:-false}" == "true" ]] || return 1
+              [[ -n "${FAST_REDEPLOY_CACHE_DIR:-}" && -d "$FAST_REDEPLOY_CACHE_DIR" ]] || return 1
+              printf '%s/%s' "$FAST_REDEPLOY_CACHE_DIR" "$key"
+          }
+
+          ensure_nvidia_driver_runfile() {
+          ''',
+          )
+          replace_once(
+              "scripts/helper-functions.sh",
+              '''    local actual_sha256
+
+              if [[ ! "$expected_sha256" =~ ^[a-f0-9]{64}$ ]]; then
+                  print_error "NVIDIA driver SHA-256 is missing or invalid"
+                  return 1
+              fi
+
+              mkdir -p "$driver_dir"
+          ''',
+              '''    local actual_sha256 cache_file=""
+
+              if [[ ! "$expected_sha256" =~ ^[a-f0-9]{64}$ ]]; then
+                  print_error "NVIDIA driver SHA-256 is missing or invalid"
+                  return 1
+              fi
+
+              if cache_file=$(nvidia_fast_redeploy_cache_file "nvidia-runfile-${version}-${expected_sha256}.verified"); then
+                  [[ ! -f "$cache_file" ]] || return 0
+              else
+                  cache_file=""
+              fi
+
+              mkdir -p "$driver_dir"
+          ''',
+          )
+          replace_once(
+              "scripts/helper-functions.sh",
+              '''    chmod 0755 "$driver_file"
+              "$driver_file" --check
+          }
+
+          configure_nvidia_host_runtime() {
+              local expected_version="$1"
+              local start_now="${2:-true}"
+          ''',
+              '''    chmod 0755 "$driver_file"
+              "$driver_file" --check
+              [[ -z "$cache_file" ]] || : > "$cache_file"
+          }
+
+          configure_nvidia_host_runtime() {
+              local expected_version="$1"
+              local start_now="${2:-true}"
+              local cache_file=""
+
+              if [[ "$start_now" == "true" ]] &&
+                  cache_file=$(nvidia_fast_redeploy_cache_file "nvidia-host-runtime-${expected_version}.ready"); then
+                  [[ ! -f "$cache_file" ]] || return 0
+              else
+                  cache_file=""
+              fi
+          ''',
+          )
+          replace_once(
+              "scripts/helper-functions.sh",
+              '''    nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+          }
+
+          # Get list of available stacks from stacks.yaml, sorted by CT ID
+          ''',
+              '''    nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+              [[ -z "$cache_file" ]] || : > "$cache_file"
+          }
+
+          # Get list of available stacks from stacks.yaml, sorted by CT ID
+          ''',
+          )
+
+          # Pass Fast Redeploy mode into the Dev guest. Normal/full deploys still
+          # check GitHub for code-server updates and install OMP when missing;
+          # Fast Redeploy only validates the already-installed commands.
+          replace_once(
+              "scripts/lxc-manager.sh",
+              '''    # shellcheck disable=SC2016,SC2026
+              pct exec "$CT_ID" -- bash -c '
+          set -e
+          ''',
+              '''    # shellcheck disable=SC2016,SC2026
+              pct exec "$CT_ID" -- env FAST_REDEPLOY="${FAST_REDEPLOY:-false}" bash -c '
+          set -e
+          ''',
+          )
+          replace_once(
+              "scripts/lxc-manager.sh",
+              '''CODE_SERVER_URL=$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)
+          ''',
+              '''if [[ "${FAST_REDEPLOY:-false}" != "true" ]]; then
+              CODE_SERVER_URL=$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)
+          ''',
+          )
+          replace_once(
+              "scripts/lxc-manager.sh",
+              '''    trap - EXIT
+          fi
+          systemctl enable code-server@root
+          ''',
+              '''    trap - EXIT
+          fi
+          fi
+          systemctl enable code-server@root
+          ''',
+          )
+          replace_once(
+              "scripts/lxc-manager.sh",
+              '''if ! command -v omp >/dev/null 2>&1; then
+              curl -fsSL https://omp.sh/install | sh
+          fi
+          ''',
+              '''if [[ "${FAST_REDEPLOY:-false}" != "true" ]] && ! command -v omp >/dev/null 2>&1; then
+              curl -fsSL https://omp.sh/install | sh
+          fi
+          ''',
+          )
+
+          # Dev terminal full deploys retain package/font/Oh My Zsh reconciliation.
+          # Fast Redeploy performs strict prerequisite checks and only rewrites
+          # local configuration, avoiding apt/GitHub network traffic.
+          replace_once(
+              "scripts/modules/dev-terminal.sh",
+              '''apt-get update -qq
+          apt-get install -y -qq zsh git zsh-autosuggestions zsh-syntax-highlighting eza bat zoxide btop
+          ''',
+              '''if [[ "${FAST_REDEPLOY:-false}" != "true" ]]; then
+              apt-get update -qq
+              apt-get install -y -qq zsh git zsh-autosuggestions zsh-syntax-highlighting eza bat zoxide btop
+          else
+              for command_name in zsh git eza batcat zoxide btop; do
+                  command -v "$command_name" >/dev/null 2>&1 || {
+                      echo "Missing required Dev terminal command during Fast Redeploy: $command_name" >&2
+                      exit 1
+                  }
+              done
+              for required_file in \
+                  /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
+                  /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh; do
+                  [[ -f "$required_file" ]] || {
+                      echo "Missing required Dev terminal file during Fast Redeploy: $required_file" >&2
+                      exit 1
+                  }
+              done
+          fi
+          ''',
+          )
+          replace_once(
+              "scripts/modules/dev-terminal.sh",
+              '''workbench_dir=/usr/lib/code-server/lib/vscode/out/vs/code/browser/workbench
+          font_tmp=$(mktemp /tmp/JetBrainsMonoNerdFontMono.XXXXXX.ttf)
+          trap 'rm -f "$font_tmp"' EXIT
+          curl -fsSL \\
+              https://raw.githubusercontent.com/ryanoasis/nerd-fonts/master/patched-fonts/JetBrainsMono/Ligatures/JetBrainsMonoNerdFontMono-Regular.ttf \\
+              -o "$font_tmp"
+          install -m 0644 "$font_tmp" "$workbench_dir/JetBrainsMonoNerdFontMono-Regular.ttf"
+          rm -f "$font_tmp"
+          trap - EXIT
+          ''',
+              '''workbench_dir=/usr/lib/code-server/lib/vscode/out/vs/code/browser/workbench
+          if [[ "${FAST_REDEPLOY:-false}" != "true" ]]; then
+              font_tmp=$(mktemp /tmp/JetBrainsMonoNerdFontMono.XXXXXX.ttf)
+              trap 'rm -f "$font_tmp"' EXIT
+              curl -fsSL \\
+                  https://raw.githubusercontent.com/ryanoasis/nerd-fonts/master/patched-fonts/JetBrainsMono/Ligatures/JetBrainsMonoNerdFontMono-Regular.ttf \\
+                  -o "$font_tmp"
+              install -m 0644 "$font_tmp" "$workbench_dir/JetBrainsMonoNerdFontMono-Regular.ttf"
+              rm -f "$font_tmp"
+              trap - EXIT
+          else
+              [[ -f "$workbench_dir/JetBrainsMonoNerdFontMono-Regular.ttf" ]] || {
+                  echo "Missing Dev terminal Nerd Font during Fast Redeploy" >&2
+                  exit 1
+              }
+          fi
+          ''',
+          )
+          replace_once(
+              "scripts/modules/dev-terminal.sh",
+              '''install -d -m 0755 /root/.oh-my-zsh
+          git -C /root/.oh-my-zsh init -q
+          git -C /root/.oh-my-zsh config remote.origin.url https://github.com/ohmyzsh/ohmyzsh.git
+          git -C /root/.oh-my-zsh config remote.origin.fetch '+refs/heads/master:refs/remotes/origin/master'
+          git -C /root/.oh-my-zsh fetch -q --depth=1 origin master
+          git -C /root/.oh-my-zsh reset -q --hard FETCH_HEAD
+          ''',
+              '''if [[ "${FAST_REDEPLOY:-false}" != "true" ]]; then
+              install -d -m 0755 /root/.oh-my-zsh
+              git -C /root/.oh-my-zsh init -q
+              git -C /root/.oh-my-zsh config remote.origin.url https://github.com/ohmyzsh/ohmyzsh.git
+              git -C /root/.oh-my-zsh config remote.origin.fetch '+refs/heads/master:refs/remotes/origin/master'
+              git -C /root/.oh-my-zsh fetch -q --depth=1 origin master
+              git -C /root/.oh-my-zsh reset -q --hard FETCH_HEAD
+          else
+              [[ -d /root/.oh-my-zsh/.git ]] || {
+                  echo "Missing Oh My Zsh checkout during Fast Redeploy" >&2
+                  exit 1
+              }
+          fi
+          ''',
+          )
+          replace_once(
+              "scripts/modules/dev-terminal.sh",
+              '''    if ! pct exec "$ct_id" -- env \\
+                  HINDSIGHT_API_KEY="$hindsight_api_key" \\
+                  "$remote_script"; then
+          ''',
+              '''    if ! pct exec "$ct_id" -- env \\
+                  HINDSIGHT_API_KEY="$hindsight_api_key" \\
+                  FAST_REDEPLOY="${FAST_REDEPLOY:-false}" \\
+                  "$remote_script"; then
+          ''',
+          )
+          PY
+
+      - name: Validate changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          mapfile -d '' shell_files < <(git ls-files -z '*.sh')
+          bash -n "${shell_files[@]}"
+          shellcheck -x -S warning "${shell_files[@]}"
+
+      - name: Commit optimized implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/one-shot-fast-redeploy-optimize.yml
+          git add scripts/fast-redeploy.sh scripts/helper-functions.sh scripts/lxc-manager.sh scripts/modules/dev-terminal.sh
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "perf(redeploy): make fast reconciliation network-light"
+          git push origin HEAD:perf/streamline-redeploy-reconcile
