@@ -14,6 +14,7 @@ source "$WORK_DIR/scripts/modules/dev-terminal.sh"
 ENV_ENC_KEY=""
 ENV_DECRYPTED_PATH=""
 TEMP_DIR=""
+# Child reconciliation paths use this flag to avoid package/tool update traffic.
 FAST_REDEPLOY=true
 FAST_REDEPLOY_CACHE_DIR=""
 export FAST_REDEPLOY
@@ -57,8 +58,6 @@ decrypt_stack_env() {
     ENV_DECRYPTED_PATH="$output_file"
     export ENV_DECRYPTED_PATH ENV_ENC_KEY
 }
-
-
 
 fast_redeploy_stack() {
     local stack="$1"
@@ -122,6 +121,7 @@ main() {
     require_root
     umask 077
     TEMP_DIR=$(mktemp -d /tmp/fast-redeploy.XXXXXX)
+    # Expensive host validations may be reused only inside this invocation.
     FAST_REDEPLOY_CACHE_DIR="$TEMP_DIR"
     export FAST_REDEPLOY_CACHE_DIR
 
