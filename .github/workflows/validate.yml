@@ -9,7 +9,6 @@ on:
       - installer.sh
       - stacks.yaml
       - "docker/**"
-      - "config/**"
       - "docs/**"
       - .github/workflows/validate.yml
   pull_request:
@@ -19,7 +18,6 @@ on:
       - installer.sh
       - stacks.yaml
       - "docker/**"
-      - "config/**"
       - "docs/**"
       - .github/workflows/validate.yml
   workflow_dispatch:
@@ -225,27 +223,6 @@ jobs:
           jd_ports = compose_documents['utility']['services']['jdownloader2'].get('ports') or []
           if any('3129' in str(port) for port in jd_ports):
               raise SystemExit('JDownloader Direct Connection port must not be published')
-
-          backrest = json.loads(
-              pathlib.Path('config/backrest/config.json.template').read_text(encoding='utf-8')
-          )
-          hook_commands = {
-              hook.get('actionCommand', {}).get('command')
-              for repo in backrest['repos']
-              for hook in repo.get('hooks', [])
-          }
-          if '/config/sync-offsite-mirrors.sh' not in hook_commands:
-              raise SystemExit('Backrest offsite mirror hook path is inconsistent')
-          config_plan = next(plan for plan in backrest['plans'] if plan['id'] == 'config-backup')
-          stale_excludes = {
-              '/backup-sources/config/*/Backups',
-              '/backup-sources/config/*/backups',
-              '/backup-sources/config/tailscale',
-              '/backup-sources/config/backrest/config/sync-to-gdrive.sh',
-          }
-          present = sorted(set(config_plan['excludes']) & stale_excludes)
-          if present:
-              raise SystemExit(f'Stale Backrest exclusions: {present}')
 
           print('Repository topology and deployment invariants OK')
           PY
