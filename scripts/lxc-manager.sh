@@ -808,7 +808,9 @@ systemctl restart code-server@root
 
 # Oh My Pi is the single coding-agent CLI for Dev. It provides the multi-provider
 # agent surface without separately installing Codex, Claude Code, or Antigravity.
-curl -fsSL https://omp.sh/install | sh
+if ! command -v omp >/dev/null 2>&1; then
+    curl -fsSL https://omp.sh/install | sh
+fi
 export PATH="/root/.local/bin:/usr/local/bin:$PATH"
 omp --version
 

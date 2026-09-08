@@ -133,9 +133,7 @@ fetch_file() {
     fi
 }
 
-if [[ -x /usr/local/bin/beszel-agent ]]; then
-    /usr/local/bin/beszel-agent update
-else
+if [[ ! -x /usr/local/bin/beszel-agent ]]; then
     case "$(uname -m)" in
         x86_64) agent_arch=amd64 ;;
         aarch64|arm64) agent_arch=arm64 ;;
@@ -227,11 +225,12 @@ exec /usr/local/bin/beszel-agent update
 EOF
     chmod 0755 /etc/periodic/daily/beszel-agent-update
 
-    rc-update add crond default
-    rc-service crond start
-    rc-update add beszel-agent default
-    rc-service beszel-agent restart
-    rc-service beszel-agent status
+    if ! rc-service crond status >/dev/null 2>&1; then
+        rc-service crond start >/dev/null 2>&1 || true
+    fi
+    rc-update add crond default >/dev/null 2>&1 || true
+    rc-update add beszel-agent default >/dev/null 2>&1 || true
+    rc-service beszel-agent restart >/dev/null 2>&1
 else
     cat > /etc/systemd/system/beszel-agent.service <<'EOF'
 [Unit]
