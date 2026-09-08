@@ -14,10 +14,7 @@ source "$WORK_DIR/scripts/modules/dev-terminal.sh"
 ENV_ENC_KEY=""
 ENV_DECRYPTED_PATH=""
 TEMP_DIR=""
-# Child reconciliation paths use this flag to avoid package/tool update traffic.
-FAST_REDEPLOY=true
 FAST_REDEPLOY_CACHE_DIR=""
-export FAST_REDEPLOY
 
 cleanup_fast_redeploy_secrets() {
     cleanup_runtime_temp_files

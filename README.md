@@ -176,6 +176,8 @@ Contains the AI agent interface, model/API routing, and memory services used by 
 
 Provides a persistent remote development environment. Workspace and Code-Server state are stored under `fastpool`.
 
+Dev packages, Code-Server, Oh My Pi, the terminal font, and Oh My Zsh are installed only when creating the LXC. Both selected-stack redeploy and Fast Redeploy reconcile local configuration without updating these tools; missing prerequisites fail the deployment rather than triggering repair. Tool upgrades are explicit maintenance operations: run `omp update` in the Dev console to update Oh My Pi.
+
 ### Gaming — LXC 106
 
 **Services:** Palworld dedicated server

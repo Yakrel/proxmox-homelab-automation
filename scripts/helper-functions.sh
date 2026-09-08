@@ -243,7 +243,6 @@ get_loaded_nvidia_driver_version() {
 nvidia_fast_redeploy_cache_file() {
     local key="$1"
 
-    [[ "${FAST_REDEPLOY:-false}" == "true" ]] || return 1
     [[ -n "${FAST_REDEPLOY_CACHE_DIR:-}" && -d "$FAST_REDEPLOY_CACHE_DIR" ]] || return 1
     printf '%s/%s' "$FAST_REDEPLOY_CACHE_DIR" "$key"
 }
