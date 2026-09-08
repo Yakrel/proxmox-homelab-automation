@@ -1,6 +1,6 @@
 # Proxmox Homelab Automation
 
-Personal Proxmox VE homelab running services across 7 unprivileged LXC containers. The repository contains the LXC definitions, Docker Compose stacks, deployment scripts, firewall setup, backup configuration, and supporting service templates used to run and rebuild the environment.
+Personal Proxmox VE homelab running services across 7 unprivileged LXC containers. The repository contains the LXC definitions, Docker Compose stacks, deployment scripts, firewall setup, and encrypted deployment secrets.
 
 The setup is built around Proxmox VE, ZFS, Docker Compose, Tailscale, Cloudflare Tunnel, Nginx Proxy Manager, AdGuard Home, Restic/Backrest, and a shared NVIDIA GPU for selected workloads.
 
@@ -98,7 +98,7 @@ The deployment scripts handle tasks such as:
 
 - LXC creation and lifecycle management
 - Docker installation and Compose deployment
-- configuration rendering
+- host directory and permission preparation
 - encrypted environment handling
 - firewall rule application
 - NVIDIA userspace synchronization
@@ -133,6 +133,8 @@ Backrest writes to an encrypted Restic repository. The repository is then mirror
 The remote copies are mirrors of the same Restic repository rather than independent retention archives, so repository lifecycle operations such as forget/prune are reflected in those mirrors.
 
 After a backup, sync hooks update the remote mirrors and can send Telegram alerts when a mirror operation fails.
+
+The repository manages infrastructure and deployment; `/fastpool/config` holds application configuration and state. Restore persistent application state from Restic to its corresponding `/fastpool/config` paths before starting services after data loss; intentional service resets are separate operations. Keep the repository decryption key and Restic password accessible independently of the backups.
 
 ---
 
@@ -218,13 +220,6 @@ The deployment scripts decrypt the required files at deployment time using the m
 │   ├── gateway/
 │   ├── media/
 │   └── utility/
-├── config/
-│   ├── backrest/
-│   ├── homepage/
-│   ├── samba/
-│   ├── sshwifty/
-│   ├── couchdb/
-│   └── guacamole/
 └── docs/
     ├── index.html               # Homelab overview
     └── topology.html            # Network/access topology

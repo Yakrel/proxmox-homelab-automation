@@ -112,6 +112,11 @@ setup_utility_permissions() {
     prepare_host_directory /fastpool/config/karakeep/data
     prepare_host_directory /fastpool/config/karakeep/meilisearch
     prepare_host_directory /fastpool/config/beszel
+    prepare_host_directory /fastpool/config/backrest 0700
+    prepare_host_directory /fastpool/config/backrest/config 0700
+    prepare_host_directory /fastpool/config/backrest/data 0700
+    prepare_host_directory /fastpool/config/backrest/cache 0700
+    prepare_host_directory /datapool/backup
     prepare_host_directory /datapool/downloads
     prepare_host_directory /datapool/downloads/jdownloader
     prepare_host_directory /datapool/downloads/metube
