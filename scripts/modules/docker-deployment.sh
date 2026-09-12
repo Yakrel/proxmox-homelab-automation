@@ -214,7 +214,7 @@ setup_media_permissions() {
 setup_gaming_permissions() {
     prepare_host_directory /fastpool/config/gameservers
     prepare_host_directory /fastpool/config/gameservers/palworld
-    prepare_host_directory /fastpool/config/gameservers/palworld/Saved
+    prepare_host_directory /fastpool/config/gameservers/palworld/game
     prepare_host_directory /fastpool/config/gameservers/palworld/backups
 }
 

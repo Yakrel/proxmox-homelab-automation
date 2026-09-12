@@ -6,7 +6,7 @@ networks:
 
 services:
   palworld-server:
-    image: thijsvanloef/palworld-server-docker:latest
+    image: ghcr.io/ripps818/docker-palworld-dedicated-server-wine:latest
     container_name: palworld-server
     environment:
       - PUID=1000
@@ -18,33 +18,45 @@ services:
       - SERVER_DESCRIPTION=Homelab Palworld Server
       - SERVER_PASSWORD=${PALWORLD_SERVER_PASSWORD}
       - ADMIN_PASSWORD=${PALWORLD_ADMIN_PASSWORD}
-      - PLAYERS=4
+      - SERVER_SETTINGS_MODE=auto
+      - MAX_PLAYERS=4
+      - COMMUNITY_SERVER=false
       - USEAUTH=false
 
       # --- Internal Management ---
       # Required by the container's graceful backup/save and auto-reboot jobs.
       # Port 8212 is intentionally not published to the LXC/LAN.
-      - REST_API_ENABLED=true
+      - RESTAPI_ENABLED=true
+      - RCON_ENABLED=false
 
-      # --- Backup Settings (Every 6h, keep 7 days) ---
+      # --- Windows Server & Mod Runtime (Latest) ---
+      - ALWAYS_UPDATE_ON_START=true
+      - INSTALL_UE4SS_EXPERIMENTAL=true
+      - UE4SS_EXPERIMENTAL_URL=https://github.com/Okaetsu/RE-UE4SS/releases/latest
+      - ALLOW_CLIENT_MOD=true
+
+      # --- Backup Settings (Every 6h, keep 28 archives) ---
+      - BACKUP_ENABLED=true
       - BACKUP_CRON_EXPRESSION=0 */6 * * *
-      - DELETE_OLD_BACKUPS=true
-      - OLD_BACKUP_DAYS=7
-
+      - BACKUP_RETENTION_POLICY=true
+      - BACKUP_RETENTION_AMOUNT_TO_KEEP=28
+      - ENABLE_WORLD_BACKUP=true
       # --- Auto Reboot (Memory Leak Protection, Daily 04:00) ---
-      - AUTO_REBOOT_ENABLED=true
-      - AUTO_REBOOT_CRON_EXPRESSION=0 4 * * *
+      - RESTART_ENABLED=true
+      - RESTART_CRON_EXPRESSION=0 4 * * *
 
       # --- Solo / QoL Game Settings ---
+      - EXP_RATE=0.300000
+      - NIGHTTIME_SPEEDRATE=0.200000
+      - SUPPLY_DROP_SPAN=60
       - AUTO_PAUSE_ENABLED=false
-      - BASE_CAMP_WORKER_MAX_NUM=50
+      - BASE_CAMP_WORKER_MAXNUM=50
       - PAL_EGG_DEFAULT_HATCHING_TIME=0
-      - DEATH_PENALTY=Item
+      - DEATH_PENALTY=None
       - ENABLE_NON_LOGIN_PENALTY=false
       - AUTO_SAVE_SPAN=300
     volumes:
-      - /root/palworld:/palworld
-      - /fastpool/config/gameservers/palworld/Saved:/palworld/Pal/Saved
+      - /fastpool/config/gameservers/palworld/game:/palworld
       - /fastpool/config/gameservers/palworld/backups:/palworld/backups
     ports:
       - "8211:8211/udp"
@@ -53,12 +65,6 @@ services:
     networks:
       - gaming-net
     stop_grace_period: 120s
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep \"PalServer-Linux\" > /dev/null || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
     logging:
       driver: "json-file"
       options:

@@ -180,9 +180,17 @@ Dev packages, Code-Server, Oh My Pi, the terminal font, and Oh My Zsh are instal
 
 ### Gaming — LXC 106
 
-**Services:** Palworld dedicated server
+**Services:** Palworld Windows dedicated server through Wine, with Okaetsu UE4SS Experimental.
 
-Provides an isolated game-server workload managed separately from the media and utility stacks.
+Uses `ghcr.io/ripps818/docker-palworld-dedicated-server-wine:latest`. The server updates on startup and the mod installer tracks Okaetsu's latest UE4SS release. Latest game, runtime, and mod releases are not guaranteed to remain compatible.
+
+- Game installation, Windows settings, saves, and mods: `/fastpool/config/gameservers/palworld/game` (mounted at `/palworld`).
+- Server settings: `game/Pal/Saved/Config/WindowsServer/PalWorldSettings.ini`, generated from Compose environment settings at startup.
+- Container backups: `/fastpool/config/gameservers/palworld/backups`; every six hours, retaining 28 archives. Scheduled restarts run at 04:00, Europe/Istanbul.
+- REST API stays internal to Docker; RCON is disabled. The image supplies its own REST-aware healthcheck.
+- Initial installation downloads the Windows server and UE4SS. Follow `docker logs -f palworld-server` in the gaming LXC; verify readiness with `docker exec palworld-server restapicli info`.
+
+Install Nexus mods separately while the server is stopped, following each mod author's directory layout. For Powered Appliances, merge the archive's `Pal` directory into `game/Pal`; it needs the `ue4ss/Mods/PoweredRefrigerators` folder under `Pal/Binaries/Win64`, plus both PAK files under `Pal/Content/Paks/~mods` and `Pal/Content/Paks/LogicMods`. The image installs UE4SS, not Powered Appliances. Use matching mod versions and configurations on Windows clients for the complete UI. Keep custom configurations in `game/Mods/ConfigOverrides` for mods deployed by the image's mod installer. Back up saves before changing mods.
 
 ---
 
