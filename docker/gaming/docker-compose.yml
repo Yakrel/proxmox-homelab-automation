@@ -36,6 +36,8 @@ services:
       - AUTO_REBOOT_CRON_EXPRESSION=0 4 * * *
 
       # --- Solo / QoL Game Settings ---
+      - EXP_RATE=0.300000
+      - SUPPLY_DROP_SPAN=60
       - AUTO_PAUSE_ENABLED=false
       - BASE_CAMP_WORKER_MAX_NUM=50
       - PAL_EGG_DEFAULT_HATCHING_TIME=0
