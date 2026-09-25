@@ -240,29 +240,16 @@ get_loaded_nvidia_driver_version() {
     ' /proc/driver/nvidia/version
 }
 
-nvidia_fast_redeploy_cache_file() {
-    local key="$1"
-
-    [[ -n "${FAST_REDEPLOY_CACHE_DIR:-}" && -d "$FAST_REDEPLOY_CACHE_DIR" ]] || return 1
-    printf '%s/%s' "$FAST_REDEPLOY_CACHE_DIR" "$key"
-}
-
 ensure_nvidia_driver_runfile() {
     local version="$1"
     local expected_sha256="$2"
-    local driver_dir="/fastpool/config/temp"
+    local driver_dir="/etc/homelab-nvidia"
     local driver_file="$driver_dir/NVIDIA-Linux-x86_64-${version}.run"
-    local actual_sha256 cache_file=""
+    local actual_sha256
 
     if [[ ! "$expected_sha256" =~ ^[a-f0-9]{64}$ ]]; then
         print_error "NVIDIA driver SHA-256 is missing or invalid"
         return 1
-    fi
-
-    if cache_file=$(nvidia_fast_redeploy_cache_file "nvidia-runfile-${version}-${expected_sha256}.verified"); then
-        [[ ! -f "$cache_file" ]] || return 0
-    else
-        cache_file=""
     fi
 
     mkdir -p "$driver_dir"
@@ -291,90 +278,216 @@ ensure_nvidia_driver_runfile() {
 
     chmod 0755 "$driver_file"
     "$driver_file" --check
-    [[ -z "$cache_file" ]] || : > "$cache_file"
 }
 
-configure_nvidia_host_runtime() {
-    local expected_version="$1"
-    local start_now="${2:-true}"
-    local cache_file=""
+# The host owns a single manifest. Guests read it through a read-only bind
+# mount; no SHA or driver version is embedded in their systemd units.
+readonly NVIDIA_DRIVER_MANIFEST=/etc/homelab-nvidia/driver
+readonly NVIDIA_HOOK_STORAGE=datapool
+readonly NVIDIA_HOOK_STORAGE_PATH=/datapool
+readonly NVIDIA_HOOK_VOLUME=datapool:snippets/homelab-nvidia-prestart.sh
 
-    if [[ "$start_now" == "true" ]] &&
-        cache_file=$(nvidia_fast_redeploy_cache_file "nvidia-host-runtime-${expected_version}.ready"); then
-        [[ ! -f "$cache_file" ]] || return 0
-    else
-        cache_file=""
+
+publish_nvidia_driver_manifest() {
+    local version="$1" sha256="$2" staged
+    install -d -m 0755 /etc/homelab-nvidia
+    staged=$(mktemp /etc/homelab-nvidia/.driver.XXXXXX)
+    register_runtime_temp_file "$staged"
+    printf '%s %s\n' "$version" "$sha256" > "$staged"
+    chmod 0644 "$staged"
+    if [[ ! -f "$NVIDIA_DRIVER_MANIFEST" ]] || ! cmp -s "$staged" "$NVIDIA_DRIVER_MANIFEST"; then
+        mv -f "$staged" "$NVIDIA_DRIVER_MANIFEST"
+    fi
+}
+
+install_nvidia_host_prepare() {
+    local script_path=/usr/local/sbin/homelab-nvidia-prepare
+    local unit_path=/etc/systemd/system/homelab-nvidia-prepare.service
+
+    if [[ ! -f "$script_path" ]] || ! cmp -s "$WORK_DIR/scripts/nvidia-gpu-prepare.sh" "$script_path"; then
+        install -D -m 0755 "$WORK_DIR/scripts/nvidia-gpu-prepare.sh" "$script_path"
+    fi
+    chmod 0755 "$script_path"
+
+    if [[ ! -f "$unit_path" ]] || ! cmp -s "$WORK_DIR/scripts/homelab-nvidia-prepare.service" "$unit_path"; then
+        install -D -m 0644 "$WORK_DIR/scripts/homelab-nvidia-prepare.service" "$unit_path"
+        systemctl daemon-reload
+    fi
+    chmod 0644 "$unit_path"
+    systemctl --quiet enable homelab-nvidia-prepare.service
+}
+
+install_nvidia_prestart_hook() {
+    local storage_entry storage_type storage_path content disabled nodes local_node path
+    local_node=$(hostname -s)
+    storage_entry=$(awk -v id="$NVIDIA_HOOK_STORAGE" '
+        $1 ~ /:$/ && $2 == id { in_storage = 1; print; next }
+        in_storage && /^[^[:space:]]/ { exit }
+        in_storage { print }
+    ' /etc/pve/storage.cfg)
+
+    if [[ -z "$storage_entry" ]]; then
+        print_error "datapool storage is not configured for GPU snippets"
+        return 1
+    fi
+    storage_type=$(awk 'NR == 1 {sub(/:$/, "", $1); print $1}' <<< "$storage_entry")
+    storage_path=$(awk '$1 == "path" {print $2; exit}' <<< "$storage_entry")
+    content=$(awk '$1 == "content" {print $2; exit}' <<< "$storage_entry")
+    disabled=$(awk '$1 == "disable" {print ($2 == "" ? "1" : $2); exit}' <<< "$storage_entry")
+    nodes=$(awk '$1 == "nodes" {print $2; exit}' <<< "$storage_entry")
+    if [[ "$storage_type" != dir || "$storage_path" != "$NVIDIA_HOOK_STORAGE_PATH" ||
+          ",$content," != *,snippets,* || ( -n "$disabled" && "$disabled" != 0 ) ||
+          ( -n "$nodes" && ",$nodes," != *,"$local_node",* ) ]]; then
+        print_error "datapool must be an enabled directory at /datapool with snippets content"
+        return 1
+    fi
+    if ! mountpoint -q "$NVIDIA_HOOK_STORAGE_PATH"; then
+        print_error "GPU snippet storage path is not mounted: $NVIDIA_HOOK_STORAGE_PATH"
+        return 1
     fi
 
-    cat > /etc/modules-load.d/proxmox-lxc-nvidia.conf << 'EOF'
-nvidia
-nvidia_modeset
-nvidia_uvm
-nvidia_drm
-EOF
+    path=$(pvesm path "$NVIDIA_HOOK_VOLUME")
+    if [[ ! -f "$path" ]] || ! cmp -s "$WORK_DIR/scripts/nvidia-gpu-prestart.sh" "$path"; then
+        install -D -m 0755 "$WORK_DIR/scripts/nvidia-gpu-prestart.sh" "$path"
+    fi
+    chmod 0755 "$path"
+}
 
-    cat > /etc/udev/rules.d/70-proxmox-lxc-nvidia.rules << 'EOF'
-KERNEL=="nvidia", RUN+="/usr/bin/nvidia-modprobe -u -c0"
-KERNEL=="nvidia*", MODE="0666"
-SUBSYSTEM=="drm", KERNEL=="card[0-9]*", MODE="0666"
-SUBSYSTEM=="drm", KERNEL=="renderD[0-9]*", MODE="0666"
-EOF
 
-    cat > /etc/systemd/system/proxmox-lxc-nvidia-devices.service << 'EOF'
-[Unit]
-Description=Prepare NVIDIA devices for unprivileged LXC containers
-After=systemd-modules-load.service local-fs.target
+assert_nvidia_lxc_config() {
+    reconcile_nvidia_lxc_config "$1" true
+}
 
-[Service]
-Type=oneshot
-ExecStart=/sbin/modprobe nvidia-uvm
-ExecStart=/usr/bin/nvidia-modprobe -c0
-ExecStart=/usr/bin/nvidia-modprobe -m
-ExecStart=/usr/bin/nvidia-modprobe -u -c0
-# Initialize the user-space driver before validating nodes. On headless hosts,
-# /dev/nvidiactl can otherwise remain absent until the first NVIDIA client runs.
-ExecStart=/usr/bin/nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
-ExecStart=/bin/chmod 0666 /dev/nvidia0 /dev/nvidiactl /dev/nvidia-modeset /dev/nvidia-uvm /dev/nvidia-uvm-tools
-ExecStart=/usr/bin/find /dev/dri -maxdepth 1 -type c -exec /bin/chmod 0666 {} +
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl daemon-reload
-    systemctl enable proxmox-lxc-nvidia-devices.service
-
-    [[ "$start_now" == "true" ]] || return 0
-
-    local loaded_version
-    loaded_version=$(get_loaded_nvidia_driver_version) || {
-        print_error "NVIDIA kernel module is not loaded"
-        return 1
+# The change flag is read by the helper-menu and lxc-manager callers.
+# shellcheck disable=SC2034
+reconcile_nvidia_lxc_config() {
+    local ct_id="$1" dry_run="${2:-false}" result
+    # Use the same config lock/parser as Proxmox: preserve snapshots and never
+    # rewrite a running guest's raw device configuration.
+    result=$(perl - "$ct_id" "$dry_run" "${NVIDIA_MAINTENANCE_LOCK:-}" <<'PERL'
+use strict;
+use warnings;
+use PVE::LXC;
+use PVE::LXC::Config;
+my ($vmid, $dry, $owned_lock) = @ARGV;
+sub normalized {
+    my ($value) = @_;
+    my @parts = split /,/, ($value // '');
+    for (@parts) { s/^mode=0+([0-7]+)$/mode=$1/; }
+    return join ',', sort @parts;
+}
+PVE::LXC::Config->lock_config($vmid, sub {
+    my $conf = PVE::LXC::Config->load_config($vmid);
+    die "GPU LXC $vmid must be unprivileged\n" unless $conf->{unprivileged};
+    if ($conf->{lock} && !($owned_lock eq 'create' && $conf->{lock} eq $owned_lock)) {
+        die "GPU LXC $vmid is locked ($conf->{lock})\n";
     }
-    if [[ "$loaded_version" != "$expected_version" ]]; then
-        print_error "Loaded NVIDIA driver ${loaded_version} does not match configured version ${expected_version}"
-        return 1
-    fi
+    die "Apply or discard pending LXC $vmid changes before GPU maintenance\n"
+        if keys %{ $conf->{pending} // {} };
+    my @raw = @{ $conf->{lxc} // [] };
+    for my $entry (@raw) {
+        my ($key, $value) = @$entry;
+        die "Custom UID mapping is not supported for GPU LXC $vmid\n" if $key eq 'lxc.idmap';
+        die "Conflicting raw GPU rule in LXC $vmid: $key: $value\n"
+            if ($key eq 'lxc.mount.entry' && $value =~ m{^/dev/nvidia})
+            || ($key eq 'lxc.cgroup2.devices.allow' && $value =~ /^c \d+:\* rwm$/);
+    }
+    my %desired = (
+        mp2 => '/etc/homelab-nvidia,mp=/etc/homelab-nvidia,ro=1',
+        hookscript => 'datapool:snippets/homelab-nvidia-prestart.sh',
+    );
+    my @devices = qw(nvidia0 nvidiactl nvidia-modeset nvidia-uvm nvidia-uvm-tools);
+    for my $i (0 .. $#devices) {
+        $desired{"dev$i"} = "/dev/$devices[$i],uid=1000,gid=1000,mode=0660";
+        my $current = $conf->{"dev$i"};
+        die "LXC $vmid dev$i belongs to another device\n"
+            if defined($current) && $current !~ m{^/dev/\Q$devices[$i]\E(?:,|$)};
+    }
+    for my $key (qw(mp2 hookscript)) {
+        die "LXC $vmid $key belongs to another configuration\n"
+            if defined($conf->{$key}) && normalized($conf->{$key}) ne normalized($desired{$key});
+    }
+    my $changed = 0;
+    for my $key (sort keys %desired) {
+        if (normalized($conf->{$key}) ne normalized($desired{$key})) {
+            $conf->{$key} = $desired{$key};
+            $changed = 1;
+        }
+    }
+    my @required = (
+        ['lxc.cgroup2.devices.allow', 'c 226:* rw'],
+        ['lxc.mount.entry', '/dev/dri dev/dri none bind,create=dir'],
+    );
+    if ($vmid == 101) {
+        push @required, ['lxc.cgroup2.devices.allow', 'c 10:229 rwm'],
+                        ['lxc.mount.entry', '/dev/fuse dev/fuse none bind,create=file 0 0'];
+    }
+    for my $entry (@required) {
+        my ($key, $value) = @$entry;
+        die "Conflicting device mount in LXC $vmid\n"
+            if $key eq 'lxc.mount.entry' && grep {
+                $_->[0] eq $key && (split / /, $_->[1])[0] eq (split / /, $value)[0]
+                    && $_->[1] ne $value
+            } @raw;
+        unless (grep { $_->[0] eq $key && $_->[1] eq $value } @raw) {
+            push @raw, $entry;
+            $changed = 1;
+        }
+    }
+    if ($changed && $dry ne 'true') {
+        die "Stop LXC $vmid before changing GPU devices\n" if PVE::LXC::check_running($vmid);
+        $conf->{lxc} = \@raw;
+        PVE::LXC::Config->write_config($vmid, $conf);
+    }
+    print $changed ? "changed\n" : "unchanged\n";
+});
+PERL
+    ) || return 1
+    NVIDIA_LXC_CONFIG_CHANGED=false
+    [[ "$result" != changed ]] || NVIDIA_LXC_CONFIG_CHANGED=true
+}
 
-    systemctl restart proxmox-lxc-nvidia-devices.service
+shutdown_nvidia_guest() {
+    # pct shutdown has no skiplock option. Retain our maintenance lock and use
+    # the same graceful-stop implementation as PVE's shutdown API under its
+    # config mutex, authorizing only this operation's create lock.
+    perl - "$1" "${NVIDIA_MAINTENANCE_LOCK:-}" 8>&- 9>&- <<'PERL'
+use strict;
+use warnings;
+use PVE::LXC;
+use PVE::LXC::Config;
+my ($vmid, $owned_lock) = @ARGV;
+die "Invalid GPU LXC ID\n" unless $vmid =~ /^\d+$/;
+PVE::LXC::Config->lock_config($vmid, sub {
+    my $conf = PVE::LXC::Config->load_config($vmid);
+    die "LXC $vmid is not held by NVIDIA maintenance\n"
+        unless $owned_lock eq 'create' && ($conf->{lock} // '') eq $owned_lock;
+    return unless PVE::LXC::check_running($vmid);
+    PVE::LXC::vm_stop($vmid, 0, 120, 0);
+});
+PERL
+}
 
-    local device
-    for device in \
-        /dev/nvidia0 \
-        /dev/nvidiactl \
-        /dev/nvidia-modeset \
-        /dev/nvidia-uvm \
-        /dev/nvidia-uvm-tools \
-        /dev/dri; do
-        if [[ ! -e "$device" ]]; then
-            print_error "Required NVIDIA device is missing: $device"
-            return 1
-        fi
-    done
+configure_nvidia_guest_sync() {
+    local ct_id="$1" mode="${2:-check}"
+    case "$mode" in check|apply) ;; *) return 2 ;; esac
+    # Stream the exact same files used by offline maintenance. Guest temporary
+    # files belong to this invocation and are removed even after a failed check.
+    tar -C "$WORK_DIR/scripts" -cf - nvidia-guest-files.sh nvidia-userspace-sync.sh \
+        nvidia-userspace-sync.service nvidia-docker.conf nvidia-docker-socket.conf |
+        pct exec "$ct_id" -- bash -c '
+set -euo pipefail
+tmp=$(mktemp -d)
+trap '\''rm -rf "$tmp"'\'' EXIT
+tar -xf - -C "$tmp"
+bash "$tmp/nvidia-guest-files.sh" "$tmp" / "$1"
+' bash "$mode"
+}
 
-    nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
-    [[ -z "$cache_file" ]] || : > "$cache_file"
+prepare_nvidia_guest() {
+    local ct_id="$1" mode="${2:-check}"
+    case "$mode" in check|apply|stage) ;; *) return 2 ;; esac
+    pct exec "$ct_id" -- bash -s -- "--$mode" < "$WORK_DIR/scripts/nvidia-guest-runtime.sh"
 }
 
 # Get list of available stacks from stacks.yaml, sorted by CT ID

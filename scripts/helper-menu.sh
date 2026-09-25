@@ -275,159 +275,301 @@ EOF
     print_success "Network bonding setup applied. Please verify connectivity."
 }
 
-run_setup_gpu_passthrough() {
+run_setup_gpu_passthrough() (
     require_root
-
-    local target_version target_sha256
+    local target_version target_sha256 active_kernel loaded_version disk_version
     target_version=$(get_nvidia_driver_version "$WORK_DIR/stacks.yaml")
     target_sha256=$(get_nvidia_driver_sha256 "$WORK_DIR/stacks.yaml")
-    if [[ -z "$target_version" ]]; then
-        print_error "NVIDIA driver version is not configured in stacks.yaml. Aborting."
+    [[ "$target_version" =~ ^580\.[0-9]+\.[0-9]+$ && "$target_sha256" =~ ^[a-f0-9]{64}$ ]] || {
+        print_error "A pinned NVIDIA 580 version and SHA-256 are required in stacks.yaml"
+        return 1
+    }
+    exec 8>/run/lock/homelab-nvidia-operation.lock
+    flock -n 8 || { print_error "Another GPU deployment or NVIDIA operation is in progress"; return 1; }
+    exec 9>/run/lock/homelab-nvidia.lock
+    # PVE start/exec can spawn long-lived processes. They must not inherit the
+    # automation locks, which belong exclusively to this menu invocation.
+    pct() { command pct "$@" 8>&- 9>&-; }
+
+    local -a gpu_ct_ids=() owned_locks=() maintenance=()
+    local -A was_running=() unsafe=()
+    local controlled_ct="" ct_id stack status confirm
+    # Only this run's known create locks can be removed. After any unsafe
+    # mutation, failure leaves the CT stopped and locked for operator recovery.
+    cleanup_nvidia_operation() {
+        local rc=$? id lock
+        trap - EXIT
+        if [[ -n "$controlled_ct" ]]; then
+            pct stop "$controlled_ct" --skiplock 1 || rc=1
+        fi
+        for id in "${owned_locks[@]}"; do
+            if [[ "${unsafe[$id]:-false}" == true ]]; then
+                print_error "LXC $id remains locked for NVIDIA recovery. Do not unlock/start it until host and guest preparation are repaired."
+                continue
+            fi
+            lock=$(pct config "$id" | awk -F': ' '$1 == "lock" {print $2; exit}') || { rc=1; continue; }
+            if [[ "$lock" == create ]]; then
+                pct unlock "$id" || rc=1
+            else
+                print_error "LXC $id lock changed unexpectedly; leaving it untouched"
+                rc=1
+            fi
+        done
+        cleanup_runtime_temp_files
+        exit "$rc"
+    }
+    trap cleanup_nvidia_operation EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+
+    # Lock acquisition is serialized with PVE's whole start operation. A start
+    # already past its hook completes before pct set returns; status is read
+    # only afterwards. The short hook flock alone cannot provide this safety.
+    for stack in media desktop; do
+        ct_id=$(yq -r ".stacks.${stack}.ct_id" "$WORK_DIR/stacks.yaml")
+        if check_container_exists "$ct_id"; then
+            assert_nvidia_lxc_config "$ct_id"
+            local ha_config
+            ha_config=$(ha-manager config)
+            if grep -Eq "^ct:[[:space:]]*${ct_id}([[:space:]]|$)" <<< "$ha_config"; then
+                print_error "Remove LXC $ct_id from HA management before NVIDIA maintenance"
+                return 1
+            fi
+            pct set "$ct_id" --lock create
+            owned_locks+=("$ct_id")
+            gpu_ct_ids+=("$ct_id")
+            status=$(pct status "$ct_id" | awk '{print $2}')
+            [[ "$status" == running || "$status" == stopped ]] || return 1
+            was_running[$ct_id]=$status
+        fi
+    done
+    export NVIDIA_MAINTENANCE_LOCK=create
+    # Lock CT lifecycles before device preparation: a concurrent start may
+    # already hold a PVE config mutex while waiting for the device lock.
+    flock -w 30 9 || { print_error "NVIDIA device preparation is busy"; return 1; }
+
+    # Network/download/header failures occur before any guest shutdown.
+    local boot_status kernel_list kernel dkms_state
+    boot_status=$(LC_ALL=C proxmox-boot-tool status)
+    if ! grep -Fxq 'System currently booted with uefi' <<< "$boot_status" ||
+        ! grep -Eq ' is configured with: uefi( |$)' <<< "$boot_status"; then
+        print_error "NVIDIA setup requires Proxmox-managed systemd-boot ESPs; GRUB is not modified"
         return 1
     fi
-    if [[ ! "$target_sha256" =~ ^[a-f0-9]{64}$ ]]; then
-        print_error "NVIDIA driver SHA-256 is not configured in stacks.yaml. Aborting."
+    [[ -s /etc/kernel/cmdline ]] || { print_error "/etc/kernel/cmdline is missing"; return 1; }
+    active_kernel=$(uname -r)
+    kernel_list=$(LC_ALL=C proxmox-boot-tool kernel list)
+    local -a kernels=("$active_kernel") headers=()
+    local -A selected=(["$active_kernel"]=1)
+    local selected_count=0
+    # Proxmox manages ESP mounts privately. Use its selected kernel set rather
+    # than asking bootctl to inspect an ESP mounted at /boot or /efi.
+    while IFS= read -r kernel; do
+        [[ "$kernel" =~ ^[0-9][a-zA-Z0-9.+~-]*-pve$ ]] || continue
+        selected_count=$((selected_count + 1))
+        if [[ -z "${selected[$kernel]:-}" ]]; then
+            kernels+=("$kernel")
+            selected[$kernel]=1
+        fi
+    done <<< "$kernel_list"
+    (( selected_count > 0 )) || {
+        print_error "proxmox-boot-tool reported no selected PVE kernels"
         return 1
+    }
+    for kernel in "${kernels[@]}"; do
+        headers+=("proxmox-headers-${kernel}")
+    done
+    ensure_packages build-essential dkms acl proxmox-default-headers "${headers[@]}"
+    for kernel in "${kernels[@]}"; do
+        [[ -f "/lib/modules/$kernel/build/Makefile" ]] || {
+            print_error "Kernel headers are missing for $kernel"
+            return 1
+        }
+    done
+    ensure_nvidia_driver_runfile "$target_version" "$target_sha256"
+    install_nvidia_host_prepare
+    install_nvidia_prestart_hook
+    loaded_version=$(get_loaded_nvidia_driver_version) || loaded_version=""
+    disk_version=$(modinfo -k "$active_kernel" -F version nvidia 2>/dev/null) || disk_version=""
+    local install_needed=false driver_transition=false host_changed=false reboot_needed=false
+    [[ "$disk_version" == "$target_version" ]] || install_needed=true
+    if [[ "$install_needed" == true || "$loaded_version" != "$target_version" ]]; then
+        driver_transition=true
+        reboot_needed=true
     fi
 
-    print_info "Configuring NVIDIA ${target_version} for unprivileged LXC passthrough"
+    for ct_id in "${gpu_ct_ids[@]}"; do
+        reconcile_nvidia_lxc_config "$ct_id" true
+        local guest_change=false
+        if [[ "${was_running[$ct_id]}" == running ]]; then
+            if ! configure_nvidia_guest_sync "$ct_id" check || ! prepare_nvidia_guest "$ct_id" check; then
+                guest_change=true
+            fi
+        elif ! "$WORK_DIR/scripts/nvidia-guest-stage.sh" "$ct_id" check; then
+            guest_change=true
+        fi
+        if [[ "$NVIDIA_LXC_CONFIG_CHANGED" == true || "$guest_change" == true || "$driver_transition" == true ]]; then
+            maintenance+=("$ct_id")
+        fi
+    done
+    if [[ ${#maintenance[@]} -gt 0 ]]; then
+        print_warning "NVIDIA maintenance requires stopping/preparing LXCs: ${maintenance[*]}"
+        print_warning "Stopped guests may be started temporarily with Docker blocked. No automatic rollback is attempted on failure."
+        [[ "$driver_transition" == false ]] || print_warning "GPU guests will stay stopped until the host is rebooted."
+        read -r -p "   Proceed with this maintenance? [y/N]: " confirm
+        if [[ ! "$confirm" =~ ^[yY]$ ]]; then
+            print_info "Cancelled; no containers were stopped."
+            return 0
+        fi
+    fi
 
-    # Blacklist nouveau before installing the proprietary NVIDIA driver.
-    cat > /etc/modprobe.d/blacklist-nouveau.conf << 'EOF'
+    # Prepare packages/runtime against the CURRENT host/config before replacing
+    # any module. The offline gate blocks both Docker and userspace sync during
+    # this controlled boot, including guests never configured for GPU access.
+    for ct_id in "${maintenance[@]}"; do
+        if [[ "${was_running[$ct_id]}" == running ]]; then
+            shutdown_nvidia_guest "$ct_id"
+        fi
+        unsafe[$ct_id]=true
+        "$WORK_DIR/scripts/nvidia-guest-stage.sh" "$ct_id" stage
+        # Retain every CT config lock while letting the existing GPU hook run.
+        flock -u 9
+        controlled_ct=$ct_id
+        pct start "$ct_id" --skiplock 1
+        prepare_nvidia_guest "$ct_id" stage
+        shutdown_nvidia_guest "$ct_id"
+        controlled_ct=""
+        flock -n 9 || { print_error "Another NVIDIA operation acquired the host lock"; return 1; }
+        reconcile_nvidia_lxc_config "$ct_id"
+    done
+
+    # Reconcile only exact GPU tokens in the active loader's command line.
+    # Unrelated tokens and GRUB configuration are left untouched.
+    local cmdline token desired_cmdline="" original_cmdline
+    original_cmdline=$(cat /etc/kernel/cmdline)
+    read -r -a cmdline <<< "$original_cmdline"
+    for token in "${cmdline[@]}"; do
+        case "$token" in
+            nvidia-drm.modeset=*|nvidia_drm.modeset=*|nvidia-drm.fbdev=*|nvidia_drm.fbdev=*|nouveau.modeset=*) ;;
+            *) desired_cmdline+="${desired_cmdline:+ }$token" ;;
+        esac
+    done
+    desired_cmdline+=" nvidia-drm.modeset=1 nvidia_drm.fbdev=1 nouveau.modeset=0"
+    desired_cmdline=${desired_cmdline# }
+    if [[ "$original_cmdline" != "$desired_cmdline" ]]; then
+        printf '%s\n' "$desired_cmdline" > /etc/kernel/cmdline
+        host_changed=true
+    fi
+    write_nvidia_host_config() {
+        local destination=$1 staged
+        staged=$(mktemp)
+        register_runtime_temp_file "$staged"
+        cat > "$staged"
+        if ! cmp -s "$staged" "$destination"; then
+            install -D -m 0644 "$staged" "$destination"
+            host_changed=true
+        fi
+    }
+    write_nvidia_host_config /etc/modprobe.d/blacklist-nouveau.conf <<'EOF'
 blacklist nouveau
 blacklist lbm-nouveau
 options nouveau modeset=0
 alias nouveau off
 alias lbm-nouveau off
 EOF
-
-    # Reconcile boot parameters even when the requested driver is already
-    # loaded; a matching driver alone does not prove passthrough is complete.
-    local grub_file="/etc/default/grub"
-    local grub_params="nvidia-drm.modeset=1 nvidia_drm.fbdev=1 nouveau.modeset=0"
-    local boot_config_changed=false
-    local param
-    if [[ -f "$grub_file" ]]; then
-        for param in $grub_params; do
-            if ! grep -q "$param" "$grub_file"; then
-                sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=\"\(.*\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\1 $param\"/" "$grub_file"
-                boot_config_changed=true
+    write_nvidia_host_config /etc/modprobe.d/homelab-nvidia.conf <<'EOF'
+options nvidia NVreg_DeviceFileUID=101000 NVreg_DeviceFileGID=101000 NVreg_DeviceFileMode=0660
+EOF
+    write_nvidia_host_config /etc/udev/rules.d/70-homelab-nvidia.rules <<'EOF'
+KERNEL=="nvidia[0-9]*", OWNER="101000", GROUP="101000", MODE="0660"
+KERNEL=="nvidiactl", OWNER="101000", GROUP="101000", MODE="0660"
+KERNEL=="nvidia-modeset", OWNER="101000", GROUP="101000", MODE="0660"
+KERNEL=="nvidia-uvm", OWNER="101000", GROUP="101000", MODE="0660"
+KERNEL=="nvidia-uvm-tools", OWNER="101000", GROUP="101000", MODE="0660"
+EOF
+    if [[ "$install_needed" == true ]]; then
+        if systemctl is-active --quiet nvidia-persistenced.service; then
+            systemctl stop nvidia-persistenced.service
+        fi
+        local module
+        for module in nvidia_uvm nvidia_drm nvidia_modeset nvidia; do
+            if [[ -d "/sys/module/$module" ]]; then
+                modprobe -r "$module"
             fi
         done
-        sed -i 's/  */ /g' "$grub_file"
-        if [[ "$boot_config_changed" == "true" ]]; then
-            update-grub
-        fi
+        print_info "Installing NVIDIA proprietary driver ${target_version}"
+        "/etc/homelab-nvidia/NVIDIA-Linux-x86_64-${target_version}.run" \
+            --silent --accept-license --dkms --kernel-module-type=proprietary \
+            --no-install-compat32-libs --no-x-check --no-opengl-files \
+            --no-nouveau-check --skip-module-load || {
+                print_error "NVIDIA install failed; see /var/log/nvidia-installer.log. Guests remain stopped."
+                return 1
+            }
     fi
-
-    # Configure systemd-boot cmdline if using proxmox-boot-tool
-    local cmdline_file="/etc/kernel/cmdline"
-    if [[ -f "$cmdline_file" ]]; then
-        local cmdline_content
-        cmdline_content=$(cat "$cmdline_file")
-        local cmdline_modified=false
-        for param in $grub_params; do
-            if [[ ! " $cmdline_content " == *" $param "* ]]; then
-                cmdline_content="$cmdline_content $param"
-                cmdline_modified=true
-            fi
-        done
-        if [[ "$cmdline_modified" == "true" ]]; then
-            cmdline_content=$(echo "$cmdline_content" | sed 's/  */ /g' | sed 's/^ *//;s/ *$//')
-            echo "$cmdline_content" > "$cmdline_file"
-            boot_config_changed=true
-            proxmox-boot-tool refresh
+    # Repair missing DKMS builds without reinstalling a matching host driver.
+    for kernel in "${kernels[@]}"; do
+        dkms_state=$(dkms status -m nvidia -v "$target_version" -k "$kernel")
+        if ! grep -Eq ': installed([[:space:]]|$)' <<< "$dkms_state"; then
+            [[ -f "/usr/src/nvidia-${target_version}/dkms.conf" ]] || {
+                print_error "NVIDIA DKMS source is missing for $target_version; restore it before continuing"
+                return 1
+            }
+            dkms install -m nvidia -v "$target_version" -k "$kernel"
+            host_changed=true
         fi
-    fi
-
-    local installed_version=""
-    installed_version=$(get_loaded_nvidia_driver_version) || installed_version=""
-    if [[ "$installed_version" == "$target_version" ]]; then
-        configure_nvidia_host_runtime "$target_version" true
-        if [[ "$boot_config_changed" == "true" ]]; then
-            update-initramfs -u -k all
-            print_warning "Reboot the Proxmox host to apply updated boot parameters"
-        fi
-        print_success "NVIDIA driver and LXC runtime are ready (version ${target_version})"
-        return 0
-    fi
-
-    if [[ -n "$installed_version" ]]; then
-        print_info "Upgrading host NVIDIA driver from ${installed_version} to ${target_version}"
-    else
-        print_info "Installing NVIDIA host driver ${target_version}"
-    fi
-
-    ensure_packages build-essential dkms "proxmox-headers-$(uname -r)" proxmox-default-headers
-
-    # Stop GPU-using LXC containers and unload NVIDIA modules for a clean driver installation.
-    # The installer cannot replace a kernel module that is currently in use.
-    local gpu_ct_ids=()
-    for conf in /etc/pve/lxc/*.conf; do
-        [[ -f "$conf" ]] || continue
-        if grep -q "nvidia" "$conf"; then
-            local ct_id
-            ct_id=$(basename "$conf" .conf)
-            if pct status "$ct_id" | grep -q "running"; then
-                gpu_ct_ids+=("$ct_id")
-            fi
-        fi
-    done
-
-    if [[ ${#gpu_ct_ids[@]} -gt 0 ]]; then
-        print_warning "The following GPU-using LXC containers must be stopped to install the driver:"
-        for ct_id in "${gpu_ct_ids[@]}"; do
-            local ct_name
-            ct_name=$(pct config "$ct_id" | awk '/^hostname:/ {print $2; exit}')
-            ct_name=${ct_name:-unknown}
-            print_warning "  LXC $ct_id ($ct_name)"
-        done
-        print_warning "They will remain stopped until you reboot the host."
-        echo
-        read -r -p "   Proceed and stop these containers? [y/N]: " confirm
-        if [[ ! "$confirm" =~ ^[yY]$ ]]; then
-            print_info "Aborted. Please stop the containers manually before running this again."
+        [[ $(modinfo -k "$kernel" -F version nvidia) == "$target_version" ]] || {
+            print_error "NVIDIA module does not match $target_version for kernel $kernel"
             return 1
-        fi
-
-        for ct_id in "${gpu_ct_ids[@]}"; do
-            print_info "Stopping LXC $ct_id..."
-            pct stop "$ct_id"
+        }
+        dkms_state=$(dkms status -m nvidia -v "$target_version" -k "$kernel")
+        grep -Eq ': installed([[:space:]]|$)' <<< "$dkms_state" || {
+            print_error "NVIDIA DKMS installation is incomplete for $kernel"
+            return 1
+        }
+    done
+    if [[ "$host_changed" == true || "$install_needed" == true ]]; then
+        udevadm control --reload-rules
+        update-initramfs -u -k all
+        proxmox-boot-tool refresh
+        reboot_needed=true
+    fi
+    publish_nvidia_driver_manifest "$target_version" "$target_sha256"
+    for ct_id in "${maintenance[@]}"; do
+        "$WORK_DIR/scripts/nvidia-guest-stage.sh" "$ct_id" release
+    done
+    flock -u 9
+    if [[ "$driver_transition" == false ]]; then
+        /usr/local/sbin/homelab-nvidia-prepare
+        for ct_id in "${maintenance[@]}"; do
+            if [[ "${was_running[$ct_id]}" == running ]]; then
+                controlled_ct=$ct_id
+                pct start "$ct_id" --skiplock 1
+                # Wait for boot's dependency transaction, without restarting
+                # Docker a second time after its userspace sync has succeeded.
+                pct exec "$ct_id" -- systemctl start docker.socket docker.service
+                configure_nvidia_guest_sync "$ct_id" check
+                prepare_nvidia_guest "$ct_id" check
+                controlled_ct=""
+            fi
         done
     fi
-
-    local service
-    for service in proxmox-lxc-nvidia-devices.service nvidia-persistenced.service; do
-        if systemctl is-active --quiet "$service"; then
-            systemctl stop "$service"
-        fi
+    # All stopped guests now have a boot gate and a complete runtime; the
+    # manifest/hook prevents premature starts against a mismatched host.
+    for ct_id in "${maintenance[@]}"; do
+        unsafe[$ct_id]=false
     done
-
-    local module
-    for module in nvidia_uvm nvidia_drm nvidia_modeset nvidia; do
-        if lsmod | awk '{print $1}' | grep -Fxq "$module"; then
-            modprobe -r "$module"
-        fi
-    done
-
-    ensure_nvidia_driver_runfile "$target_version" "$target_sha256"
-    local driver_file="/fastpool/config/temp/NVIDIA-Linux-x86_64-${target_version}.run"
-
-    print_info "Installing NVIDIA proprietary driver (this may take a few minutes)..."
-    # Run the installer silently, accepting the license, building DKMS module, without 32-bit libs, without X11 config
-    "$driver_file" --silent --accept-license --dkms --no-install-compat32-libs --no-x-check --no-opengl-files || {
-        print_error "NVIDIA driver installation failed. Please check /var/log/nvidia-installer.log"
-        return 1
-    }
-
-    # Write the project-owned runtime unit now; it will start on the reboot
-    # that loads the new kernel module and boot parameters.
-    configure_nvidia_host_runtime "$target_version" false
-    update-initramfs -u -k all
-
-    print_success "NVIDIA GPU passthrough host setup is complete!"
-    print_warning "Please REBOOT the Proxmox Host to fully apply kernel parameters and load the driver."
-}
+    if [[ "$driver_transition" == true ]]; then
+        print_success "NVIDIA $target_version and guest runtime configuration are staged."
+        print_warning "Reboot the Proxmox host. GPU LXCs are stopped; start those not configured for onboot manually. Their startup gates sync userspace before Docker."
+    elif [[ "$reboot_needed" == true ]]; then
+        print_success "NVIDIA $target_version is ready; originally stopped guests remain stopped."
+        print_warning "Reboot the host to activate the updated boot/module configuration."
+    elif [[ ${#maintenance[@]} -eq 0 ]]; then
+        print_success "NVIDIA $target_version is already configured. No driver reinstall or guest/Docker restart was needed."
+    else
+        print_success "NVIDIA $target_version and running GPU guests are ready; originally stopped guests remain stopped."
+    fi
+)
 
 run_install_beszel_agent() {
     require_root
@@ -467,7 +609,7 @@ while true; do
     echo "   3) Configure Storage (Sanoid Snapshots)"
     echo "   4) Optimize ZFS Performance"
     echo "   5) Setup Network Bonding (Interactive)"
-    echo "   6) Setup GPU Passthrough (NVIDIA GTX 970)"
+    echo "   6) Install / Update NVIDIA GPU (GTX 970)"
     echo "   7) Install/Update Beszel Agent (PVE)"
     echo "---------------------------------------"
     echo "   b) Back to Main Menu"

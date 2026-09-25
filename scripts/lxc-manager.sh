@@ -272,53 +272,6 @@ reconcile_lxc_mount() {
     fi
 }
 
-reconcile_lxc_device_block() {
-    local config_path="/etc/pve/lxc/${CT_ID}.conf"
-    local uvm_major="$1"
-    local temp_config line
-    local -a desired_lines=(
-        'lxc.cgroup2.devices.allow: c 195:* rwm'
-        "lxc.cgroup2.devices.allow: c ${uvm_major}:* rwm"
-        'lxc.cgroup2.devices.allow: c 226:* rwm'
-        'lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file'
-        'lxc.mount.entry: /dev/nvidiactl dev/nvidiactl none bind,optional,create=file'
-        'lxc.mount.entry: /dev/nvidia-uvm dev/nvidia-uvm none bind,optional,create=file'
-        'lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file'
-        'lxc.mount.entry: /dev/nvidia-modeset dev/nvidia-modeset none bind,optional,create=file'
-        'lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir'
-    )
-
-    if [[ "$STACK_NAME" == "media" ]]; then
-        desired_lines+=(
-            'lxc.cgroup2.devices.allow: c 10:229 rwm'
-            'lxc.mount.entry: /dev/fuse dev/fuse none bind,create=file 0 0'
-        )
-    fi
-
-    local desired_state_present=true
-    for line in "${desired_lines[@]}"; do
-        if [[ $(grep -Fxc "$line" "$config_path") -ne 1 ]]; then
-            desired_state_present=false
-            break
-        fi
-    done
-    [[ "$desired_state_present" == "true" ]] && return 0
-
-    temp_config=$(mktemp /tmp/lxc-config.XXXXXX)
-    register_runtime_temp_file "$temp_config"
-    awk '
-        /^lxc\.cgroup2\.devices\.allow: c ([0-9]+:\*|10:229) rwm$/ {next}
-        /^lxc\.mount\.entry: \/dev\/(nvidia0|nvidiactl|nvidia-uvm|nvidia-uvm-tools|nvidia-modeset|dri|fuse) / {next}
-        {print}
-    ' "$config_path" > "$temp_config"
-
-    for line in "${desired_lines[@]}"; do
-        printf '%s\n' "$line" >> "$temp_config"
-    done
-    cat "$temp_config" > "$config_path"
-    LXC_RESTART_REQUIRED=true
-}
-
 get_host_template_arch() {
     local template_arch
     template_arch=$(dpkg --print-architecture)
@@ -384,6 +337,37 @@ get_latest_template() {
     echo "$local_template"
 }
 
+if [[ "$STACK_NAME" == media || "$STACK_NAME" == desktop ]]; then
+    # Serialize automated deployment with GPU maintenance without holding the
+    # device-preparation lock needed by the Proxmox pre-start hook.
+    exec 8>/run/lock/homelab-nvidia-operation.lock
+    flock -n 8 || { print_error "GPU maintenance or deployment is in progress"; exit 1; }
+    pct() { command pct "$@" 8>&-; }
+    target_version=$(get_nvidia_driver_version "$WORK_DIR/stacks.yaml")
+    target_sha256=$(get_nvidia_driver_sha256 "$WORK_DIR/stacks.yaml")
+    [[ "$target_version" =~ ^580\.[0-9]+\.[0-9]+$ && "$target_sha256" =~ ^[a-f0-9]{64}$ ]] || {
+        print_error "Expected a pinned NVIDIA 580 driver and SHA-256 in stacks.yaml"
+        exit 1
+    }
+    [[ -r "$NVIDIA_DRIVER_MANIFEST" ]] || {
+        print_error "NVIDIA host setup has not been completed. Run GPU setup from the helper menu first"
+        exit 1
+    }
+    read -r active_version active_sha256 < "$NVIDIA_DRIVER_MANIFEST"
+    [[ "$active_version" == "$target_version" && "$active_sha256" == "$target_sha256" ]] || {
+        print_error "NVIDIA host version does not match stacks.yaml; finish host setup/reboot first"
+        exit 1
+    }
+    [[ "$(get_loaded_nvidia_driver_version)" == "$target_version" ]] || {
+        print_error "NVIDIA host kernel module is not ready; reboot after host setup"
+        exit 1
+    }
+    [[ -x /usr/local/sbin/homelab-nvidia-prepare ]] || {
+        print_error "Run Install / Update NVIDIA GPU from the helper menu first"
+        exit 1
+    }
+fi
+
 HOST_TEMPLATE_ARCH=$(get_host_template_arch)
 
 # Container exists check - handle gracefully for idempotency
@@ -406,6 +390,18 @@ else
         LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
     else
         LATEST_TEMPLATE=$(get_latest_template "alpine-.*-default")
+    fi
+fi
+
+if [[ "$SKIP_CREATION" == true && ( "$STACK_NAME" == media || "$STACK_NAME" == desktop ) ]]; then
+    reconcile_nvidia_lxc_config "$CT_ID" true
+    [[ "$NVIDIA_LXC_CONFIG_CHANGED" == false ]] || {
+        print_error "GPU devices need maintenance. Run Install / Update NVIDIA GPU from the helper menu"
+        exit 1
+    }
+    if check_container_running "$CT_ID"; then
+        configure_nvidia_guest_sync "$CT_ID" check
+        prepare_nvidia_guest "$CT_ID" check
     fi
 fi
 
@@ -448,19 +444,10 @@ if [[ "$STACK_NAME" != "gateway" ]]; then
 fi
 reconcile_lxc_mount mp1 /fastpool/config
 
-if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
-    target_version=$(get_nvidia_driver_version "$WORK_DIR/stacks.yaml")
-    target_sha256=$(get_nvidia_driver_sha256 "$WORK_DIR/stacks.yaml")
-    [[ -n "$target_version" ]] || { print_error "NVIDIA driver version is not configured"; exit 1; }
-    [[ "$target_sha256" =~ ^[a-f0-9]{64}$ ]] || { print_error "NVIDIA driver SHA-256 is not configured"; exit 1; }
-
-    configure_nvidia_host_runtime "$target_version" true
-    ensure_nvidia_driver_runfile "$target_version" "$target_sha256"
-
-    uvm_major=$(awk '$2 == "nvidia-uvm" {print $1; exit}' /proc/devices)
-    [[ -n "$uvm_major" ]] || { print_error "Could not detect nvidia-uvm device major"; exit 1; }
-    reconcile_lxc_device_block "$uvm_major"
-    print_success "GPU passthrough configuration reconciled for LXC $CT_ID"
+if [[ "$SKIP_CREATION" == false && ( "$STACK_NAME" == media || "$STACK_NAME" == desktop ) ]]; then
+    systemctl start homelab-nvidia-prepare.service
+    reconcile_nvidia_lxc_config "$CT_ID"
+    print_success "GPU passthrough configured for new LXC $CT_ID"
 fi
 
 # Ensure container is running (Start AFTER all config changes)
@@ -484,34 +471,6 @@ fi
 # Verify container is ready
 pct exec "$CT_ID" -- test -f /sbin/init
 
-# Install NVIDIA user-space drivers inside the container (if applicable)
-if [[ "$STACK_NAME" == "media" ]] || [[ "$STACK_NAME" == "desktop" ]]; then
-    print_info "Configuring NVIDIA user-space drivers inside container..."
-
-    # Keep both the script and unit current on existing containers as well.
-    pct push "$CT_ID" "$WORK_DIR/scripts/nvidia-userspace-sync.sh" "/usr/local/bin/nvidia-userspace-sync.sh"
-    # The expected checksum is passed as data to the container shell and written
-    # into the unit; the shared runfile is verified again on every sync.
-    # shellcheck disable=SC2016
-    pct exec "$CT_ID" -- env "NVIDIA_DRIVER_SHA256=$target_sha256" bash -c 'chmod 0755 /usr/local/bin/nvidia-userspace-sync.sh
-cat > /etc/systemd/system/nvidia-userspace-sync.service << EOF
-[Unit]
-Description=Sync NVIDIA User-Space Libraries with Host
-Before=docker.service
-After=local-fs.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/nvidia-userspace-sync.sh ${NVIDIA_DRIVER_SHA256}
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-systemctl daemon-reload
-systemctl enable nvidia-userspace-sync.service
-systemctl restart nvidia-userspace-sync.service'
-fi
 
 # Prepare the dev stack's persistent bind sources on the host. Docker stacks
 # prepare their own bind sources in docker-deployment.sh.
@@ -628,52 +587,9 @@ HIST_EOF
         fi
 
     else
-        # GPU stacks (media, desktop): Docker + NVIDIA
-
-        # Add Docker's official GPG key and repository (following official docs)
-        install -m 0755 -d /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
-        chmod a+r /etc/apt/keyrings/docker.asc
-
-        # Add the repository to Apt sources using DEB822 format
-        cat > /etc/apt/sources.list.d/docker.sources <<DOCKERSOURCES
-Types: deb
-URIs: https://download.docker.com/linux/debian
-Suites: \$(. /etc/os-release && echo \$VERSION_CODENAME)
-Components: stable
-Architectures: \$(dpkg --print-architecture)
-Signed-By: /etc/apt/keyrings/docker.asc
-DOCKERSOURCES
-
-        # Add NVIDIA container toolkit repository
-        curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --yes --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-        curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-        sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-        tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-        
-        # Install Docker + NVIDIA user-space libraries and toolkit (avoid compiling kernel modules inside LXC)
-        apt-get update -qq
-        apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin nvidia-container-toolkit
-        
-        # Configure no-cgroups for an unprivileged LXC.
-        nvidia-ctk config --set nvidia-container-cli.no-cgroups=true --in-place
-        
-        # Ensure Docker daemon has NVIDIA runtime configured
-        mkdir -p /etc/docker
-        cat > /etc/docker/daemon.json << 'EOFDOCKER'
-{
-    \"runtimes\": {
-        \"nvidia\": {
-            \"path\": \"/usr/bin/nvidia-container-runtime\",
-            \"runtimeArgs\": []
-        }
-    }
-}
-EOFDOCKER
-
-        # Enable Docker
-        systemctl enable docker --now
-        systemctl restart docker
+        # GPU stacks install Docker and its NVIDIA runtime through the shared
+        # GPU preparation path after base OS provisioning below.
+        :
     fi
 
     # Set timezone
@@ -718,6 +634,17 @@ touch /root/.hushlogin
 "
 
     print_success "Container OS provisioned"
+fi
+
+if [[ "$STACK_NAME" == media || "$STACK_NAME" == desktop ]]; then
+    if [[ "$SKIP_CREATION" == false ]]; then
+        configure_nvidia_guest_sync "$CT_ID" apply
+        prepare_nvidia_guest "$CT_ID" apply
+    else
+        # Redeploys never install drivers, rewrite GPU units or change runtime.
+        configure_nvidia_guest_sync "$CT_ID" check
+        prepare_nvidia_guest "$CT_ID" check
+    fi
 fi
 
 # Proxmox shell mode launches the root account's configured shell directly.

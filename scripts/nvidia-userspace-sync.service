@@ -1,0 +1,16 @@
+[Unit]
+Description=Sync NVIDIA user-space libraries with the host driver
+ConditionPathExists=!/etc/homelab-nvidia-maintenance
+DefaultDependencies=no
+Requires=local-fs.target
+Conflicts=shutdown.target
+After=local-fs.target
+Before=docker.service docker.socket shutdown.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nvidia-userspace-sync.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

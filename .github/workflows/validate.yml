@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "**/*.sh"
+      - "**/*.service"
+      - "scripts/*.conf"
       - "**/*.md"
       - installer.sh
       - stacks.yaml
@@ -14,6 +16,8 @@ on:
   pull_request:
     paths:
       - "**/*.sh"
+      - "**/*.service"
+      - "scripts/*.conf"
       - "**/*.md"
       - installer.sh
       - stacks.yaml

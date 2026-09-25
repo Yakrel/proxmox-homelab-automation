@@ -14,7 +14,6 @@ source "$WORK_DIR/scripts/modules/dev-terminal.sh"
 ENV_ENC_KEY=""
 ENV_DECRYPTED_PATH=""
 TEMP_DIR=""
-FAST_REDEPLOY_CACHE_DIR=""
 
 cleanup_fast_redeploy_secrets() {
     cleanup_runtime_temp_files
@@ -118,9 +117,6 @@ main() {
     require_root
     umask 077
     TEMP_DIR=$(mktemp -d /tmp/fast-redeploy.XXXXXX)
-    # Expensive host validations may be reused only inside this invocation.
-    FAST_REDEPLOY_CACHE_DIR="$TEMP_DIR"
-    export FAST_REDEPLOY_CACHE_DIR
 
     local -a stacks=()
 

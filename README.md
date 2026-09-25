@@ -45,7 +45,7 @@ The environment uses one physical Proxmox host with separate LXCs for gateway, m
 | `105` — `lxc-dev` | `192.168.1.105` | Development tools and runtimes |
 | `106` — `lxc-gaming` | `192.168.1.106` | Dedicated game servers (Palworld) |
 
-The LXCs are unprivileged. Selected containers receive access to the NVIDIA GPU through host-side device mapping and userspace library synchronization.
+The LXCs are unprivileged. Selected containers receive access to the NVIDIA GPU through host-side device mapping and userspace library synchronization. A one-shot host unit prepares the GPU devices before Proxmox starts guests after a reboot.
 
 ### Storage
 
@@ -106,6 +106,87 @@ The deployment scripts handle tasks such as:
 - host helper tasks
 
 Application services are primarily defined with Docker Compose. The Dev LXC is managed directly by the LXC deployment scripts rather than a Compose stack.
+
+### NVIDIA GPU installation and maintenance
+
+Use **Helper Scripts → Install / Update NVIDIA GPU (GTX 970)** for both
+initial host setup and upgrades. The target is the proprietary 580-series
+version and SHA-256 in `stacks.yaml`, not the newest driver found online.
+This deployment targets the homelab's systemd-boot PVE host and the default
+unprivileged UID mapping of media (101) and desktop (103).
+
+- The host owns kernel modules and device permissions. The pinned NVIDIA
+  runfile installs the host driver through DKMS; headers and DKMS builds are
+  checked for the running kernel and every kernel selected by
+  `proxmox-boot-tool kernel list`. ESPs need not remain mounted at `/boot` or
+  `/efi`; Proxmox manages their mounts.
+- `/etc/homelab-nvidia` holds the manifest and verified installer artifacts.
+  GPU guests receive this directory read-only through `mp2`; artifacts are
+  not stored below the guests' writable `/fastpool/config` mount.
+- Existing GPU guests are inspected first. Maintenance asks before stopping
+  them; previously stopped guests may be started temporarily with Docker
+  blocked to prepare their runtime. PVE configuration locks prevent concurrent
+  starts while devices or the host driver are changing.
+  Graceful shutdown uses PVE's `vm_stop` under its configuration mutex while
+  retaining the owned maintenance lock (`pct shutdown` has no `--skiplock`).
+  Its 120-second graceful timeout does not fall back to a forced shutdown.
+- The same guest preparation path is used for a newly provisioned GPU LXC.
+  It installs userspace libraries without kernel modules or `nvidia-modprobe`,
+  configures the NVIDIA Container Toolkit with `load-kmods=false` and
+  `no-cgroups=true`, and starts Docker only after synchronization succeeds.
+- If a driver transition requires reboot, GPU guests remain stopped.
+  After the operator reboots the host, guests with `onboot=1` synchronize their
+  libraries automatically before Docker starts. Other guests remain stopped
+  until explicitly started. No second GPU menu run is required.
+- A repeat run with matching configuration does not reinstall the driver or
+  restart guests/Docker. Selected-stack redeploy and Fast Redeploy All only
+  check an existing guest's GPU configuration; drift directs the operator to
+  the GPU menu instead of changing drivers beneath running applications.
+
+Driver maintenance is intentionally not a live library update. Download and
+host-header preparation happen before shutdown; guest package preparation
+may require network access during the approved maintenance window.
+On failure after an unsafe change, affected guests remain stopped with a
+Proxmox `create` lock. A guest-side maintenance marker also prevents Docker
+startup. Diagnose the failed command before clearing either guard; do not
+blindly unlock guests or remove the marker. Initial provisioning failures
+still require deleting and recreating the incomplete LXC.
+
+#### One-time cleanup of older guest helpers
+
+Older runfile installations may have installed `nvidia-modprobe` inside the
+guest. It can change PVE-provided device ownership; the new deployment refuses
+to use it and never deletes it automatically. Immediately before the first
+GPU menu run, execute this once from the PVE console. It stops Docker in each
+affected guest and refuses to delete a package-owned executable:
+
+```bash
+bash <<'HOST'
+set -euo pipefail
+for ct in 101 103; do
+    pct exec "$ct" -- bash -s <<'GUEST'
+set -euo pipefail
+if helper=$(command -v nvidia-modprobe); then
+    if dpkg-query -S "$helper"; then
+        echo "Package-owned helper: review its owning package before removal" >&2
+        exit 1
+    fi
+    systemctl stop docker.socket docker.service
+    rm -- "$helper"
+fi
+GUEST
+done
+HOST
+```
+
+Do not remove the host's `nvidia-modprobe`; the host preparation command uses
+it. The host unit and hook are updated in place, not deleted. After a
+successful cutover, obsolete runfiles under `/fastpool/config/temp` may be
+removed manually; no recurring residue cleanup is part of deployment.
+
+For live acceptance, verify a host reboot, a second no-op GPU menu run, an
+application-only redeploy, and actual NVENC/EGL/CUDA workloads. Local shell
+and isolated lifecycle checks cannot establish GPU functionality on PVE.
 
 Custom container images used by this environment are maintained separately:
 
@@ -213,6 +294,9 @@ The deployment scripts decrypt the required files at deployment time using the m
 │   ├── lxc-manager.sh           # LXC lifecycle management
 │   ├── fast-redeploy.sh         # Docker stack redeployment
 │   ├── helper-functions.sh      # Shared shell functions
+│   ├── nvidia-gpu-prepare.sh     # Host GPU device preparation
+│   ├── homelab-nvidia-prepare.service # Prepare devices before PVE guests
+│   ├── nvidia-gpu-prestart.sh    # PVE GPU LXC pre-start hook
 │   ├── nvidia-userspace-sync.sh # NVIDIA library sync for LXC
 │   ├── setup-tailscale-host.sh  # Tailscale host/subnet setup
 │   └── modules/                 # Deployment modules
