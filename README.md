@@ -261,11 +261,11 @@ Dev packages, Code-Server, Oh My Pi, the terminal font, and Oh My Zsh are instal
 
 ### Gaming — LXC 106
 
-**Services:** Palworld dedicated server
+**Services:** Palworld dedicated server (Windows / Wine with UE4SS)
 
 Provides an isolated game-server workload managed separately from the media and utility stacks.
 
-Uses `thijsvanloef/palworld-server-docker:latest`. Game saves and automated backups are persisted under `fastpool` (`/fastpool/config/gameservers/palworld/Saved` and `/fastpool/config/gameservers/palworld/backups`), while game binaries reside on the LXC root disk (`/root/palworld`). Server settings are generated from Compose environment variables at container startup. Scheduled backups run every 6 hours (retaining 7 days) and automated restarts run daily at 04:00, Europe/Istanbul.
+Uses `ghcr.io/ripps818/docker-palworld-dedicated-server-wine:latest`. Game files and mods persist under `/fastpool/config/gameservers/palworld/game`, with automated backups under `/fastpool/config/gameservers/palworld/backups`. Scheduled backups run every 6 hours (retaining 28 archives) and automated restarts run daily at 04:00, Europe/Istanbul.
 ---
 
 ## Secret Handling
