@@ -42,9 +42,8 @@ services:
       - BACKUP_RETENTION_AMOUNT_TO_KEEP=28
       - ENABLE_WORLD_BACKUP=true
 
-      # --- Auto Reboot (Memory Leak Protection, Daily 04:00) ---
-      - RESTART_ENABLED=true
-      - RESTART_CRON_EXPRESSION=0 4 * * *
+      # --- Auto Reboot (Disabled: avoids unloading base chunks when offline) ---
+      - RESTART_ENABLED=false
 
       # --- Solo / QoL Game Settings ---
       - EXP_RATE=0.300000

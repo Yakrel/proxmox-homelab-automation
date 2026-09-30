@@ -58,7 +58,7 @@ port = https,http,8006
 filter = proxmox
 backend = systemd
 maxretry = 5
-findtime = 2d
+findtime = 1h
 bantime = 1h
 EOT
     cat > /etc/fail2ban/jail.d/02-sshd.conf << EOT
