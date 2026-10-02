@@ -9,6 +9,10 @@ services:
     image: nousresearch/hermes-agent:latest
     container_name: hermes
     restart: unless-stopped
+    # Chromium needs 1 GB of shared memory. No mem_limit/cpus: the Alpine AI
+    # LXC does not delegate cgroup controllers to Docker, and the LXC itself
+    # is already capped at 12 GB / 4 cores.
+    shm_size: "1gb"
     ports:
       # Hermes requires its own authentication for non-loopback dashboard binds,
       # including access through the SNO-protected Nginx Proxy Manager host.
@@ -24,8 +28,14 @@ services:
       - HERMES_GID=1000
       - HERMES_DASHBOARD=1
       - HERMES_DASHBOARD_HOST=0.0.0.0
+      # Public origin served by Nginx Proxy Manager; Hermes accepts it as an
+      # exact Host/WebSocket Origin for the dashboard terminal.
+      - HERMES_DASHBOARD_PUBLIC_URL=https://hermes.byetgin.com
       - HERMES_DASHBOARD_BASIC_AUTH_USERNAME=${HERMES_DASHBOARD_BASIC_AUTH_USERNAME}
-      - HERMES_DASHBOARD_BASIC_AUTH_PASSWORD=${HERMES_DASHBOARD_BASIC_AUTH_PASSWORD}
+      # Hash instead of plaintext keeps the password out of the container
+      # environment; the signing secret keeps sessions valid across restarts.
+      - HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH=${HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH}
+      - HERMES_DASHBOARD_BASIC_AUTH_SECRET=${HERMES_DASHBOARD_BASIC_AUTH_SECRET}
     command: ["gateway", "run"]
     networks:
       - ai-net
@@ -64,7 +74,7 @@ services:
         labels: "com.docker.compose.service,com.docker.compose.project"
 
   omniroute:
-    image: diegosouzapw/omniroute:next
+    image: diegosouzapw/omniroute:latest
     container_name: omniroute
     restart: unless-stopped
     stop_grace_period: 40s
@@ -134,7 +144,7 @@ services:
       - HINDSIGHT_API_TENANT_API_KEY=${HINDSIGHT_API_KEY}
       - HINDSIGHT_CP_DATAPLANE_API_KEY=${HINDSIGHT_API_KEY}
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8888/health/ready"]
+      test: ["CMD", "/app/api/.venv/bin/python", "-c", "import http.client, sys; c = http.client.HTTPConnection('localhost', 8888, timeout=4); c.request('GET', '/health/ready'); sys.exit(c.getresponse().status >= 400)"]
       interval: 30s
       timeout: 5s
       retries: 5

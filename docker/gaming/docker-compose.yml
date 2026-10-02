@@ -47,7 +47,7 @@ services:
 
       # --- Solo / QoL Game Settings ---
       - EXP_RATE=0.300000
-      - NIGHTTIME_SPEEDRATE=0.200000
+      - NIGHTTIME_SPEEDRATE=0.600000
       - SUPPLY_DROP_SPAN=60
       - BASE_CAMP_MAX_NUM_IN_GUILD=10
       - BASE_CAMP_WORKER_MAXNUM=50

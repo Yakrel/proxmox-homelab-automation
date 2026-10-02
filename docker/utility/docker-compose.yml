@@ -240,10 +240,10 @@ services:
       - /fastpool/config/changedetection:/datastore
     environment:
       - TZ=${TZ:-Europe/Istanbul}
-      - PLAYWRIGHT_DRIVER_URL=ws://playwright-chrome:3000/?stealth=1&--disable-web-security=true
+      - PLAYWRIGHT_DRIVER_URL=ws://headless-chrome:3000/?stealth=1&--disable-web-security=true
       - ALLOW_IANA_RESTRICTED_ADDRESSES=true
     depends_on:
-      - playwright-chrome
+      - headless-chrome
     networks:
       - changedetection-net
     logging:
@@ -254,9 +254,12 @@ services:
         tag: "{{.Name}}"
         labels: "com.docker.compose.service,com.docker.compose.project"
 
-  playwright-chrome:
+  # Shared headless Chrome for changedetection and Karakeep. Every CDP
+  # connection launches its own isolated Chrome that exits on disconnect, so
+  # per-client flags (stealth, disabled web security) stay in that client's URL.
+  headless-chrome:
     image: dgtlmoon/sockpuppetbrowser:latest
-    container_name: playwright-chrome
+    container_name: headless-chrome
     restart: unless-stopped
     shm_size: '2gb'
     dns:
@@ -272,6 +275,7 @@ services:
       - MAX_CONCURRENT_SESSIONS=10
     networks:
       - changedetection-net
+      - karakeep-browser-net
     logging:
       driver: "json-file"
       options:
@@ -290,7 +294,8 @@ services:
       - TZ=${TZ:-Europe/Istanbul}
       - MEILI_ADDR=http://karakeep-meili:7700
       - MEILI_MASTER_KEY=${KARAKEEP_MEILI_MASTER_KEY:?Karakeep Meili master key is required}
-      - BROWSER_WEB_URL=http://karakeep-chrome:9222
+      - BROWSER_WEB_URL=ws://headless-chrome:3000
+      - BROWSER_CONNECT_ONDEMAND=true
       - DATA_DIR=/data
       - NEXTAUTH_SECRET=${KARAKEEP_NEXTAUTH_SECRET:?Karakeep NextAuth secret is required}
       - NEXTAUTH_URL=${KARAKEEP_NEXTAUTH_URL:?Karakeep NextAuth URL is required}
@@ -302,31 +307,10 @@ services:
       - /fastpool/config/karakeep/data:/data
     depends_on:
       - karakeep-meili
-      - karakeep-chrome
+      - headless-chrome
     networks:
       - karakeep-browser-net
       - karakeep-data-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        tag: "{{.Name}}"
-        labels: "com.docker.compose.service,com.docker.compose.project"
-
-  karakeep-chrome:
-    image: zenika/alpine-chrome:latest
-    container_name: karakeep-chrome
-    restart: unless-stopped
-    command:
-      - --no-sandbox
-      - --disable-gpu
-      - --disable-dev-shm-usage
-      - --remote-debugging-address=0.0.0.0
-      - --remote-debugging-port=9222
-      - --hide-scrollbars
-    networks:
-      - karakeep-browser-net
     logging:
       driver: "json-file"
       options:
