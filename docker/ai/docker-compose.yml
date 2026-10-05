@@ -116,6 +116,7 @@ services:
       - HINDSIGHT_API_LLM_API_KEY=${HINDSIGHT_API_LLM_API_KEY}
       - HINDSIGHT_API_LLM_MODEL=shared/resilient-multimodal
       - HINDSIGHT_API_LLM_OUTPUT_LANGUAGE=Turkish
+      - "HINDSIGHT_API_RETAIN_MISSION=Extract durable knowledge useful to a coding agent in future sessions: technical decisions and their rationale, architecture and design trade-offs, project conventions, user tooling and workflow preferences, root causes of resolved errors and blockers, and stable facts about the user's infrastructure. Ignore greetings, step-by-step task progress, raw tool or command output, one-off incidents, and anything relevant only to the current session."
       - HINDSIGHT_API_LLM_MAX_CONCURRENT=2
       - HINDSIGHT_API_RETAIN_LLM_MAX_CONCURRENT=1
       - HINDSIGHT_API_REFLECT_LLM_MAX_CONCURRENT=1
