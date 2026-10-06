@@ -423,7 +423,6 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
         --memory "$CT_MEMORY_MB" \
         --swap 0 \
         "${create_feature_args[@]}" \
-        --cmode shell \
         --net0 name=eth0,bridge="$NETWORK_BRIDGE",ip="$CT_IP"/24,gw="$NETWORK_GATEWAY" \
         --onboot 1 \
         --unprivileged 1 \
@@ -432,7 +431,7 @@ fi
 
 # The Proxmox console is the trusted administrative entry point. Shell mode
 # opens a root shell directly and avoids distribution-specific getty handling.
-# Reconcile it for existing containers as well as setting it at creation time.
+# Applied to new and existing containers through the same path.
 pct set "$CT_ID" --cmode shell
 reconcile_dev_features
 reconcile_stack_firewall
@@ -623,8 +622,6 @@ else
     # replaces the former AI-LXC Sshwifty access path.
 fi
 
-# Common setup for all containers
-printf '%s\n' 'export TERM=xterm-256color' > /etc/profile.d/term.sh
 # Proxmox shell-mode console bypasses guest authentication, so keep the root
 # password locked against guest login paths.
 passwd -l root
@@ -661,12 +658,20 @@ printf "PS1=%s%s%s\n" "$quote" "\\u@\\h:\\w\\\$ " "$quote" > /root/.bashrc
 '
 fi
 
-# Proxmox shell mode starts interactive shells in /. Keep other working
-# directories unchanged while making a newly opened console start in /root.
+# Proxmox shell mode starts the root shell with a cleared environment: HOME is
+# unset, TERM is "linux" and the working directory is /. The shell is not a
+# login shell, so /etc/profile.d is never read; configure it in .bashrc. Export
+# HOME first, since later .bashrc lines (for example the Dev Cargo env) expand
+# it, then move a newly opened console to /root while keeping other working
+# directories unchanged.
 # Variables in this single-quoted script expand inside the container.
 # shellcheck disable=SC2016
 pct exec "$CT_ID" -- sh -c '
 set -e
+grep -qxF "export TERM=xterm-256color" /root/.bashrc ||
+    sed -i "1i export TERM=xterm-256color" /root/.bashrc
+grep -qxF "export HOME=/root" /root/.bashrc ||
+    sed -i "1i export HOME=/root" /root/.bashrc
 start_dir_line="[ \"\$PWD\" != / ] || cd /root"
 grep -qxF "$start_dir_line" /root/.bashrc ||
     printf "%s\n" "$start_dir_line" >> /root/.bashrc

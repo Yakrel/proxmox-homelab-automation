@@ -128,6 +128,10 @@ alias cat='bat'
 
 source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# Keep encryption key assignments out of the history even without a leading
+# space. The command still runs; only the history line is dropped.
+zshaddhistory() { [[ $1 != *KEY=* ]]; }
 ZSH_CONFIG
 
 # code-server stores machine-scoped settings under its data directory. That
@@ -169,83 +173,36 @@ cat > /root/.local/share/code-server/Machine/settings.json <<'CODE_SERVER_SETTIN
 }
 CODE_SERVER_SETTINGS
 
-# Reconcile Oh My Pi Hindsight memory configuration
+# Reconcile Oh My Pi Hindsight memory configuration. Oh My Pi also writes this
+# file, so parse and re-emit YAML instead of patching text.
 install -d -m 0700 /root/.omp/agent
 python3 - "${HINDSIGHT_API_KEY:-}" <<'OMP_CONFIG'
-import re
 import sys
 from pathlib import Path
 
-api_key = sys.argv[1] if sys.argv[1] else ""
+import yaml
+
+api_key = sys.argv[1]
 config_path = Path("/root/.omp/agent/config.yml")
-content = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
+config = (yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.exists() else None) or {}
 
-api_key_line = f"  apiToken: {api_key}\n" if api_key else ""
-hindsight_block = f"""memory:
-  backend: hindsight
-hindsight:
-  apiUrl: http://192.168.1.104:8888
-{api_key_line}  bankId: main
-  scoping: per-project-tagged
-  retainMode: last-turn
-  retainEveryNTurns: 2
-  retainOverlapTurns: 1
-"""
-
-if "backend: hindsight" not in content:
-    content = (content.rstrip() + "\n\n" + hindsight_block).lstrip()
-else:
-    # Clean up deprecated apiKey if present.
-    content = re.sub(r"(?m)^  apiKey:[^\n]*\n?", "", content)
-    if api_key:
-        if re.search(r"(?m)^  apiToken:", content):
-            content = re.sub(
-                r"(?m)^  apiToken:[^\n]*$",
-                f"  apiToken: {api_key}",
-                content,
-                count=1,
-            )
-        else:
-            content = re.sub(
-                r"(?m)^(hindsight:\s*)$",
-                rf"\1\n{api_key_line.rstrip()}",
-                content,
-                count=1,
-            )
-
+config.setdefault("memory", {})["backend"] = "hindsight"
+hindsight = config.setdefault("hindsight", {})
+hindsight.update({
+    "apiUrl": "http://192.168.1.104:8888",
+    "bankId": "main",
+    "scoping": "per-project-tagged",
     # Retain every 2 user turns with one preceding turn of conversational context.
-    # Remove prior tuning first so repeated deployments remain idempotent.
-    for key in (
-        "autoRecall",
-        "autoRetain",
-        "retainMode",
-        "retainUpdateMode",
-        "retainEveryNTurns",
-        "retainOverlapTurns",
-    ):
-        content = re.sub(
-            rf"(?m)^  {re.escape(key)}:[^\n]*\n?",
-            "",
-            content,
-        )
+    "retainMode": "last-turn",
+    "retainEveryNTurns": 2,
+    "retainOverlapTurns": 1,
+})
+if api_key:
+    hindsight["apiToken"] = api_key
+for key in ("autoRecall", "autoRetain", "retainUpdateMode"):
+    hindsight.pop(key, None)
 
-    retention_lines = "\n".join(
-        (
-            "  retainMode: last-turn",
-            "  retainEveryNTurns: 2",
-            "  retainOverlapTurns: 1",
-        )
-    )
-    content, updated = re.subn(
-        r"(?m)^(  scoping:[^\n]*)$",
-        rf"\1\n{retention_lines}",
-        content,
-        count=1,
-    )
-    if updated != 1:
-        raise RuntimeError("Unable to reconcile OMP retention settings")
-
-config_path.write_text(content, encoding="utf-8")
+config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 config_path.chmod(0o600)
 OMP_CONFIG
 
