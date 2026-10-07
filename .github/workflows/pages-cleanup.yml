@@ -15,7 +15,7 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     env:
-      CF_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_CLEANUP_TOKEN }}
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       # Pages keeps every deployment forever. Keep only the live production
