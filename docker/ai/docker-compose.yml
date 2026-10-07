@@ -23,6 +23,12 @@ services:
       # configuration and data through its authenticated web dashboard.
       - /fastpool/config:/fastpool/config
       - /datapool:/datapool
+    # Hide credential stores from the agent: the Vaultwarden vault, Backrest
+    # repository credentials, and the NPM panel signing key and database.
+    tmpfs:
+      - /fastpool/config/vaultwarden
+      - /fastpool/config/backrest
+      - /fastpool/config/npm
     environment:
       - HERMES_UID=1000
       - HERMES_GID=1000
