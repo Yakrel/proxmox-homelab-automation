@@ -1,0 +1,38 @@
+name: Clean Cloudflare Pages Deployments
+
+on:
+  schedule:
+    - cron: '17 3 * * 0'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: pages-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_CLEANUP_TOKEN }}
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      # Pages keeps every deployment forever. Keep only the live production
+      # deployment and the latest one of each project; delete the rest.
+      - name: Delete old deployments of every Pages project
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT}/pages/projects"
+          cf() { curl -fsS -H "Authorization: Bearer ${CF_TOKEN}" "$@"; }
+          for project in $(cf "$api" | jq -r '.result[].name'); do
+            keep=$(cf "$api/$project" | jq -c '[.result.canonical_deployment.id, .result.latest_deployment.id] | map(select(. != null))')
+            while :; do
+              ids=$(cf "$api/$project/deployments" | jq -r --argjson keep "$keep" '.result[] | select(.id as $i | ($keep | index($i)) == null) | .id')
+              [ -n "$ids" ] || break
+              for id in $ids; do
+                echo "$project $id deleted: $(cf -X DELETE "$api/$project/deployments/$id?force=true" | jq -r '.success')"
+              done
+            done
+          done
