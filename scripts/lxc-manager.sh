@@ -168,8 +168,6 @@ EOF
 # Code-Server (VS Code Web IDE - 8680)
 # Reverse Proxy Ingress from Gateway NPM (192.168.1.100)
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 8680
-# Desktop Container / Homepage SiteMonitor (192.168.1.103)
-IN ACCEPT -source 192.168.1.103 -p tcp -dport 8680
 EOF
             ;;
         desktop)
@@ -438,10 +436,16 @@ reconcile_stack_firewall
 
 # Limit every LXC to the shared paths used by its stack. In particular, never
 # expose the fastpool root because it also contains the other LXC root filesystems.
-if [[ "$STACK_NAME" != "gateway" ]]; then
-    reconcile_lxc_mount mp0 "$DATAPOOL"
+# Gaming publishes game ports to the internet, so it only sees its own data.
+if [[ "$STACK_NAME" == "gaming" ]]; then
+    prepare_host_directory /fastpool/config/gameservers
+    reconcile_lxc_mount mp1 /fastpool/config/gameservers
+else
+    if [[ "$STACK_NAME" != "gateway" ]]; then
+        reconcile_lxc_mount mp0 "$DATAPOOL"
+    fi
+    reconcile_lxc_mount mp1 /fastpool/config
 fi
-reconcile_lxc_mount mp1 /fastpool/config
 
 if [[ "$SKIP_CREATION" == false && ( "$STACK_NAME" == media || "$STACK_NAME" == desktop ) ]]; then
     systemctl start homelab-nvidia-prepare.service
@@ -701,12 +705,15 @@ ln -sfnT /fastpool/config/code-server/data /root/.local/share/code-server
 ln -sfnT /fastpool/config/dev/workspace /root/workspace
 
 # Code-Server authentication is delegated to the SNO OTP gate at its NPM proxy
-# host. The Dev LXC firewall admits port 8680 only from NPM and Homepage.
-cat > /root/.config/code-server/config.yaml <<'EOFCS'
-bind-addr: 0.0.0.0:8680
+# host. The Dev LXC firewall admits port 8680 only from NPM.
+code_server_config="bind-addr: 0.0.0.0:8680
 auth: none
-cert: false
-EOFCS
+cert: false"
+code_server_config_changed=false
+if [[ ! -f /root/.config/code-server/config.yaml || "$(</root/.config/code-server/config.yaml)" != "$code_server_config" ]]; then
+    printf "%s\n" "$code_server_config" > /root/.config/code-server/config.yaml
+    code_server_config_changed=true
+fi
 
 # Application downloads belong to initial provisioning, not redeploys.
 if [[ "$SKIP_CREATION" == "false" ]]; then
@@ -765,8 +772,11 @@ done
 python3 -c "import yaml"
 
 omp --version
-systemctl enable code-server@root
-systemctl restart code-server@root
+# Restarting code-server kills its open terminals; do it only for a new config.
+systemctl enable --now code-server@root
+if [[ "$code_server_config_changed" == true ]]; then
+    systemctl restart code-server@root
+fi
 
 systemctl is-enabled code-server@root >/dev/null 2>&1
 systemctl is-active code-server@root >/dev/null 2>&1

@@ -328,7 +328,7 @@ run_setup_gpu_passthrough() (
     for stack in media desktop; do
         ct_id=$(yq -r ".stacks.${stack}.ct_id" "$WORK_DIR/stacks.yaml")
         if check_container_exists "$ct_id"; then
-            assert_nvidia_lxc_config "$ct_id"
+            reconcile_nvidia_lxc_config "$ct_id" true
             local ha_config
             ha_config=$(ha-manager config)
             if grep -Eq "^ct:[[:space:]]*${ct_id}([[:space:]]|$)" <<< "$ha_config"; then

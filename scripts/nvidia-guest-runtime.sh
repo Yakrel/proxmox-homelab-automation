@@ -1,6 +1,8 @@
 #!/bin/bash
 # GPU maintenance only; ordinary application redeploys use --check.
 set -euo pipefail
+# pct exec forwards the host LANG, which GPU guests have not generated.
+export LC_ALL=C
 mode=${1:---check}
 case "$mode" in --check|--check-config|--apply|--stage) ;; *) exit 2 ;; esac
 

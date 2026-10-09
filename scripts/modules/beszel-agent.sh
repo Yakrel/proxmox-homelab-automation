@@ -14,8 +14,7 @@ install_local_beszel_agent() {
     local system_name="$2"
     local service_patterns="$3"
     local extra_filesystems="${4:-}"
-    local public_key universal_token
-    local installer_tmp service_env_tmp
+    local public_key universal_token agent_script
 
     public_key=$(get_env_value "BESZEL_PUBLIC_KEY" "$env_file")
     universal_token=$(get_env_value "BESZEL_UNIVERSAL_TOKEN" "$env_file")
@@ -24,74 +23,25 @@ install_local_beszel_agent() {
         return 1
     fi
 
-    installer_tmp=$(mktemp /tmp/beszel-agent-installer.XXXXXX)
-    service_env_tmp=$(mktemp /tmp/beszel-agent-service-env.XXXXXX)
-    register_runtime_temp_file "$installer_tmp"
-    register_runtime_temp_file "$service_env_tmp"
-
-    curl -fsSL https://get.beszel.dev -o "$installer_tmp"
-    chmod 0700 "$installer_tmp"
-    "$installer_tmp" \
-        -k "$public_key" \
-        -t "$universal_token" \
-        -url "http://192.168.1.102:8095" \
-        --auto-update=true
-
-    systemctl stop beszel-agent.service
-    {
-        printf 'KEY="%s"\n' "$public_key"
-        printf 'TOKEN=%s\n' "$universal_token"
-        printf 'HUB_URL=http://192.168.1.102:8095\n'
-        printf 'SYSTEM_NAME=%s\n' "$system_name"
-        printf 'DISABLE_SSH=true\n'
-        printf 'DATA_DIR=/var/lib/beszel-agent\n'
-        printf 'FILESYSTEM=/\n'
-        printf 'SERVICE_PATTERNS=%s\n' "$service_patterns"
-        if [[ -n "$extra_filesystems" ]]; then
-            printf 'EXTRA_FILESYSTEMS=%s\n' "$extra_filesystems"
-        fi
-    } > "$service_env_tmp"
-    install -o root -g root -m 0600 "$service_env_tmp" /etc/beszel-agent.env
-
-    sed -i -E '/^Environment="(PORT|KEY|TOKEN|HUB_URL)=/d' \
-        /etc/systemd/system/beszel-agent.service
-    install -d -o root -g root -m 0755 \
-        /etc/systemd/system/beszel-agent.service.d
-    cat > /etc/systemd/system/beszel-agent.service.d/homelab.conf <<'EOF'
-[Service]
-EnvironmentFile=/etc/beszel-agent.env
-EOF
-
-    systemctl daemon-reload
-    systemctl enable --now beszel-agent.service
-    systemctl restart beszel-agent.service
-    systemctl is-active --quiet beszel-agent.service
+    # The host runs the same checksum-verified installer as the LXCs.
+    agent_script=$(mktemp /tmp/beszel-agent.XXXXXX)
+    register_runtime_temp_file "$agent_script"
+    write_beszel_agent_script "$agent_script"
+    BESZEL_PUBLIC_KEY="$public_key" \
+        BESZEL_UNIVERSAL_TOKEN="$universal_token" \
+        BESZEL_FINGERPRINT="$(beszel_fingerprint_for_name "$system_name")" \
+        BESZEL_SYSTEM_NAME="$system_name" \
+        BESZEL_SERVICE_PATTERNS="$service_patterns" \
+        BESZEL_EXTRA_FILESYSTEMS="$extra_filesystems" \
+        bash "$agent_script"
 
     unset public_key universal_token
     print_success "Beszel agent reconciled as $system_name"
 }
 
-deploy_lxc_beszel_agent() {
-    local ct_id="$1"
-    local system_name="$2"
-    local env_file="$3"
-    local service_patterns="${4:-docker*,beszel*}"
-    local public_key universal_token fingerprint
-    local guest_script remote_script
-
-    public_key=$(get_env_value "BESZEL_PUBLIC_KEY" "$env_file")
-    universal_token=$(get_env_value "BESZEL_UNIVERSAL_TOKEN" "$env_file")
-    if [[ -z "$public_key" || -z "$universal_token" ]]; then
-        print_error "Beszel enrollment values are missing from $env_file"
-        return 1
-    fi
-    fingerprint=$(beszel_fingerprint_for_name "$system_name")
-
-    guest_script=$(mktemp /tmp/beszel-lxc-agent.XXXXXX)
-    register_runtime_temp_file "$guest_script"
-    remote_script="/tmp/beszel-lxc-agent.sh"
-
-    cat > "$guest_script" <<'GUEST_SCRIPT'
+# Writes the agent installer shared by the Proxmox host and every LXC.
+write_beszel_agent_script() {
+    cat > "$1" <<'GUEST_SCRIPT'
 #!/bin/bash
 set -euo pipefail
 
@@ -182,9 +132,11 @@ SYSTEM_NAME=$BESZEL_SYSTEM_NAME
 DISABLE_SSH=true
 DATA_DIR=/var/lib/beszel-agent
 FILESYSTEM=/
-DOCKER_HOST=unix:///var/run/docker.sock
 SERVICE_PATTERNS=$BESZEL_SERVICE_PATTERNS
 EOF
+if [[ -n "${BESZEL_EXTRA_FILESYSTEMS:-}" ]]; then
+    printf 'EXTRA_FILESYSTEMS=%s\n' "$BESZEL_EXTRA_FILESYSTEMS" >> "$service_env_tmp"
+fi
 if [[ "$service_manager" == "openrc" ]]; then
     printf 'SKIP_SYSTEMD=true\n' >> "$service_env_tmp"
 fi
@@ -288,6 +240,29 @@ EOF
     systemctl is-active --quiet beszel-agent.service
 fi
 GUEST_SCRIPT
+}
+
+deploy_lxc_beszel_agent() {
+    local ct_id="$1"
+    local system_name="$2"
+    local env_file="$3"
+    local service_patterns="${4:-docker*,beszel*}"
+    local public_key universal_token fingerprint
+    local guest_script remote_script
+
+    public_key=$(get_env_value "BESZEL_PUBLIC_KEY" "$env_file")
+    universal_token=$(get_env_value "BESZEL_UNIVERSAL_TOKEN" "$env_file")
+    if [[ -z "$public_key" || -z "$universal_token" ]]; then
+        print_error "Beszel enrollment values are missing from $env_file"
+        return 1
+    fi
+    fingerprint=$(beszel_fingerprint_for_name "$system_name")
+
+    guest_script=$(mktemp /tmp/beszel-lxc-agent.XXXXXX)
+    register_runtime_temp_file "$guest_script"
+    remote_script="/tmp/beszel-lxc-agent.sh"
+
+    write_beszel_agent_script "$guest_script"
 
     pct push "$ct_id" "$guest_script" "$remote_script"
     pct exec "$ct_id" -- chmod 0700 "$remote_script"

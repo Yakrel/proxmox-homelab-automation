@@ -29,10 +29,6 @@ check_device_ownership() {
     return 0
 }
 
-check_helpers() {
-    return 0
-}
-
 check_libraries() {
     local cache library path resolved bad=0
     cache=$(ldconfig -p) || { report "Cannot read the guest dynamic linker cache"; return 1; }
@@ -77,7 +73,7 @@ check_runtime() {
 
 # Offline chroot inspection must not read the host's proc/dev or call NVML.
 if [[ "$mode" == --check-installation ]]; then
-    check_helpers && check_libraries || exit 1
+    check_libraries || exit 1
     report "Installed guest userspace matches $target_version"
     exit 0
 fi
@@ -88,12 +84,9 @@ loaded_version=$(awk '/Kernel Module/ {for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.[0-9
     fail "Loaded host driver ${loaded_version:-none} differs from pinned $target_version; complete the host upgrade/reboot first"
 
 
-# Check these before executing NVIDIA binaries: neither a probe nor installation may
-# invoke a guest helper that changes PVE's device ownership.
-safe=true
-check_helpers || safe=false
-check_device_ownership || safe=false
-$safe || exit 1
+# Check device nodes before executing NVIDIA binaries. The guest never gets
+# nvidia-modprobe (--no-nvidia-modprobe below), so PVE keeps device ownership.
+check_device_ownership || exit 1
 
 if check_libraries; then
     check_runtime || exit 1
@@ -128,6 +121,6 @@ bash "$driver_file" --silent --no-kernel-modules --no-kernel-module-source \
     --no-nvidia-modprobe --no-distro-scripts --no-systemd --no-x-check \
     --no-install-compat32-libs || fail "NVIDIA userspace installation failed; Docker must remain stopped"
 
-check_helpers && check_device_ownership && check_libraries && check_runtime ||
+check_device_ownership && check_libraries && check_runtime ||
     fail "Post-install validation failed; Docker must remain stopped"
 report "Guest NVIDIA userspace successfully synchronized to $target_version"

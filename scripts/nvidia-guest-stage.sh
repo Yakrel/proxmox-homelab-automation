@@ -10,7 +10,7 @@ staging=$(mktemp -d /tmp/homelab-nvidia-stage.XXXXXX)
 trap 'rm -rf "$staging"' EXIT
 chmod 0755 "$staging"
 for file in nvidia-guest-files.sh nvidia-guest-runtime.sh nvidia-userspace-sync.sh \
-    nvidia-userspace-sync.service nvidia-docker.conf nvidia-docker-socket.conf; do
+    nvidia-userspace-sync.service nvidia-docker.conf; do
     install -m 0644 "$source_dir/$file" "$staging/$file"
 done
 

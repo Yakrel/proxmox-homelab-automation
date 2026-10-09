@@ -35,11 +35,6 @@ decrypt_stack_env() {
     local enc_file="$WORK_DIR/docker/$stack/.env.enc"
     local output_file="$TEMP_DIR/${stack}.env"
 
-    [[ -f "$enc_file" ]] || {
-        print_warning "No encrypted env found for $stack, skipping .env refresh"
-        return 1
-    }
-
     decrypt_openssl_file "$enc_file" "$output_file" "$ENV_ENC_KEY" || {
         rm -f "$output_file"
         print_error "Failed to decrypt docker/$stack/.env.enc"

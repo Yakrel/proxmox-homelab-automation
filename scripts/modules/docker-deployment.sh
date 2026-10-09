@@ -159,6 +159,7 @@ setup_guacamole_config() {
         else
             rm -f "$qc_tmp"
             print_error "Failed to download guacamole-auth-quickconnect extension"
+            return 1
         fi
     fi
 }

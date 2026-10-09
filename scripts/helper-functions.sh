@@ -106,11 +106,10 @@ def read_keys(path):
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
-        if line.startswith("export "):
-            line = line[7:].lstrip()
         if "=" not in line:
             raise SystemExit(f"Invalid environment line in {path}:{line_number}")
-        key = line.split("=", 1)[0].strip()
+        # Same exact "KEY=" form that get_env_value reads.
+        key = raw_line.split("=", 1)[0]
         if not key_pattern.fullmatch(key):
             raise SystemExit(f"Invalid environment key in {path}:{line_number}: {key}")
         if key in keys:
@@ -354,10 +353,6 @@ install_nvidia_prestart_hook() {
 }
 
 
-assert_nvidia_lxc_config() {
-    reconcile_nvidia_lxc_config "$1" true
-}
-
 # The change flag is read by the helper-menu and lxc-manager callers.
 # shellcheck disable=SC2034
 reconcile_nvidia_lxc_config() {
@@ -474,7 +469,7 @@ configure_nvidia_guest_sync() {
     # Stream the exact same files used by offline maintenance. Guest temporary
     # files belong to this invocation and are removed even after a failed check.
     tar -C "$WORK_DIR/scripts" -cf - nvidia-guest-files.sh nvidia-userspace-sync.sh \
-        nvidia-userspace-sync.service nvidia-docker.conf nvidia-docker-socket.conf |
+        nvidia-userspace-sync.service nvidia-docker.conf |
         pct exec "$ct_id" -- bash -c '
 set -euo pipefail
 tmp=$(mktemp -d)

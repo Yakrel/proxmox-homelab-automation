@@ -55,12 +55,10 @@ jobs:
           bash -n "${shell_files[@]}"
           shellcheck -x -S warning "${shell_files[@]}"
 
-      - name: Validate YAML, JSON, and XML
+      - name: Validate YAML
         run: |
           python3 - <<'PY'
-          import json
           import pathlib
-          import xml.etree.ElementTree as ET
           import yaml
 
           for pattern in ('*.yml', '*.yaml'):
@@ -68,15 +66,6 @@ jobs:
                   if '.git' not in path.parts:
                       yaml.safe_load(path.read_text(encoding='utf-8'))
                       print(f'YAML OK: {path}')
-
-          for path in pathlib.Path('.').glob('**/*.json*'):
-              if '.git' not in path.parts and path.suffix in {'.json', '.template'}:
-                  json.loads(path.read_text(encoding='utf-8'))
-                  print(f'JSON OK: {path}')
-
-          for path in pathlib.Path('.').glob('**/*.xml.template'):
-              ET.parse(path)
-              print(f'XML OK: {path}')
           PY
 
       - name: Validate topology, environment schemas, and deployment invariants
@@ -235,7 +224,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for stack in ai desktop gateway media utility; do
+          for stack_dir in docker/*/; do
+              stack=$(basename "$stack_dir")
               cp "docker/$stack/.env.example" "docker/$stack/.env"
               (cd "docker/$stack" && docker compose config --quiet)
               rm -f "docker/$stack/.env"

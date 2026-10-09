@@ -115,20 +115,18 @@ get_stack_config "$STACK_NAME"
 
 # Step 2: Environment setup
 if [[ "$STACK_NAME" == "dev" ]]; then
-    if [[ -f "$WORK_DIR/docker/ai/.env.enc" ]]; then
-        ENV_ENC_KEY=$(get_or_prompt_env_passphrase)
-        export ENV_ENC_KEY
+    ENV_ENC_KEY=$(get_or_prompt_env_passphrase)
+    export ENV_ENC_KEY
 
-        # Validate passphrase upfront against ai/.env.enc before provisioning
-        test_tmp=$(mktemp)
-        register_runtime_temp_file "$test_tmp"
-        if ! decrypt_openssl_file "$WORK_DIR/docker/ai/.env.enc" "$test_tmp" "$ENV_ENC_KEY"; then
-            rm -f "$test_tmp"
-            print_error "Failed to decrypt docker/ai/.env.enc"
-            exit 1
-        fi
+    # Validate passphrase upfront against ai/.env.enc before provisioning
+    test_tmp=$(mktemp)
+    register_runtime_temp_file "$test_tmp"
+    if ! decrypt_openssl_file "$WORK_DIR/docker/ai/.env.enc" "$test_tmp" "$ENV_ENC_KEY"; then
         rm -f "$test_tmp"
+        print_error "Failed to decrypt docker/ai/.env.enc"
+        exit 1
     fi
+    rm -f "$test_tmp"
 else
     decrypt_env_for_deploy "$STACK_NAME"
 fi

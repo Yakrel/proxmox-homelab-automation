@@ -21,7 +21,7 @@ done <<'FILES'
 nvidia-userspace-sync.sh /usr/local/bin/nvidia-userspace-sync.sh 755
 nvidia-userspace-sync.service /etc/systemd/system/nvidia-userspace-sync.service 644
 nvidia-docker.conf /etc/systemd/system/docker.service.d/nvidia-userspace.conf 644
-nvidia-docker-socket.conf /etc/systemd/system/docker.socket.d/nvidia-userspace.conf 644
+nvidia-docker.conf /etc/systemd/system/docker.socket.d/nvidia-userspace.conf 644
 FILES
 link=/etc/systemd/system/multi-user.target.wants/nvidia-userspace-sync.service
 if [[ $(readlink "$root$link" || true) != /etc/systemd/system/nvidia-userspace-sync.service ]]; then

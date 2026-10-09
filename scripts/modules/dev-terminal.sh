@@ -23,6 +23,10 @@ deploy_dev_terminal() {
         return 1
     fi
     hindsight_api_key=$(get_env_value "HINDSIGHT_API_KEY" "$ai_tmp")
+    [[ -n "$hindsight_api_key" ]] || {
+        print_error "HINDSIGHT_API_KEY is empty in docker/ai/.env.enc"
+        return 1
+    }
 
     guest_script=$(mktemp /tmp/dev-terminal-setup.XXXXXX)
     register_runtime_temp_file "$guest_script"
@@ -176,13 +180,14 @@ CODE_SERVER_SETTINGS
 # Reconcile Oh My Pi Hindsight memory configuration. Oh My Pi also writes this
 # file, so parse and re-emit YAML instead of patching text.
 install -d -m 0700 /root/.omp/agent
-python3 - "${HINDSIGHT_API_KEY:-}" <<'OMP_CONFIG'
-import sys
+# The key stays in the environment, never in a process argument list.
+python3 - <<'OMP_CONFIG'
+import os
 from pathlib import Path
 
 import yaml
 
-api_key = sys.argv[1]
+api_key = os.environ["HINDSIGHT_API_KEY"]
 config_path = Path("/root/.omp/agent/config.yml")
 config = (yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.exists() else None) or {}
 
@@ -197,8 +202,7 @@ hindsight.update({
     "retainEveryNTurns": 2,
     "retainOverlapTurns": 1,
 })
-if api_key:
-    hindsight["apiToken"] = api_key
+hindsight["apiToken"] = api_key
 for key in ("autoRecall", "autoRetain", "retainUpdateMode"):
     hindsight.pop(key, None)
 

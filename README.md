@@ -229,7 +229,7 @@ Provides local DNS, split DNS, reverse proxying, and the Cloudflare Tunnel endpo
 
 ### Media — LXC 101
 
-**Services:** Jellyfin, Immich, Sonarr, Radarr, Bazarr, Seerr, Prowlarr, qBittorrent, FlareSolverr, Tor Proxy, Profilarr, Tdarr, Cleanuparr
+**Services:** Jellyfin, Immich, Sonarr, Radarr, Bazarr, Seerr, Prowlarr, qBittorrent, FlareSolverr, Profilarr, Tdarr, Cleanuparr
 
 Media and photo workloads run here. Selected services use NVIDIA GPU acceleration. Application databases and internal dependencies use dedicated Docker networks where applicable.
 
@@ -265,7 +265,7 @@ Dev packages, Code-Server, Oh My Pi, the terminal font, and Oh My Zsh are instal
 
 Provides an isolated game-server workload managed separately from the media and utility stacks.
 
-Uses `ghcr.io/ripps818/docker-palworld-dedicated-server-wine:latest`. Game files and mods persist under `/fastpool/config/gameservers/palworld/game`, with automated backups under `/fastpool/config/gameservers/palworld/backups`. Scheduled backups run every 6 hours (retaining 28 archives) and automated restarts run daily at 04:00, Europe/Istanbul.
+Uses `ghcr.io/ripps818/docker-palworld-dedicated-server-wine:latest`. Game files and mods persist under `/fastpool/config/gameservers/palworld/game`, with automated backups under `/fastpool/config/gameservers/palworld/backups`. Scheduled backups run every 6 hours (retaining 28 archives); automated restarts are disabled so base chunks stay loaded. The LXC only mounts `/fastpool/config/gameservers` because it publishes game ports to the internet.
 ---
 
 ## Secret Handling
