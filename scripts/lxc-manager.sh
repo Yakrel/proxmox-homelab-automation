@@ -165,7 +165,7 @@ EOF
             ;;
         dev)
             cat >> "$firewall_tmp" <<'EOF'
-# Code-Server (VS Code Web IDE - 8680)
+# ompweb (Oh My Pi web UI - 8680)
 # Reverse Proxy Ingress from Gateway NPM (192.168.1.100)
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 8680
 EOF
@@ -382,7 +382,7 @@ else
     SKIP_CREATION=false
     
     # Choose template based on stack type - always use latest
-    # Debian: media (Jellyfin GPU), desktop (Brave GPU), dev (code-server)
+    # Debian: media (Jellyfin GPU), desktop (Brave GPU), dev (Oh My Pi + ompweb)
     # Alpine: all other stacks (lighter, faster) — including ai (OpenRouter, no GPU needed)
     if [ "$STACK_NAME" = "media" ] || [ "$STACK_NAME" = "desktop" ] || [ "$STACK_NAME" = "dev" ]; then
         LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
@@ -478,9 +478,9 @@ pct exec "$CT_ID" -- test -f /sbin/init
 # Prepare the dev stack's persistent bind sources on the host. Docker stacks
 # prepare their own bind sources in docker-deployment.sh.
 if [[ "$STACK_NAME" == "dev" ]]; then
-    prepare_host_directory /fastpool/config/code-server
-    prepare_host_directory /fastpool/config/code-server/config
-    prepare_host_directory /fastpool/config/code-server/data
+    # Oh My Pi state holds OAuth credentials, sessions, config, and ompweb data.
+    prepare_host_directory /fastpool/config/omp 0700
+    prepare_host_directory /fastpool/config/omp/agent 0700
     prepare_host_directory /fastpool/config/dev 0700
     prepare_host_directory /fastpool/config/dev/workspace 0700
 fi
@@ -496,7 +496,7 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
 set -e
 STACK_NAME='${STACK_NAME}'
 
-# Debian stacks: media (Jellyfin GPU), desktop (Brave GPU), dev (code-server)
+# Debian stacks: media (Jellyfin GPU), desktop (Brave GPU), dev (Oh My Pi + ompweb)
 if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'desktop' ] || [ \"\$STACK_NAME\" = 'dev' ]; then
     export DEBIAN_FRONTEND=noninteractive
     export DEBIAN_PRIORITY=critical
@@ -532,7 +532,7 @@ Components: main contrib non-free non-free-firmware
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOS
 
-    # Dev stack: code-server + developer CLI tools + headless browser runtime (no Docker, no GPU)
+    # Dev stack: developer CLI tools + headless browser runtime (no Docker, no GPU)
     if [ \"\$STACK_NAME\" = 'dev' ]; then
         nodesource_installer=\$(mktemp /tmp/nodesource-setup.XXXXXX)
         trap 'rm -f \"\$nodesource_installer\"' EXIT
@@ -696,64 +696,18 @@ set -euo pipefail
 export HOME=/root
 export PATH="/root/.local/bin:/usr/local/bin:$PATH"
 
-# Keep Code-Server settings, user data, and the development workspace on
-# fastpool. A regular directory at any link target is unexpected and causes the
-# reconcile to fail instead of deleting or migrating user data.
-mkdir -p /root/.config /root/.local/share
-ln -sfnT /fastpool/config/code-server/config /root/.config/code-server
-ln -sfnT /fastpool/config/code-server/data /root/.local/share/code-server
+# Keep Oh My Pi configuration, OAuth credentials, session data, ompweb state,
+# and the development workspace on fastpool. A regular directory at any link
+# target is unexpected and causes the reconcile to fail instead of deleting or
+# migrating user data.
+ln -sfnT /fastpool/config/omp /root/.omp
 ln -sfnT /fastpool/config/dev/workspace /root/workspace
-
-# Code-Server authentication is delegated to the SNO OTP gate at its NPM proxy
-# host. The Dev LXC firewall admits port 8680 only from NPM.
-code_server_config="bind-addr: 0.0.0.0:8680
-auth: none
-cert: false"
-code_server_config_changed=false
-if [[ ! -f /root/.config/code-server/config.yaml || "$(</root/.config/code-server/config.yaml)" != "$code_server_config" ]]; then
-    printf "%s\n" "$code_server_config" > /root/.config/code-server/config.yaml
-    code_server_config_changed=true
-fi
 
 # Application downloads belong to initial provisioning, not redeploys.
 if [[ "$SKIP_CREATION" == "false" ]]; then
-    CODE_SERVER_URL=$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/coder/code-server/releases/latest)
-    CODE_SERVER_TAG=${CODE_SERVER_URL##*/}
-    CODE_SERVER_VERSION=${CODE_SERVER_TAG#v}
-    CODE_SERVER_ARCH=$(dpkg --print-architecture)
-    case "$CODE_SERVER_ARCH" in
-        amd64|arm64) ;;
-        *)
-            echo "Unsupported code-server architecture: $CODE_SERVER_ARCH" >&2
-            exit 1
-            ;;
-    esac
-    code_server_package=$(mktemp --suffix=.deb /tmp/code-server.XXXXXX)
-    cleanup_code_server_package() { rm -f "$code_server_package"; }
-    trap cleanup_code_server_package EXIT
-    curl -fsSL \
-        "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server_${CODE_SERVER_VERSION}_${CODE_SERVER_ARCH}.deb" \
-        -o "$code_server_package"
-    dpkg -i "$code_server_package"
-    rm -f "$code_server_package"
-    trap - EXIT
-
-    # Oh My Pi is the single coding-agent CLI. Updates are a separate,
-    # explicit maintenance operation rather than a redeploy side effect.
+    # Oh My Pi is the coding-agent runtime; ompweb serves its browser UI.
     curl -fsSL https://omp.sh/install | sh
-
-    # Serve the terminal font through code-server; browser clients cannot
-    # use fonts installed only in the LXC.
-    workbench_dir=/usr/lib/code-server/lib/vscode/out/vs/code/browser/workbench
-    font_tmp=$(mktemp /tmp/JetBrainsMonoNerdFontMono.XXXXXX.ttf)
-    cleanup_font() { rm -f "$font_tmp"; }
-    trap cleanup_font EXIT
-    curl -fsSL \
-        https://raw.githubusercontent.com/ryanoasis/nerd-fonts/master/patched-fonts/JetBrainsMono/Ligatures/JetBrainsMonoNerdFontMono-Regular.ttf \
-        -o "$font_tmp"
-    install -m 0644 "$font_tmp" "$workbench_dir/JetBrainsMonoNerdFontMono-Regular.ttf"
-    rm -f "$font_tmp"
-    trap - EXIT
+    npm install -g @kahme247/ompweb@latest
 
     install -d -m 0755 /root/.oh-my-zsh
     git -C /root/.oh-my-zsh init -q
@@ -763,7 +717,7 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
     git -C /root/.oh-my-zsh reset -q --hard FETCH_HEAD
 fi
 
-for command_name in node npm git gh python3 bash nano vim htop shellcheck yq omp code-server; do
+for command_name in node npm git gh python3 bash nano vim htop shellcheck yq omp ompweb; do
     command -v "$command_name" >/dev/null 2>&1 || {
         echo "Missing required dev command: $command_name" >&2
         exit 1
@@ -772,14 +726,72 @@ done
 python3 -c "import yaml"
 
 omp --version
-# Restarting code-server kills its open terminals; do it only for a new config.
-systemctl enable --now code-server@root
-if [[ "$code_server_config_changed" == true ]]; then
-    systemctl restart code-server@root
+ompweb --version
+
+# ompweb binds to loopback so it runs without a second password prompt behind
+# the SNO OTP gate at its NPM proxy host. systemd-socket-proxyd exposes port
+# 8680 inside the Dev LXC, where the firewall admits only NPM (192.168.1.100).
+ompweb_unit="[Unit]
+Description=Oh My Pi web server (ompweb)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Environment=HOME=/root
+Environment=SHELL=/usr/bin/zsh
+Environment=PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+WorkingDirectory=/root/workspace
+ExecStart=/usr/bin/env ompweb --hostname 127.0.0.1 --port 30177 --no-open
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target"
+
+ompweb_proxy_socket="[Unit]
+Description=Oh My Pi web proxy socket
+
+[Socket]
+ListenStream=0.0.0.0:8680
+
+[Install]
+WantedBy=sockets.target"
+
+ompweb_proxy_unit="[Unit]
+Description=Oh My Pi web socket proxy
+Requires=ompweb.service ompweb-proxy.socket
+After=ompweb.service ompweb-proxy.socket
+
+[Service]
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:30177
+Restart=on-failure"
+
+ompweb_units_changed=false
+if [[ ! -f /etc/systemd/system/ompweb.service || "$(</etc/systemd/system/ompweb.service)" != "$ompweb_unit" ]]; then
+    printf "%s\n" "$ompweb_unit" > /etc/systemd/system/ompweb.service
+    ompweb_units_changed=true
+fi
+if [[ ! -f /etc/systemd/system/ompweb-proxy.socket || "$(</etc/systemd/system/ompweb-proxy.socket)" != "$ompweb_proxy_socket" ]]; then
+    printf "%s\n" "$ompweb_proxy_socket" > /etc/systemd/system/ompweb-proxy.socket
+    ompweb_units_changed=true
+fi
+if [[ ! -f /etc/systemd/system/ompweb-proxy.service || "$(</etc/systemd/system/ompweb-proxy.service)" != "$ompweb_proxy_unit" ]]; then
+    printf "%s\n" "$ompweb_proxy_unit" > /etc/systemd/system/ompweb-proxy.service
+    ompweb_units_changed=true
 fi
 
-systemctl is-enabled code-server@root >/dev/null 2>&1
-systemctl is-active code-server@root >/dev/null 2>&1
+# Restarting ompweb stops running agent turns; do it only when unit files change.
+if [[ "$ompweb_units_changed" == true ]]; then
+    systemctl daemon-reload
+fi
+systemctl enable --now ompweb ompweb-proxy.socket
+if [[ "$ompweb_units_changed" == true ]]; then
+    systemctl restart ompweb ompweb-proxy.socket
+    systemctl stop ompweb-proxy.service 2>/dev/null || true
+fi
+
+systemctl is-enabled ompweb ompweb-proxy.socket >/dev/null 2>&1
+systemctl is-active ompweb ompweb-proxy.socket >/dev/null 2>&1
 '
     print_success "Dev CLI applications reconciled"
 fi

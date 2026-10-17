@@ -253,11 +253,11 @@ Contains the AI agent interface, model/API routing, and memory services used by 
 
 ### Dev — LXC 105
 
-**Tools:** Code-Server, Node.js, Python, Git/GitHub CLI, Oh My Pi
+**Tools:** Oh My Pi (`omp`), ompweb, Node.js, Python, Git/GitHub CLI
 
-Provides a persistent remote development environment. Workspace and Code-Server state are stored under `fastpool`.
+Provides a persistent remote development environment. `ompweb` serves the browser UI for Oh My Pi (agent chat, OAuth provider login, subagents, file/diff previews, worktrees) on port 8680 behind the NPM OTP gate. Workspace and Oh My Pi state (`/root/.omp`) are stored under `fastpool`.
 
-Dev packages, Code-Server, Oh My Pi, the terminal font, and Oh My Zsh are installed only when creating the LXC. Both selected-stack redeploy and Fast Redeploy reconcile local configuration without updating these tools; missing prerequisites fail the deployment rather than triggering repair. Tool upgrades are explicit maintenance operations: run `omp update` in the Dev console to update Oh My Pi.
+Dev packages, Oh My Pi, `ompweb`, and Oh My Zsh are installed only when creating the LXC. Both selected-stack redeploy and Fast Redeploy reconcile local configuration without updating these tools; missing prerequisites fail the deployment rather than triggering repair. Oh My Pi connects natively to the Hindsight memory server in the AI LXC (`/root/.omp/agent/config.yml`). Tool upgrades are explicit maintenance operations: update Oh My Pi and `ompweb` from **Settings → System & Updates** in the web UI, or run `omp update` and `npm install -g @kahme247/ompweb@latest && systemctl restart ompweb` in the Dev console.
 
 ### Gaming — LXC 106
 
