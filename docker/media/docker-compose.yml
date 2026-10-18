@@ -16,7 +16,7 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
     volumes:
       - /fastpool/config/sonarr:/config
       - /datapool/media:/data
@@ -41,7 +41,7 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
     volumes:
       - /fastpool/config/radarr:/config
       - /datapool/media:/data
@@ -72,7 +72,7 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
     volumes:
       - /fastpool/config/bazarr:/config
       - /datapool/media/library:/data/library
@@ -103,7 +103,7 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       # NVIDIA GPU environment variables for hardware acceleration
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
@@ -146,7 +146,7 @@ services:
     depends_on:
       - jellyfin
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
     volumes:
       - /fastpool/config/jellyseerr:/app/config
     dns:
@@ -177,7 +177,7 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       - WEBUI_PORT=8080
     volumes:
       - /fastpool/config/qbittorrent:/config
@@ -211,7 +211,7 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
     volumes:
       - /fastpool/config/prowlarr:/config
     ports:
@@ -240,7 +240,7 @@ services:
     environment:
       - LOG_LEVEL=info
       - LOG_HTML=false
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       # Keep browser traffic direct; public proxy exits are commonly blocked
       # by Cloudflare.
     healthcheck:
@@ -267,7 +267,7 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       - AUTH=on
       - ORIGIN=https://profilarr.byetgin.com
     volumes:
@@ -291,9 +291,12 @@ services:
   # Reference: https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
   immich-server:
     container_name: immich-server
-    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    image: ghcr.io/immich-app/immich-server:v3
     user: "1000:1000"
     environment:
+      - DB_USERNAME=postgres
+      - DB_DATABASE_NAME=immich
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be defined}
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
     volumes:
@@ -310,8 +313,6 @@ services:
                 - gpu
                 - compute
                 - video
-    env_file:
-      - .env
     ports:
       - "2283:2283"
     depends_on:
@@ -335,12 +336,10 @@ services:
   immich-machine-learning:
     container_name: immich-machine-learning
     mem_limit: 6g
-    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}-cuda
+    image: ghcr.io/immich-app/immich-machine-learning:v3-cuda
     user: "1000:1000"
     volumes:
       - /fastpool/config/immich/cache:/cache
-    env_file:
-      - .env
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
@@ -391,12 +390,12 @@ services:
     image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
     user: "1000:1000"
     environment:
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_DB: ${DB_DATABASE_NAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be defined}
+      POSTGRES_USER: postgres
+      POSTGRES_DB: immich
       POSTGRES_INITDB_ARGS: '--data-checksums'
     volumes:
-      - ${DB_DATA_LOCATION}:/var/lib/postgresql/data
+      - /fastpool/config/immich/postgres:/var/lib/postgresql/data
     healthcheck:
       disable: false
     networks:
@@ -425,7 +424,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       - serverIP=0.0.0.0
       - serverPort=8266
       - webUIPort=8265
@@ -463,7 +462,7 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       - PORT=11011
       - BASE_PATH=
     volumes:
@@ -499,7 +498,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 12 */6 * * *
       - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}

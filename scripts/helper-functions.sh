@@ -39,25 +39,14 @@ press_enter_to_continue() {
     read -r -p "Press Enter to continue..."
 }
 
-prompt_env_passphrase() {
-    local pass=""
-
-    echo -n "Enter encryption passphrase: " >&2
-    read -r -s pass
-    echo >&2
-
-    # Return the clean passphrase
-    printf '%s' "$pass"
-}
-
-get_or_prompt_env_passphrase() {
-    if [[ -n "${ENV_ENC_KEY:-}" ]]; then
-        printf '%s' "$ENV_ENC_KEY"
-    elif [[ -n "${KEY:-}" ]]; then
-        printf '%s' "$KEY"
-    else
-        prompt_env_passphrase
+# Unwrap the repository age identity once per run. The identity is stored in
+# .sops-key.age encrypted with the master passphrase, which age asks for on the
+# terminal. A preset SOPS_AGE_KEY skips the prompt. The identity stays in memory.
+load_sops_age_key() {
+    if [[ -z "${SOPS_AGE_KEY:-}" ]]; then
+        SOPS_AGE_KEY=$(age --decrypt "$WORK_DIR/.sops-key.age") || return 1
     fi
+    export SOPS_AGE_KEY
 }
 
 # Read one value from an env file without sourcing executable shell content.
@@ -84,53 +73,6 @@ get_env_value() {
     fi
 
     printf '%s' "$value"
-}
-
-# Validate that a decrypted environment has exactly the same variable schema as
-# its committed example without exposing any values.
-validate_env_file_schema() {
-    local env_file="$1"
-    local example_file="$2"
-
-    python3 - "$env_file" "$example_file" <<'PYEOF'
-import pathlib
-import re
-import sys
-
-key_pattern = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-
-
-def read_keys(path):
-    keys = []
-    for line_number, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            raise SystemExit(f"Invalid environment line in {path}:{line_number}")
-        # Same exact "KEY=" form that get_env_value reads.
-        key = raw_line.split("=", 1)[0]
-        if not key_pattern.fullmatch(key):
-            raise SystemExit(f"Invalid environment key in {path}:{line_number}: {key}")
-        if key in keys:
-            raise SystemExit(f"Duplicate environment key in {path}: {key}")
-        keys.append(key)
-    return set(keys)
-
-
-env_path = pathlib.Path(sys.argv[1])
-example_path = pathlib.Path(sys.argv[2])
-actual = read_keys(env_path)
-expected = read_keys(example_path)
-missing = sorted(expected - actual)
-extra = sorted(actual - expected)
-if missing or extra:
-    if missing:
-        print("Missing encrypted environment keys: " + ", ".join(missing), file=sys.stderr)
-    if extra:
-        print("Unexpected encrypted environment keys: " + ", ".join(extra), file=sys.stderr)
-    raise SystemExit(1)
-PYEOF
 }
 
 # === SYSTEM UTILITIES ===
@@ -171,22 +113,13 @@ readonly FASTPOOL="/fastpool"
 readonly NETWORK_BRIDGE="vmbr0"
 readonly NETWORK_GATEWAY="192.168.1.1"
 
-# All repository-managed encrypted files use the same explicit KDF parameters.
-# Keep this value centralized: OpenSSL's salted enc format does not store the
-# PBKDF2 iteration count, so encryption and decryption must always agree.
-readonly OPENSSL_PBKDF2_ITERATIONS=600000
-
-decrypt_openssl_file() {
+# Repository-managed encrypted files are SOPS dotenv files. Variable names stay
+# readable; values are encrypted to the age recipient in .sops.yaml.
+decrypt_env_file() {
     local input_file="$1"
     local output_file="$2"
-    local passphrase="$3"
 
-    KEY="$passphrase" openssl enc \
-        -d -aes-256-cbc \
-        -pbkdf2 -iter "$OPENSSL_PBKDF2_ITERATIONS" -md sha256 \
-        -pass env:KEY \
-        -in "$input_file" \
-        -out "$output_file"
+    sops decrypt --input-type dotenv --output-type dotenv "$input_file" > "$output_file"
 }
 
 declare -ag RUNTIME_TEMP_FILES=()
@@ -222,6 +155,12 @@ get_nvidia_driver_sha256() {
     local stacks_file="${1:-$WORK_DIR/stacks.yaml}"
     [[ -f "$stacks_file" ]] || { print_error "Stacks file not found: $stacks_file"; exit 1; }
     yq -r '.nvidia.driver_sha256 // empty' "$stacks_file"
+}
+
+get_beszel_public_key() {
+    local stacks_file="${1:-$WORK_DIR/stacks.yaml}"
+    [[ -f "$stacks_file" ]] || { print_error "Stacks file not found: $stacks_file"; exit 1; }
+    yq -r '.beszel.public_key // empty' "$stacks_file"
 }
 
 get_loaded_nvidia_driver_version() {

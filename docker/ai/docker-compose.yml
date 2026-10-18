@@ -40,8 +40,8 @@ services:
       - HERMES_DASHBOARD_BASIC_AUTH_USERNAME=${HERMES_DASHBOARD_BASIC_AUTH_USERNAME}
       # Hash instead of plaintext keeps the password out of the container
       # environment; the signing secret keeps sessions valid across restarts.
-      - HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH=${HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH}
-      - HERMES_DASHBOARD_BASIC_AUTH_SECRET=${HERMES_DASHBOARD_BASIC_AUTH_SECRET}
+      - HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH=${HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH:?HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH must be defined}
+      - HERMES_DASHBOARD_BASIC_AUTH_SECRET=${HERMES_DASHBOARD_BASIC_AUTH_SECRET:?HERMES_DASHBOARD_BASIC_AUTH_SECRET must be defined}
     command: ["gateway", "run"]
     networks:
       - ai-net
@@ -60,7 +60,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 48 0 * * *
       - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
@@ -93,9 +93,9 @@ services:
       - PORT=20128
       - DATA_DIR=/app/data
       - REQUIRE_API_KEY=true
-      - JWT_SECRET=${OMNI_JWT_SECRET}
-      - API_KEY_SECRET=${OMNI_API_KEY_SECRET}
-      - INITIAL_PASSWORD=${OMNI_INITIAL_PASSWORD}
+      - JWT_SECRET=${OMNI_JWT_SECRET:?OMNI_JWT_SECRET must be defined}
+      - API_KEY_SECRET=${OMNI_API_KEY_SECRET:?OMNI_API_KEY_SECRET must be defined}
+      - INITIAL_PASSWORD=${OMNI_INITIAL_PASSWORD:?OMNI_INITIAL_PASSWORD must be defined}
     networks:
       - ai-net
     logging:
@@ -119,7 +119,7 @@ services:
     environment:
       - HINDSIGHT_API_LLM_PROVIDER=openai
       - HINDSIGHT_API_LLM_BASE_URL=http://omniroute:20128/v1
-      - HINDSIGHT_API_LLM_API_KEY=${HINDSIGHT_API_LLM_API_KEY}
+      - HINDSIGHT_API_LLM_API_KEY=${HINDSIGHT_API_LLM_API_KEY:?HINDSIGHT_API_LLM_API_KEY must be defined}
       - HINDSIGHT_API_LLM_MODEL=shared/resilient-multimodal
       - HINDSIGHT_API_LLM_OUTPUT_LANGUAGE=Turkish
       - "HINDSIGHT_API_RETAIN_MISSION=Extract durable knowledge useful to a coding agent in future sessions: technical decisions and their rationale, architecture and design trade-offs, project conventions, user tooling and workflow preferences, root causes of resolved errors and blockers, and stable facts about the user's infrastructure. Ignore greetings, step-by-step task progress, raw tool or command output, one-off incidents, and anything relevant only to the current session. Extract only what the conversation newly establishes or changes; skip statements that merely repeat background context or memories the assistant was given. Skip third-party product documentation, feature lists, and pricing unless the user made a decision based on them, and then record only the decision. Write every fact in Turkish."
@@ -140,7 +140,7 @@ services:
       - HINDSIGHT_API_MENTAL_MODEL_MIN_REFRESH_INTERVAL_SECONDS=21600
       - HINDSIGHT_API_EMBEDDINGS_PROVIDER=openai
       - HINDSIGHT_API_EMBEDDINGS_OPENAI_BASE_URL=http://omniroute:20128/v1
-      - HINDSIGHT_API_EMBEDDINGS_OPENAI_API_KEY=${HINDSIGHT_API_LLM_API_KEY}
+      - HINDSIGHT_API_EMBEDDINGS_OPENAI_API_KEY=${HINDSIGHT_API_LLM_API_KEY:?HINDSIGHT_API_LLM_API_KEY must be defined}
       - HINDSIGHT_API_EMBEDDINGS_OPENAI_MODEL=gemini/gemini-embedding-2
       - HINDSIGHT_API_EMBEDDINGS_OPENAI_DIMENSIONS=1536
       - HINDSIGHT_API_RERANKER_PROVIDER=rrf
@@ -150,8 +150,8 @@ services:
       - HINDSIGHT_API_OPERATION_RETENTION_DAYS=7
       - HINDSIGHT_API_OPERATION_CLEANUP_INTERVAL_SECONDS=3600
       - HINDSIGHT_API_TENANT_EXTENSION=hindsight_api.extensions.builtin.tenant:ApiKeyTenantExtension
-      - HINDSIGHT_API_TENANT_API_KEY=${HINDSIGHT_API_KEY}
-      - HINDSIGHT_CP_DATAPLANE_API_KEY=${HINDSIGHT_API_KEY}
+      - HINDSIGHT_API_TENANT_API_KEY=${HINDSIGHT_API_KEY:?HINDSIGHT_API_KEY must be defined}
+      - HINDSIGHT_CP_DATAPLANE_API_KEY=${HINDSIGHT_API_KEY:?HINDSIGHT_API_KEY must be defined}
     healthcheck:
       test: ["CMD", "/app/api/.venv/bin/python", "-c", "import http.client, sys; c = http.client.HTTPConnection('localhost', 8888, timeout=4); c.request('GET', '/health/ready'); sys.exit(c.getresponse().status >= 400)"]
       interval: 30s

@@ -9,6 +9,8 @@ on:
       - "scripts/*.conf"
       - "**/*.md"
       - installer.sh
+      - .sops.yaml
+      - .sops-key.age
       - stacks.yaml
       - "docker/**"
       - "docs/**"
@@ -20,6 +22,8 @@ on:
       - "scripts/*.conf"
       - "**/*.md"
       - installer.sh
+      - .sops.yaml
+      - .sops-key.age
       - stacks.yaml
       - "docker/**"
       - "docs/**"
@@ -45,15 +49,29 @@ jobs:
       - name: Prepare lightweight validators
         run: |
           shellcheck --version
-          python3 -m pip install --quiet PyYAML==6.0.2
+          python3 -m pip install --quiet PyYAML
 
       - name: Validate shell
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -d '' shell_files < <(git ls-files -z '*.sh')
-          bash -n "${shell_files[@]}"
-          shellcheck -x -S warning "${shell_files[@]}"
+          git ls-files -z '*.sh' | xargs -0 -n1 bash -n
+          git ls-files -z '*.sh' | xargs -0 shellcheck -x -S warning
+
+      - name: Scan for committed secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/gitleaks/gitleaks/releases/latest)
+          tag="${tag##*/}"
+          version="${tag#v}"
+          base="https://github.com/gitleaks/gitleaks/releases/download/${tag}"
+          archive="gitleaks_${version}_linux_x64.tar.gz"
+          curl -fsSL "$base/$archive" -o "$RUNNER_TEMP/$archive"
+          curl -fsSL "$base/gitleaks_${version}_checksums.txt" -o "$RUNNER_TEMP/gitleaks.checksums"
+          (cd "$RUNNER_TEMP" && sha256sum -c --ignore-missing --quiet gitleaks.checksums)
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" dir . --redact --no-banner
 
       - name: Validate YAML
         run: |
@@ -74,6 +92,7 @@ jobs:
           import json
           import pathlib
           import re
+          import subprocess
           import yaml
 
           root = pathlib.Path('.')
@@ -82,7 +101,6 @@ jobs:
               pathlib.Path('README.md'),
               pathlib.Path('AGENTS.md'),
               pathlib.Path('CLAUDE.md'),
-              pathlib.Path('todo.md'),
           }
           markdown_files = {
               path for path in root.glob('**/*.md') if '.git' not in path.parts
@@ -120,23 +138,36 @@ jobs:
           if not re.fullmatch(r'[a-f0-9]{64}', driver_sha256):
               raise SystemExit('nvidia.driver_sha256 must be a lowercase SHA-256 value')
 
+          beszel_public_key = topology.get('beszel', {}).get('public_key', '')
+          if not re.fullmatch(r'ssh-ed25519 [A-Za-z0-9+/]{68}', beszel_public_key):
+              raise SystemExit('beszel.public_key must be an ssh-ed25519 public key')
+
           env_key_pattern = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
           compose_var_pattern = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)')
 
-          def example_keys(path):
+          def sops_env_keys(path):
               keys = []
+              metadata = set()
               for line_number, raw_line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
-                  line = raw_line.strip()
-                  if not line or line.startswith('#'):
+                  if not raw_line:
                       continue
-                  if '=' not in line:
-                      raise SystemExit(f'Invalid env example line: {path}:{line_number}')
-                  key = line.split('=', 1)[0].strip()
-                  if not env_key_pattern.fullmatch(key):
-                      raise SystemExit(f'Invalid env key: {path}:{line_number}: {key}')
+                  if raw_line.startswith('#'):
+                      if not raw_line.startswith('#ENC[AES256_GCM,'):
+                          raise SystemExit(f'Plaintext comment in SOPS file: {path}:{line_number}')
+                      continue
+                  key, separator, value = raw_line.partition('=')
+                  if not separator or not env_key_pattern.fullmatch(key):
+                      raise SystemExit(f'Invalid SOPS env line: {path}:{line_number}')
+                  if key.startswith('sops_'):
+                      metadata.add(key)
+                      continue
+                  if value and not value.startswith('ENC[AES256_GCM,'):
+                      raise SystemExit(f'Plaintext value in SOPS file: {path}:{line_number}: {key}')
                   if key in keys:
                       raise SystemExit(f'Duplicate env key in {path}: {key}')
                   keys.append(key)
+              if not {'sops_mac', 'sops_age__list_0__map_recipient'} <= metadata:
+                  raise SystemExit(f'Missing SOPS metadata: {path}')
               return set(keys)
 
           def service_environment(service, stack_name, service_name):
@@ -162,21 +193,18 @@ jobs:
           for stack_name in sorted(docker_stacks):
               stack_dir = pathlib.Path('docker') / stack_name
               compose_path = stack_dir / 'docker-compose.yml'
-              example_path = stack_dir / '.env.example'
               encrypted_path = stack_dir / '.env.enc'
-              for required_path in (compose_path, example_path, encrypted_path):
+              for required_path in (compose_path, encrypted_path):
                   if not required_path.is_file():
                       raise SystemExit(f'Missing stack file: {required_path}')
-              if not encrypted_path.read_bytes().startswith(b'Salted__'):
-                  raise SystemExit(f'Invalid OpenSSL ciphertext header: {encrypted_path}')
 
-              keys = example_keys(example_path)
+              keys = sops_env_keys(encrypted_path)
               compose_text = compose_path.read_text(encoding='utf-8')
               referenced = set(compose_var_pattern.findall(compose_text))
-              unknown = sorted(referenced - keys - {'TZ'})
+              unknown = sorted(referenced - keys)
               if unknown:
                   raise SystemExit(
-                      f'{compose_path} references variables absent from .env.example: {unknown}'
+                      f'{compose_path} references variables absent from {encrypted_path}: {unknown}'
                   )
 
               document = yaml.safe_load(compose_text)
@@ -192,8 +220,7 @@ jobs:
                       schedules[schedule] = stack_name
 
           for encrypted_path in pathlib.Path('docker').glob('**/*.enc'):
-              if not encrypted_path.read_bytes().startswith(b'Salted__'):
-                  raise SystemExit(f'Invalid OpenSSL ciphertext header: {encrypted_path}')
+              sops_env_keys(encrypted_path)
 
           forbidden_environment = {
               ('ai', 'hermes'): {'HERMES_DASHBOARD_TUI'},
@@ -217,6 +244,16 @@ jobs:
           if any('3129' in str(port) for port in jd_ports):
               raise SystemExit('JDownloader Direct Connection port must not be published')
 
+          sops_config = pathlib.Path('.sops.yaml').read_text(encoding='utf-8')
+          if not re.search(r'age1[a-z0-9]{58}', sops_config):
+              raise SystemExit('.sops.yaml must name an age recipient')
+          wrapped_key = pathlib.Path('.sops-key.age').read_bytes()
+          if not wrapped_key.startswith(b'age-encryption.org/v1\n-> scrypt '):
+              raise SystemExit('.sops-key.age must be an age file encrypted with a passphrase')
+          private_key_marker = 'AGE-SECRET-' + 'KEY-1'
+          if subprocess.run(['git', 'grep', '-lI', '-e', private_key_marker]).returncode == 0:
+              raise SystemExit('A plaintext age identity is committed')
+
           print('Repository topology and deployment invariants OK')
           PY
 
@@ -226,7 +263,7 @@ jobs:
           set -euo pipefail
           for stack_dir in docker/*/; do
               stack=$(basename "$stack_dir")
-              cp "docker/$stack/.env.example" "docker/$stack/.env"
+              sed -n -E 's/^([A-Za-z_][A-Za-z0-9_]*)=.*/\1=ci-placeholder/p' "docker/$stack/.env.enc" | grep -v '^sops_' > "docker/$stack/.env"
               (cd "docker/$stack" && docker compose config --quiet)
               rm -f "docker/$stack/.env"
           done

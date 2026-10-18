@@ -36,7 +36,7 @@ cleanup_deploy_secrets() {
         rm -f -- "$ENV_DECRYPTED_PATH"
         ENV_DECRYPTED_PATH=""
     fi
-    unset ENV_ENC_KEY
+    unset SOPS_AGE_KEY
 }
 
 trap cleanup_deploy_secrets EXIT
@@ -58,28 +58,16 @@ decrypt_env_for_deploy() {
         exit 1
     fi
 
-    # Get passphrase and decrypt
-    local pass
-    pass=$(get_or_prompt_env_passphrase)
-
-    # Export passphrase for use by deployment modules (e.g., backup stack needs it)
-    ENV_ENC_KEY="$pass"
-    export ENV_ENC_KEY
+    load_sops_age_key
 
     (
         umask 077
-        decrypt_openssl_file "$enc_file" "$ENV_DECRYPTED_PATH" "$pass"
+        decrypt_env_file "$enc_file" "$ENV_DECRYPTED_PATH"
     ) || {
-        print_error "Failed to decrypt .env.enc"
+        print_error "Failed to decrypt $enc_file"
         rm -f "$ENV_DECRYPTED_PATH"
         exit 1
     }
-
-    if ! validate_env_file_schema "$ENV_DECRYPTED_PATH" "$WORK_DIR/docker/$stack/.env.example"; then
-        print_error "Encrypted environment schema does not match docker/$stack/.env.example"
-        rm -f "$ENV_DECRYPTED_PATH"
-        exit 1
-    fi
 }
 
 # Prepare host environment
@@ -115,18 +103,13 @@ get_stack_config "$STACK_NAME"
 
 # Step 2: Environment setup
 if [[ "$STACK_NAME" == "dev" ]]; then
-    ENV_ENC_KEY=$(get_or_prompt_env_passphrase)
-    export ENV_ENC_KEY
+    load_sops_age_key
 
-    # Validate passphrase upfront against ai/.env.enc before provisioning
-    test_tmp=$(mktemp)
-    register_runtime_temp_file "$test_tmp"
-    if ! decrypt_openssl_file "$WORK_DIR/docker/ai/.env.enc" "$test_tmp" "$ENV_ENC_KEY"; then
-        rm -f "$test_tmp"
+    # Validate the master passphrase and AI environment before provisioning
+    decrypt_env_file "$WORK_DIR/docker/ai/.env.enc" /dev/null || {
         print_error "Failed to decrypt docker/ai/.env.enc"
         exit 1
-    fi
-    rm -f "$test_tmp"
+    }
 else
     decrypt_env_for_deploy "$STACK_NAME"
 fi

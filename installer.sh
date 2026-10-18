@@ -67,10 +67,30 @@ rm -f "$archive_file"
 
 print_success "Environment setup complete"
 
-# Ensure yq is available before running menus
-if ! command -v yq &>/dev/null; then
+# Ensure yq and age are available before running menus. age unwraps the SOPS
+# identity from the master passphrase.
+missing_tools=()
+for tool in yq age; do
+    command -v "$tool" &>/dev/null || missing_tools+=("$tool")
+done
+if [[ ${#missing_tools[@]} -gt 0 ]]; then
     apt-get update -q || { print_error "Failed to update package lists"; exit 1; }
-    apt-get install -y yq || { print_error "Failed to install yq"; exit 1; }
+    apt-get install -y "${missing_tools[@]}" || { print_error "Failed to install ${missing_tools[*]}"; exit 1; }
+fi
+
+# SOPS is not packaged for Debian. Install the latest release once, verified
+# against the SHA-256 checksums published with it; later runs reuse the binary.
+# To upgrade, delete /usr/local/bin/sops and run the installer again.
+if ! command -v sops &>/dev/null; then
+    print_info "Installing sops..."
+    sops_tag=$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/getsops/sops/releases/latest)
+    sops_tag="${sops_tag##*/}"
+    sops_url="https://github.com/getsops/sops/releases/download/${sops_tag}"
+    curl -fsSL "$sops_url/sops-${sops_tag}.linux.amd64" -o "$WORK_DIR/sops"
+    curl -fsSL "$sops_url/sops-${sops_tag}.checksums.txt" -o "$WORK_DIR/sops.checksums"
+    sops_sha256=$(awk -v name="sops-${sops_tag}.linux.amd64" '$2 == name { print $1 }' "$WORK_DIR/sops.checksums")
+    echo "$sops_sha256  $WORK_DIR/sops" | sha256sum -c --quiet -
+    install -m 0755 "$WORK_DIR/sops" /usr/local/bin/sops
 fi
 
 # 3. Parse CLI arguments or launch interactive menu

@@ -575,7 +575,7 @@ run_install_beszel_agent() {
     require_root
 
     local enc_file="$WORK_DIR/docker/utility/.env.enc"
-    local env_tmp pass
+    local env_tmp
 
     [[ -f "$enc_file" ]] || {
         print_error "Encrypted Utility environment not found at $enc_file"
@@ -584,15 +584,15 @@ run_install_beszel_agent() {
 
     env_tmp=$(mktemp /tmp/beszel-agent-env.XXXXXX)
     register_runtime_temp_file "$env_tmp"
-    pass=$(get_or_prompt_env_passphrase)
-    if ! decrypt_openssl_file "$enc_file" "$env_tmp" "$pass"; then
+    load_sops_age_key
+    if ! decrypt_env_file "$enc_file" "$env_tmp"; then
         print_error "Failed to decrypt Utility environment"
         return 1
     fi
 
     install_local_beszel_agent \
         "$env_tmp" "pve" "pve*,zfs*,beszel*" "/fastpool,/datapool"
-    unset pass
+    unset SOPS_AGE_KEY
 }
 
 

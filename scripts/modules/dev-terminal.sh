@@ -7,7 +7,7 @@
 deploy_dev_terminal() {
     local ct_id="$1"
     local guest_script remote_script
-    local hindsight_api_key="" hindsight_retain_mission="" ai_tmp=""
+    local hindsight_api_key="" hindsight_retain_mission="" ai_tmp="" # gitleaks:allow
     local ai_env_enc="$WORK_DIR/docker/ai/.env.enc"
 
     if [[ ! -f "$ai_env_enc" ]]; then
@@ -17,7 +17,7 @@ deploy_dev_terminal() {
 
     ai_tmp=$(mktemp)
     register_runtime_temp_file "$ai_tmp"
-    if ! decrypt_openssl_file "$ai_env_enc" "$ai_tmp" "${ENV_ENC_KEY:-${KEY:-}}"; then
+    if ! decrypt_env_file "$ai_env_enc" "$ai_tmp"; then
         rm -f "$ai_tmp"
         print_error "Failed to decrypt docker/ai/.env.enc for Dev configuration"
         return 1

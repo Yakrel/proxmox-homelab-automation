@@ -11,13 +11,13 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
 
       # --- Server Identity & Security ---
       - SERVER_NAME=Proxmox Homelab Palworld
       - SERVER_DESCRIPTION=Homelab Palworld Server
-      - SERVER_PASSWORD=${PALWORLD_SERVER_PASSWORD}
-      - ADMIN_PASSWORD=${PALWORLD_ADMIN_PASSWORD}
+      - SERVER_PASSWORD=${PALWORLD_SERVER_PASSWORD:?PALWORLD_SERVER_PASSWORD must be defined}
+      - ADMIN_PASSWORD=${PALWORLD_ADMIN_PASSWORD:?PALWORLD_ADMIN_PASSWORD must be defined}
       - SERVER_SETTINGS_MODE=auto
       - MAX_PLAYERS=4
       - COMMUNITY_SERVER=false
@@ -80,7 +80,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 48 */6 * * *
       - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}

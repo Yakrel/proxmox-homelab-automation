@@ -16,10 +16,10 @@ install_local_beszel_agent() {
     local extra_filesystems="${4:-}"
     local public_key universal_token agent_script
 
-    public_key=$(get_env_value "BESZEL_PUBLIC_KEY" "$env_file")
+    public_key=$(get_beszel_public_key)
     universal_token=$(get_env_value "BESZEL_UNIVERSAL_TOKEN" "$env_file")
     if [[ -z "$public_key" || -z "$universal_token" ]]; then
-        print_error "Beszel enrollment values are missing from $env_file"
+        print_error "Beszel public key (stacks.yaml) or universal token ($env_file) is missing"
         return 1
     fi
 
@@ -250,10 +250,10 @@ deploy_lxc_beszel_agent() {
     local public_key universal_token fingerprint
     local guest_script remote_script
 
-    public_key=$(get_env_value "BESZEL_PUBLIC_KEY" "$env_file")
+    public_key=$(get_beszel_public_key)
     universal_token=$(get_env_value "BESZEL_UNIVERSAL_TOKEN" "$env_file")
     if [[ -z "$public_key" || -z "$universal_token" ]]; then
-        print_error "Beszel enrollment values are missing from $env_file"
+        print_error "Beszel public key (stacks.yaml) or universal token ($env_file) is missing"
         return 1
     fi
     fingerprint=$(beszel_fingerprint_for_name "$system_name")

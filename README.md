@@ -272,15 +272,18 @@ Uses `ghcr.io/ripps818/docker-palworld-dedicated-server-wine:latest`. Game files
 
 ## Secret Handling
 
-Stack environment files are stored encrypted as `.env.enc` files.
+Stack environment files are [SOPS](https://github.com/getsops/sops) dotenv files stored as `docker/<stack>/.env.enc`. Variable names stay readable; only the values are encrypted (AES-256-GCM with an integrity MAC) to the age recipient in `.sops.yaml`.
 
-Current encryption settings use:
+The age private key is committed only as `.sops-key.age`, encrypted with the master passphrase (age scrypt). The deployment scripts unwrap it once per run, so the master passphrase is the only prompt, and decrypt every required `.env.enc` with it in memory. Setting `SOPS_AGE_KEY` skips the prompt for non-interactive runs. The installer installs `age` from the Debian package and, when missing, the latest `sops` release to `/usr/local/bin` after verifying the SHA-256 checksums published with it. Delete `/usr/local/bin/sops` to pick up a newer release on the next run.
 
-- AES-256-CBC
-- PBKDF2-HMAC-SHA256
-- 600,000 PBKDF2 iterations
+Edit a value with the identity exported once per shell:
 
-The deployment scripts decrypt the required files at deployment time using the master key.
+```bash
+export SOPS_AGE_KEY=$(age --decrypt .sops-key.age)
+sops edit --input-type dotenv --output-type dotenv docker/ai/.env.enc
+```
+
+To set this up for a fork, create an identity with `age-keygen`, put its public key in `.sops.yaml`, wrap the identity with `age --passphrase --output .sops-key.age`, and encrypt each stack file with `sops encrypt --input-type dotenv --output-type dotenv --filename-override docker/<stack>/.env.enc`.
 
 ---
 
@@ -289,6 +292,8 @@ The deployment scripts decrypt the required files at deployment time using the m
 ```text
 ├── installer.sh                 # Main installer launcher
 ├── stacks.yaml                  # LXC definitions and resources
+├── .sops.yaml                   # age recipient for docker/*/.env.enc
+├── .sops-key.age                # age identity encrypted with the master passphrase
 ├── scripts/
 │   ├── main-menu.sh             # Interactive deployment menu
 │   ├── helper-menu.sh           # Host helper menu

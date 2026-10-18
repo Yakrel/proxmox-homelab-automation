@@ -11,6 +11,10 @@ nvidia:
   driver_version: "580.178.04"
   driver_sha256: "5975a86ee45bffcb626f51ae33d1169b108186a2ea47ad651e72f13fa4b6d6f9"
 
+# Beszel hub SSH public key shared by every agent (public by design).
+beszel:
+  public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHOIVKR0CYdsPJEiiDoWZu+Ry7x3/U7sPX8zYOYXlSgd"
+
 stacks:
   gateway:
     ct_id: 100

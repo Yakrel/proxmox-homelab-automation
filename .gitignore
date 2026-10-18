@@ -41,13 +41,9 @@ setting.local.json
 .mcp.json
 
 # Other
-.gemini/
-.antigravity/
 *.env
-!*.env.example
 !*.env.enc
 .env.local
 .env.tmp
-.vault_pass
 
 scratch/

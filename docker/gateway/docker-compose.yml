@@ -22,7 +22,7 @@ services:
       - /fastpool/config/npm/data:/data
       - /fastpool/config/npm/letsencrypt:/etc/letsencrypt
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
     networks:
       - proxy-net
     healthcheck:
@@ -52,7 +52,7 @@ services:
       - /fastpool/config/adguard/work:/opt/adguardhome/work
       - /fastpool/config/adguard/conf:/opt/adguardhome/conf
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
     networks:
       - adguard-net
     logging:
@@ -70,7 +70,7 @@ services:
     command: tunnel --no-autoupdate run --protocol http2
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARED_TOKEN:?Cloudflare tunnel token must be defined}
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
     healthcheck:
       disable: true
     networks:
@@ -90,7 +90,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 0 */6 * * *
       - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}

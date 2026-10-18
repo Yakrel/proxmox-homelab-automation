@@ -11,7 +11,6 @@ source "$WORK_DIR/scripts/modules/beszel-agent.sh"
 source "$WORK_DIR/scripts/modules/docker-deployment.sh"
 source "$WORK_DIR/scripts/modules/dev-terminal.sh"
 
-ENV_ENC_KEY=""
 ENV_DECRYPTED_PATH=""
 TEMP_DIR=""
 
@@ -22,7 +21,7 @@ cleanup_fast_redeploy_secrets() {
         TEMP_DIR=""
     fi
     ENV_DECRYPTED_PATH=""
-    unset ENV_ENC_KEY
+    unset SOPS_AGE_KEY
 }
 
 trap cleanup_fast_redeploy_secrets EXIT
@@ -35,19 +34,14 @@ decrypt_stack_env() {
     local enc_file="$WORK_DIR/docker/$stack/.env.enc"
     local output_file="$TEMP_DIR/${stack}.env"
 
-    decrypt_openssl_file "$enc_file" "$output_file" "$ENV_ENC_KEY" || {
+    decrypt_env_file "$enc_file" "$output_file" || {
         rm -f "$output_file"
         print_error "Failed to decrypt docker/$stack/.env.enc"
         exit 1
     }
-    if ! validate_env_file_schema "$output_file" "$WORK_DIR/docker/$stack/.env.example"; then
-        rm -f "$output_file"
-        print_error "Encrypted environment schema does not match docker/$stack/.env.example"
-        exit 1
-    fi
 
     ENV_DECRYPTED_PATH="$output_file"
-    export ENV_DECRYPTED_PATH ENV_ENC_KEY
+    export ENV_DECRYPTED_PATH
 }
 
 fast_redeploy_stack() {
@@ -132,8 +126,7 @@ main() {
     done
 
     if [[ "$needs_encryption" == true ]]; then
-        ENV_ENC_KEY=$(get_or_prompt_env_passphrase)
-        export ENV_ENC_KEY
+        load_sops_age_key
     fi
 
     for stack in "${stacks[@]}"; do

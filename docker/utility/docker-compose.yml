@@ -31,7 +31,7 @@ services:
     environment:
       - JD_EMAIL=${MYJD_USER:?MyJDownloader email must be defined}
       - JD_PASSWORD=${MYJD_PASSWORD:?MyJDownloader password must be defined}
-      - JD_DEVICENAME=${MYJD_DEVICE_NAME:-homelab-jdownloader}
+      - JD_DEVICENAME=homelab-jdownloader
     volumes:
       - /fastpool/config/jdownloader2:/jdownloader/cfg
       - /datapool/downloads/jdownloader:/jdownloader/downloads
@@ -63,7 +63,7 @@ services:
       - NET_ADMIN
       - NET_RAW
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       # Restrict SMB to the fixed workstation and laptop addresses. The image
       # maps this directly to Samba's global hosts allow setting.
       - SAMBA_HOSTS_ALLOW=192.168.1.20 192.168.1.21
@@ -101,19 +101,19 @@ services:
     ports:
       - "8090:3000"
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
-      - QBIT_HOST=${REPACKARR_QBIT_HOST}
+      - TZ=Europe/Istanbul
+      - QBIT_HOST=http://192.168.1.101:8080
       - QBIT_USERNAME=${REPACKARR_QBIT_USERNAME}
-      - QBIT_PASSWORD=${REPACKARR_QBIT_PASSWORD}
-      - QBIT_CATEGORY=${REPACKARR_QBIT_CATEGORY}
-      - PROWLARR_URL=${REPACKARR_PROWLARR_URL}
-      - PROWLARR_API_KEY=${REPACKARR_PROWLARR_API_KEY}
-      - CRON_INTERVAL_MINUTES=${REPACKARR_CRON_INTERVAL_MINUTES}
-      - PLATFORM_FILTER=${REPACKARR_PLATFORM_FILTER}
-      - IGNORED_KEYWORDS=${REPACKARR_IGNORED_KEYWORDS}
-      - ALLOWED_INDEXERS=${REPACKARR_ALLOWED_INDEXERS}
+      - QBIT_PASSWORD=${REPACKARR_QBIT_PASSWORD:?REPACKARR_QBIT_PASSWORD must be defined}
+      - QBIT_CATEGORY=games
+      - PROWLARR_URL=http://192.168.1.101:9696
+      - PROWLARR_API_KEY=${REPACKARR_PROWLARR_API_KEY:?REPACKARR_PROWLARR_API_KEY must be defined}
+      - CRON_INTERVAL_MINUTES=180
+      - PLATFORM_FILTER=Windows,Linux
+      - IGNORED_KEYWORDS=OST,Soundtrack,Wallpaper,Update Only,Crack Only
+      - ALLOWED_INDEXERS=NoNaMe Club, RuTracker.org
       - IGDB_CLIENT_ID=${REPACKARR_IGDB_CLIENT_ID}
-      - IGDB_CLIENT_SECRET=${REPACKARR_IGDB_CLIENT_SECRET}
+      - IGDB_CLIENT_SECRET=${REPACKARR_IGDB_CLIENT_SECRET:?REPACKARR_IGDB_CLIENT_SECRET must be defined}
     volumes:
       - /fastpool/config/repackarr/data:/app/data
       - /fastpool/config/repackarr/logs:/app/logs
@@ -147,7 +147,7 @@ services:
       - /fastpool/config:/backup-sources/config:ro
       - /datapool/photos/immich:/backup-sources/immich:ro
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       - BACKREST_CONFIG=/config/config.json
       - BACKREST_DATA=/data
       - BACKREST_PORT=9898
@@ -180,7 +180,7 @@ services:
       - PUID=1000
       - PGID=1000
       - UMASK=002
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
     volumes:
       - /fastpool/config/metube:/config
       - /datapool/downloads/metube:/downloads
@@ -210,7 +210,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_SCHEDULE=0 24 */6 * * *
       - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
@@ -239,7 +239,7 @@ services:
     volumes:
       - /fastpool/config/changedetection:/datastore
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       - PLAYWRIGHT_DRIVER_URL=ws://headless-chrome:3000/?stealth=1&--disable-web-security=true
       - ALLOW_IANA_RESTRICTED_ADDRESSES=true
     depends_on:
@@ -266,7 +266,7 @@ services:
       - 94.140.14.14
       - 94.140.15.15
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       - SCREEN_WIDTH=1920
       - SCREEN_HEIGHT=1080
       - SCREEN_DEPTH=24
@@ -291,18 +291,18 @@ services:
     ports:
       - "3080:3000"
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       - MEILI_ADDR=http://karakeep-meili:7700
       - MEILI_MASTER_KEY=${KARAKEEP_MEILI_MASTER_KEY:?Karakeep Meili master key is required}
       - BROWSER_WEB_URL=ws://headless-chrome:3000
       - BROWSER_CONNECT_ONDEMAND=true
       - DATA_DIR=/data
       - NEXTAUTH_SECRET=${KARAKEEP_NEXTAUTH_SECRET:?Karakeep NextAuth secret is required}
-      - NEXTAUTH_URL=${KARAKEEP_NEXTAUTH_URL:?Karakeep NextAuth URL is required}
-      - OPENAI_API_KEY=${KARAKEEP_OPENAI_API_KEY}
-      - OPENAI_BASE_URL=${KARAKEEP_OPENAI_BASE_URL}
-      - INFERENCE_TEXT_MODEL=${KARAKEEP_INFERENCE_TEXT_MODEL:-shared/resilient-multimodal}
-      - INFERENCE_IMAGE_MODEL=${KARAKEEP_INFERENCE_IMAGE_MODEL:-shared/resilient-multimodal}
+      - NEXTAUTH_URL=https://karakeep.byetgin.com
+      - OPENAI_API_KEY=${KARAKEEP_OPENAI_API_KEY:?KARAKEEP_OPENAI_API_KEY must be defined}
+      - OPENAI_BASE_URL=https://omniroute.byetgin.com/v1
+      - INFERENCE_TEXT_MODEL=shared/resilient-multimodal
+      - INFERENCE_IMAGE_MODEL=shared/resilient-multimodal
     volumes:
       - /fastpool/config/karakeep/data:/data
     depends_on:
@@ -324,7 +324,7 @@ services:
     container_name: karakeep-meili
     restart: unless-stopped
     environment:
-      - TZ=${TZ:-Europe/Istanbul}
+      - TZ=Europe/Istanbul
       - MEILI_NO_ANALYTICS=true
       # Watchtower follows the latest image, so allow supported Meilisearch
       # database upgrades when a newer engine replaces the running version.
