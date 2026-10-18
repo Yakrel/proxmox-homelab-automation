@@ -9,6 +9,8 @@ The setup is built around Proxmox VE, ZFS, Docker Compose, Tailscale, Cloudflare
 
 ---
 
+> **This is a personal homelab setup, not a general-purpose installer.** The `.env.enc` files are encrypted with the owner's private passphrase and cannot be decrypted with any other key. Hardware and network details (`192.168.1.x` addressing, LXC IDs 100–106, `fastpool`/`datapool` ZFS pools, NVIDIA GTX 970, domains, Cloudflare Tunnel, Tailscale) are hardcoded, and the installer always downloads from this repository. To reuse it, fork the repo, point `installer.sh` at your fork, replace every `.env.enc` with your own (see [Secret Handling](#secret-handling)), and adapt `stacks.yaml` and the compose files to your environment.
+
 ## Quick Start
 
 Run this command on the Proxmox host:
