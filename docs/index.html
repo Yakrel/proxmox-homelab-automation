@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Berkay Yetgin'in Proxmox tabanlı kişisel homelab yapısının kısa teknik özeti.">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Berkay Yetgin">
+    <link rel="canonical" href="https://infra.byetgin.com/">
+    <meta property="og:title" content="Proxmox Homelab | Berkay Yetgin">
+    <meta property="og:description" content="Proxmox, LXC, Docker, ZFS, Tailscale, Cloudflare Tunnel ve backup yapısının kısa özeti.">
+    <meta property="og:url" content="https://infra.byetgin.com/">
+    <meta property="og:type" content="website">
+    <title>Proxmox Homelab | Berkay Yetgin</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0b0d10;
+            --surface: #11151a;
+            --surface-2: #0d1116;
+            --border: #29313b;
+            --text: #f3f5f7;
+            --muted: #9ba7b4;
+            --soft: #d1d7dd;
+            --accent: #8bb9ff;
+            --max: 1080px;
+        }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            line-height: 1.6;
+        }
+        a { color: inherit; }
+        .wrap { width: min(var(--max), calc(100% - 40px)); margin: 0 auto; }
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 1px solid var(--border);
+            background: rgba(11, 13, 16, .94);
+            backdrop-filter: blur(12px);
+        }
+        nav { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+        .brand { text-decoration: none; font-weight: 760; letter-spacing: -.02em; }
+        .nav-links { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .nav-link, .lang-btn { border: 0; background: transparent; color: var(--muted); text-decoration: none; cursor: pointer; font-size: 13px; }
+        .nav-link:hover, .lang-btn:hover, .lang-btn.active { color: var(--text); }
+        .lang-switch { display: inline-flex; gap: 5px; padding-left: 12px; border-left: 1px solid var(--border); }
+        main { padding-bottom: 64px; }
+        .hero { padding: 96px 0 72px; border: 0; }
+        .eyebrow { margin-bottom: 14px; color: var(--accent); font-size: 12px; font-weight: 760; letter-spacing: .11em; text-transform: uppercase; }
+        h1 { max-width: 840px; margin: 0; font-size: clamp(3rem, 8vw, 6rem); line-height: 1; letter-spacing: -.055em; }
+        .lead { max-width: 780px; margin-top: 24px; color: var(--soft); font-size: 1.08rem; }
+        .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+        .button {
+            min-height: 42px;
+            display: inline-flex;
+            align-items: center;
+            padding: 0 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface);
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .button:hover { border-color: var(--accent); }
+        .facts { margin-top: 42px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+        .fact { padding: 19px; }
+        .fact + .fact { border-left: 1px solid var(--border); }
+        .fact strong { display: block; margin-bottom: 4px; font-size: 1.12rem; }
+        .fact span { color: var(--muted); font-size: 13px; }
+        section { padding: 68px 0; border-top: 1px solid var(--border); scroll-margin-top: 64px; }
+        .section-head { max-width: 760px; margin-bottom: 28px; }
+        .section-index { display: block; margin-bottom: 8px; color: var(--accent); font-size: 12px; font-weight: 760; letter-spacing: .08em; text-transform: uppercase; }
+        h2 { margin: 0; font-size: clamp(2rem, 4vw, 3rem); line-height: 1.08; letter-spacing: -.04em; }
+        .section-intro { margin-top: 13px; color: var(--muted); }
+        .architecture, .grid, .notes { display: grid; gap: 12px; }
+        .architecture { grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: stretch; }
+        .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .card {
+            padding: 20px;
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            background: var(--surface);
+        }
+        .card h3 { margin: 0 0 7px; font-size: 1rem; }
+        .card p { margin: 0; color: var(--muted); font-size: 13px; }
+        .arrow { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 20px; }
+        .path { margin-top: 14px; padding: 15px 17px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--soft); font-size: 13px; overflow-x: auto; }
+        .notes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .note { padding: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+        .note strong { display: block; margin-bottom: 6px; font-size: 14px; }
+        .note p { margin: 0; color: var(--muted); font-size: 13px; }
+        footer { padding: 28px 0 38px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+        .footer-row { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+        .footer-links { display: flex; gap: 14px; flex-wrap: wrap; }
+        .footer-links a { text-decoration: none; }
+        .footer-links a:hover { color: var(--text); }
+        body.lang-tr .en, body.lang-en .tr { display: none !important; }
+        @media (max-width: 860px) {
+            .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .fact:nth-child(3) { border-left: 0; border-top: 1px solid var(--border); }
+            .fact:nth-child(4) { border-top: 1px solid var(--border); }
+            .architecture, .grid.three, .notes { grid-template-columns: 1fr; }
+            .arrow { transform: rotate(90deg); min-height: 28px; }
+        }
+        @media (max-width: 620px) {
+            .wrap { width: min(var(--max), calc(100% - 28px)); }
+            nav { align-items: flex-start; padding: 15px 0; }
+            .nav-links .section-nav { display: none; }
+            .hero { padding: 72px 0 56px; }
+            .facts, .grid.two { grid-template-columns: 1fr; }
+            .fact + .fact { border-left: 0; border-top: 1px solid var(--border); }
+        }
+    </style>
+</head>
+<body class="lang-tr">
+    <header>
+        <div class="wrap">
+            <nav>
+                <a class="brand" href="#top">Berkay Yetgin / Homelab</a>
+                <div class="nav-links">
+                    <a class="nav-link section-nav tr" href="#architecture">Mimari</a>
+                    <a class="nav-link section-nav en" href="#architecture">Architecture</a>
+                    <a class="nav-link section-nav tr" href="#operations">Operasyon</a>
+                    <a class="nav-link section-nav en" href="#operations">Operations</a>
+                    <a class="nav-link section-nav tr" href="#backup">Yedek</a>
+                    <a class="nav-link section-nav en" href="#backup">Backup</a>
+                    <a class="nav-link" href="topology.html" target="_blank" rel="noopener"><span class="tr">Topoloji</span><span class="en">Topology</span></a>
+                    <a class="nav-link" href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" rel="noopener">GitHub</a>
+                    <span class="lang-switch" aria-label="Language">
+                        <button class="lang-btn" type="button" data-lang="tr">TR</button>
+                        <button class="lang-btn" type="button" data-lang="en">EN</button>
+                    </span>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main id="top" class="wrap">
+        <section class="hero">
+            <div class="eyebrow tr">Kişisel homelab</div>
+            <div class="eyebrow en">Personal homelab</div>
+            <h1>Proxmox Homelab</h1>
+            <p class="lead tr">Evde kullandığım servisleri Proxmox üzerinde LXC'lere ayırarak çalıştırdığım kişisel ortam. Bu sayfada mimari, erişim, deployment ve backup yapısının kısa bir özeti var.</p>
+            <p class="lead en">My personal Proxmox environment for services I use at home. This page gives a short overview of its architecture, access paths, deployment flow, and backups.</p>
+            <div class="actions">
+                <a class="button tr" href="#architecture">Mimari</a>
+                <a class="button en" href="#architecture">Architecture</a>
+                <a class="button tr" href="topology.html" target="_blank" rel="noopener">Etkileşimli topoloji</a>
+                <a class="button en" href="topology.html" target="_blank" rel="noopener">Interactive topology</a>
+                <a class="button" href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" rel="noopener">GitHub</a>
+            </div>
+            <div class="facts">
+                <div class="fact"><strong>6 LXC</strong><span class="tr">İş yüklerini ayırmak için</span><span class="en">Separated workloads</span></div>
+                <div class="fact"><strong>Docker</strong><span class="tr">Uygulama servisleri</span><span class="en">Application services</span></div>
+                <div class="fact"><strong>ZFS</strong><span class="tr">Depolama ve snapshot</span><span class="en">Storage and snapshots</span></div>
+                <div class="fact"><strong>0 WAN port</strong><span class="tr">Router'da açık inbound port yok</span><span class="en">No inbound router port forwarding</span></div>
+            </div>
+        </section>
+
+        <section id="architecture">
+            <div class="section-head">
+                <span class="section-index tr">01 — Mimari</span><span class="section-index en">01 — Architecture</span>
+                <h2 class="tr">Erişim, gateway ve iş yükleri ayrı katmanlarda.</h2>
+                <h2 class="en">Access, gateway, and workloads are separated.</h2>
+                <p class="section-intro tr">Yerel ağ, Tailscale ve Cloudflare Tunnel üzerinden gelen trafik önce gateway katmanına gelir. Uygulamalar ayrı LXC'lerde çalışır.</p>
+                <p class="section-intro en">LAN, Tailscale, and Cloudflare Tunnel traffic reaches the gateway layer first. Applications run in separate LXCs.</p>
+            </div>
+            <div class="architecture">
+                <div class="card"><h3 class="tr">Erişim</h3><h3 class="en">Access</h3><p>LAN / Split DNS<br>Tailscale<br>Cloudflare Tunnel + Access</p></div>
+                <div class="card"><h3>Gateway — LXC 100</h3><p>AdGuard Home<br>Nginx Proxy Manager<br>Cloudflared</p></div>
+                <div class="card"><h3 class="tr">İş yükleri — LXC 101–106</h3><h3 class="en">Workloads — LXC 101–106</h3><p class="tr">Medya, yardımcı servisler, uzak masaüstü, AI, geliştirme ortamı ve oyun sunucusu</p><p class="en">Media, utility, remote desktop, AI, development, and game server workloads</p></div>
+                <div class="card"><h3>Proxmox VE + ZFS</h3><p class="tr">LXC yönetimi, storage, snapshot ve seçili GPU paylaşımı</p><p class="en">LXC management, storage, snapshots, and selected GPU sharing</p></div>
+            </div>
+            <div class="path">Internet → Cloudflare Tunnel → Nginx Proxy Manager → application LXC</div>
+            <div class="path">Admin device → Tailscale → private network → Proxmox / internal services</div>
+        </section>
+
+        <section id="operations">
+            <div class="section-head">
+                <span class="section-index tr">02 — Operasyon</span><span class="section-index en">02 — Operations</span>
+                <h2 class="tr">Kurulum ve değişiklikleri mümkün olduğunca tekrar edilebilir tutuyorum.</h2>
+                <h2 class="en">I keep deployment and changes as repeatable as possible.</h2>
+            </div>
+            <div class="grid two">
+                <div class="card"><h3 class="tr">Konfigürasyon</h3><h3 class="en">Configuration</h3><p class="tr"><code>stacks.yaml</code>, Docker Compose dosyaları ve servis şablonları repoda tutuluyor.</p><p class="en"><code>stacks.yaml</code>, Docker Compose files, and service templates are kept in the repository.</p></div>
+                <div class="card"><h3>Deployment</h3><p class="tr">Installer ve stack scriptleri ile LXC ve uygulama servislerini yeniden kurabiliyorum.</p><p class="en">Installer and stack scripts recreate LXCs and application services.</p></div>
+                <div class="card"><h3 class="tr">Güncelleme ve kontrol</h3><h3 class="en">Updates and checks</h3><p class="tr">Docker healthcheck, Homepage kontrolleri ve Watchtower ile temel servis durumunu ve container güncellemelerini takip ediyorum.</p><p class="en">Docker health checks, Homepage probes, and Watchtower cover basic service status and container updates.</p></div>
+                <div class="card"><h3 class="tr">Ağ kuralları</h3><h3 class="en">Network rules</h3><p class="tr">LXC'lerde inbound trafik varsayılan olarak kapalı; gerekli kaynak ve portlar ayrı ayrı izinli.</p><p class="en">Inbound LXC traffic is denied by default and required source/port pairs are allowed explicitly.</p></div>
+            </div>
+        </section>
+
+        <section id="security">
+            <div class="section-head">
+                <span class="section-index tr">03 — Erişim ve güvenlik</span><span class="section-index en">03 — Access and security</span>
+                <h2 class="tr">Yönetim trafiği ile yayınlanan web servislerini ayırıyorum.</h2>
+                <h2 class="en">Management traffic is separate from published web services.</h2>
+            </div>
+            <div class="grid three">
+                <div class="card"><h3>Tailscale</h3><p class="tr">Proxmox ve özel ağ erişimi için kullanıyorum.</p><p class="en">Used for Proxmox and private network access.</p></div>
+                <div class="card"><h3>Cloudflare Tunnel + Access</h3><p class="tr">Seçili web servislerine router portu açmadan erişim sağlıyor.</p><p class="en">Provides access to selected web services without router port forwarding.</p></div>
+                <div class="card"><h3 class="tr">Secret yönetimi</h3><h3 class="en">Secret handling</h3><p class="tr">Hassas konfigürasyon dosyaları Git'te şifreli tutuluyor; LXC yönetimini ağırlıklı olarak Proxmox konsolundan yapıyorum.</p><p class="en">Sensitive configuration files are encrypted in Git; LXC administration is mainly done through the Proxmox console.</p></div>
+            </div>
+        </section>
+
+        <section id="backup">
+            <div class="section-head">
+                <span class="section-index tr">04 — Yedekleme ve geri dönüş</span><span class="section-index en">04 — Backup and recovery</span>
+                <h2 class="tr">Snapshot, backup ve uzak kopyayı ayrı işler olarak kullanıyorum.</h2>
+                <h2 class="en">Snapshots, backups, and remote copies have separate roles.</h2>
+            </div>
+            <div class="grid three">
+                <div class="card"><h3>ZFS + Sanoid</h3><p class="tr">Yerel snapshot ve hızlı geri dönüş.</p><p class="en">Local snapshots and quick rollback.</p></div>
+                <div class="card"><h3>Backrest + Restic</h3><p class="tr">Seçili konfigürasyon ve uygulama verilerinin şifreli yedeği.</p><p class="en">Encrypted backup of selected configuration and application data.</p></div>
+                <div class="card"><h3>Oracle VPS + Google Drive</h3><p class="tr">Restic repository'nin iki uzak kopyası.</p><p class="en">Two remote copies of the Restic repository.</p></div>
+            </div>
+        </section>
+
+        <section id="notes">
+            <div class="section-head">
+                <span class="section-index tr">05 — Notlar</span><span class="section-index en">05 — Notes</span>
+                <h2 class="tr">Bu ortamın sınırları da net.</h2>
+                <h2 class="en">The limits of this environment are straightforward.</h2>
+            </div>
+            <div class="notes">
+                <div class="note"><strong class="tr">Tek fiziksel node</strong><strong class="en">Single physical node</strong><p class="tr">Gerçek HA yok. Host arızasında servis kesintisi olur; amaç veriyi korumak ve yeniden kurulum süresini kısaltmak.</p><p class="en">There is no true HA. A host failure causes an outage; the goal is data protection and a shorter rebuild path.</p></div>
+                <div class="note"><strong class="tr">Ortama özel</strong><strong class="en">Environment specific</strong><p class="tr">Network, storage ve donanım değerleri kendi ev ortamıma göre tanımlı. Genel amaçlı ürün değil.</p><p class="en">Network, storage, and hardware values match my home environment. It is not a generic product.</p></div>
+                <div class="note"><strong class="tr">Basit izleme</strong><strong class="en">Simple monitoring</strong><p class="tr">Tek node ölçeğinde Docker healthcheck, Homepage ve bildirimleri yeterli tutuyorum.</p><p class="en">For a single-node homelab, I currently keep monitoring to Docker health checks, Homepage, and notifications.</p></div>
+            </div>
+        </section>
+
+        <section id="links">
+            <div class="section-head">
+                <span class="section-index tr">06 — Detaylar</span><span class="section-index en">06 — Details</span>
+                <h2 class="tr">İsterseniz mimariyi veya kaynak kodu daha detaylı inceleyebilirsiniz.</h2>
+                <h2 class="en">The topology and source code are available for a closer look.</h2>
+            </div>
+            <div class="actions">
+                <a class="button tr" href="topology.html" target="_blank" rel="noopener">Etkileşimli topolojiyi aç</a>
+                <a class="button en" href="topology.html" target="_blank" rel="noopener">Open interactive topology</a>
+                <a class="button" href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" rel="noopener">GitHub</a>
+                <a class="button" href="https://byetgin.com" target="_blank" rel="noopener">byetgin.com</a>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="wrap footer-row">
+            <span>© 2026 Berkay Yetgin · Proxmox Homelab</span>
+            <div class="footer-links">
+                <a href="https://byetgin.com" target="_blank" rel="noopener">byetgin.com</a>
+                <a href="https://www.linkedin.com/in/berkayyetgin" target="_blank" rel="noopener">LinkedIn</a>
+                <a href="https://github.com/Yakrel" target="_blank" rel="noopener">GitHub</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const languageButtons = document.querySelectorAll("[data-lang]");
+        function setLanguage(language) {
+            const selected = language === "en" ? "en" : "tr";
+            document.body.classList.toggle("lang-tr", selected === "tr");
+            document.body.classList.toggle("lang-en", selected === "en");
+            document.documentElement.lang = selected;
+            languageButtons.forEach(function (button) {
+                button.classList.toggle("active", button.dataset.lang === selected);
+            });
+            localStorage.setItem("infra-language", selected);
+        }
+        const savedLanguage = localStorage.getItem("infra-language");
+        const browserLanguage = navigator.language && navigator.language.toLowerCase().startsWith("tr") ? "tr" : "en";
+        setLanguage(savedLanguage || browserLanguage);
+        languageButtons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                setLanguage(button.dataset.lang);
+            });
+        });
+    </script>
+</body>
+</html>

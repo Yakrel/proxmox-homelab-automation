@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Berkay Yetgin'in Proxmox homelab ağ ve erişim topolojisi.">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Berkay Yetgin">
+    <meta name="theme-color" content="#0b0d10">
+    <link rel="canonical" href="https://infra.byetgin.com/topology.html">
+    <meta property="og:title" content="Homelab Topology | Berkay Yetgin">
+    <meta property="og:description" content="Proxmox, LXC, Cloudflare Tunnel, Tailscale, split DNS ve yerel ağ topolojisi.">
+    <meta property="og:url" content="https://infra.byetgin.com/topology.html">
+    <meta property="og:type" content="website">
+    <title>Homelab Topology | Berkay Yetgin</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0b0d10;
+            --surface: #11151a;
+            --surface-2: #0d1116;
+            --border: #29313b;
+            --text: #f3f5f7;
+            --soft: #d1d7dd;
+            --muted: #9ba7b4;
+            --accent: #8bb9ff;
+            --public: #e7b878;
+            --lan: #7ed6a4;
+            --admin: #b7a1ff;
+            --max: 1160px;
+        }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            line-height: 1.6;
+        }
+        a { color: inherit; }
+        button { font: inherit; }
+        .wrap { width: min(var(--max), calc(100% - 40px)); margin: 0 auto; }
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 1px solid var(--border);
+            background: rgba(11, 13, 16, .94);
+            backdrop-filter: blur(12px);
+        }
+        nav {
+            min-height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+        }
+        .brand { text-decoration: none; font-weight: 760; letter-spacing: -.02em; }
+        .nav-links { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .nav-link, .lang-btn {
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .nav-link:hover, .lang-btn:hover, .lang-btn.active { color: var(--text); }
+        .lang-switch { display: inline-flex; gap: 5px; padding-left: 12px; border-left: 1px solid var(--border); }
+        main { padding: 82px 0 72px; }
+        .hero { max-width: 850px; margin-bottom: 42px; }
+        .eyebrow { color: var(--accent); font-size: 12px; font-weight: 760; letter-spacing: .1em; text-transform: uppercase; }
+        h1 { margin: 10px 0 0; font-size: clamp(2.7rem, 7vw, 5.3rem); line-height: 1; letter-spacing: -.055em; }
+        .lead { margin: 22px 0 0; color: var(--soft); font-size: 1.08rem; }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            margin-bottom: 54px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--surface);
+        }
+        .summary-item { padding: 18px; }
+        .summary-item + .summary-item { border-left: 1px solid var(--border); }
+        .summary-item strong { display: block; margin-bottom: 4px; }
+        .summary-item span { color: var(--muted); font-size: 13px; }
+        .section { padding: 54px 0; border-top: 1px solid var(--border); }
+        .section-head { max-width: 790px; margin-bottom: 26px; }
+        .section-index { color: var(--accent); font-size: 12px; font-weight: 760; letter-spacing: .08em; text-transform: uppercase; }
+        h2 { margin: 8px 0 0; font-size: clamp(1.9rem, 4vw, 2.9rem); line-height: 1.08; letter-spacing: -.04em; }
+        .section-head p { margin: 13px 0 0; color: var(--muted); }
+        .lane {
+            padding: 22px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--surface-2);
+        }
+        .lane + .lane { margin-top: 14px; }
+        .lane.public { border-left: 3px solid var(--public); }
+        .lane.lan { border-left: 3px solid var(--lan); }
+        .lane.admin { border-left: 3px solid var(--admin); }
+        .lane-title { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 17px; }
+        .lane-title strong { font-size: 1rem; }
+        .lane-title span { color: var(--muted); font-size: 12px; }
+        .flow {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto 1.25fr auto 1.25fr;
+            align-items: stretch;
+            gap: 9px;
+        }
+        .flow.five { grid-template-columns: 1fr auto 1.2fr auto 1.4fr; }
+        .flow.admin-flow { grid-template-columns: 1fr auto 1fr auto 1.6fr; }
+        .node {
+            min-height: 100px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--surface);
+        }
+        .node.gateway { border-color: rgba(139, 185, 255, .58); }
+        .node strong { display: block; font-size: 14px; }
+        .node span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+        .arrow {
+            min-width: 68px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            text-align: center;
+            font-size: 12px;
+        }
+        .arrow b { display: block; margin-bottom: 3px; color: var(--soft); font-size: 20px; font-weight: 500; }
+        .subflow { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+        .gateway-box {
+            padding: 22px;
+            border: 1px solid rgba(139, 185, 255, .52);
+            border-radius: 14px;
+            background: var(--surface);
+        }
+        .gateway-head { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+        .gateway-head h3 { margin: 0; font-size: 1.08rem; }
+        .gateway-head span { color: var(--muted); font-size: 13px; }
+        .services { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        .service { padding: 15px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); }
+        .service strong { display: block; font-size: 13px; }
+        .service span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+        .workloads { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+        .workload { padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+        .workload strong { display: block; font-size: 13px; }
+        .workload span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; }
+        .foundation { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        footer { padding: 28px 0 40px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+        .footer-row { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+        .footer-links { display: flex; gap: 14px; flex-wrap: wrap; }
+        .footer-links a { text-decoration: none; }
+        .footer-links a:hover { color: var(--text); }
+        body.lang-tr .en, body.lang-en .tr { display: none !important; }
+        @media (max-width: 980px) {
+            .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .summary-item:nth-child(3) { border-left: 0; border-top: 1px solid var(--border); }
+            .summary-item:nth-child(4) { border-top: 1px solid var(--border); }
+            .flow, .flow.five, .flow.admin-flow { grid-template-columns: 1fr; }
+            .arrow { min-height: 40px; }
+            .arrow b { transform: rotate(90deg); }
+            .services, .foundation { grid-template-columns: 1fr; }
+            .workloads { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 620px) {
+            .wrap { width: min(var(--max), calc(100% - 28px)); }
+            nav { align-items: flex-start; padding: 15px 0; }
+            .nav-links { gap: 10px; }
+            main { padding-top: 62px; }
+            .summary, .workloads { grid-template-columns: 1fr; }
+            .summary-item + .summary-item { border-left: 0; border-top: 1px solid var(--border); }
+            .gateway-head, .lane-title { display: block; }
+            .gateway-head span, .lane-title span { display: block; margin-top: 5px; }
+        }
+    </style>
+</head>
+<body class="lang-tr">
+    <header>
+        <div class="wrap">
+            <nav>
+                <a class="brand" href="index.html">Berkay Yetgin / Homelab</a>
+                <div class="nav-links">
+                    <a class="nav-link" href="index.html"><span class="tr">Ana sayfa</span><span class="en">Overview</span></a>
+                    <a class="nav-link" href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" rel="noopener">GitHub</a>
+                    <span class="lang-switch" aria-label="Language">
+                        <button class="lang-btn" type="button" data-lang="tr">TR</button>
+                        <button class="lang-btn" type="button" data-lang="en">EN</button>
+                    </span>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="wrap">
+        <div class="hero">
+            <div class="eyebrow tr">Ağ ve erişim topolojisi</div>
+            <div class="eyebrow en">Network and access topology</div>
+            <h1>Proxmox Homelab Topology</h1>
+            <p class="lead tr">Proxmox üzerinde çalışan LXC'ler, gateway servisleri, dış erişim, yerel ağ ve uzaktan yönetim bağlantıları.</p>
+            <p class="lead en">LXCs, gateway services, public access, local networking, and remote administration paths in my Proxmox homelab.</p>
+        </div>
+
+        <div class="summary">
+            <div class="summary-item"><strong>6 LXC</strong><span class="tr">Gateway + 5 iş yükü alanı</span><span class="en">Gateway + 5 workload groups</span></div>
+            <div class="summary-item"><strong>0 WAN port forward</strong><span class="tr">Dış web erişimi Cloudflare Tunnel ile</span><span class="en">Public web access via Cloudflare Tunnel</span></div>
+            <div class="summary-item"><strong>Tailscale</strong><span class="tr">Uzaktan yönetim erişimi</span><span class="en">Remote administration access</span></div>
+            <div class="summary-item"><strong>192.168.1.0/24</strong><span class="tr">Yerel homelab ağı</span><span class="en">Local homelab network</span></div>
+        </div>
+
+        <section class="section" id="paths">
+            <div class="section-head">
+                <span class="section-index tr">01 — Erişim yolları</span><span class="section-index en">01 — Access paths</span>
+                <h2 class="tr">Dış erişim, yerel ağ ve yönetim.</h2>
+                <h2 class="en">Public access, local network, and administration.</h2>
+            </div>
+
+            <div class="lane public">
+                <div class="lane-title"><strong class="tr">Dış web erişimi</strong><strong class="en">Public web access</strong><span>HTTPS</span></div>
+                <div class="flow">
+                    <div class="node"><strong class="tr">İnternet kullanıcısı</strong><strong class="en">Internet client</strong><span class="tr">Yayınlanan web servisi</span><span class="en">Published web service</span></div>
+                    <div class="arrow"><b>→</b><span>HTTPS</span></div>
+                    <div class="node"><strong>Cloudflare Edge</strong><span>DNS / Access</span></div>
+                    <div class="arrow"><b>→</b><span>Tunnel</span></div>
+                    <div class="node gateway"><strong>LXC 100 — Gateway</strong><span>Cloudflared → Nginx Proxy Manager</span></div>
+                    <div class="arrow"><b>→</b><span>HTTP / HTTPS</span></div>
+                    <div class="node"><strong class="tr">Web servisi</strong><strong class="en">Web service</strong><span class="tr">İlgili LXC içindeki uygulama</span><span class="en">Application in the target LXC</span></div>
+                </div>
+            </div>
+
+            <div class="lane lan">
+                <div class="lane-title"><strong class="tr">Yerel ağ</strong><strong class="en">Local network</strong><span>Split DNS + HTTP/HTTPS</span></div>
+                <div class="flow five">
+                    <div class="node"><strong>LAN Client</strong><span>192.168.1.x</span></div>
+                    <div class="arrow"><b>→</b><span>DNS</span></div>
+                    <div class="node gateway"><strong>AdGuard Home</strong><span>LXC 100 · 192.168.1.100</span></div>
+                    <div class="arrow"><b>→</b><span class="tr">DNS cevabı</span><span class="en">DNS response</span></div>
+                    <div class="node"><strong class="tr">Yerel servis adresi</strong><strong class="en">Local service address</strong><span>192.168.1.100</span></div>
+                </div>
+                <div class="subflow">
+                    <div class="flow five">
+                        <div class="node"><strong>LAN Client</strong><span>192.168.1.x</span></div>
+                        <div class="arrow"><b>→</b><span>HTTP / HTTPS</span></div>
+                        <div class="node gateway"><strong>Nginx Proxy Manager</strong><span>LXC 100 · 192.168.1.100</span></div>
+                        <div class="arrow"><b>→</b><span>HTTP / HTTPS</span></div>
+                        <div class="node"><strong class="tr">Web servisi</strong><strong class="en">Web service</strong><span class="tr">İlgili LXC</span><span class="en">Target LXC</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lane admin">
+                <div class="lane-title"><strong class="tr">Uzaktan yönetim</strong><strong class="en">Remote administration</strong><span>Tailscale</span></div>
+                <div class="flow admin-flow">
+                    <div class="node"><strong class="tr">Yönetici cihazı</strong><strong class="en">Admin device</strong><span class="tr">Laptop / telefon</span><span class="en">Laptop / phone</span></div>
+                    <div class="arrow"><b>→</b><span>Tailscale</span></div>
+                    <div class="node"><strong class="tr">Private ağ</strong><strong class="en">Private network</strong><span>192.168.1.0/24</span></div>
+                    <div class="arrow"><b>→</b><span class="tr">Yönetim</span><span class="en">Management</span></div>
+                    <div class="node"><strong class="tr">Proxmox ve dahili servisler</strong><strong class="en">Proxmox and internal services</strong><span>Proxmox VE · LXC servisleri · SMB</span></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="gateway">
+            <div class="section-head">
+                <span class="section-index">02 — Gateway</span>
+                <h2>LXC 100 — lxc-gateway</h2>
+                <p class="tr">Gateway servisleri aynı LXC üzerinde <strong>192.168.1.100</strong> adresinde çalışıyor.</p>
+                <p class="en">Gateway services run together in one LXC at <strong>192.168.1.100</strong>.</p>
+            </div>
+            <div class="gateway-box">
+                <div class="gateway-head">
+                    <div><h3>lxc-gateway</h3><span>192.168.1.100</span></div>
+                    <span>DNS · Reverse Proxy · Tunnel</span>
+                </div>
+                <div class="services">
+                    <div class="service"><strong>AdGuard Home</strong><span class="tr">Yerel DNS ve split-DNS kayıtları</span><span class="en">Local DNS and split-DNS records</span></div>
+                    <div class="service"><strong>Nginx Proxy Manager</strong><span>HTTP / HTTPS reverse proxy</span></div>
+                    <div class="service"><strong>Cloudflared</strong><span class="tr">Cloudflare Tunnel bağlantısı</span><span class="en">Cloudflare Tunnel connection</span></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section" id="workloads">
+            <div class="section-head">
+                <span class="section-index tr">03 — İş yükleri</span><span class="section-index en">03 — Workloads</span>
+                <h2 class="tr">LXC yapısı.</h2>
+                <h2 class="en">LXC layout.</h2>
+            </div>
+            <div class="workloads">
+                <div class="workload"><strong>LXC 101 — Media</strong><span>192.168.1.101</span><span class="tr">Medya ve fotoğraf servisleri</span><span class="en">Media and photo services</span></div>
+                <div class="workload"><strong>LXC 102 — Utility</strong><span>192.168.1.102</span><span class="tr">Dosya paylaşımı, yardımcı servisler, backup</span><span class="en">File sharing, utilities, backup</span></div>
+                <div class="workload"><strong>LXC 103 — Desktop</strong><span>192.168.1.103</span><span class="tr">Uzak çalışma ve kişisel servisler</span><span class="en">Remote workspace and personal services</span></div>
+                <div class="workload"><strong>LXC 104 — AI</strong><span>192.168.1.104</span><span class="tr">AI ve API servisleri</span><span class="en">AI and API services</span></div>
+                <div class="workload"><strong>LXC 105 — Dev</strong><span>192.168.1.105</span><span class="tr">Geliştirme araçları ve runtimes</span><span class="en">Development tools and runtimes</span></div>
+                <div class="workload"><strong>LXC 106 — Gaming</strong><span>192.168.1.106</span><span class="tr">Palworld oyun sunucusu</span><span class="en">Palworld game server</span></div>
+            </div>
+        </section>
+
+        <section class="section" id="foundation">
+            <div class="section-head">
+                <span class="section-index tr">04 — Altyapı</span><span class="section-index en">04 — Infrastructure</span>
+                <h2 class="tr">Host, depolama ve ağ.</h2>
+                <h2 class="en">Host, storage, and network.</h2>
+            </div>
+            <div class="foundation">
+                <div class="node"><strong>Proxmox VE 9</strong><span class="tr">LXC ve sanal ağ yönetimi</span><span class="en">LXC and virtual networking</span></div>
+                <div class="node"><strong>ZFS</strong><span class="tr">Storage ve snapshot</span><span class="en">Storage and snapshots</span></div>
+                <div class="node"><strong>Firewall</strong><span class="tr">LXC inbound default DROP, gerekli kaynak/port izinleri</span><span class="en">LXC inbound default DROP with required source/port rules</span></div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="wrap footer-row">
+            <span>© 2026 Berkay Yetgin · Proxmox Homelab</span>
+            <div class="footer-links">
+                <a href="index.html"><span class="tr">Ana sayfa</span><span class="en">Overview</span></a>
+                <a href="https://github.com/Yakrel/proxmox-homelab-automation" target="_blank" rel="noopener">GitHub</a>
+                <a href="https://byetgin.com" target="_blank" rel="noopener">byetgin.com</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const buttons = document.querySelectorAll('[data-lang]');
+        function setLanguage(language) {
+            const selected = language === 'en' ? 'en' : 'tr';
+            document.body.classList.toggle('lang-tr', selected === 'tr');
+            document.body.classList.toggle('lang-en', selected === 'en');
+            document.documentElement.lang = selected;
+            buttons.forEach((button) => button.classList.toggle('active', button.dataset.lang === selected));
+            localStorage.setItem('infra-language', selected);
+        }
+        const saved = localStorage.getItem('infra-language');
+        const browser = navigator.language && navigator.language.toLowerCase().startsWith('tr') ? 'tr' : 'en';
+        setLanguage(saved || browser);
+        buttons.forEach((button) => button.addEventListener('click', () => setLanguage(button.dataset.lang)));
+    </script>
+</body>
+</html>

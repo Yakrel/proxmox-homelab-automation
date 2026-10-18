@@ -1,0 +1,100 @@
+name: gaming
+
+networks:
+  gaming-net:
+    driver: bridge
+
+services:
+  palworld-server:
+    image: ghcr.io/ripps818/docker-palworld-dedicated-server-wine:latest
+    container_name: palworld-server
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+
+      # --- Server Identity & Security ---
+      - SERVER_NAME=Proxmox Homelab Palworld
+      - SERVER_DESCRIPTION=Homelab Palworld Server
+      - SERVER_PASSWORD=${PALWORLD_SERVER_PASSWORD:?PALWORLD_SERVER_PASSWORD must be defined}
+      - ADMIN_PASSWORD=${PALWORLD_ADMIN_PASSWORD:?PALWORLD_ADMIN_PASSWORD must be defined}
+      - SERVER_SETTINGS_MODE=auto
+      - MAX_PLAYERS=4
+      - COMMUNITY_SERVER=false
+      - USEAUTH=false
+
+      # --- Internal Management ---
+      # Required by the container's graceful backup/save and auto-reboot jobs.
+      # Port 8212 is intentionally not published to the LXC/LAN.
+      - RESTAPI_ENABLED=true
+      - RCON_ENABLED=false
+
+      # --- Windows Server & Mod Runtime (Latest) ---
+      - ALWAYS_UPDATE_ON_START=true
+      - INSTALL_UE4SS_EXPERIMENTAL=true
+      - UE4SS_EXPERIMENTAL_URL=https://github.com/Okaetsu/RE-UE4SS/releases/latest
+      - ALLOW_CLIENT_MOD=true
+
+      # --- Backup Settings (Every 6h, keep 28 archives) ---
+      - BACKUP_ENABLED=true
+      - BACKUP_CRON_EXPRESSION=0 */6 * * *
+      - BACKUP_RETENTION_POLICY=true
+      - BACKUP_RETENTION_AMOUNT_TO_KEEP=28
+      - ENABLE_WORLD_BACKUP=true
+
+      # --- Auto Reboot (Disabled: avoids unloading base chunks when offline) ---
+      - RESTART_ENABLED=false
+
+      # --- Solo / QoL Game Settings ---
+      - EXP_RATE=0.300000
+      - NIGHTTIME_SPEEDRATE=0.600000
+      - SUPPLY_DROP_SPAN=60
+      - BASE_CAMP_MAX_NUM_IN_GUILD=10
+      - BASE_CAMP_WORKER_MAXNUM=50
+      - PAL_EGG_DEFAULT_HATCHING_TIME=0
+      - DEATH_PENALTY=Item
+      - ENABLE_NON_LOGIN_PENALTY=false
+      - AUTO_SAVE_SPAN=300
+    volumes:
+      - /fastpool/config/gameservers/palworld/game:/palworld
+      - /fastpool/config/gameservers/palworld/backups:/palworld/backups
+    ports:
+      - "8211:8211/udp"
+      - "27015:27015/udp"
+    restart: unless-stopped
+    networks:
+      - gaming-net
+    stop_grace_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  watchtower:
+    image: nickfedor/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=Europe/Istanbul
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 48 */6 * * *
+      - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
+      - WATCHTOWER_NOTIFICATIONS_LEVEL=info
+      - WATCHTOWER_NOTIFICATION_REPORT=true
+      - 'WATCHTOWER_NOTIFICATION_TEMPLATE={{- if .Report -}}{{- with .Report -}}{{- if .Updated -}}{{len .Updated}} container updated:{{range .Updated}}{{"\n"}}- {{.Name}} ({{.ImageName}}): {{.CurrentImageID.ShortID}} -> {{.LatestImageID.ShortID}}{{end}}{{- end -}}{{- end -}}{{- end -}}'
+      - WATCHTOWER_NO_STARTUP_MESSAGE=true
+      - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-gaming
+    networks:
+      - gaming-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"

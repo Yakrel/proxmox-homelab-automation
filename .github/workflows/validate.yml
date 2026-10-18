@@ -1,0 +1,311 @@
+name: Validate Repository
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.sh"
+      - "**/*.service"
+      - "scripts/*.conf"
+      - "**/*.md"
+      - installer.sh
+      - .sops.yaml
+      - .sops-key.age
+      - stacks.yaml
+      - "docker/**"
+      - "docs/**"
+      - .github/workflows/validate.yml
+  pull_request:
+    paths:
+      - "**/*.sh"
+      - "**/*.service"
+      - "scripts/*.conf"
+      - "**/*.md"
+      - installer.sh
+      - .sops.yaml
+      - .sops-key.age
+      - stacks.yaml
+      - "docker/**"
+      - "docs/**"
+      - .github/workflows/validate.yml
+  workflow_dispatch:
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Prepare lightweight validators
+        run: |
+          shellcheck --version
+          python3 -m pip install --quiet PyYAML
+
+      - name: Validate shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          git ls-files -z '*.sh' | xargs -0 -n1 bash -n
+          git ls-files -z '*.sh' | xargs -0 shellcheck -x -S warning
+
+      - name: Scan for committed secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/gitleaks/gitleaks/releases/latest)
+          tag="${tag##*/}"
+          version="${tag#v}"
+          base="https://github.com/gitleaks/gitleaks/releases/download/${tag}"
+          archive="gitleaks_${version}_linux_x64.tar.gz"
+          curl -fsSL "$base/$archive" -o "$RUNNER_TEMP/$archive"
+          curl -fsSL "$base/gitleaks_${version}_checksums.txt" -o "$RUNNER_TEMP/gitleaks.checksums"
+          (cd "$RUNNER_TEMP" && sha256sum -c --ignore-missing --quiet gitleaks.checksums)
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" dir . --redact --no-banner
+
+      - name: Validate YAML
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import yaml
+
+          for pattern in ('*.yml', '*.yaml'):
+              for path in pathlib.Path('.').glob(f'**/{pattern}'):
+                  if '.git' not in path.parts:
+                      yaml.safe_load(path.read_text(encoding='utf-8'))
+                      print(f'YAML OK: {path}')
+          PY
+
+      - name: Validate topology, environment schemas, and deployment invariants
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import re
+          import subprocess
+          import yaml
+
+          root = pathlib.Path('.')
+
+          allowed_markdown = {
+              pathlib.Path('README.md'),
+              pathlib.Path('AGENTS.md'),
+              pathlib.Path('CLAUDE.md'),
+          }
+          markdown_files = {
+              path for path in root.glob('**/*.md') if '.git' not in path.parts
+          }
+          unexpected_markdown = sorted(markdown_files - allowed_markdown)
+          if unexpected_markdown:
+              raise SystemExit(
+                  'Documentation must stay in the root README.md; unexpected Markdown: '
+                  + ', '.join(map(str, unexpected_markdown))
+              )
+
+          topology = yaml.safe_load(pathlib.Path('stacks.yaml').read_text(encoding='utf-8'))
+          stacks = topology['stacks']
+          required_fields = {'ct_id', 'hostname', 'cpu_cores', 'memory_mb', 'disk_gb'}
+          seen_ids = set()
+          seen_hostnames = set()
+          for name, config in stacks.items():
+              missing = sorted(required_fields - config.keys())
+              if missing:
+                  raise SystemExit(f'{name} is missing stack fields: {missing}')
+              ct_id = config['ct_id']
+              hostname = config['hostname']
+              if ct_id in seen_ids:
+                  raise SystemExit(f'Duplicate LXC ID: {ct_id}')
+              if hostname in seen_hostnames:
+                  raise SystemExit(f'Duplicate LXC hostname: {hostname}')
+              if not 2 <= ct_id <= 254:
+                  raise SystemExit(f'LXC ID cannot form a valid static IP: {ct_id}')
+              if any(config[field] <= 0 for field in ('cpu_cores', 'memory_mb', 'disk_gb')):
+                  raise SystemExit(f'Invalid resources for stack: {name}')
+              seen_ids.add(ct_id)
+              seen_hostnames.add(hostname)
+
+          driver_sha256 = topology.get('nvidia', {}).get('driver_sha256', '')
+          if not re.fullmatch(r'[a-f0-9]{64}', driver_sha256):
+              raise SystemExit('nvidia.driver_sha256 must be a lowercase SHA-256 value')
+
+          beszel_public_key = topology.get('beszel', {}).get('public_key', '')
+          if not re.fullmatch(r'ssh-ed25519 [A-Za-z0-9+/]{68}', beszel_public_key):
+              raise SystemExit('beszel.public_key must be an ssh-ed25519 public key')
+
+          env_key_pattern = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+          compose_var_pattern = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)')
+
+          def sops_env_keys(path):
+              keys = []
+              metadata = set()
+              for line_number, raw_line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
+                  if not raw_line:
+                      continue
+                  if raw_line.startswith('#'):
+                      if not raw_line.startswith('#ENC[AES256_GCM,'):
+                          raise SystemExit(f'Plaintext comment in SOPS file: {path}:{line_number}')
+                      continue
+                  key, separator, value = raw_line.partition('=')
+                  if not separator or not env_key_pattern.fullmatch(key):
+                      raise SystemExit(f'Invalid SOPS env line: {path}:{line_number}')
+                  if key.startswith('sops_'):
+                      metadata.add(key)
+                      continue
+                  if value and not value.startswith('ENC[AES256_GCM,'):
+                      raise SystemExit(f'Plaintext value in SOPS file: {path}:{line_number}: {key}')
+                  if key in keys:
+                      raise SystemExit(f'Duplicate env key in {path}: {key}')
+                  keys.append(key)
+              if not {'sops_mac', 'sops_age__list_0__map_recipient'} <= metadata:
+                  raise SystemExit(f'Missing SOPS metadata: {path}')
+              return set(keys)
+
+          def service_environment(service, stack_name, service_name):
+              environment = service.get('environment') or []
+              result = {}
+              if isinstance(environment, dict):
+                  result = dict(environment)
+              else:
+                  for item in environment:
+                      if not isinstance(item, str) or '=' not in item:
+                          continue
+                      key, value = item.split('=', 1)
+                      if key in result:
+                          raise SystemExit(
+                              f'Duplicate Compose environment key: {stack_name}/{service_name}/{key}'
+                          )
+                      result[key] = value
+              return result
+
+          schedules = {}
+          compose_documents = {}
+          docker_stacks = set(stacks) - {'dev'}
+          for stack_name in sorted(docker_stacks):
+              stack_dir = pathlib.Path('docker') / stack_name
+              compose_path = stack_dir / 'docker-compose.yml'
+              encrypted_path = stack_dir / '.env.enc'
+              for required_path in (compose_path, encrypted_path):
+                  if not required_path.is_file():
+                      raise SystemExit(f'Missing stack file: {required_path}')
+
+              keys = sops_env_keys(encrypted_path)
+              compose_text = compose_path.read_text(encoding='utf-8')
+              referenced = set(compose_var_pattern.findall(compose_text))
+              unknown = sorted(referenced - keys)
+              if unknown:
+                  raise SystemExit(
+                      f'{compose_path} references variables absent from {encrypted_path}: {unknown}'
+                  )
+
+              document = yaml.safe_load(compose_text)
+              compose_documents[stack_name] = document
+              for service_name, service in document.get('services', {}).items():
+                  environment = service_environment(service, stack_name, service_name)
+                  schedule = environment.get('WATCHTOWER_SCHEDULE')
+                  if schedule:
+                      if schedule in schedules:
+                          raise SystemExit(
+                              f'Duplicate Watchtower schedule for {stack_name} and {schedules[schedule]}: {schedule}'
+                          )
+                      schedules[schedule] = stack_name
+
+          for encrypted_path in pathlib.Path('docker').glob('**/*.enc'):
+              sops_env_keys(encrypted_path)
+
+          forbidden_environment = {
+              ('ai', 'hermes'): {'HERMES_DASHBOARD_TUI'},
+              ('desktop', 'vaultwarden'): {'WEBSOCKET_ENABLED'},
+              ('media', 'jellyseerr'): {'PUID', 'PGID', 'UMASK'},
+              ('media', 'flaresolverr'): {'PROXY', 'CAPTCHA_SOLVER', 'PUID', 'PGID', 'UMASK'},
+          }
+          for (stack_name, service_name), forbidden in forbidden_environment.items():
+              service = compose_documents[stack_name]['services'][service_name]
+              configured = set(service_environment(service, stack_name, service_name))
+              present = sorted(configured & forbidden)
+              if present:
+                  raise SystemExit(
+                      f'Unsupported environment variables in {stack_name}/{service_name}: {present}'
+                  )
+
+          flare_ports = compose_documents['media']['services']['flaresolverr'].get('ports') or []
+          if any('8191' in str(port) for port in flare_ports):
+              raise SystemExit('FlareSolverr must remain internal to the media Docker network')
+          jd_ports = compose_documents['utility']['services']['jdownloader2'].get('ports') or []
+          if any('3129' in str(port) for port in jd_ports):
+              raise SystemExit('JDownloader Direct Connection port must not be published')
+
+          sops_config = pathlib.Path('.sops.yaml').read_text(encoding='utf-8')
+          if not re.search(r'age1[a-z0-9]{58}', sops_config):
+              raise SystemExit('.sops.yaml must name an age recipient')
+          wrapped_key = pathlib.Path('.sops-key.age').read_bytes()
+          if not wrapped_key.startswith(b'age-encryption.org/v1\n-> scrypt '):
+              raise SystemExit('.sops-key.age must be an age file encrypted with a passphrase')
+          private_key_marker = 'AGE-SECRET-' + 'KEY-1'
+          if subprocess.run(['git', 'grep', '-lI', '-e', private_key_marker]).returncode == 0:
+              raise SystemExit('A plaintext age identity is committed')
+
+          print('Repository topology and deployment invariants OK')
+          PY
+
+      - name: Validate Docker Compose
+        shell: bash
+        run: |
+          set -euo pipefail
+          for stack_dir in docker/*/; do
+              stack=$(basename "$stack_dir")
+              sed -n -E 's/^([A-Za-z_][A-Za-z0-9_]*)=.*/\1=ci-placeholder/p' "docker/$stack/.env.enc" | grep -v '^sops_' > "docker/$stack/.env"
+              (cd "docker/$stack" && docker compose config --quiet)
+              rm -f "docker/$stack/.env"
+          done
+
+      - name: Validate dashboard JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          class Scripts(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.in_script = False
+                  self.external = False
+                  self.current = []
+                  self.parts = []
+
+              def handle_starttag(self, tag, attrs):
+                  if tag == 'script':
+                      self.in_script = True
+                      self.external = 'src' in dict(attrs)
+                      self.current = []
+
+              def handle_data(self, data):
+                  if self.in_script and not self.external:
+                      self.current.append(data)
+
+              def handle_endtag(self, tag):
+                  if tag == 'script' and self.in_script:
+                      content = ''.join(self.current)
+                      if not self.external and content.strip():
+                          self.parts.append(content)
+                      self.in_script = False
+
+          for html in Path('docs').glob('*.html'):
+              parser = Scripts()
+              parser.feed(html.read_text(encoding='utf-8'))
+              Path(f'/tmp/{html.name}.js').write_text(
+                  '\n;\n'.join(parser.parts), encoding='utf-8')
+          PY
+          node --check /tmp/index.html.js
+          node --check /tmp/topology.html.js

@@ -1,0 +1,366 @@
+name: utility
+
+networks:
+  jdownloader-net:
+    driver: bridge
+  repackarr-net:
+    driver: bridge
+  backrest-net:
+    driver: bridge
+  metube-net:
+    driver: bridge
+  watchtower-net:
+    driver: bridge
+  changedetection-net:
+    driver: bridge
+  karakeep-browser-net:
+    driver: bridge
+  karakeep-data-net:
+    driver: bridge
+    internal: true
+
+volumes:
+  samba-cache:
+  samba-lib:
+
+services:
+  jdownloader2:
+    image: antlafarge/jdownloader:latest
+    container_name: jdownloader2
+    user: "1000:1000"
+    environment:
+      - JD_EMAIL=${MYJD_USER:?MyJDownloader email must be defined}
+      - JD_PASSWORD=${MYJD_PASSWORD:?MyJDownloader password must be defined}
+      - JD_DEVICENAME=homelab-jdownloader
+    volumes:
+      - /fastpool/config/jdownloader2:/jdownloader/cfg
+      - /datapool/downloads/jdownloader:/jdownloader/downloads
+    ports:
+      - "192.168.1.102:9666:9666"
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f JDownloader || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - jdownloader-net
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  samba:
+    image: crazymax/samba:latest
+    container_name: samba
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      - TZ=Europe/Istanbul
+      # Restrict SMB to the fixed workstation and laptop addresses. The image
+      # maps this directly to Samba's global hosts allow setting.
+      - SAMBA_HOSTS_ALLOW=192.168.1.20 192.168.1.21
+      - SAMBA_NETBIOS_NAME=HOMELAB-SMB
+      - SAMBA_SERVER_STRING=HOMELAB-SMB
+      - WSDD2_ENABLE=1
+      - WSDD2_HOSTNAME=HOMELAB-SMB
+      - WSDD2_NETBIOS_NAME=HOMELAB-SMB
+      - WSDD2_INTERFACE=eth0
+      - AVAHI_ENABLE=1
+      - AVAHI_NAME=Homelab Samba
+      - AVAHI_HOSTNAME=homelab-smb
+      - AVAHI_INTERFACES=eth0
+    volumes:
+      - /fastpool/config/samba:/data
+      # Share persistent data and service configuration without exposing the
+      # fastpool root, which also contains LXC root filesystems.
+      - /datapool:/datapool
+      - /fastpool/config:/fastpool/config
+      - samba-cache:/data/cache
+      - samba-lib:/data/lib
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  repackarr:
+    image: ghcr.io/yakrel/repackarr:latest
+    container_name: repackarr
+    restart: unless-stopped
+    ports:
+      - "8090:3000"
+    environment:
+      - TZ=Europe/Istanbul
+      - QBIT_HOST=http://192.168.1.101:8080
+      - QBIT_USERNAME=${REPACKARR_QBIT_USERNAME}
+      - QBIT_PASSWORD=${REPACKARR_QBIT_PASSWORD:?REPACKARR_QBIT_PASSWORD must be defined}
+      - QBIT_CATEGORY=games
+      - PROWLARR_URL=http://192.168.1.101:9696
+      - PROWLARR_API_KEY=${REPACKARR_PROWLARR_API_KEY:?REPACKARR_PROWLARR_API_KEY must be defined}
+      - CRON_INTERVAL_MINUTES=180
+      - PLATFORM_FILTER=Windows,Linux
+      - IGNORED_KEYWORDS=OST,Soundtrack,Wallpaper,Update Only,Crack Only
+      - ALLOWED_INDEXERS=NoNaMe Club, RuTracker.org
+      - IGDB_CLIENT_ID=${REPACKARR_IGDB_CLIENT_ID}
+      - IGDB_CLIENT_SECRET=${REPACKARR_IGDB_CLIENT_SECRET:?REPACKARR_IGDB_CLIENT_SECRET must be defined}
+    volumes:
+      - /fastpool/config/repackarr/data:/app/data
+      - /fastpool/config/repackarr/logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - repackarr-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  backrest:
+    image: ghcr.io/yakrel/docker-backrest-rclone:latest
+    container_name: backrest
+    restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "9898:9898"
+    volumes:
+      - /fastpool/config/backrest/config:/config
+      - /fastpool/config/backrest/data:/data
+      - /fastpool/config/backrest/cache:/cache
+      - /datapool/backup:/repos
+      - /fastpool/config:/backup-sources/config:ro
+      - /datapool/photos/immich:/backup-sources/immich:ro
+    environment:
+      - TZ=Europe/Istanbul
+      - BACKREST_CONFIG=/config/config.json
+      - BACKREST_DATA=/data
+      - BACKREST_PORT=9898
+      - XDG_CACHE_HOME=/cache
+      - BACKREST_INSTANCE_ID=${BACKREST_INSTANCE_ID}
+      # Reuse Utility Watchtower's bot and channels for backup and offsite failure alerts.
+      - OFFSITE_TELEGRAM_TOKEN=${WATCHTOWER_TELEGRAM_TOKEN:-}
+      - OFFSITE_TELEGRAM_CHAT_IDS=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
+    user: "0:0"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9898/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - backrest-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  metube:
+    image: ghcr.io/alexta69/metube:latest
+    container_name: metube
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - UMASK=002
+      - TZ=Europe/Istanbul
+    volumes:
+      - /fastpool/config/metube:/config
+      - /datapool/downloads/metube:/downloads
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081', timeout=5)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - metube-net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  watchtower:
+    image: nickfedor/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=Europe/Istanbul
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 24 */6 * * *
+      - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
+      - WATCHTOWER_NOTIFICATIONS_LEVEL=info
+      - WATCHTOWER_NOTIFICATION_REPORT=true
+      - 'WATCHTOWER_NOTIFICATION_TEMPLATE={{- if .Report -}}{{- with .Report -}}{{- if .Updated -}}{{len .Updated}} container updated:{{range .Updated}}{{"\n"}}- {{.Name}} ({{.ImageName}}): {{.CurrentImageID.ShortID}} -> {{.LatestImageID.ShortID}}{{end}}{{- end -}}{{- end -}}{{- end -}}'
+      - WATCHTOWER_NO_STARTUP_MESSAGE=true
+      - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-utility
+    networks:
+      - watchtower-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  changedetection:
+    image: ghcr.io/dgtlmoon/changedetection.io:latest
+    container_name: changedetection
+    restart: unless-stopped
+    user: "1000:1000"
+    ports:
+      - "5000:5000"
+    volumes:
+      - /fastpool/config/changedetection:/datastore
+    environment:
+      - TZ=Europe/Istanbul
+      - PLAYWRIGHT_DRIVER_URL=ws://headless-chrome:3000/?stealth=1&--disable-web-security=true
+      - ALLOW_IANA_RESTRICTED_ADDRESSES=true
+    depends_on:
+      - headless-chrome
+    networks:
+      - changedetection-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  # Shared headless Chrome for changedetection and Karakeep. Every CDP
+  # connection launches its own isolated Chrome that exits on disconnect, so
+  # per-client flags (stealth, disabled web security) stay in that client's URL.
+  headless-chrome:
+    image: dgtlmoon/sockpuppetbrowser:latest
+    container_name: headless-chrome
+    restart: unless-stopped
+    shm_size: '2gb'
+    dns:
+      - 94.140.14.14
+      - 94.140.15.15
+    environment:
+      - TZ=Europe/Istanbul
+      - SCREEN_WIDTH=1920
+      - SCREEN_HEIGHT=1080
+      - SCREEN_DEPTH=24
+      - ENABLE_DEBUGGER=false
+      - PREBOOT_CHROME=true
+      - MAX_CONCURRENT_SESSIONS=10
+    networks:
+      - changedetection-net
+      - karakeep-browser-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  karakeep:
+    image: ghcr.io/karakeep-app/karakeep:latest
+    container_name: karakeep
+    restart: unless-stopped
+    ports:
+      - "3080:3000"
+    environment:
+      - TZ=Europe/Istanbul
+      - MEILI_ADDR=http://karakeep-meili:7700
+      - MEILI_MASTER_KEY=${KARAKEEP_MEILI_MASTER_KEY:?Karakeep Meili master key is required}
+      - BROWSER_WEB_URL=ws://headless-chrome:3000
+      - BROWSER_CONNECT_ONDEMAND=true
+      - DATA_DIR=/data
+      - NEXTAUTH_SECRET=${KARAKEEP_NEXTAUTH_SECRET:?Karakeep NextAuth secret is required}
+      - NEXTAUTH_URL=https://karakeep.byetgin.com
+      - OPENAI_API_KEY=${KARAKEEP_OPENAI_API_KEY:?KARAKEEP_OPENAI_API_KEY must be defined}
+      - OPENAI_BASE_URL=https://omniroute.byetgin.com/v1
+      - INFERENCE_TEXT_MODEL=shared/resilient-multimodal
+      - INFERENCE_IMAGE_MODEL=shared/resilient-multimodal
+    volumes:
+      - /fastpool/config/karakeep/data:/data
+    depends_on:
+      - karakeep-meili
+      - headless-chrome
+    networks:
+      - karakeep-browser-net
+      - karakeep-data-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  karakeep-meili:
+    image: getmeili/meilisearch:latest
+    container_name: karakeep-meili
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Istanbul
+      - MEILI_NO_ANALYTICS=true
+      # Watchtower follows the latest image, so allow supported Meilisearch
+      # database upgrades when a newer engine replaces the running version.
+      - MEILI_UPGRADE_DB=true
+      - MEILI_MASTER_KEY=${KARAKEEP_MEILI_MASTER_KEY:?Karakeep Meili master key is required}
+    volumes:
+      - /fastpool/config/karakeep/meilisearch:/meili_data
+    networks:
+      - karakeep-data-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  beszel:
+    image: henrygd/beszel:latest
+    container_name: beszel
+    restart: unless-stopped
+    environment:
+      - APP_URL=https://beszel.byetgin.com
+    ports:
+      - "192.168.1.102:8095:8090"
+    volumes:
+      - /fastpool/config/beszel:/beszel_data
+    healthcheck:
+      test: ["CMD", "/beszel", "health", "--url", "http://localhost:8090"]
+      interval: 120s
+      timeout: 5s
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"

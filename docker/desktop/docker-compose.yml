@@ -1,0 +1,314 @@
+name: desktop
+
+networks:
+  desktop-net:
+    driver: bridge
+
+
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    dns:
+      - 192.168.1.100
+      - 1.1.1.1
+    ports:
+      - "3000:3000"
+    volumes:
+      - /fastpool/config/homepage:/app/config
+      - /fastpool/config/homepage/assets:/app/public/images:ro
+      - /datapool:/datapool:ro
+      - /sys:/sys:ro
+    environment:
+      - TZ=Europe/Istanbul
+      - PUID=1000
+      - PGID=1000
+      - HOMEPAGE_ALLOWED_HOSTS=192.168.1.103:3000,192.168.1.103,localhost,0.0.0.0,homepage.byetgin.com
+      - HOMEPAGE_VAR_SONARR_API_KEY=${HOMEPAGE_VAR_SONARR_API_KEY:?HOMEPAGE_VAR_SONARR_API_KEY must be defined}
+      - HOMEPAGE_VAR_RADARR_API_KEY=${HOMEPAGE_VAR_RADARR_API_KEY:?HOMEPAGE_VAR_RADARR_API_KEY must be defined}
+      - HOMEPAGE_VAR_PROWLARR_API_KEY=${HOMEPAGE_VAR_PROWLARR_API_KEY:?HOMEPAGE_VAR_PROWLARR_API_KEY must be defined}
+      - HOMEPAGE_VAR_BAZARR_API_KEY=${HOMEPAGE_VAR_BAZARR_API_KEY:?HOMEPAGE_VAR_BAZARR_API_KEY must be defined}
+      - HOMEPAGE_VAR_JELLYFIN_API_KEY=${HOMEPAGE_VAR_JELLYFIN_API_KEY:?HOMEPAGE_VAR_JELLYFIN_API_KEY must be defined}
+      - HOMEPAGE_VAR_JELLYSEERR_API_KEY=${HOMEPAGE_VAR_JELLYSEERR_API_KEY:?HOMEPAGE_VAR_JELLYSEERR_API_KEY must be defined}
+      - HOMEPAGE_VAR_CHANGEDETECTION_API_KEY=${HOMEPAGE_VAR_CHANGEDETECTION_API_KEY:?HOMEPAGE_VAR_CHANGEDETECTION_API_KEY must be defined}
+      - HOMEPAGE_VAR_QB_USERNAME=${HOMEPAGE_VAR_QB_USERNAME}
+      - HOMEPAGE_VAR_QB_PASSWORD=${HOMEPAGE_VAR_QB_PASSWORD:?HOMEPAGE_VAR_QB_PASSWORD must be defined}
+      - HOMEPAGE_VAR_IMMICH_API_KEY=${HOMEPAGE_VAR_IMMICH_API_KEY:?HOMEPAGE_VAR_IMMICH_API_KEY must be defined}
+      - HOMEPAGE_VAR_BACKREST_USERNAME=${HOMEPAGE_VAR_BACKREST_USERNAME}
+      - HOMEPAGE_VAR_BACKREST_PASSWORD=${HOMEPAGE_VAR_BACKREST_PASSWORD:?HOMEPAGE_VAR_BACKREST_PASSWORD must be defined}
+      - HOMEPAGE_VAR_PROXMOX_URL=https://192.168.1.10:8006
+      - HOMEPAGE_VAR_PROXMOX_TOKEN_ID=${HOMEPAGE_VAR_PROXMOX_TOKEN_ID:?HOMEPAGE_VAR_PROXMOX_TOKEN_ID must be defined}
+      - HOMEPAGE_VAR_PROXMOX_TOKEN_SECRET=${HOMEPAGE_VAR_PROXMOX_TOKEN_SECRET:?HOMEPAGE_VAR_PROXMOX_TOKEN_SECRET must be defined}
+      - HOMEPAGE_VAR_NPM_USERNAME=${HOMEPAGE_VAR_NPM_USERNAME}
+      - HOMEPAGE_VAR_NPM_PASSWORD=${HOMEPAGE_VAR_NPM_PASSWORD:?HOMEPAGE_VAR_NPM_PASSWORD must be defined}
+      - HOMEPAGE_VAR_ADGUARD_USERNAME=${HOMEPAGE_VAR_ADGUARD_USERNAME}
+      - HOMEPAGE_VAR_ADGUARD_PASSWORD=${HOMEPAGE_VAR_ADGUARD_PASSWORD:?HOMEPAGE_VAR_ADGUARD_PASSWORD must be defined}
+      - HOMEPAGE_VAR_KARAKEEP_API_KEY=${HOMEPAGE_VAR_KARAKEEP_API_KEY:?HOMEPAGE_VAR_KARAKEEP_API_KEY must be defined}
+      - HOMEPAGE_VAR_JDOWNLOADER_USERNAME=${HOMEPAGE_VAR_JDOWNLOADER_USERNAME}
+      - HOMEPAGE_VAR_JDOWNLOADER_PASSWORD=${HOMEPAGE_VAR_JDOWNLOADER_PASSWORD:?HOMEPAGE_VAR_JDOWNLOADER_PASSWORD must be defined}
+      - HOMEPAGE_VAR_JDOWNLOADER_CLIENT=homelab-jdownloader
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - desktop-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  desktop-workspace:
+    image: ghcr.io/yakrel/docker-desktop-workspace:latest
+    container_name: desktop-workspace
+    hostname: desktop-workspace
+    restart: unless-stopped
+    stop_grace_period: 1m
+    runtime: nvidia
+    ulimits:
+      core:
+        soft: 0
+        hard: 0
+    ports:
+      - "5800:3001"  # HTTPS web interface
+    volumes:
+      - /fastpool/config/desktop-workspace:/config
+      - /datapool:/datapool
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [compute,video,graphics,utility]
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Istanbul
+      - KEYBOARD=tr
+      - TITLE=Desktop Workspace
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - AUTO_GPU=true
+      # Selkies 2.0 streaming settings (WebSockets default - reverse proxy & corporate firewall friendly)
+      - SELKIES_MODE=websockets
+      - SELKIES_ENCODER=h264enc
+      - SELKIES_FRAMERATE=60
+      - SELKIES_VIDEO_CRF=20
+      - SELKIES_RATE_CONTROL_MODE=crf
+    shm_size: "4gb"
+    security_opt:
+      - seccomp:unconfined
+    healthcheck:
+      test: ["CMD-SHELL", "curl -k -s -o /dev/null https://127.0.0.1:3001 || curl -s -o /dev/null http://127.0.0.1:3001"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - desktop-net
+    devices:
+      - /dev/dri:/dev/dri
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  guacd:
+    image: guacamole/guacd:latest
+    container_name: guacd
+    restart: unless-stopped
+    networks:
+      - desktop-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  guacamole:
+    image: guacamole/guacamole:latest
+    container_name: guacamole
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - GUACD_HOSTNAME=guacd
+      - WEBAPP_CONTEXT=ROOT
+    volumes:
+      - /fastpool/config/guacamole:/etc/guacamole:ro
+    depends_on:
+      - guacd
+    networks:
+      - desktop-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  desktop-otp:
+    image: ghcr.io/yakrel/desktop-otp-gate:latest
+    container_name: desktop-otp
+    restart: unless-stopped
+    ports:
+      - "7079:7079"
+    environment:
+      - SNO_LISTEN_IP=0.0.0.0
+      - SNO_LISTEN_PORT=7079
+      - SNO_SECRET=${DESKTOP_TOTP_SECRET:?Desktop TOTP secret must be defined}
+      - SNO_TITLE=Desktop Workspace OTP
+      - SNO_COOKIE_NAME=desktop_otp_session
+      - SNO_COOKIE_LENGTH=32
+      - SNO_COOKIE_LIFETIME_MINUTES=120
+      - SNO_IDLE_TIMEOUT_MINUTES=0
+      - SNO_SESSION_COOKIE=false
+      - SNO_COOKIE_SECURE=true
+      - SNO_COOKIE_DOMAIN=
+      - SNO_RATE_LIMIT_COUNT=5
+      - SNO_RATE_LIMIT_LIFETIME=5
+      - TZ=Europe/Istanbul
+    networks:
+      - desktop-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  couchdb:
+    image: couchdb:latest
+    container_name: couchdb-obsidian
+    restart: unless-stopped
+    stop_grace_period: 30s
+    user: "1000:1000"
+    ports:
+      - "5984:5984"
+    environment:
+      - COUCHDB_USER=${COUCHDB_USER:?CouchDB user must be defined}
+      - COUCHDB_PASSWORD=${COUCHDB_PASSWORD:?CouchDB password must be defined}
+      - TZ=Europe/Istanbul
+    volumes:
+      - /fastpool/config/couchdb/data:/opt/couchdb/data
+      - /fastpool/config/couchdb/local.d:/opt/couchdb/etc/local.d
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f -u \"$${COUCHDB_USER}:$${COUCHDB_PASSWORD}\" http://localhost:5984/_up"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - desktop-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    stop_grace_period: 30s
+    ports:
+      - "8201:80"
+    environment:
+      - SIGNUPS_ALLOWED=false
+      - TZ=Europe/Istanbul
+    volumes:
+      - /fastpool/config/vaultwarden:/data
+    networks:
+      - desktop-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  terminal:
+    image: niruix/sshwifty:latest
+    container_name: terminal
+    restart: unless-stopped
+    ports:
+      - "7681:8182"
+    volumes:
+      - /fastpool/config/sshwifty/sshwifty.conf.json:/etc/sshwifty/sshwifty.conf.json:ro
+    environment:
+      - TZ=Europe/Istanbul
+      - SSHWIFTY_CONFIG=/etc/sshwifty/sshwifty.conf.json
+    networks:
+      - desktop-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  watchtower:
+    image: nickfedor/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=Europe/Istanbul
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 36 */6 * * *
+      - WATCHTOWER_NOTIFICATION_URL=telegram://${WATCHTOWER_TELEGRAM_TOKEN:-}@telegram?chats=${WATCHTOWER_TELEGRAM_CHAT_IDS:-}
+      - WATCHTOWER_NOTIFICATIONS_LEVEL=info
+      - WATCHTOWER_NOTIFICATION_REPORT=true
+      - 'WATCHTOWER_NOTIFICATION_TEMPLATE={{- if .Report -}}{{- with .Report -}}{{- if .Updated -}}{{len .Updated}} container updated:{{range .Updated}}{{"\n"}}- {{.Name}} ({{.ImageName}}): {{.CurrentImageID.ShortID}} -> {{.LatestImageID.ShortID}}{{end}}{{- end -}}{{- end -}}{{- end -}}'
+      - WATCHTOWER_NO_STARTUP_MESSAGE=true
+      - WATCHTOWER_NOTIFICATION_TITLE_TAG=lxc-desktop
+    networks:
+      - desktop-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"
+
+  radicale:
+    image: ghcr.io/kozea/radicale:latest
+    container_name: radicale
+    restart: unless-stopped
+    ports:
+      - "5232:5232"
+    volumes:
+      - /fastpool/config/radicale/config:/etc/radicale:ro
+      - /fastpool/config/radicale/data:/var/lib/radicale
+    environment:
+      - TZ=Europe/Istanbul
+    user: "1000:1000"
+    networks:
+      - desktop-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "com.docker.compose.service,com.docker.compose.project"

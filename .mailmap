@@ -1,0 +1,16 @@
+# Git mailmap file to consolidate all commits under single developer identity
+# Format: Proper Name <proper@email.xx> Commit Name <commit@email.xx>
+
+Yakrel <85676216+Yakrel@users.noreply.github.com> Copilot <198982749+Copilot@users.noreply.github.com>
+Yakrel <85676216+Yakrel@users.noreply.github.com> copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>
+Yakrel <85676216+Yakrel@users.noreply.github.com> GitHub Copilot <noreply@github.com>
+Yakrel <85676216+Yakrel@users.noreply.github.com> github-copilot[bot] <github-copilot[bot]@users.noreply.github.com>
+Yakrel <85676216+Yakrel@users.noreply.github.com> Claude <noreply@anthropic.com>
+Yakrel <85676216+Yakrel@users.noreply.github.com> claude-code <noreply@anthropic.com>
+Yakrel <85676216+Yakrel@users.noreply.github.com> Anthropic Claude <noreply@anthropic.com>
+Yakrel <85676216+Yakrel@users.noreply.github.com> Gemini <noreply@google.com>
+Yakrel <85676216+Yakrel@users.noreply.github.com> Google Gemini <noreply@google.com>
+Yakrel <85676216+Yakrel@users.noreply.github.com> gemini-cli <noreply@google.com>
+Yakrel <85676216+Yakrel@users.noreply.github.com> root <root@lxc-development-01.home.arpa>
+Yakrel <85676216+Yakrel@users.noreply.github.com> yakrel <yakrel@users.noreply.github.com>
+Yakrel <85676216+Yakrel@users.noreply.github.com> Berkay YETGİN <85676216+Yakrel@users.noreply.github.com>
