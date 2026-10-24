@@ -8,6 +8,8 @@ services:
   hermes:
     image: nousresearch/hermes-agent:latest
     container_name: hermes
+    # Disabled: not started by `docker compose up`. Remove this line to re-enable.
+    profiles: ["disabled"]
     restart: unless-stopped
     # Chromium needs 1 GB of shared memory. No mem_limit/cpus: the Alpine AI
     # LXC does not delegate cgroup controllers to Docker, and the LXC itself
