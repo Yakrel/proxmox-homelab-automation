@@ -67,6 +67,41 @@ backend = systemd
 enabled = true
 EOT
 
+    # Host firewall: only these LAN addresses may reach SSH, the web UI and SPICE.
+    # Overriding local_network keeps the auto-added cluster network from
+    # re-opening the whole /24 (and every LXC) to the host. Tailscale traffic is
+    # accepted earlier by tailscaled's ts-input chain and is not affected.
+    print_info "Writing PVE cluster firewall with the host management IP set..."
+    cat > /etc/pve/firewall/cluster.fw << 'EOT'
+[OPTIONS]
+
+enable: 1
+
+[ALIASES]
+
+local_network 192.168.1.10/32
+
+[IPSET management]
+
+192.168.1.20 # workstation
+192.168.1.21 # laptop
+192.168.1.100 # NPM (proxmox.byetgin.com)
+192.168.1.103 # Homepage Proxmox widget + Sshwifty
+EOT
+
+    # The management IP set also admits NPM, the workstation and the laptop to
+    # SSH, so restrict sshd itself to Sshwifty (desktop LXC) and loopback.
+    # Tailscale SSH is handled by tailscaled, not sshd, so it is unaffected. Do
+    # not admit 100.64.0.0/10 here: tailnet devices reach 192.168.1.10:22 through
+    # the advertised subnet route and would otherwise get password logins.
+    print_info "Restricting SSH logins to Sshwifty and loopback..."
+    cat > /etc/ssh/sshd_config.d/10-restrict.conf << 'EOT'
+AllowUsers root@192.168.1.103 root@127.0.0.1 root@::1
+MaxAuthTries 3
+EOT
+    sshd -t
+    systemctl reload ssh
+
     print_info "Restarting Fail2ban service..."
     systemctl restart fail2ban
     print_success "Fail2ban security configuration applied."
@@ -605,7 +640,7 @@ while true; do
     echo "======================================="
     echo
     echo "   1) Configure Timezone"
-    echo "   2) Install Security Tools (Fail2ban)"
+    echo "   2) Install Security Tools (Fail2ban, Host Firewall, SSH)"
     echo "   3) Configure Storage (Sanoid Snapshots)"
     echo "   4) Optimize ZFS Performance"
     echo "   5) Setup Network Bonding (Interactive)"

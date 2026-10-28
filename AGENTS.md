@@ -26,6 +26,14 @@ Shell-based automation for deploying containerized services in LXC containers on
 - Never add recurring script logic whose only purpose is deleting files, users, keys, or configuration left by an older deployment. With explicit approval, clean live residue directly once instead of permanently encoding the cleanup in the repository. Doing so turns a one-time cleanup into permanent bloat that lingers across versions.
 - Current-run cleanup is still required: remove temporary decrypted secrets and temporary work directories with `trap`, and let declarative tools reconcile resources they own.
 
+## Live Config vs Repository
+
+Decide where a change belongs by what Backrest covers. Backrest backs up only `/fastpool/config` (plus Immich photos) into the restic repository in `/datapool/backup`, mirrored offsite. Nothing else is backed up: PVE host files, LXC configs and root filesystems, and Docker images are lost on a PVE reinstall or LXC recreation.
+
+- **Under `/fastpool/config`** (application settings, NPM, Homepage, Backrest, Sshwifty, rclone): live-only. Edit the live files, do not copy them into the repository, and never let a redeploy overwrite them.
+- **Outside `/fastpool/config`** (PVE host files such as `/etc/pve`, `/etc/ssh`, `/etc/fail2ban`, `/etc/sanoid`, systemd units and Tailscale flags; LXC settings; OS config inside LXCs): not backed up, so the repository scripts must recreate it from scratch. Encode it in the scripts (`lxc-manager.sh`, `helper-menu.sh`, `setup-tailscale-host.sh`) with hardcoded static values and describe it in `README.md`.
+- **Cloud-managed settings** (Cloudflare, Tailscale policy, tags and node keys): in neither place and not reachable by agents. Record in `README.md` what the repository depends on, and hand the change to the user as a manual console step.
+
 ## Technical & Git Guidelines
 
 - **Commit Approval**: Always obtain explicit user approval immediately before creating a Git commit. Never commit changes unless the user has approved that specific commit after reviewing the completed work.

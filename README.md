@@ -90,6 +90,8 @@ Tailscale provides private access to the Proxmox host and the `192.168.1.0/24` h
 
 LXC inbound traffic is generally default-deny. Required source/port combinations are explicitly allowed for reverse proxy traffic, management devices, monitoring, inter-service dependencies, and selected protocols such as SMB.
 
+Each LXC also has the PVE IP filter enabled, so a guest cannot send traffic with another guest's source address. The host firewall restricts SSH, the Proxmox web UI, and SPICE to the `management` IP set in `/etc/pve/firewall/cluster.fw`, and sshd accepts root logins only from Sshwifty (desktop LXC) and loopback. Both are written by the host helper menu's security option, not by the per-stack deployment. Tailscale SSH is enabled by the Tailscale host setup script and is handled by tailscaled, so it is unaffected by the sshd restriction.
+
 ---
 
 ## Deployment and Automation

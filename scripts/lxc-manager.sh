@@ -33,6 +33,7 @@ reconcile_stack_firewall() {
 enable: 1
 policy_in: DROP
 policy_out: ACCEPT
+ipfilter: 1
 
 [RULES]
 EOF
@@ -233,9 +234,9 @@ EOF
     fi
 
     # Guest firewall rules are enforced only while the Datacenter firewall is
-    # enabled. Node firewalling remains independently disabled unless it is
-    # explicitly configured by the operator, so this does not filter host SSH
-    # or the Proxmox web interface.
+    # enabled. This also activates the host firewall, which filters host SSH,
+    # the web UI and SPICE to the operator-managed `management` IP set in
+    # /etc/pve/firewall/cluster.fw; this script does not manage that file.
     pvesh set /cluster/firewall/options --enable 1
 }
 
