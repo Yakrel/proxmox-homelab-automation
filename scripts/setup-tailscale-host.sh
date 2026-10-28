@@ -124,13 +124,15 @@ if [[ "$tailscale_logged_in" -eq 1 ]]; then
     print_info "Tailscale is already authenticated. Updating subnet routes..."
     tailscale set \
         --advertise-routes=192.168.1.0/24 \
-        --accept-dns=false
+        --accept-dns=false \
+        --ssh
 else
     print_info "Authenticating Tailscale using provided auth key..."
     tailscale up \
         --auth-key="$TAILSCALE_AUTH_KEY" \
         --advertise-routes=192.168.1.0/24 \
-        --accept-dns=false
+        --accept-dns=false \
+        --ssh
 fi
 
 systemctl restart tailscale-udp-gro.service
