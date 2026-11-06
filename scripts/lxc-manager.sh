@@ -202,6 +202,9 @@ IN ACCEPT -source 192.168.1.20 -p tcp -dport 8888
 IN ACCEPT -source 192.168.1.21 -p tcp -dport 8888
 # Dev Container / Agent Workspaces (192.168.1.105)
 IN ACCEPT -source 192.168.1.105 -p tcp -dport 8888
+# Tailscale subnet router (PVE host 192.168.1.10, SNAT): tailnet clients such as
+# the work PC reach Hindsight through it; the Tailscale policy decides who may.
+IN ACCEPT -source 192.168.1.10 -p tcp -dport 8888
 EOF
             ;;
         gaming)

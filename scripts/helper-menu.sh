@@ -485,11 +485,13 @@ run_setup_gpu_passthrough() (
     read -r -a cmdline <<< "$original_cmdline"
     for token in "${cmdline[@]}"; do
         case "$token" in
-            nvidia-drm.modeset=*|nvidia_drm.modeset=*|nvidia-drm.fbdev=*|nvidia_drm.fbdev=*|nouveau.modeset=*) ;;
+            nvidia-drm.modeset=*|nvidia_drm.modeset=*|nvidia-drm.fbdev=*|nvidia_drm.fbdev=*|nouveau.modeset=*|pcie_aspm=*|pcie_aspm.policy=*) ;;
             *) desired_cmdline+="${desired_cmdline:+ }$token" ;;
         esac
     done
-    desired_cmdline+=" nvidia-drm.modeset=1 nvidia_drm.fbdev=1 nouveau.modeset=0"
+    # BIOS leaves GPU link ASPM enabled; the GTX 970 then drops off the bus
+    # (Xid 79). pcie_aspm=off would keep the firmware setting, so force policy.
+    desired_cmdline+=" nvidia-drm.modeset=1 nvidia_drm.fbdev=1 nouveau.modeset=0 pcie_aspm.policy=performance"
     desired_cmdline=${desired_cmdline# }
     if [[ "$original_cmdline" != "$desired_cmdline" ]]; then
         printf '%s\n' "$desired_cmdline" > /etc/kernel/cmdline

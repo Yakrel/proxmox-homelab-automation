@@ -94,6 +94,14 @@ if ip link show tailscale0 &>/dev/null; then
     iptables -t mangle -A FORWARD -i tailscale0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
     iptables -t mangle -C FORWARD -o tailscale0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || \
     iptables -t mangle -A FORWARD -o tailscale0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+
+    # Tailscale marks forwarded packets (0x40000) and masquerades every marked packet.
+    # An LXC with firewall=1 sits behind a firewall bridge, so the packet traverses
+    # POSTROUTING a second time and is masqueraded to the host's Tailscale address,
+    # which the LXC cannot reply to. Clear the mark once the packet is bridged: this
+    # also lets the LXC firewall rules decide, instead of the ts-forward mark ACCEPT.
+    iptables -t mangle -C FORWARD -m physdev --physdev-is-bridged -j MARK --set-xmark 0x0/0xff0000 2>/dev/null || \
+    iptables -t mangle -A FORWARD -m physdev --physdev-is-bridged -j MARK --set-xmark 0x0/0xff0000
 fi
 EOF
 
