@@ -86,11 +86,20 @@ AdGuard Home provides local DNS and split-DNS records for the homelab domains. L
 
 Tailscale provides private access to the Proxmox host and the `192.168.1.0/24` homelab network. Management traffic does not depend on the public Cloudflare path.
 
+The repository depends on this cloud-managed Tailscale policy, which is not stored here and must be maintained in the Tailscale admin console:
+
+- Personal devices (`autogroup:member`) have full access to the tailnet and the subnet route.
+- The work PC carries `tag:work`, which has exactly one grant: `192.168.1.104` on `tcp:8888` (Hindsight API, bank `work`). `tag:work` is listed in `tagOwners`, and a `tests` block asserts that it cannot reach the Proxmox host, the gateway NPM admin or any other LXC port.
+
+Tailnet clients reach the LAN through the PVE host, which masquerades them as `192.168.1.10`. LXC firewall rules therefore see `192.168.1.10`, not the client. The Tailscale policy is the only filter for host-level services: tailscaled's `ts-input` chain accepts everything arriving on `tailscale0`, so the host firewall and its `management` IP set do not apply to the Proxmox web UI or SSH when reached through the tailnet.
+
 ### Firewall
 
 LXC inbound traffic is generally default-deny. Required source/port combinations are explicitly allowed for reverse proxy traffic, management devices, monitoring, inter-service dependencies, and selected protocols such as SMB.
 
-Each LXC also has the PVE IP filter enabled, so a guest cannot send traffic with another guest's source address. The host firewall restricts SSH, the Proxmox web UI, and SPICE to the `management` IP set in `/etc/pve/firewall/cluster.fw`, and sshd accepts root logins only from Sshwifty (desktop LXC) and loopback. Both are written by the host helper menu's security option, not by the per-stack deployment. Tailscale SSH is enabled by the Tailscale host setup script and is handled by tailscaled, so it is unaffected by the sshd restriction.
+Each LXC also has the PVE IP filter enabled, so a guest cannot send traffic with another guest's source address. The host firewall restricts SSH, the Proxmox web UI, and SPICE to the `management` IP set in `/etc/pve/firewall/cluster.fw` for LAN clients (not for the tailnet, see Remote administration), and sshd accepts root logins only from Sshwifty (desktop LXC) and loopback. Both are written by the host helper menu's security option, not by the per-stack deployment. Tailscale SSH is enabled by the Tailscale host setup script and is handled by tailscaled, so it is unaffected by the sshd restriction.
+
+The Tailscale host setup script also installs a mangle `FORWARD` rule that clears Tailscale's packet mark once a packet is bridged to an LXC. Without it, an LXC with `firewall=1` sits behind a firewall bridge, the packet is masqueraded a second time to the host's Tailscale address, and the LXC replies to an address it cannot route. With it, LXC firewall rules are evaluated for tailnet clients as well. The AI LXC allows `192.168.1.10` to the Hindsight API on `8888` for that reason.
 
 ---
 
@@ -155,42 +164,6 @@ Proxmox `create` lock. A guest-side maintenance marker also prevents Docker
 startup. Diagnose the failed command before clearing either guard; do not
 blindly unlock guests or remove the marker. Initial provisioning failures
 still require deleting and recreating the incomplete LXC.
-
-#### One-time cleanup of older guest helpers
-
-Older runfile installations may have installed `nvidia-modprobe` inside the
-guest. It can change PVE-provided device ownership; the new deployment refuses
-to use it and never deletes it automatically. Immediately before the first
-GPU menu run, execute this once from the PVE console. It stops Docker in each
-affected guest and refuses to delete a package-owned executable:
-
-```bash
-bash <<'HOST'
-set -euo pipefail
-for ct in 101 103; do
-    pct exec "$ct" -- bash -s <<'GUEST'
-set -euo pipefail
-if helper=$(command -v nvidia-modprobe); then
-    if dpkg-query -S "$helper"; then
-        echo "Package-owned helper: review its owning package before removal" >&2
-        exit 1
-    fi
-    systemctl stop docker.socket docker.service
-    rm -- "$helper"
-fi
-GUEST
-done
-HOST
-```
-
-Do not remove the host's `nvidia-modprobe`; the host preparation command uses
-it. The host unit and hook are updated in place, not deleted. After a
-successful cutover, obsolete runfiles under `/fastpool/config/temp` may be
-removed manually; no recurring residue cleanup is part of deployment.
-
-For live acceptance, verify a host reboot, a second no-op GPU menu run, an
-application-only redeploy, and actual NVENC/EGL/CUDA workloads. Local shell
-and isolated lifecycle checks cannot establish GPU functionality on PVE.
 
 Custom container images used by this environment are maintained separately:
 

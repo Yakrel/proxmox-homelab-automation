@@ -112,6 +112,9 @@ services:
     image: ghcr.io/vectorize-io/hindsight:latest
     container_name: hindsight
     restart: unless-stopped
+    # Postgres parallel workers allocate shared memory when a bank is created
+    # (observed: 533 MB request); Docker's default 64 MB /dev/shm fails with 500.
+    shm_size: "2gb"
     stop_grace_period: 40s
     ports:
       - "8888:8888"
