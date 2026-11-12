@@ -129,7 +129,7 @@ hourly = 0
 autosnap = yes
 autoprune = yes
 [template_config]
-hourly = 0
+hourly = 24
 daily = 7
 monthly = 1
 autosnap = yes

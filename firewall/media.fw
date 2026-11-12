@@ -1,0 +1,41 @@
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+ipfilter: 1
+
+[RULES]
+# Reverse Proxy Ingress from Gateway NPM (192.168.1.100)
+# 2283: Immich Server | 5055: Jellyseerr | 6767: Bazarr     | 6868: Profilarr
+# 7878: Radarr        | 8080: qBittorrent Web UI | 8096: Jellyfin   | 8265: Tdarr Web UI
+# 8989: Sonarr        | 9696: Prowlarr  | 11011: Cleanuparr
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 2283
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 5055
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 6767
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 6868
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 7878
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 8080
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 8096
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 8265
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 8989
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 9696
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 11011
+# Desktop Container / Homepage Dashboard Widgets & SiteMonitors (192.168.1.103)
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 2283
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 5055
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 6767
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 6868
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 7878
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 8080
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 8096
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 8265
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 8989
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 9696
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 11011
+# Utility Container / Repackarr Integration (192.168.1.102)
+# 8080: qBittorrent Web UI | 9696: Prowlarr API
+IN ACCEPT -source 192.168.1.102 -p tcp -dport 8080
+IN ACCEPT -source 192.168.1.102 -p tcp -dport 9696
+# qBittorrent Public Peer Listening Port (P2P Inbound)
+IN ACCEPT -p tcp -dport 6881
+IN ACCEPT -p udp -dport 6881

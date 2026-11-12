@@ -1,0 +1,10 @@
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+ipfilter: 1
+
+[RULES]
+# ompweb (Oh My Pi web UI - 8680)
+# Reverse Proxy Ingress from Gateway NPM (192.168.1.100)
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 8680

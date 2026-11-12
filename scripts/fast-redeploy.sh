@@ -62,11 +62,6 @@ fast_redeploy_stack() {
         return 0
     }
 
-    [[ -f "$WORK_DIR/docker/$stack/docker-compose.yml" ]] || {
-        print_error "docker-compose.yml not found for $stack"
-        return 1
-    }
-
     if ! check_container_running "$CT_ID"; then
         print_warning "Skipping $stack: LXC $CT_ID is not running"
         return 0
@@ -81,20 +76,7 @@ fast_redeploy_stack() {
 
     decrypt_stack_env "$stack"
 
-    if [[ "$stack" == "desktop" ]]; then
-        setup_homepage_proxmox_token "$ENV_DECRYPTED_PATH"
-    fi
-
-    prepare_docker_stack "$stack"
-
-    deploy_lxc_beszel_agent \
-        "$CT_ID" "lxc-${stack}" "$ENV_DECRYPTED_PATH" "docker*,beszel*"
-
-    pct push "$CT_ID" "$ENV_DECRYPTED_PATH" /root/.env
-    pct exec "$CT_ID" -- chmod 0600 /root/.env
-    setup_docker_compose "$stack" "$CT_ID"
-
-    deploy_docker_services "$stack" "$CT_ID"
+    deploy_docker_stack "$stack" "$CT_ID"
 
     rm -f "$ENV_DECRYPTED_PATH"
     ENV_DECRYPTED_PATH=""

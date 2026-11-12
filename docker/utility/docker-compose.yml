@@ -85,6 +85,11 @@ services:
       - /fastpool/config:/fastpool/config
       - samba-cache:/data/cache
       - samba-lib:/data/lib
+    # Hide the Restic repository from SMB clients with an empty read-only
+    # directory: a workstation must not be able to read or damage a repository
+    # that is then mirrored offsite.
+    tmpfs:
+      - /datapool/backup:ro
     restart: unless-stopped
     logging:
       driver: "json-file"

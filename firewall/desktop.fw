@@ -1,0 +1,20 @@
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+ipfilter: 1
+
+[RULES]
+# Reverse Proxy Ingress from Gateway NPM (192.168.1.100)
+# 3000: Homepage Dashboard           | 5800: Desktop Workspace HTTPS Web UI
+# 8080: Apache Guacamole Web UI      | 7079: Desktop Workspace OTP Gate
+# 5984: CouchDB (Obsidian LiveSync)  | 8201: Vaultwarden Password Manager
+# 7681: Sshwifty Web Terminal        | 5232: Radicale CalDAV/CardDAV
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 3000
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 5800
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 8080
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 7079
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 5984
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 8201
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 7681
+IN ACCEPT -source 192.168.1.100 -p tcp -dport 5232

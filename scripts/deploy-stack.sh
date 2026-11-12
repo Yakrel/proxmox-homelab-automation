@@ -84,13 +84,6 @@ create_lxc() {
     bash "$WORK_DIR/scripts/lxc-manager.sh" "$STACK_NAME" || { print_error "LXC setup failed"; exit 1; }
 }
 
-# Configure environment file for standard Docker stacks
-configure_env() {
-    # Copy decrypted .env to container
-    pct push "$CT_ID" "$ENV_DECRYPTED_PATH" "/root/.env" || { print_error "Failed to configure environment"; exit 1; }
-    pct exec "$CT_ID" -- chmod 0600 /root/.env
-}
-
 
 
 
@@ -117,18 +110,10 @@ fi
 # Step 3: Create LXC container
 create_lxc
 
-# Step 4: Stack-specific pre-deployment
-case "$STACK_NAME" in
-    "dev")
-        deploy_dev_terminal "$CT_ID"
-        ;;
-    "desktop")
-        setup_homepage_proxmox_token "$ENV_DECRYPTED_PATH"
-        ;;
-esac
-
-if [[ "$STACK_NAME" != "dev" ]]; then
-    configure_env
+# Step 4: Apply the stack
+if [[ "$STACK_NAME" == "dev" ]]; then
+    deploy_dev_terminal "$CT_ID"
+else
     deploy_docker_stack "$STACK_NAME" "$CT_ID"
 fi
 

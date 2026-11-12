@@ -120,7 +120,48 @@ setup_utility_permissions() {
     prepare_host_directory /datapool/downloads
     prepare_host_directory /datapool/downloads/jdownloader
     prepare_host_directory /datapool/downloads/metube
+}
 
+# Host e-mail does not reach external mailboxes (the ISP address is on a mail
+# blocklist), so route PVE notifications, including mail for root from smartd
+# and ZED, to the Telegram bot used by Watchtower. Reconciled with the Utility
+# stack because its environment holds the bot credentials.
+setup_pve_notifications() {
+    local token chat_id
+    token=$(get_env_value "WATCHTOWER_TELEGRAM_TOKEN")
+    chat_id=$(get_env_value "WATCHTOWER_TELEGRAM_CHAT_IDS")
+    if [[ -z "$token" || -z "$chat_id" ]]; then
+        print_error "WATCHTOWER_TELEGRAM_TOKEN or WATCHTOWER_TELEGRAM_CHAT_IDS is missing in the Utility environment"
+        return 1
+    fi
+
+    # Handlebars placeholders are rendered by PVE; secrets are stored in
+    # /etc/pve/priv/notifications.cfg. Telegram accepts one chat ID per message.
+    # shellcheck disable=SC2016
+    local body='{"chat_id":"{{ secrets.chat }}","text":"{{ escape title }}\n\n{{ escape message }}"}'
+    local -a webhook_options=(
+        --method post
+        --url 'https://api.telegram.org/bot{{ secrets.token }}/sendMessage'
+        --header "name=Content-Type,value=$(printf '%s' 'application/json' | base64 -w0)"
+        --body "$(printf '%s' "$body" | base64 -w0)"
+        --secret "name=token,value=$(printf '%s' "$token" | base64 -w0)"
+        --secret "name=chat,value=$(printf '%s' "$chat_id" | base64 -w0)"
+        --comment 'Telegram (same bot as Watchtower and Beszel)'
+    )
+
+    print_info "Reconciling the PVE Telegram notification target"
+    if pvesh get /cluster/notifications/endpoints/webhook/telegram >/dev/null 2>&1; then
+        pvesh set /cluster/notifications/endpoints/webhook/telegram "${webhook_options[@]}"
+    else
+        pvesh create /cluster/notifications/endpoints/webhook --name telegram "${webhook_options[@]}"
+    fi
+
+    # A matcher without match rules routes every notification to its targets.
+    if pvesh get /cluster/notifications/matchers/telegram-all >/dev/null 2>&1; then
+        pvesh set /cluster/notifications/matchers/telegram-all --target telegram
+    else
+        pvesh create /cluster/notifications/matchers --name telegram-all --target telegram
+    fi
 }
 
 
@@ -236,6 +277,7 @@ prepare_docker_stack() {
             ;;
         utility)
             setup_utility_permissions
+            setup_pve_notifications
             ;;
         ai)
             setup_ai_permissions
@@ -285,24 +327,29 @@ deploy_docker_services() {
 
 
 
-# Full Docker deployment workflow
+# Apply one Docker stack to its LXC. Full deployments and fast redeploys both
+# go through this function.
 deploy_docker_stack() {
     local stack_name="$1"
     local ct_id="$2"
-    
+
     local compose_file="$WORK_DIR/docker/$stack_name/docker-compose.yml"
     [[ -f "$compose_file" ]] || {
         print_error "docker-compose.yml not found at $compose_file"
         return 1
     }
 
+    if [[ "$stack_name" == "desktop" ]]; then
+        setup_homepage_proxmox_token "$ENV_DECRYPTED_PATH"
+    fi
+
     prepare_docker_stack "$stack_name"
 
     deploy_lxc_beszel_agent \
         "$ct_id" "lxc-${stack_name}" "$ENV_DECRYPTED_PATH" "docker*,beszel*"
 
+    pct push "$ct_id" "$ENV_DECRYPTED_PATH" /root/.env
+    pct exec "$ct_id" -- chmod 0600 /root/.env
     setup_docker_compose "$stack_name" "$ct_id"
     deploy_docker_services "$stack_name" "$ct_id"
-    
-    print_success "Stack deployed: $stack_name"
 }

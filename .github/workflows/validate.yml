@@ -14,6 +14,7 @@ on:
       - stacks.yaml
       - "docker/**"
       - "docs/**"
+      - "firewall/**"
       - .github/workflows/validate.yml
   pull_request:
     paths:
@@ -27,6 +28,7 @@ on:
       - stacks.yaml
       - "docker/**"
       - "docs/**"
+      - "firewall/**"
       - .github/workflows/validate.yml
   workflow_dispatch:
 
@@ -133,6 +135,12 @@ jobs:
                   raise SystemExit(f'Invalid resources for stack: {name}')
               seen_ids.add(ct_id)
               seen_hostnames.add(hostname)
+
+          missing_firewalls = sorted(
+              name for name in stacks if not (pathlib.Path('firewall') / f'{name}.fw').is_file()
+          )
+          if missing_firewalls:
+              raise SystemExit(f'Stacks without firewall/<stack>.fw: {missing_firewalls}')
 
           driver_sha256 = topology.get('nvidia', {}).get('driver_sha256', '')
           if not re.fullmatch(r'[a-f0-9]{64}', driver_sha256):

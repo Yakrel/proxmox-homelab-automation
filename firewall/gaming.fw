@@ -1,0 +1,14 @@
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+ipfilter: 1
+
+[RULES]
+# Palworld Dedicated Server (8211: UDP Game, 27015: UDP Query)
+# Local Subnet (192.168.1.0/24)
+IN ACCEPT -source 192.168.1.0/24 -p udp -dport 8211
+IN ACCEPT -source 192.168.1.0/24 -p udp -dport 27015
+# Public / Inbound Game Ports (if forwarded by router/firewall)
+IN ACCEPT -p udp -dport 8211
+IN ACCEPT -p udp -dport 27015

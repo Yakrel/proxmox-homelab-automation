@@ -1,0 +1,27 @@
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+ipfilter: 1
+
+[RULES]
+# Local Subnet Services (192.168.1.0/24)
+# AdGuard Home DNS
+IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 53
+IN ACCEPT -source 192.168.1.0/24 -p udp -dport 53
+# Nginx Proxy Manager (HTTP / HTTPS Ingress)
+IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 80
+IN ACCEPT -source 192.168.1.0/24 -p tcp -dport 443
+# Admin Web UIs (81: NPM Admin, 3000: AdGuard Home Web UI)
+# Management Host (192.168.1.10)
+IN ACCEPT -source 192.168.1.10 -p tcp -dport 81
+IN ACCEPT -source 192.168.1.10 -p tcp -dport 3000
+# Workstation (192.168.1.20)
+IN ACCEPT -source 192.168.1.20 -p tcp -dport 81
+IN ACCEPT -source 192.168.1.20 -p tcp -dport 3000
+# Laptop (192.168.1.21)
+IN ACCEPT -source 192.168.1.21 -p tcp -dport 81
+IN ACCEPT -source 192.168.1.21 -p tcp -dport 3000
+# Desktop Container / Homepage Dashboard (192.168.1.103)
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 81
+IN ACCEPT -source 192.168.1.103 -p tcp -dport 3000

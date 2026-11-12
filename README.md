@@ -95,7 +95,7 @@ Tailnet clients reach the LAN through the PVE host, which masquerades them as `1
 
 ### Firewall
 
-LXC inbound traffic is generally default-deny. Required source/port combinations are explicitly allowed for reverse proxy traffic, management devices, monitoring, inter-service dependencies, and selected protocols such as SMB.
+LXC inbound traffic is generally default-deny. Required source/port combinations are explicitly allowed for reverse proxy traffic, management devices, monitoring, inter-service dependencies, and selected protocols such as SMB. Each LXC's complete PVE guest firewall file is stored as `firewall/<stack>.fw` and applied on every deploy and redeploy.
 
 Each LXC also has the PVE IP filter enabled, so a guest cannot send traffic with another guest's source address. The host firewall restricts SSH, the Proxmox web UI, and SPICE to the `management` IP set in `/etc/pve/firewall/cluster.fw` for LAN clients (not for the tailnet, see Remote administration), and sshd accepts root logins only from Sshwifty (desktop LXC) and loopback. Both are written by the host helper menu's security option, not by the per-stack deployment. Tailscale SSH is enabled by the Tailscale host setup script and is handled by tailscaled, so it is unaffected by the sshd restriction.
 
@@ -182,17 +182,23 @@ The backup setup has two main layers:
 
 ### ZFS snapshots
 
-Sanoid-managed snapshots provide fast local rollback for configuration mistakes, accidental deletion, and other local recovery cases.
+Sanoid-managed snapshots provide fast local rollback for configuration mistakes, accidental deletion, and other local recovery cases. `fastpool` (configuration and application state) keeps 24 hourly, 7 daily, and 1 monthly snapshot; `datapool` and `rpool/ROOT` keep 7 daily and 1 monthly. LXC root filesystems are not snapshotted because the deployment scripts recreate them.
 
 ### Restic / Backrest
 
-Backrest writes to an encrypted Restic repository. The repository is then mirrored with rclone to remote targets including an Oracle VPS and Google Drive.
+Backrest writes to an encrypted Restic repository. The repository is then mirrored with rclone to remote targets including an Oracle VPS and Google Drive. Samba does not expose the local repository: its container mounts an empty read-only directory over `/datapool/backup`.
 
 The remote copies are mirrors of the same Restic repository rather than independent retention archives, so repository lifecycle operations such as forget/prune are reflected in those mirrors.
 
 After a backup, sync hooks update the remote mirrors and can send Telegram alerts when a mirror operation fails.
 
 The repository manages infrastructure and deployment; `/fastpool/config` holds application configuration and state. Restore persistent application state from Restic to its corresponding `/fastpool/config` paths before starting services after data loss; intentional service resets are separate operations. Keep the repository decryption key and Restic password accessible independently of the backups.
+
+---
+
+## Alerts
+
+Host notifications go to the Telegram bot that Watchtower uses. Deploying or redeploying the Utility stack reconciles a `telegram` webhook target and a `telegram-all` matcher in the Proxmox notification system from `WATCHTOWER_TELEGRAM_TOKEN` and `WATCHTOWER_TELEGRAM_CHAT_IDS` (a single chat ID) in `docker/utility/.env.enc`. Mail for root from smartd and ZED is forwarded through the same target. The default e-mail target stays in place but is not relied upon: the ISP address is on a mail blocklist, so host e-mail does not reach external mailboxes.
 
 ---
 
@@ -289,6 +295,7 @@ To set this up for a fork, create an identity with `age-keygen`, put its public 
 │   ├── gateway/
 │   ├── media/
 │   └── utility/
+├── firewall/                    # PVE guest firewall file per stack
 └── docs/
     ├── index.html               # Homelab overview
     └── topology.html            # Network/access topology
