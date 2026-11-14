@@ -11,26 +11,6 @@ The setup is built around Proxmox VE, ZFS, Docker Compose, Tailscale, Cloudflare
 
 > **This is a personal homelab setup, not a general-purpose installer.** The `.env.enc` files are encrypted with the owner's private passphrase and cannot be decrypted with any other key. Hardware and network details (`192.168.1.x` addressing, LXC IDs 100–106, `fastpool`/`datapool` ZFS pools, NVIDIA GTX 970, domains, Cloudflare Tunnel, Tailscale) are hardcoded, and the installer always downloads from this repository. To reuse it, fork the repo, point `installer.sh` at your fork, replace every `.env.enc` with your own (see [Secret Handling](#secret-handling)), and adapt `stacks.yaml` and the compose files to your environment.
 
-## Quick Start
-
-Run this command on the Proxmox host:
-
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)"
-```
-
-This opens the interactive deployment menu.
-
-To run an operation directly, append one of the following arguments to the command:
-
-| Arguments | Action |
-| --- | --- |
-| `ai` | Deploy a specific stack; replace `ai` with another stack name |
-| `redeploy ai` | Fast redeploy a single running stack |
-| `redeploy all` | Fast redeploy all running stacks |
-
-Encrypted environment files are decrypted with the homelab master key during deployment.
-
 ---
 
 ## Architecture
@@ -120,51 +100,6 @@ The deployment scripts handle tasks such as:
 
 Application services are primarily defined with Docker Compose. The Dev LXC is managed directly by the LXC deployment scripts rather than a Compose stack.
 
-### NVIDIA GPU installation and maintenance
-
-Use **Helper Scripts → Install / Update NVIDIA GPU (GTX 970)** for both
-initial host setup and upgrades. The target is the proprietary 580-series
-version and SHA-256 in `stacks.yaml`, not the newest driver found online.
-This deployment targets the homelab's systemd-boot PVE host and the default
-unprivileged UID mapping of media (101) and desktop (103).
-
-- The host owns kernel modules and device permissions. The pinned NVIDIA
-  runfile installs the host driver through DKMS; headers and DKMS builds are
-  checked for the running kernel and every kernel selected by
-  `proxmox-boot-tool kernel list`. ESPs need not remain mounted at `/boot` or
-  `/efi`; Proxmox manages their mounts.
-- `/etc/homelab-nvidia` holds the manifest and verified installer artifacts.
-  GPU guests receive this directory read-only through `mp2`; artifacts are
-  not stored below the guests' writable `/fastpool/config` mount.
-- Existing GPU guests are inspected first. Maintenance asks before stopping
-  them; previously stopped guests may be started temporarily with Docker
-  blocked to prepare their runtime. PVE configuration locks prevent concurrent
-  starts while devices or the host driver are changing.
-  Graceful shutdown uses PVE's `vm_stop` under its configuration mutex while
-  retaining the owned maintenance lock (`pct shutdown` has no `--skiplock`).
-  Its 120-second graceful timeout does not fall back to a forced shutdown.
-- The same guest preparation path is used for a newly provisioned GPU LXC.
-  It installs userspace libraries without kernel modules or `nvidia-modprobe`,
-  configures the NVIDIA Container Toolkit with `load-kmods=false` and
-  `no-cgroups=true`, and starts Docker only after synchronization succeeds.
-- If a driver transition requires reboot, GPU guests remain stopped.
-  After the operator reboots the host, guests with `onboot=1` synchronize their
-  libraries automatically before Docker starts. Other guests remain stopped
-  until explicitly started. No second GPU menu run is required.
-- A repeat run with matching configuration does not reinstall the driver or
-  restart guests/Docker. Selected-stack redeploy and Fast Redeploy All only
-  check an existing guest's GPU configuration; drift directs the operator to
-  the GPU menu instead of changing drivers beneath running applications.
-
-Driver maintenance is intentionally not a live library update. Download and
-host-header preparation happen before shutdown; guest package preparation
-may require network access during the approved maintenance window.
-On failure after an unsafe change, affected guests remain stopped with a
-Proxmox `create` lock. A guest-side maintenance marker also prevents Docker
-startup. Diagnose the failed command before clearing either guard; do not
-blindly unlock guests or remove the marker. Initial provisioning failures
-still require deleting and recreating the incomplete LXC.
-
 Custom container images used by this environment are maintained separately:
 
 | Image | Repository | Purpose |
@@ -191,8 +126,6 @@ Backrest writes to an encrypted Restic repository. The repository is then mirror
 The remote copies are mirrors of the same Restic repository rather than independent retention archives, so repository lifecycle operations such as forget/prune are reflected in those mirrors.
 
 After a backup, sync hooks update the remote mirrors and can send Telegram alerts when a mirror operation fails.
-
-The repository manages infrastructure and deployment; `/fastpool/config` holds application configuration and state. Restore persistent application state from Restic to its corresponding `/fastpool/config` paths before starting services after data loss; intentional service resets are separate operations. Keep the repository decryption key and Restic password accessible independently of the backups.
 
 ---
 
@@ -236,11 +169,9 @@ Contains the AI agent interface, model/API routing, and memory services used by 
 
 ### Dev — LXC 105
 
-**Tools:** Oh My Pi (`omp`), ompweb, Node.js, Python, Git/GitHub CLI
+**Tools:** Oh My Pi (`omp`), Paseo, Node.js, Python, Git/GitHub CLI
 
-Provides a persistent remote development environment. `ompweb` serves the browser UI for Oh My Pi (agent chat, OAuth provider login, subagents, file/diff previews, worktrees) on port 8680 behind the NPM OTP gate. Workspace and Oh My Pi state (`/root/.omp`) are stored under `fastpool`.
-
-Dev packages, Oh My Pi, `ompweb`, and Oh My Zsh are installed only when creating the LXC. Both selected-stack redeploy and Fast Redeploy reconcile local configuration without updating these tools; missing prerequisites fail the deployment rather than triggering repair. Oh My Pi connects natively to the Hindsight memory server in the AI LXC (`/root/.omp/agent/config.yml`). Tool upgrades are explicit maintenance operations: update Oh My Pi and `ompweb` from **Settings → System & Updates** in the web UI, or run `omp update` and `npm install -g @kahme247/ompweb@latest && systemctl restart ompweb` in the Dev console.
+Persistent remote development environment. Oh My Pi is the coding agent and Paseo serves its web UI (parallel agents, worktrees, terminals, editor, diffs, pull requests) behind the NPM OTP gate. Oh My Pi uses the Hindsight memory server in the AI LXC. Paseo state, Oh My Pi state, and the workspace are stored under `fastpool`.
 
 ### Gaming — LXC 106
 
@@ -255,16 +186,7 @@ Uses `ghcr.io/ripps818/docker-palworld-dedicated-server-wine:latest`. Game files
 
 Stack environment files are [SOPS](https://github.com/getsops/sops) dotenv files stored as `docker/<stack>/.env.enc`. Variable names stay readable; only the values are encrypted (AES-256-GCM with an integrity MAC) to the age recipient in `.sops.yaml`.
 
-The age private key is committed only as `.sops-key.age`, encrypted with the master passphrase (age scrypt). The deployment scripts unwrap it once per run, so the master passphrase is the only prompt, and decrypt every required `.env.enc` with it in memory. Setting `SOPS_AGE_KEY` skips the prompt for non-interactive runs. The installer installs `age` from the Debian package and, when missing, the latest `sops` release to `/usr/local/bin` after verifying the SHA-256 checksums published with it. Delete `/usr/local/bin/sops` to pick up a newer release on the next run.
-
-Edit a value with the identity exported once per shell:
-
-```bash
-export SOPS_AGE_KEY=$(age --decrypt .sops-key.age)
-sops edit --input-type dotenv --output-type dotenv docker/ai/.env.enc
-```
-
-To set this up for a fork, create an identity with `age-keygen`, put its public key in `.sops.yaml`, wrap the identity with `age --passphrase --output .sops-key.age`, and encrypt each stack file with `sops encrypt --input-type dotenv --output-type dotenv --filename-override docker/<stack>/.env.enc`.
+The age private key is committed only as `.sops-key.age`, encrypted with the master passphrase (age scrypt). The deployment scripts unwrap it once per run and decrypt every required `.env.enc` in memory; `SOPS_AGE_KEY` can supply the identity for non-interactive runs. `age` comes from the Debian package and `sops` from SHA-256-verified GitHub releases.
 
 ---
 

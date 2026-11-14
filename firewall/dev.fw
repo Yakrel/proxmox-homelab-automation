@@ -5,6 +5,9 @@ policy_out: ACCEPT
 ipfilter: 1
 
 [RULES]
-# ompweb (Oh My Pi web UI - 8680)
+# Paseo web UI (8680)
 # Reverse Proxy Ingress from Gateway NPM (192.168.1.100)
 IN ACCEPT -source 192.168.1.100 -p tcp -dport 8680
+# Tailscale subnet router (PVE host 192.168.1.10, SNAT): tailnet clients reach
+# Paseo directly; the Tailscale policy decides who may.
+IN ACCEPT -source 192.168.1.10 -p tcp -dport 8680

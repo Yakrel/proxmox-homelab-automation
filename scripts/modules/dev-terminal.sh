@@ -2,7 +2,7 @@
 
 # Dev LXC terminal and Oh My Pi configuration shared by full deploys and fast
 # redeploys. Keeps the Proxmox/root login shell on Bash while configuring Zsh
-# with Oh My Zsh and reconciling Oh My Pi's Hindsight memory and ompweb workspace.
+# with Oh My Zsh and reconciling Oh My Pi's Hindsight memory configuration.
 
 deploy_dev_terminal() {
     local ct_id="$1"
@@ -46,7 +46,7 @@ set -euo pipefail
 # Provisioning lives in lxc-manager.sh. Both redeploy paths validate the
 # installed tools before changing configuration.
 export PATH="/root/.local/bin:/usr/local/bin:$PATH"
-for command_name in zsh git eza batcat zoxide btop omp ompweb; do
+for command_name in zsh git eza batcat zoxide btop omp paseo; do
     command -v "$command_name" >/dev/null 2>&1 || {
         echo "Missing required Dev terminal command: $command_name" >&2
         exit 1
@@ -103,10 +103,9 @@ source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 zshaddhistory() { [[ $1 != *KEY=* ]]; }
 ZSH_CONFIG
 
-# Reconcile Oh My Pi Hindsight memory configuration, the mental model refresh
-# policy on the Hindsight bank, and register the default workspace in ompweb.
-# Oh My Pi and ompweb also write these files, so parse and re-emit YAML/JSON
-# instead of replacing them.
+# Reconcile Oh My Pi Hindsight memory configuration and the mental model refresh
+# policy on the Hindsight bank. Oh My Pi also writes the config file, so parse
+# and re-emit the YAML instead of replacing it.
 install -d -m 0700 /root/.omp/agent
 # The key stays in the environment, never in a process argument list.
 python3 - <<'OMP_CONFIG'
@@ -114,7 +113,6 @@ import json
 import os
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
@@ -171,23 +169,6 @@ for model in hindsight_request("GET", "/mental-models?limit=1000")["items"]:
     if model["id"] == "user-preferences":
         update["source_query"] = user_preferences_query
     hindsight_request("PATCH", f"/mental-models/{urllib.parse.quote(model['id'], safe='')}", update)
-
-projects_path = agent_dir / "projects.json"
-registry = (json.loads(projects_path.read_text(encoding="utf-8")) if projects_path.exists() else None) or {}
-projects = registry.get("projects") if isinstance(registry.get("projects"), list) else []
-workspace_path = str(Path("/root/workspace").resolve())
-if not any(isinstance(item, dict) and item.get("path") == workspace_path for item in projects):
-    projects.append({
-        "path": workspace_path,
-        "addedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "hidden": False,
-        "alias": "workspace",
-    })
-    projects_path.write_text(
-        json.dumps({"version": 1, "projects": projects}, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    projects_path.chmod(0o600)
 OMP_CONFIG
 GUEST_SCRIPT
 
@@ -206,7 +187,7 @@ GUEST_SCRIPT
     pct exec "$ct_id" -- rm -f "$remote_script"
 
     if ! deploy_lxc_beszel_agent \
-        "$ct_id" "lxc-dev" "$ai_tmp" "ompweb*,beszel*"; then
+        "$ct_id" "lxc-dev" "$ai_tmp" "paseo*,beszel*"; then
         print_error "Failed to configure the Dev Beszel agent"
         return 1
     fi
