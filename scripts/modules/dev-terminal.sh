@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# Dev LXC terminal and Oh My Pi configuration shared by full deploys and fast
-# redeploys. Keeps the Proxmox/root login shell on Bash while configuring Zsh
-# with Oh My Zsh and reconciling Oh My Pi's Hindsight memory configuration.
+# Dev LXC terminal and Claude Code memory configuration shared by full deploys
+# and fast redeploys. Keeps the Proxmox/root login shell on Bash while
+# configuring Zsh with Oh My Zsh and the Hindsight plugin settings.
 
 deploy_dev_terminal() {
     local ct_id="$1"
     local guest_script remote_script
-    local hindsight_api_key="" hindsight_retain_mission="" ai_tmp="" # gitleaks:allow
+    local hindsight_api_key="" ai_tmp="" # gitleaks:allow
     local ai_env_enc="$WORK_DIR/docker/ai/.env.enc"
 
     if [[ ! -f "$ai_env_enc" ]]; then
@@ -27,13 +27,6 @@ deploy_dev_terminal() {
         print_error "HINDSIGHT_API_KEY is empty in docker/ai/.env.enc"
         return 1
     }
-    # Keep the server-wide retain mission in docker/ai/docker-compose.yml as the
-    # single source of truth for the Hindsight bank profile.
-    hindsight_retain_mission=$(yq -r '.services.hindsight.environment[] | select(startswith("HINDSIGHT_API_RETAIN_MISSION=")) | ltrimstr("HINDSIGHT_API_RETAIN_MISSION=")' "$WORK_DIR/docker/ai/docker-compose.yml")
-    [[ -n "$hindsight_retain_mission" ]] || {
-        print_error "HINDSIGHT_API_RETAIN_MISSION is missing in docker/ai/docker-compose.yml"
-        return 1
-    }
 
     guest_script=$(mktemp /tmp/dev-terminal-setup.XXXXXX)
     register_runtime_temp_file "$guest_script"
@@ -46,7 +39,7 @@ set -euo pipefail
 # Provisioning lives in lxc-manager.sh. Both redeploy paths validate the
 # installed tools before changing configuration.
 export PATH="/root/.local/bin:/usr/local/bin:$PATH"
-for command_name in zsh git eza batcat zoxide btop omp paseo; do
+for command_name in zsh git eza batcat zoxide btop claude paseo; do
     command -v "$command_name" >/dev/null 2>&1 || {
         echo "Missing required Dev terminal command: $command_name" >&2
         exit 1
@@ -83,7 +76,6 @@ zstyle ':omz:update' mode disabled
 source "$ZSH/oh-my-zsh.sh"
 
 eval "$(zoxide init zsh)"
-eval "$(omp completions zsh)"
 
 # Match Home Manager's eza Zsh integration plus the explicit workstation aliases.
 alias eza='eza --icons=auto'
@@ -103,73 +95,36 @@ source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 zshaddhistory() { [[ $1 != *KEY=* ]]; }
 ZSH_CONFIG
 
-# Reconcile Oh My Pi Hindsight memory configuration and the mental model refresh
-# policy on the Hindsight bank. Oh My Pi also writes the config file, so parse
-# and re-emit the YAML instead of replacing it.
-install -d -m 0700 /root/.omp/agent
+# Claude Code reaches Hindsight through the hindsight-coding-agents hooks that
+# lxc-manager.sh installs. Each project gets its own bank named after its
+# directory, and the same name is used by every machine and agent, so they
+# share one memory per project. Everything except the server, the bank name,
+# secret redaction and autoInject stays on the plugin's defaults. autoInject
+# is "pages" because the default "reflect" runs an LLM synthesis on the first
+# prompt of every session (18-20 s, often a timeout), while "pages" injects
+# page search hits in milliseconds. Memory Defense is a per-bank setting with
+# no server-wide switch, so the plugin writes it into every bank it creates.
 # The key stays in the environment, never in a process argument list.
-python3 - <<'OMP_CONFIG'
+install -d -m 0700 /root/.hindsight
+python3 - <<'PLUGIN_CONFIG'
 import json
 import os
-import urllib.parse
-import urllib.request
 from pathlib import Path
 
-import yaml
-
-agent_dir = Path("/root/.omp/agent")
-config_path = agent_dir / "config.yml"
-config = (yaml.safe_load(config_path.read_text(encoding="utf-8")) if config_path.exists() else None) or {}
-
-config.setdefault("memory", {})["backend"] = "hindsight"
-hindsight = config.setdefault("hindsight", {})
-hindsight.update({
+plugin_config_path = Path("/root/.hindsight/coding-agent.json")
+plugin_config_path.touch(mode=0o600)
+plugin_config_path.write_text(json.dumps({
+    "serverMode": "self-hosted",
     "apiUrl": "http://192.168.1.104:8888",
     "apiToken": os.environ["HINDSIGHT_API_KEY"],
-    "bankId": "main",
-    "scoping": "per-project-tagged",
-    "retainMission": os.environ["HINDSIGHT_RETAIN_MISSION"],
-    # Retain every 2 user turns with one preceding turn of conversational context.
-    "retainMode": "last-turn",
-    "retainEveryNTurns": 2,
-    "retainOverlapTurns": 1,
-})
-
-config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
-config_path.chmod(0o600)
-
-# Oh My Pi seeds mental models with incremental (delta) refreshes after every
-# consolidation, so their content only grows until the injected snapshot is
-# truncated. Regenerate each model from scratch once a day instead; a cron
-# refresh runs only when the model has new memories. Keep single-project build,
-# CI and stack rules out of the cross-project User Preferences model.
-hindsight_bank_url = f"{hindsight['apiUrl']}/v1/default/banks/{urllib.parse.quote(hindsight['bankId'], safe='')}"
-
-def hindsight_request(method, path, body=None):
-    request = urllib.request.Request(
-        f"{hindsight_bank_url}{path}",
-        data=None if body is None else json.dumps(body).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {os.environ['HINDSIGHT_API_KEY']}",
-            "Content-Type": "application/json",
-        },
-        method=method,
-    )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.loads(response.read() or b"null")
-
-user_preferences_query = (
-    "What does the user prefer in coding style, tooling, communication, and review? "
-    "Capture only durable, cross-project preferences expressed across sessions, not one-off requests. "
-    "Exclude rules that belong to a single project (its build, test or CI matrix, deployment, "
-    "stack or container settings, paths, hostnames, versions); those belong in that project's conventions."
-)
-for model in hindsight_request("GET", "/mental-models?limit=1000")["items"]:
-    update = {"trigger": {"mode": "full", "refresh_after_consolidation": False, "refresh_cron": "0 3 * * *"}}
-    if model["id"] == "user-preferences":
-        update["source_query"] = user_preferences_query
-    hindsight_request("PATCH", f"/mental-models/{urllib.parse.quote(model['id'], safe='')}", update)
-OMP_CONFIG
+    "bankIdTemplate": "{gitProject}",
+    "autoInject": "pages",
+    "defaultBankConfig": {
+        "memory_defense": {"enabled": True, "rules": [{"on": "sensitive_data", "action": "redact"}]},
+    },
+}, indent=2) + "\n", encoding="utf-8")
+plugin_config_path.chmod(0o600)
+PLUGIN_CONFIG
 GUEST_SCRIPT
 
     pct push "$ct_id" "$guest_script" "$remote_script"
@@ -177,7 +132,6 @@ GUEST_SCRIPT
 
     if ! pct exec "$ct_id" -- env \
         HINDSIGHT_API_KEY="$hindsight_api_key" \
-        HINDSIGHT_RETAIN_MISSION="$hindsight_retain_mission" \
         "$remote_script"; then
         pct exec "$ct_id" -- rm -f "$remote_script" || true
         print_error "Failed to configure dev terminal"

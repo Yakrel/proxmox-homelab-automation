@@ -189,7 +189,7 @@ else
     SKIP_CREATION=false
     
     # Choose template based on stack type - always use latest
-    # Debian: media (Jellyfin GPU), desktop (Brave GPU), dev (Oh My Pi + Paseo)
+    # Debian: media (Jellyfin GPU), desktop (Brave GPU), dev (Claude Code + Paseo)
     # Alpine: all other stacks (lighter, faster) — including ai (OpenRouter, no GPU needed)
     if [ "$STACK_NAME" = "media" ] || [ "$STACK_NAME" = "desktop" ] || [ "$STACK_NAME" = "dev" ]; then
         LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
@@ -285,11 +285,10 @@ pct exec "$CT_ID" -- test -f /sbin/init
 # Prepare the dev stack's persistent bind sources on the host. Docker stacks
 # prepare their own bind sources in docker-deployment.sh.
 if [[ "$STACK_NAME" == "dev" ]]; then
-    # Oh My Pi state holds OAuth credentials, sessions, and config. Paseo state
-    # holds its config, password hash, and worktrees.
-    prepare_host_directory /fastpool/config/omp 0700
-    prepare_host_directory /fastpool/config/omp/agent 0700
+    # Claude Code state holds OAuth credentials, sessions, and config. Paseo
+    # state holds its config, password hash, and worktrees.
     prepare_host_directory /fastpool/config/paseo 0700
+    prepare_host_directory /fastpool/config/claude 0700
     prepare_host_directory /fastpool/config/dev 0700
     prepare_host_directory /fastpool/config/dev/workspace 0700
 fi
@@ -305,7 +304,7 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
 set -e
 STACK_NAME='${STACK_NAME}'
 
-# Debian stacks: media (Jellyfin GPU), desktop (Brave GPU), dev (Oh My Pi + Paseo)
+# Debian stacks: media (Jellyfin GPU), desktop (Brave GPU), dev (Claude Code + Paseo)
 if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'desktop' ] || [ \"\$STACK_NAME\" = 'dev' ]; then
     export DEBIAN_FRONTEND=noninteractive
     export DEBIAN_PRIORITY=critical
@@ -505,19 +504,24 @@ set -euo pipefail
 export HOME=/root
 export PATH="/root/.local/bin:/usr/local/bin:$PATH"
 
-# Keep Oh My Pi configuration, OAuth credentials, session data, Paseo state,
-# and the development workspace on fastpool. A regular directory at any link
-# target is unexpected and causes the reconcile to fail instead of deleting or
-# migrating user data.
-ln -sfnT /fastpool/config/omp /root/.omp
+# Keep Claude Code configuration, OAuth credentials, session data, Paseo
+# state, and the development workspace on fastpool. A regular directory at any
+# link target is unexpected and causes the reconcile to fail instead of
+# deleting or migrating user data.
+ln -sfnT /fastpool/config/claude /root/.claude
+ln -sfnT /fastpool/config/claude/.claude.json /root/.claude.json
 ln -sfnT /fastpool/config/paseo /root/.paseo
 ln -sfnT /fastpool/config/dev/workspace /root/workspace
 
 # Application downloads belong to initial provisioning, not redeploys.
 if [[ "$SKIP_CREATION" == "false" ]]; then
-    # Oh My Pi is the coding-agent runtime; Paseo serves its browser UI.
-    curl -fsSL https://omp.sh/install | sh
+    # Claude Code is the coding agent; Paseo serves its browser UI. The
+    # Hindsight plugin wires Claude Code hooks and MCP to the memory server;
+    # dev-terminal.sh writes its settings and API token.
+    curl -fsSL https://claude.ai/install.sh | bash
     npm install -g @getpaseo/cli@latest
+    npx -y @vectorize-io/hindsight-coding-agents@latest install claude-code \
+        --server self-hosted --api-url http://192.168.1.104:8888
 
     install -d -m 0755 /root/.oh-my-zsh
     git -C /root/.oh-my-zsh init -q
@@ -527,15 +531,13 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
     git -C /root/.oh-my-zsh reset -q --hard FETCH_HEAD
 fi
 
-for command_name in node npm git gh python3 bash nano vim htop shellcheck yq omp paseo; do
+for command_name in node npm git gh python3 bash nano vim htop shellcheck yq claude paseo; do
     command -v "$command_name" >/dev/null 2>&1 || {
         echo "Missing required dev command: $command_name" >&2
         exit 1
     }
 done
-python3 -c "import yaml"
-
-omp --version
+claude --version
 paseo --version
 
 # The Paseo daemon binds to loopback and enforces its own password, set once
@@ -543,6 +545,8 @@ paseo --version
 # /fastpool/config/paseo. systemd-socket-proxyd exposes port 8680 inside the
 # Dev LXC, where the firewall admits only NPM (192.168.1.100). Relay stays off
 # so the daemon is reachable only through the NPM OTP gate.
+# Paseo starts Claude Code with --dangerously-skip-permissions, which Claude
+# Code refuses as root unless IS_SANDBOX=1 marks the container as the sandbox.
 paseo_unit="[Unit]
 Description=Paseo daemon
 After=network-online.target
@@ -557,6 +561,7 @@ Environment=PASEO_WEB_UI_ENABLED=true
 Environment=PASEO_HOSTNAMES=code.byetgin.com
 Environment=PASEO_RELAY_ENABLED=false
 Environment=PASEO_DICTATION_ENABLED=false
+Environment=IS_SANDBOX=1
 WorkingDirectory=/root/workspace
 ExecStart=/usr/bin/env paseo daemon run
 Restart=on-failure

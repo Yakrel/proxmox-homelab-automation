@@ -11,6 +11,26 @@ The setup is built around Proxmox VE, ZFS, Docker Compose, Tailscale, Cloudflare
 
 > **This is a personal homelab setup, not a general-purpose installer.** The `.env.enc` files are encrypted with the owner's private passphrase and cannot be decrypted with any other key. Hardware and network details (`192.168.1.x` addressing, LXC IDs 100–106, `fastpool`/`datapool` ZFS pools, NVIDIA GTX 970, domains, Cloudflare Tunnel, Tailscale) are hardcoded, and the installer always downloads from this repository. To reuse it, fork the repo, point `installer.sh` at your fork, replace every `.env.enc` with your own (see [Secret Handling](#secret-handling)), and adapt `stacks.yaml` and the compose files to your environment.
 
+## Quick Start
+
+Run this command on the Proxmox host:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Yakrel/proxmox-homelab-automation/main/installer.sh)"
+```
+
+This opens the interactive deployment menu.
+
+To run an operation directly, append one of the following arguments to the command:
+
+| Arguments | Action |
+| --- | --- |
+| `ai` | Deploy a specific stack; replace `ai` with another stack name |
+| `redeploy ai` | Fast redeploy a single running stack |
+| `redeploy all` | Fast redeploy all running stacks |
+
+Encrypted environment files are decrypted with the homelab master key during deployment.
+
 ---
 
 ## Architecture
@@ -69,7 +89,7 @@ Tailscale provides private access to the Proxmox host and the `192.168.1.0/24` h
 The repository depends on this cloud-managed Tailscale policy, which is not stored here and must be maintained in the Tailscale admin console:
 
 - Personal devices (`autogroup:member`) have full access to the tailnet and the subnet route.
-- The work PC carries `tag:work`, which has exactly one grant: `192.168.1.104` on `tcp:8888` (Hindsight API, bank `work`). `tag:work` is listed in `tagOwners`, and a `tests` block asserts that it cannot reach the Proxmox host, the gateway NPM admin or any other LXC port.
+- The work PC carries `tag:work`, which has exactly one grant: `192.168.1.104` on `tcp:8888` (Hindsight API, per-project banks named after the project directory). `tag:work` is listed in `tagOwners`, and a `tests` block asserts that it cannot reach the Proxmox host, the gateway NPM admin or any other LXC port.
 
 Tailnet clients reach the LAN through the PVE host, which masquerades them as `192.168.1.10`. LXC firewall rules therefore see `192.168.1.10`, not the client. The Tailscale policy is the only filter for host-level services: tailscaled's `ts-input` chain accepts everything arriving on `tailscale0`, so the host firewall and its `management` IP set do not apply to the Proxmox web UI or SSH when reached through the tailnet.
 
@@ -169,9 +189,11 @@ Contains the AI agent interface, model/API routing, and memory services used by 
 
 ### Dev — LXC 105
 
-**Tools:** Oh My Pi (`omp`), Paseo, Node.js, Python, Git/GitHub CLI
+**Tools:** Claude Code (`claude`), Paseo, Node.js, Python, Git/GitHub CLI
 
-Persistent remote development environment. Oh My Pi is the coding agent and Paseo serves its web UI (parallel agents, worktrees, terminals, editor, diffs, pull requests) behind the NPM OTP gate. Oh My Pi uses the Hindsight memory server in the AI LXC. Paseo state, Oh My Pi state, and the workspace are stored under `fastpool`.
+Persistent remote development environment. Claude Code is the coding agent and Paseo serves its web UI (parallel agents, worktrees, terminals, editor, diffs, pull requests) behind the NPM OTP gate. Claude Code uses the Hindsight memory server in the AI LXC through the `@vectorize-io/hindsight-coding-agents` hooks and MCP server. Claude Code state (`/fastpool/config/claude`), Paseo state, and the workspace are stored under `fastpool`; sign in to Claude Code once with `claude`.
+
+Memory is one Hindsight bank per project, named after the directory of the repository's primary checkout (`bankIdTemplate: "{gitProject}"`), so linked worktrees share their repository's bank and every machine and agent using the same project name shares one memory. The name is used as written, so keep project directory names lowercase. The plugin runs on its defaults, except `autoInject: "pages"` (the first prompt of a session gets page search hits instead of a 20-second LLM synthesis), and owns each bank: it seeds the bank from git history, writes its retain strategies and maintains five curated pages per project. Output language, LLM routing and the mental-model refresh floor are set on the Hindsight server in `docker/ai/docker-compose.yml` and apply to every bank.
 
 ### Gaming — LXC 106
 
@@ -180,6 +202,7 @@ Persistent remote development environment. Oh My Pi is the coding agent and Pase
 Provides an isolated game-server workload managed separately from the media and utility stacks.
 
 Uses `ghcr.io/ripps818/docker-palworld-dedicated-server-wine:latest`. Game files and mods persist under `/fastpool/config/gameservers/palworld/game`, with automated backups under `/fastpool/config/gameservers/palworld/backups`. Scheduled backups run every 6 hours (retaining 28 archives); automated restarts are disabled so base chunks stay loaded. The LXC only mounts `/fastpool/config/gameservers` because it publishes game ports to the internet.
+
 ---
 
 ## Secret Handling
