@@ -189,7 +189,7 @@ else
     SKIP_CREATION=false
     
     # Choose template based on stack type - always use latest
-    # Debian: media (Jellyfin GPU), desktop (Brave GPU), dev (Claude Code + Paseo)
+    # Debian: media (Jellyfin GPU), desktop (Brave GPU), dev (Claude Code + Antigravity + Orca)
     # Alpine: all other stacks (lighter, faster) — including ai (OpenRouter, no GPU needed)
     if [ "$STACK_NAME" = "media" ] || [ "$STACK_NAME" = "desktop" ] || [ "$STACK_NAME" = "dev" ]; then
         LATEST_TEMPLATE=$(get_latest_template "debian-.*-standard")
@@ -285,10 +285,12 @@ pct exec "$CT_ID" -- test -f /sbin/init
 # Prepare the dev stack's persistent bind sources on the host. Docker stacks
 # prepare their own bind sources in docker-deployment.sh.
 if [[ "$STACK_NAME" == "dev" ]]; then
-    # Claude Code state holds OAuth credentials, sessions, and config. Paseo
-    # state holds its config, password hash, and worktrees.
-    prepare_host_directory /fastpool/config/paseo 0700
+    # Claude Code and Antigravity CLI state hold OAuth credentials, sessions,
+    # and config. Orca state holds its server identity, paired clients, and
+    # workspace metadata.
     prepare_host_directory /fastpool/config/claude 0700
+    prepare_host_directory /fastpool/config/antigravity 0700
+    prepare_host_directory /fastpool/config/orca 0700
     prepare_host_directory /fastpool/config/dev 0700
     prepare_host_directory /fastpool/config/dev/workspace 0700
 fi
@@ -304,7 +306,7 @@ if [[ "$SKIP_CREATION" == "false" ]]; then
 set -e
 STACK_NAME='${STACK_NAME}'
 
-# Debian stacks: media (Jellyfin GPU), desktop (Brave GPU), dev (Claude Code + Paseo)
+# Debian stacks: media (Jellyfin GPU), desktop (Brave GPU), dev (Claude Code + Antigravity + Orca)
 if [ \"\$STACK_NAME\" = 'media' ] || [ \"\$STACK_NAME\" = 'desktop' ] || [ \"\$STACK_NAME\" = 'dev' ]; then
     export DEBIAN_FRONTEND=noninteractive
     export DEBIAN_PRIORITY=critical
@@ -340,7 +342,7 @@ Components: main contrib non-free non-free-firmware
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOS
 
-    # Dev stack: developer CLI tools + headless browser runtime (no Docker, no GPU)
+    # Dev stack: developer CLI tools (no Docker, no GPU)
     if [ \"\$STACK_NAME\" = 'dev' ]; then
         nodesource_installer=\$(mktemp /tmp/nodesource-setup.XXXXXX)
         trap 'rm -f \"\$nodesource_installer\"' EXIT
@@ -349,12 +351,7 @@ EOS
         rm -f \"\$nodesource_installer\"
         trap - EXIT
         apt-get install -y -qq \
-            nodejs git python3 python3-pip python3-yaml bash nano vim htop shellcheck yq \
-            zsh zsh-autosuggestions zsh-syntax-highlighting eza bat zoxide btop \
-            libglib2.0-0t64 libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 \
-            libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 \
-            libpango-1.0-0 libcairo2 libasound2t64 libx11-6 libx11-xcb1 libxcb1 libxext6 \
-            fonts-liberation
+            nodejs git python3 python3-pip python3-yaml bash shellcheck yq
         node -e 'if (!process.release.lts) process.exit(1)'
 
         # Configure the official GitHub CLI repository during initial OS provisioning.
@@ -504,117 +501,129 @@ set -euo pipefail
 export HOME=/root
 export PATH="/root/.local/bin:/usr/local/bin:$PATH"
 
-# Keep Claude Code configuration, OAuth credentials, session data, Paseo
-# state, and the development workspace on fastpool. A regular directory at any
-# link target is unexpected and causes the reconcile to fail instead of
-# deleting or migrating user data.
+# Keep Claude Code, Antigravity CLI, Orca state, and the development workspace
+# on fastpool. A regular directory at any link target is unexpected and causes
+# the reconcile to fail instead of deleting or migrating user data.
+# orcad requires its data root to be owned by the UID running the service
+# (root inside the LXC), so it lives in a root-owned subdirectory under the
+# host-prepared /fastpool/config/orca directory.
+install -d -m 0700 /fastpool/config/orca/data /fastpool/config/antigravity/gemini /fastpool/config/antigravity/config /root/.config
+if [[ ! -f /fastpool/config/claude/.claude.json ]]; then
+    install -m 0600 /dev/null /fastpool/config/claude/.claude.json
+    printf "{}\n" > /fastpool/config/claude/.claude.json
+fi
 ln -sfnT /fastpool/config/claude /root/.claude
 ln -sfnT /fastpool/config/claude/.claude.json /root/.claude.json
-ln -sfnT /fastpool/config/paseo /root/.paseo
+ln -sfnT /fastpool/config/antigravity/gemini /root/.gemini
+ln -sfnT /fastpool/config/antigravity/config /root/.config/antigravity
+ln -sfnT /fastpool/config/orca/data /root/.config/orca
 ln -sfnT /fastpool/config/dev/workspace /root/workspace
 
 # Application downloads belong to initial provisioning, not redeploys.
 if [[ "$SKIP_CREATION" == "false" ]]; then
-    # Claude Code is the coding agent; Paseo serves its browser UI. The
-    # Hindsight plugin wires Claude Code hooks and MCP to the memory server;
-    # dev-terminal.sh writes its settings and API token.
+    # Claude Code and Antigravity CLI are the coding agents; Orca runs the
+    # headless server and paired web UI. The Hindsight plugin wires both agents
+    # to the memory server; dev-terminal.sh writes its settings and API token.
     curl -fsSL https://claude.ai/install.sh | bash
-    npm install -g @getpaseo/cli@latest
-    npx -y @vectorize-io/hindsight-coding-agents@latest install claude-code \
-        --server self-hosted --api-url http://192.168.1.104:8888
+    curl -fsSL https://antigravity.google/cli/install.sh | bash
 
-    install -d -m 0755 /root/.oh-my-zsh
-    git -C /root/.oh-my-zsh init -q
-    git -C /root/.oh-my-zsh config remote.origin.url https://github.com/ohmyzsh/ohmyzsh.git
-    git -C /root/.oh-my-zsh config remote.origin.fetch "+refs/heads/master:refs/remotes/origin/master"
-    git -C /root/.oh-my-zsh fetch -q --depth=1 origin master
-    git -C /root/.oh-my-zsh reset -q --hard FETCH_HEAD
+    orca_arch=$(dpkg --print-architecture)
+    case "$orca_arch" in
+        amd64) orca_manifest_name="latest-linux.yml" ;;
+        arm64) orca_manifest_name="latest-linux-arm64.yml" ;;
+        *)
+            echo "Unsupported architecture for Orca: $orca_arch" >&2
+            exit 1
+            ;;
+    esac
+    orca_tmp=$(mktemp -d /tmp/orca-install.XXXXXX)
+    cleanup_orca_tmp() { rm -rf "${orca_tmp:-}"; }
+    trap cleanup_orca_tmp EXIT
+    curl -fsSL "https://github.com/stablyai/orca/releases/latest/download/${orca_manifest_name}" \
+        -o "$orca_tmp/manifest.yml"
+    read -r orca_version orca_deb_name orca_sha512 < <(
+        python3 - "$orca_tmp/manifest.yml" "$orca_arch" <<\ORCA_META
+import sys, yaml
+manifest = yaml.safe_load(open(sys.argv[1], encoding="utf-8"))
+suffix = f"_{sys.argv[2]}.deb"
+entry = next((f for f in manifest.get("files", []) if f.get("url", "").endswith(suffix)), None)
+if not manifest.get("version") or not entry or not entry.get("sha512"):
+    raise SystemExit("Could not find Orca .deb entry in release manifest")
+print(manifest["version"], entry["url"], entry["sha512"])
+ORCA_META
+    )
+    curl -fsSL "https://github.com/stablyai/orca/releases/download/v${orca_version}/${orca_deb_name}" \
+        -o "$orca_tmp/$orca_deb_name"
+    python3 - "$orca_tmp/$orca_deb_name" "$orca_sha512" <<\ORCA_VERIFY
+import base64, hashlib, sys
+h = hashlib.sha512()
+with open(sys.argv[1], "rb") as fh:
+    for chunk in iter(lambda: fh.read(1048576), b""):
+        h.update(chunk)
+actual = base64.b64encode(h.digest()).decode("ascii")
+if actual != sys.argv[2]:
+    raise SystemExit(f"Orca .deb SHA-512 mismatch: {actual} != {sys.argv[2]}")
+ORCA_VERIFY
+    DEBIAN_FRONTEND=noninteractive apt-get update -qq
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$orca_tmp/$orca_deb_name"
+    cleanup_orca_tmp
+    trap - EXIT
+
+    npx -y @vectorize-io/hindsight-coding-agents@latest install claude-code antigravity-cli \
+        --server self-hosted --api-url http://192.168.1.104:8888
 fi
 
-for command_name in node npm git gh python3 bash nano vim htop shellcheck yq claude paseo; do
+for command_name in node npm git gh python3 bash shellcheck yq claude agy orca-ide; do
     command -v "$command_name" >/dev/null 2>&1 || {
         echo "Missing required dev command: $command_name" >&2
         exit 1
     }
 done
 claude --version
-paseo --version
+agy --version
+orca-ide --version
 
-# The Paseo daemon binds to loopback and enforces its own password, set once
-# with `paseo daemon set-password` and kept in the live config under
-# /fastpool/config/paseo. systemd-socket-proxyd exposes port 8680 inside the
-# Dev LXC, where the firewall admits only NPM (192.168.1.100). Relay stays off
-# so the daemon is reachable only through the NPM OTP gate.
-# Paseo starts Claude Code with --dangerously-skip-permissions, which Claude
-# Code refuses as root unless IS_SANDBOX=1 marks the container as the sandbox.
-paseo_unit="[Unit]
-Description=Paseo daemon
+# Orca runs as its headless Node server (orcad) on port 6768, serving the paired
+# web client behind NPM (code.byetgin.com) and direct Tailscale/LAN clients.
+# --no-pairing keeps pairing tokens out of systemd logs; pair devices on demand
+# with `orca-ide pair`. IS_SANDBOX=1 lets Claude Code run with
+# --dangerously-skip-permissions as root inside this container.
+orca_unit="[Unit]
+Description=Orca headless runtime server
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Environment=HOME=/root
-Environment=SHELL=/usr/bin/zsh
+Environment=SHELL=/bin/bash
 Environment=PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-Environment=PASEO_LISTEN=127.0.0.1:6767
-Environment=PASEO_WEB_UI_ENABLED=true
-Environment=PASEO_HOSTNAMES=code.byetgin.com
-Environment=PASEO_RELAY_ENABLED=false
-Environment=PASEO_DICTATION_ENABLED=false
+Environment=ORCA_USER_DATA_PATH=/fastpool/config/orca/data
 Environment=IS_SANDBOX=1
 WorkingDirectory=/root/workspace
-ExecStart=/usr/bin/env paseo daemon run
+ExecStart=/usr/bin/orca-ide serve --supervise --no-pairing --bind 0.0.0.0 --port 6768 --pairing-address 192.168.1.105
 Restart=on-failure
 RestartSec=3
 
 [Install]
 WantedBy=multi-user.target"
 
-paseo_proxy_socket="[Unit]
-Description=Paseo web proxy socket
-
-[Socket]
-ListenStream=0.0.0.0:8680
-
-[Install]
-WantedBy=sockets.target"
-
-paseo_proxy_unit="[Unit]
-Description=Paseo web socket proxy
-Requires=paseo.service paseo-proxy.socket
-After=paseo.service paseo-proxy.socket
-
-[Service]
-ExecStart=/usr/lib/systemd/systemd-socket-proxyd 127.0.0.1:6767
-Restart=on-failure"
-
-paseo_units_changed=false
-if [[ ! -f /etc/systemd/system/paseo.service || "$(</etc/systemd/system/paseo.service)" != "$paseo_unit" ]]; then
-    printf "%s\n" "$paseo_unit" > /etc/systemd/system/paseo.service
-    paseo_units_changed=true
-fi
-if [[ ! -f /etc/systemd/system/paseo-proxy.socket || "$(</etc/systemd/system/paseo-proxy.socket)" != "$paseo_proxy_socket" ]]; then
-    printf "%s\n" "$paseo_proxy_socket" > /etc/systemd/system/paseo-proxy.socket
-    paseo_units_changed=true
-fi
-if [[ ! -f /etc/systemd/system/paseo-proxy.service || "$(</etc/systemd/system/paseo-proxy.service)" != "$paseo_proxy_unit" ]]; then
-    printf "%s\n" "$paseo_proxy_unit" > /etc/systemd/system/paseo-proxy.service
-    paseo_units_changed=true
+orca_unit_changed=false
+if [[ ! -f /etc/systemd/system/orca.service || "$(</etc/systemd/system/orca.service)" != "$orca_unit" ]]; then
+    printf "%s\n" "$orca_unit" > /etc/systemd/system/orca.service
+    orca_unit_changed=true
 fi
 
-# Restarting Paseo stops running agent turns and terminals; do it only when
-# unit files change.
-if [[ "$paseo_units_changed" == true ]]; then
+# Restarting Orca interrupts active connections; reload only when the unit file changes.
+if [[ "$orca_unit_changed" == true ]]; then
     systemctl daemon-reload
 fi
-systemctl enable --now paseo paseo-proxy.socket
-if [[ "$paseo_units_changed" == true ]]; then
-    systemctl restart paseo paseo-proxy.socket
-    systemctl stop paseo-proxy.service 2>/dev/null || true
+systemctl enable --now orca
+if [[ "$orca_unit_changed" == true ]]; then
+    systemctl restart orca
 fi
 
-systemctl is-enabled paseo paseo-proxy.socket >/dev/null 2>&1
-systemctl is-active paseo paseo-proxy.socket >/dev/null 2>&1
+systemctl is-enabled orca >/dev/null 2>&1
+systemctl is-active orca >/dev/null 2>&1
 '
     print_success "Dev CLI applications reconciled"
 fi

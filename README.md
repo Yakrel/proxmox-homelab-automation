@@ -189,9 +189,9 @@ Contains the AI agent interface, model/API routing, and memory services used by 
 
 ### Dev — LXC 105
 
-**Tools:** Claude Code (`claude`), Paseo, Node.js, Python, Git/GitHub CLI
+**Tools:** Claude Code (`claude`), Antigravity CLI (`agy`), Orca (`orca-ide`), Node.js, Python, Git/GitHub CLI
 
-Persistent remote development environment. Claude Code is the coding agent and Paseo serves its web UI (parallel agents, worktrees, terminals, editor, diffs, pull requests) behind the NPM OTP gate. Claude Code uses the Hindsight memory server in the AI LXC through the `@vectorize-io/hindsight-coding-agents` hooks and MCP server. Claude Code state (`/fastpool/config/claude`), Paseo state, and the workspace are stored under `fastpool`; sign in to Claude Code once with `claude`.
+Persistent remote development environment. Claude Code and Antigravity CLI are the coding agents, and Orca runs as a headless `orcad` server (`orca.service`, port `6768`) serving its paired web UI behind the NPM OTP gate (`code.byetgin.com`) as well as direct Orca Desktop and Orca Mobile connections over Tailscale and LAN. Both agents use the Hindsight memory server in the AI LXC through the `@vectorize-io/hindsight-coding-agents` hooks. Claude Code state (`/fastpool/config/claude`), Antigravity CLI state (`/fastpool/config/antigravity`), Orca state (`/fastpool/config/orca`), and the workspace are stored under `fastpool`; sign in once with `claude` and `agy`, and pair browsers or phones with `orca-ide pair`.
 
 Memory is one Hindsight bank per project, named after the directory of the repository's primary checkout (`bankIdTemplate: "{gitProject}"`), so linked worktrees share their repository's bank and every machine and agent using the same project name shares one memory. The name is used as written, so keep project directory names lowercase. The plugin runs on its defaults, except `autoInject: "pages"` (the first prompt of a session gets page search hits instead of a 20-second LLM synthesis), and owns each bank: it seeds the bank from git history, writes its retain strategies and maintains five curated pages per project. Output language, LLM routing and the mental-model refresh floor are set on the Hindsight server in `docker/ai/docker-compose.yml` and apply to every bank.
 

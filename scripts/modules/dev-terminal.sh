@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# Dev LXC terminal and Claude Code memory configuration shared by full deploys
-# and fast redeploys. Keeps the Proxmox/root login shell on Bash while
-# configuring Zsh with Oh My Zsh and the Hindsight plugin settings.
+# Dev LXC Hindsight memory and Beszel agent configuration shared by full deploys
+# and fast redeploys.
 
 deploy_dev_terminal() {
     local ct_id="$1"
@@ -39,72 +38,24 @@ set -euo pipefail
 # Provisioning lives in lxc-manager.sh. Both redeploy paths validate the
 # installed tools before changing configuration.
 export PATH="/root/.local/bin:/usr/local/bin:$PATH"
-for command_name in zsh git eza batcat zoxide btop claude paseo; do
+for command_name in git claude agy orca-ide; do
     command -v "$command_name" >/dev/null 2>&1 || {
-        echo "Missing required Dev terminal command: $command_name" >&2
+        echo "Missing required Dev command: $command_name" >&2
         exit 1
     }
 done
 
-required_files=(
-    /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-    /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-    /root/.oh-my-zsh/oh-my-zsh.sh
-    /root/.oh-my-zsh/themes/robbyrussell.zsh-theme
-    /root/.oh-my-zsh/plugins/git/git.plugin.zsh
-    /usr/lib/systemd/systemd-socket-proxyd
-)
-for required_file in "${required_files[@]}"; do
-    [[ -f "$required_file" ]] || {
-        echo "Missing required Dev terminal file: $required_file" >&2
-        exit 1
-    }
-done
-
-# Debian exposes the bat package as /usr/bin/batcat. Keep the familiar `bat`
-# command name used by the NixOS shell configuration.
-ln -sfn /usr/bin/batcat /usr/local/bin/bat
-
-cat > /root/.zshrc <<'ZSH_CONFIG'
-export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
-export ZSH="$HOME/.oh-my-zsh"
-
-ZSH_THEME="robbyrussell"
-plugins=(git)
-zstyle ':omz:update' mode disabled
-
-source "$ZSH/oh-my-zsh.sh"
-
-eval "$(zoxide init zsh)"
-
-# Match Home Manager's eza Zsh integration plus the explicit workstation aliases.
-alias eza='eza --icons=auto'
-alias ls='eza'
-alias ll='eza -lh'
-alias la='eza -la'
-alias lt='eza --tree'
-alias lla='eza -la'
-alias tree='eza --tree'
-alias cat='bat'
-
-source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-
-# Keep encryption key assignments out of the history even without a leading
-# space. The command still runs; only the history line is dropped.
-zshaddhistory() { [[ $1 != *KEY=* ]]; }
-ZSH_CONFIG
-
-# Claude Code reaches Hindsight through the hindsight-coding-agents hooks that
-# lxc-manager.sh installs. Each project gets its own bank named after its
-# directory, and the same name is used by every machine and agent, so they
-# share one memory per project. Everything except the server, the bank name,
-# secret redaction and autoInject stays on the plugin's defaults. autoInject
-# is "pages" because the default "reflect" runs an LLM synthesis on the first
-# prompt of every session (18-20 s, often a timeout), while "pages" injects
-# page search hits in milliseconds. Memory Defense is a per-bank setting with
-# no server-wide switch, so the plugin writes it into every bank it creates.
-# The key stays in the environment, never in a process argument list.
+# Claude Code and Antigravity CLI reach Hindsight through the
+# hindsight-coding-agents hooks that lxc-manager.sh installs. Each project gets
+# its own bank named after its directory, and the same name is used by every
+# machine and agent, so they share one memory per project. Everything except
+# the server, the bank name, secret redaction and autoInject stays on the
+# plugin's defaults. autoInject is "pages" because the default "reflect" runs an
+# LLM synthesis on the first prompt of every session (18-20 s, often a timeout),
+# while "pages" injects page search hits in milliseconds. Memory Defense is a
+# per-bank setting with no server-wide switch, so the plugin writes it into
+# every bank it creates. The key stays in the environment, never in a process
+# argument list.
 install -d -m 0700 /root/.hindsight
 python3 - <<'PLUGIN_CONFIG'
 import json
@@ -134,17 +85,17 @@ GUEST_SCRIPT
         HINDSIGHT_API_KEY="$hindsight_api_key" \
         "$remote_script"; then
         pct exec "$ct_id" -- rm -f "$remote_script" || true
-        print_error "Failed to configure dev terminal"
+        print_error "Failed to configure dev environment"
         return 1
     fi
 
     pct exec "$ct_id" -- rm -f "$remote_script"
 
     if ! deploy_lxc_beszel_agent \
-        "$ct_id" "lxc-dev" "$ai_tmp" "paseo*,beszel*"; then
+        "$ct_id" "lxc-dev" "$ai_tmp" "orca*,beszel*"; then
         print_error "Failed to configure the Dev Beszel agent"
         return 1
     fi
     rm -f "$ai_tmp"
-    print_success "Dev terminal and Beszel agent reconciled"
+    print_success "Dev environment and Beszel agent reconciled"
 }
