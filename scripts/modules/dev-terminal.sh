@@ -49,13 +49,16 @@ done
 # hindsight-coding-agents hooks that lxc-manager.sh installs. Each project gets
 # its own bank named after its directory, and the same name is used by every
 # machine and agent, so they share one memory per project. Everything except
-# the server, the bank name, secret redaction and autoInject stays on the
-# plugin's defaults. autoInject is "pages" because the default "reflect" runs an
-# LLM synthesis on the first prompt of every session (18-20 s, often a timeout),
-# while "pages" injects page search hits in milliseconds. Memory Defense is a
-# per-bank setting with no server-wide switch, so the plugin writes it into
-# every bank it creates. The key stays in the environment, never in a process
-# argument list.
+# the server, the bank name, secret redaction, autoInject, pageSearchLimit and
+# toolGuideExtra stays on the plugin's defaults. autoInject is "pages" because
+# the default "reflect" runs an LLM synthesis on the first prompt of every
+# session (18-20 s, often a timeout), while "pages" injects page search hits in
+# milliseconds. pageSearchLimit is raised to 5 so Turkish first prompts do not
+# drop relevant core pages when rankings shift, and toolGuideExtra keeps
+# agent-issued searches in English to match HINDSIGHT_API_LLM_OUTPUT_LANGUAGE.
+# Memory Defense is a per-bank setting with no server-wide switch, so the plugin
+# writes it into every bank it creates. The key stays in the environment, never
+# in a process argument list.
 install -d -m 0700 /root/.hindsight
 python3 - <<'PLUGIN_CONFIG'
 import json
@@ -70,6 +73,12 @@ plugin_config_path.write_text(json.dumps({
     "apiToken": os.environ["HINDSIGHT_API_KEY"],
     "bankIdTemplate": "{gitProject}",
     "autoInject": "pages",
+    "pageSearchLimit": 5,
+    "toolGuideExtra": (
+        "Memories in this server are stored in English. Always write queries "
+        "for hindsight_search_pages and hindsight_reflect in English, keeping "
+        "exact identifiers, hostnames, and Turkish proper nouns verbatim."
+    ),
     "defaultBankConfig": {
         "memory_defense": {"enabled": True, "rules": [{"on": "sensitive_data", "action": "redact"}]},
     },

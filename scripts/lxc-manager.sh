@@ -351,7 +351,7 @@ EOS
         rm -f \"\$nodesource_installer\"
         trap - EXIT
         apt-get install -y -qq \
-            nodejs git python3 python3-pip python3-yaml bash shellcheck yq
+            nodejs git python3 python3-pip python3-yaml bash shellcheck yq age
         node -e 'if (!process.release.lts) process.exit(1)'
 
         # Configure the official GitHub CLI repository during initial OS provisioning.
@@ -569,11 +569,25 @@ ORCA_VERIFY
     cleanup_orca_tmp
     trap - EXIT
 
+    sops_tmp=$(mktemp -d /tmp/sops-install.XXXXXX)
+    cleanup_sops_tmp() { rm -rf "${sops_tmp:-}"; }
+    trap cleanup_sops_tmp EXIT
+    sops_tag=$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/getsops/sops/releases/latest)
+    sops_tag="${sops_tag##*/}"
+    sops_url="https://github.com/getsops/sops/releases/download/${sops_tag}"
+    curl -fsSL "$sops_url/sops-${sops_tag}.linux.${orca_arch}" -o "$sops_tmp/sops"
+    curl -fsSL "$sops_url/sops-${sops_tag}.checksums.txt" -o "$sops_tmp/sops.checksums"
+    sops_sha256=$(awk -v name="sops-${sops_tag}.linux.${orca_arch}" "\$2 == name { print \$1 }" "$sops_tmp/sops.checksums")
+    echo "$sops_sha256  $sops_tmp/sops" | sha256sum -c --quiet -
+    install -m 0755 "$sops_tmp/sops" /usr/local/bin/sops
+    cleanup_sops_tmp
+    trap - EXIT
+
     npx -y @vectorize-io/hindsight-coding-agents@latest install claude-code antigravity-cli \
         --server self-hosted --api-url http://192.168.1.104:8888
 fi
 
-for command_name in node npm git gh python3 bash shellcheck yq claude agy orca-ide; do
+for command_name in node npm git gh python3 bash shellcheck yq age sops claude agy orca-ide; do
     command -v "$command_name" >/dev/null 2>&1 || {
         echo "Missing required dev command: $command_name" >&2
         exit 1
